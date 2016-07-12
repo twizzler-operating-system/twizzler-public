@@ -2,6 +2,7 @@
 #include <memory.h>
 .global _start
 .extern kernel_init
+.extern riscv_exception_entry
 _start:
 1:
 	/* set global pointer */
@@ -38,6 +39,9 @@ _start:
 
 	call _init_page_table
 
+	/* initialize trap handler address */
+	la t0, riscv_exception_entry
+	csrw stvec, t0
 
 	/* done, ready for C code */
 	tail kernel_init

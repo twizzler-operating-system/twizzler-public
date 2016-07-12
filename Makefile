@@ -3,27 +3,34 @@ INCLUDES=-Iinclude
 QEMU=../riscv-qemu/riscv-softmmu/qemu-system-riscv
 BBL=../toolchain/riscv64-unknown-elf/bin/bbl
 
-CFLAGS=-Wall -Wextra -Wpedantic -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h -I include $(INCLUDES)
+TOOLCHAIN_PREFIX=riscv64-unknown-linux-gnu-
+
+CFLAGS=-Wall -Wextra -Wpedantic -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h -I include $(INCLUDES) -include printk.h
+
+C_SOURCES=memory.c init.c interrupt.c main.c vsprintk.c
+ASM_SOURCES=start.S ctx.S
+
+OBJECTS=$(ASM_SOURCES:.S=.o) $(C_SOURCES:.c=.o)
 
 all: kernel
 
 test: kernel
-	$(QEMU) -kernel $(BBL) -append kernel $(QEMU_FLAGS)
+	$(QEMU) -kernel $(BBL) -append kernel $(QEMU_FLAGS) -serial stdio
 
-kernel: start.o link.ld memory.o init.o ctx.o
-	riscv64-unknown-elf-gcc -ffreestanding -nostdlib start.o ctx.o memory.o init.o -o kernel -T link.ld -lgcc
+kernel: link.ld $(OBJECTS)
+	$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(OBJECTS) -o kernel -T link.ld -lgcc
 
-start.o: start.S
-	riscv64-unknown-elf-gcc $(INCLUDES) -c start.S -o start.o
+%.o : %.S
+	$(TOOLCHAIN_PREFIX)gcc $(INCLUDES) -c $< -o $@
 
-ctx.o: ctx.S
-	riscv64-unknown-elf-gcc $(INCLUDES) -c ctx.S -o ctx.o
+%.o : %.c
+	$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) -c $< -o $@
 
-memory.o: memory.c
-	riscv64-unknown-elf-gcc $(CFLAGS) -c memory.c -o memory.o
-
-init.o: init.c
-	riscv64-unknown-elf-gcc $(CFLAGS) -c init.c -o init.o
+clean:
+	-rm $(OBJECTS) kernel
 
 od: kernel
-	riscv64-unknown-elf-objdump -d kernel
+	$(TOOLCHAIN_PREFIX)objdump -d kernel
+
+re: kernel
+	$(TOOLCHAIN_PREFIX)readelf -a kernel

@@ -4,9 +4,15 @@ struct sbi_device_msg {
 	unsigned long data;
 	unsigned long private;
 };
+#include <memory.h>
 extern unsigned long va_offset;
-#define __riscv_va_to_pa(x) ((void *)((uintptr_t)x - va_offset))
-
+static inline void *__riscv_va_to_pa(void *x)
+{
+	uintptr_t t = (uintptr_t)x;
+	if(t >= 0xFFFFFFFF80000000)
+		return (void *)(t - va_offset);
+	return (void *)(t - PHYSICAL_MAP_START);
+}
 long (*sbi_send_device_msg)(struct sbi_device_msg *msg) = (long (*)(struct sbi_device_msg *))(-1984);
 
 void arch_debug_putchar(unsigned char c)
@@ -23,9 +29,56 @@ void debug_puts(char *s)
 		arch_debug_putchar(*s++);
 }
 
+char _st[1024];
+void *sp, *csp;
+void riscv_switch_thread(void *new_stack, void **old_sp);
+void riscv_switch_thread1(void *new_stack, void **old_sp);
+
+void test(void *arg)
+{
+	printk("Test %p!\n", sp);
+
+	riscv_switch_thread1(sp, &csp);
+	for(;;);
+}
+
+void usermode(void)
+{
+	asm volatile("scall; j .");
+	for(;;);
+}
+
+void riscv_new_context(void *sp, void *jump, void *arg);
 void kernel_init(void)
 {
-	debug_puts("Hello, World!\n");
+	riscv_new_context(_st + 1024, test, NULL);
+	printk("Switch!\n");
+	riscv_switch_thread(_st + 1024, &sp);
+	printk("And back!\n");
 	for(;;);
+	asm(
+			"li t0, (1 << 1) | (1 << 5);"
+			"li t1, 1;"
+			"li t2, 1 << 1;"
+			"csrw sie, t0;"
+			"csrc sip, t0;"
+			//"csrs sip, t2;"
+			"csrs sstatus, t1;"
+		::: "t0", "t1");
+
+	
+
+
+	for(;;);
+	void *u = (void *)(PHYSICAL_MAP_START + 0x4000000);
+	memcpy(u, (void *)&usermode, 128);
+	asm(
+			"csrw sepc, %0;"
+			"mv sp, %1;"
+			"sret;"
+			::"r"(u), "r"(PHYSICAL_MAP_START + 0x4000000 + 0x1000): "t0");
+
+	for(;;);
+	for(;;) printk("Hello!\n");
 }
 

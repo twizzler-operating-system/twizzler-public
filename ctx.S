@@ -3,6 +3,10 @@
 .extern _gp
 
 .macro RESTORE_ALL
+	ld s1, (8*33)(sp)
+	csrw sepc, s1
+	ld s1, 0(sp)
+	csrw sstatus, s1
 	ld x1, (8*1)(sp)
 	ld x3, (8*3)(sp)
 	ld x4, (8*4)(sp)
@@ -33,7 +37,7 @@
 	ld x29, (8*29)(sp)
 	ld x30, (8*30)(sp)
 	ld x31, (8*31)(sp)
-	addi sp, sp, 8*32
+	addi sp, sp, 8*37
 .endm
 
 .global riscv_switch_thread
@@ -51,6 +55,43 @@ riscv_switch_thread:
 	sd s9, -(8*10)(sp)
 	sd s10, -(8*11)(sp)
 	sd s11, -(8*12)(sp)
+	sd ra, -(8*13)(sp)
+
+j .
+	sd sp, 0(a1)
+	mv sp, a0
+	
+	ld s0, -(8*1)(sp)
+	ld s1, -(8*2)(sp)
+	ld s2, -(8*3)(sp)
+	ld s3, -(8*4)(sp)
+	ld s4, -(8*5)(sp)
+	ld s5, -(8*6)(sp)
+	ld s6, -(8*7)(sp)
+	ld s7, -(8*8)(sp)
+	ld s8, -(8*9)(sp)
+	ld s9, -(8*10)(sp)
+	ld s10, -(8*11)(sp)
+	ld s11, -(8*12)(sp)
+	ld ra, -(8*13)(sp)
+
+	ret
+.global riscv_switch_thread1
+/* void riscv_switch_thread(void *new_stack, void **old_sp); */
+riscv_switch_thread1:
+	sd s0, -(8*1)(sp)
+	sd s1, -(8*2)(sp)
+	sd s2, -(8*3)(sp)
+	sd s3, -(8*4)(sp)
+	sd s4, -(8*5)(sp)
+	sd s5, -(8*6)(sp)
+	sd s6, -(8*7)(sp)
+	sd s7, -(8*8)(sp)
+	sd s8, -(8*9)(sp)
+	sd s9, -(8*10)(sp)
+	sd s10, -(8*11)(sp)
+	sd s11, -(8*12)(sp)
+	sd ra, -(8*13)(sp)
 
 	sd sp, 0(a1)
 	mv sp, a0
@@ -67,17 +108,35 @@ riscv_switch_thread:
 	ld s9, -(8*10)(sp)
 	ld s10, -(8*11)(sp)
 	ld s11, -(8*12)(sp)
+	ld ra, -(8*13)(sp)
+	j .
 
 	ret
 
+
+_new_context_entry:
+	mv a0, s1
+	mv ra, s0
+	ret
+
+/* void riscv_new_context(void *sp, void *jump, void *arg); */
+.global riscv_new_context
+riscv_new_context:
+	sd a1, -8(a0)
+	sd a2, -16(a0)
+	la t0, _new_context_entry
+	sd t0, -(8*13)(a0)
+
+	ret
+
+.extern arch_interrupt_entry
+.global riscv_exception_entry
 riscv_exception_entry:
-	
 	csrrw sp, sscratch, sp
 	bnez sp, _save_state
 	csrrw sp, sscratch, sp
 _save_state:
-	sd sp, -8(sp)
-	addi sp, sp, -(8*32)
+	addi sp, sp, -(8*37)
 	sd x1, (8*1)(sp)
 	//skip x2 (sp)
 	sd x3, (8*3)(sp)
@@ -111,11 +170,29 @@ _save_state:
 	sd x31, (8*31)(sp)
 
 	csrrw s0, sscratch, x0
+	
+	csrr s1, scause
+	sd s1, (8*32)(sp)
+	csrr s2, sepc
+	li t0, 8
+	bne t0, s1, _write_sepc
+	addi s2, s2, 4 //advance instruction pointer for syscall
+_write_sepc:
+	sd s2, (8*33)(sp)
+	csrr s1, sbadaddr
+	sd s1, (8*34)(sp)
+	csrr s1, sstatus
+	sd s1, 0(sp)
+	csrr s1, sip
+	sd s1, (8*35)(sp)
 
 1:  auipc gp, %pcrel_hi(_gp)
 	addi gp, gp, %pcrel_lo(1b)
 	
-	//call arch_interrupt_entry
+	mv a0, sp
+	li a1, 0x12345
+	sd a1, (8*2)(sp)
+	call arch_interrupt_entry
 
 	beqz s0, _ret_to_kernel
 
