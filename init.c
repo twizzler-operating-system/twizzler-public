@@ -1,4 +1,3 @@
-
 struct sbi_device_msg {
 	unsigned long dev;
 	unsigned long cmd;

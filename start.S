@@ -1,4 +1,5 @@
 #include <thread.h>
+#include <memory.h>
 .global _start
 .extern kernel_init
 _start:
@@ -35,9 +36,34 @@ _start:
 	la s0, va_offset
 	sd t1, 0(s0)
 
+	call _init_page_table
+
+
 	/* done, ready for C code */
 	tail kernel_init
 	j .
+
+
+_init_page_table:
+	csrr t0, sptbr
+	ld t1, va_offset
+	add t0, t0, t1
+	li t1, ((PHYSICAL_MAP_START >> 30) & 0x1FF) * 8
+	add t0, t0, t1
+
+	li t3, 0x10000000 >> 2
+	li t4, 128
+	li t2, 0xF
+
+	_loop:
+		sd t2, 0(t0)
+		addi t0, t0, 8
+		add t2, t2, t3
+		addi t4, t4, -1
+	bne t4, x0, _loop
+	
+	ret
+
 
 .section .data
 .global va_offset
@@ -52,5 +78,6 @@ offset:  .quad 0xFFFFFFFF80000000 //TODO: make global define
 .section .bss
 .align 12
 initial_boot_stack: .space KERNEL_STACK_SIZE
+.global _gp
 _gp: .space 8
 

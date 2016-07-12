@@ -1,0 +1,2 @@
+#pragma once
+#define PHYSICAL_MAP_START 0xFFFFFFC000000000
