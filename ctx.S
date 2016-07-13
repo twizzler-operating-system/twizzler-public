@@ -57,7 +57,6 @@ riscv_switch_thread:
 	sd s11, -(8*12)(sp)
 	sd ra, -(8*13)(sp)
 
-j .
 	sd sp, 0(a1)
 	mv sp, a0
 	
@@ -109,7 +108,6 @@ riscv_switch_thread1:
 	ld s10, -(8*11)(sp)
 	ld s11, -(8*12)(sp)
 	ld ra, -(8*13)(sp)
-	j .
 
 	ret
 
@@ -119,11 +117,12 @@ _new_context_entry:
 	mv ra, s0
 	ret
 
-/* void riscv_new_context(void *sp, void *jump, void *arg); */
+/* void riscv_new_context(void *top, void **sp, void *jump, void *arg); */
 .global riscv_new_context
 riscv_new_context:
-	sd a1, -8(a0)
-	sd a2, -16(a0)
+	sd a0, 0(a1)
+	sd a2, -8(a0)
+	sd a3, -16(a0)
 	la t0, _new_context_entry
 	sd t0, -(8*13)(a0)
 
@@ -131,6 +130,7 @@ riscv_new_context:
 
 .extern arch_interrupt_entry
 .global riscv_exception_entry
+/* TODO: set sscratch during kernel init */
 riscv_exception_entry:
 	csrrw sp, sscratch, sp
 	bnez sp, _save_state

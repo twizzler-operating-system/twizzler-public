@@ -29,14 +29,14 @@ void debug_puts(char *s)
 		arch_debug_putchar(*s++);
 }
 
-char _st[1024];
+char _st[4024];
 void *sp, *csp;
 void riscv_switch_thread(void *new_stack, void **old_sp);
 void riscv_switch_thread1(void *new_stack, void **old_sp);
 
 void test(void *arg)
 {
-	printk("Test %p!\n", sp);
+	printk("Test %p %lx %p!\n", sp, *((uint64_t *)sp - 13), ((uint64_t *)sp - 13));
 
 	riscv_switch_thread1(sp, &csp);
 	for(;;);
@@ -48,12 +48,12 @@ void usermode(void)
 	for(;;);
 }
 
-void riscv_new_context(void *sp, void *jump, void *arg);
+void riscv_new_context(void *top, void **sp, void *jump, void *arg);
 void kernel_init(void)
 {
-	riscv_new_context(_st + 1024, test, NULL);
+	riscv_new_context(_st + 4024, &csp, test, NULL);
 	printk("Switch!\n");
-	riscv_switch_thread(_st + 1024, &sp);
+	riscv_switch_thread(csp, &sp);
 	printk("And back!\n");
 	for(;;);
 	asm(
