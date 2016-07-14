@@ -67,14 +67,14 @@ void _init(void)
 }
 
 void riscv_new_context(void *top, void **sp, void *jump, void *arg);
+void kernel_main(void);
 void kernel_init(void)
 {
 	riscv_new_context(_st + 4024, &csp, test, NULL);
 	printk("Switch!\n");
 	riscv_switch_thread(csp, &sp);
 	printk("And back!\n");
-
-	_init();
+	kernel_main();
 	for(;;);
 	asm(
 			"li t0, (1 << 1) | (1 << 5);"
