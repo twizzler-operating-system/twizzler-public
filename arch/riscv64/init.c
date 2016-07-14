@@ -48,6 +48,24 @@ void usermode(void)
 	for(;;);
 }
 
+typedef void (*func_ptr)(void);
+extern func_ptr __init_array_start, __init_array_end;
+void _init(void)
+{
+        /* _init is called by main (which, if you know about how a C program usually
+         * initializes) is pretty funny. But here, we want to be able to allocate
+         * memory inside constructor functions, so we need to wait until we have a memory
+         * manager.
+         *
+         * Anyway. This function calls constructor functions. This is handled with a little
+         * bit of linker magic - we let the linker script tell us where this section is
+         * so that we can iterate over the array and call the functions.
+         */
+        for ( func_ptr* func = &__init_array_start; func != &__init_array_end; func++ ) {
+                (*func)();
+        }
+}
+
 void riscv_new_context(void *top, void **sp, void *jump, void *arg);
 void kernel_init(void)
 {
@@ -55,6 +73,8 @@ void kernel_init(void)
 	printk("Switch!\n");
 	riscv_switch_thread(csp, &sp);
 	printk("And back!\n");
+
+	_init();
 	for(;;);
 	asm(
 			"li t0, (1 << 1) | (1 << 5);"

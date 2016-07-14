@@ -32,7 +32,7 @@ _start:
 	la a1, meminfo
 	jalr x0,-2016
 	ld t0, base
-	ld t1, offset
+	li t1, KERNEL_VIRTUAL_BASE
 	sub t1, t1, t0
 	la s0, va_offset
 	sd t1, 0(s0)
@@ -69,7 +69,8 @@ _init_page_table:
 	ret
 
 
-.section .data
+.section .bss
+initial_boot_stack: .space KERNEL_STACK_SIZE
 .global va_offset
 va_offset: .space 8
 meminfo:
@@ -77,11 +78,7 @@ meminfo:
 	size: .space 8
 	node_id: .space 8
 
-offset:  .quad 0xFFFFFFFF80000000 //TODO: make global define
-
-.section .bss
 .align 12
-initial_boot_stack: .space KERNEL_STACK_SIZE
 .global _gp
 _gp: .space 8
 

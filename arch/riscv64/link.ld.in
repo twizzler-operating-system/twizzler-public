@@ -1,0 +1,62 @@
+ENTRY(_start)
+OUTPUT_FORMAT("elf64-littleriscv")
+SECTIONS
+{
+	. = %KERNEL_VIRTUAL_BASE%;
+	kernel_start = .;
+	. += SIZEOF_HEADERS;
+	.text : AT(0x0)
+	{
+		*(.text*)
+	}
+	.init :
+	{
+    	KEEP (*(SORT_NONE(.init)))
+	}
+  	.fini :
+  	{
+      	KEEP (*(SORT_NONE(.fini)))
+	}
+  	.preinit_array :
+  	{
+      	PROVIDE_HIDDEN (__preinit_array_start = .);
+      	KEEP (*(.preinit_array))
+      	PROVIDE_HIDDEN (__preinit_array_end = .);
+	}
+  	.init_array :
+  	{
+      	PROVIDE_HIDDEN (__init_array_start = .);
+      	KEEP (*(SORT(.init_array.*)))
+      	KEEP (*(.init_array ))
+      	PROVIDE_HIDDEN (__init_array_end = .);
+	}
+  	.ctors :
+  	{
+		KEEP (*crtbegin.o(.ctors))
+		KEEP (*crtbegin?.o(.ctors))
+		KEEP (*(EXCLUDE_FILE (*crtend.o *crtend?.o ) .ctors))
+		KEEP (*(SORT(.ctors.*)))
+		KEEP (*(.ctors))
+	}
+  	.data : ALIGN(0x1000)
+  	{
+	  	*(.data*)
+      	SORT(CONSTRUCTORS)
+	}
+
+	.rodata : ALIGN(0x1000)
+	{
+		*(.rodata*)
+		KEEP(*(.ksyms*))
+	}
+
+	.bss : ALIGN(0x1000)
+	{
+		__kernel_bss_start = .;
+		*(.bss*)
+		__kernel_bss_end = .;
+	}
+
+	. = ALIGN(8);
+}
+
