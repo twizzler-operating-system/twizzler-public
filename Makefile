@@ -3,11 +3,6 @@ BUILDDIR=build
 ARCH=riscv64
 MACHINE=riscv
 
-QEMU=../riscv-qemu/riscv-softmmu/qemu-system-riscv
-BBL=../toolchain/riscv64-unknown-elf/bin/bbl
-
-TOOLCHAIN_PREFIX=riscv64-unknown-linux-gnu-
-
 INCLUDES=-Iinclude -Imachine/$(MACHINE)/include -Iarch/$(ARCH)/include
 CFLAGS=-Wall -Wextra -Wpedantic -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h -I include $(INCLUDES) -include printk.h
 
@@ -29,7 +24,7 @@ include lib/include.mk
 -include $(OBJECTS:.o=.d)
 
 test: $(BUILDDIR)/kernel
-	$(QEMU) -kernel $(BBL) -append $(BUILDDIR)/kernel $(QEMU_FLAGS) -serial stdio
+	$(QEMU) $(QEMU_FLAGS) -serial stdio
 
 $(BUILDDIR)/kernel: $(BUILDDIR)/link.ld $(OBJECTS) $(BUILDDIR)/symbols.o
 	@mkdir -p $(BUILDDIR)
