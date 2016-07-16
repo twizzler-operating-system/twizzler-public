@@ -1,12 +1,29 @@
 
+CONFIGFILE=config.mk
 BUILDDIR=build
-ARCH=riscv64
-MACHINE=riscv
+
+
+include $(CONFIGFILE)
+DEFINES=$(addprefix -D,$(shell cat $(CONFIGFILE) | sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d'))
+
+ARCH=$(CONFIG_ARCH)
+MACHINE=$(CONFIG_MACHINE)
 
 INCLUDES=-Iinclude -Imachine/$(MACHINE)/include -Iarch/$(ARCH)/include
-CFLAGS=-Wall -Wextra -Wpedantic -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h -I include $(INCLUDES) -include printk.h
+CFLAGS=-Wall -Wextra -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h $(INCLUDES) -include printk.h $(DEFINES)
+ASFLAGS=$(INCLUDES) $(DEFINES)
 
-C_SOURCES=main.c
+ifeq ($(CONFIG_DEBUG),y)
+CFLAGS+=-g
+endif
+
+ifeq ($(CONFIG_WERROR),y)
+CFLAGS+=-Werror
+endif
+
+CFLAGS+=-O$(CONFIG_OPTIMIZE)
+
+C_SOURCES=
 ASM_SOURCES=
 
 OBJECTS=$(addprefix $(BUILDDIR)/,$(ASM_SOURCES:.S=.o) $(C_SOURCES:.c=.o))
@@ -19,8 +36,9 @@ CRTN=$(shell $(TOOLCHAIN_PREFIX)gcc -print-file-name=crtn.o)
 all: $(BUILDDIR)/kernel
 
 include arch/$(ARCH)/include.mk
+include machine/$(MACHINE)/include.mk
 include lib/include.mk
-
+include core/include.mk
 -include $(OBJECTS:.o=.d)
 
 test: $(BUILDDIR)/kernel
@@ -56,7 +74,7 @@ $(BUILDDIR)/kernel.stage1: $(BUILDDIR)/link.ld $(OBJECTS)
 $(BUILDDIR)/%.o : %.S
 	@echo "[AS]  $@"
 	@mkdir -p $(@D)
-	@$(TOOLCHAIN_PREFIX)gcc $(INCLUDES) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
+	@$(TOOLCHAIN_PREFIX)gcc $(ASFLAGS) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
 
 $(BUILDDIR)/%.o : %.c
 	@echo "[CC]  $@"
@@ -72,3 +90,5 @@ od: $(BUILDDIR)/kernel
 re: $(BUILDDIR)/kernel
 	$(TOOLCHAIN_PREFIX)readelf -a $(BUILDDIR)/kernel
 
+
+.PHONY: od re clean all test

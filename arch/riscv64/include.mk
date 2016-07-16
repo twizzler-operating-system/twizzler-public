@@ -1,3 +1,8 @@
+
+ifneq ($(CONFIG_MACHINE),riscv)
+$(error "Architecture riscv64 supports machines: riscv")
+endif
+
 QEMU=qemu-system-riscv -kernel $(RISCV)/riscv64-unknown-elf/bin/bbl -append $(BUILDDIR)/kernel
 TOOLCHAIN_PREFIX=riscv64-unknown-linux-gnu-
 C_SOURCES+=$(addprefix arch/$(ARCH)/,init.c interrupt.c)
