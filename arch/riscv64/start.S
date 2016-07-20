@@ -1,5 +1,5 @@
 #include <thread.h>
-#include <memory.h>
+#include <machine/memory.h>
 .global _start
 .extern kernel_init
 .extern riscv_exception_entry

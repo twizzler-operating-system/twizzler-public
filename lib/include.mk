@@ -1,2 +1,2 @@
-C_SOURCES+=$(addprefix lib/,memory.c vsprintk.c)
+C_SOURCES+=$(addprefix lib/,memory.c vsprintk.c linkedlist.c)
 
