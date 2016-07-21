@@ -8,8 +8,6 @@
 #include <debug.h>
 #define IS_POWER2(x) ((x != 0) && ((x & (~x + 1)) == x))
 
-#define MIN_PHYS_MEM PHYSICAL_MEMORY_START
-
 #define MAX_ORDER 21
 #define MIN_SIZE MM_BUDDY_MIN_SIZE
 #define MAX_SIZE ((uintptr_t)MIN_SIZE << MAX_ORDER)
@@ -43,7 +41,6 @@ static inline size_t buddy_order_max_blocks(int order)
 	return MEMORY_SIZE / ((uintptr_t)MIN_SIZE << order);
 }
 
-#include <printk.h>
 static uintptr_t __do_pmm_buddy_allocate(size_t length)
 {
 	assert(inited);
@@ -113,8 +110,6 @@ uintptr_t pmm_buddy_allocate(size_t length)
 
 void pmm_buddy_deallocate(uintptr_t address)
 {
-	if(address >= MIN_PHYS_MEM + MEMORY_SIZE)
-		return;
 	spinlock_acquire(&pm_buddy_lock);
 	int order = deallocate(address, 0);
 	if(order >= 0) {

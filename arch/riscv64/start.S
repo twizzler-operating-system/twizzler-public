@@ -29,7 +29,7 @@ _start:
 	
 	/* determine the VA to PA offset */
 	mv a0, x0
-	la a1, meminfo
+	la a1, riscv_meminfo
 	jalr x0,-2016
 	ld t0, base
 	li t1, KERNEL_VIRTUAL_BASE
@@ -50,6 +50,10 @@ _start:
 
 _init_page_table:
 	csrr t0, sptbr
+	la t1, start_phys_free
+	li t2, 0x1000
+	add t2, t2, t0
+	sd t2, 0(t1)
 	ld t1, va_offset
 	add t0, t0, t1
 	li t1, ((PHYSICAL_MAP_START >> 30) & 0x1FF) * 8
@@ -73,7 +77,10 @@ _init_page_table:
 initial_boot_stack: .space KERNEL_STACK_SIZE
 .global va_offset
 va_offset: .space 8
-meminfo:
+.global start_phys_free
+start_phys_free: .space 8
+.global riscv_meminfo
+riscv_meminfo:
 	base: .space 8
 	size: .space 8
 	node_id: .space 8

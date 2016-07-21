@@ -1,13 +1,21 @@
 #pragma once
 #include <machine/memory.h>
 #include <string.h>
-
+#include <lib/linkedlist.h>
 #define MM_BUDDY_MIN_SIZE 0x1000
+
+struct memregion {
+	uintptr_t start;
+	size_t length;
+	int flags;
+	struct linkedentry entry;
+};
 
 void mm_init(void);
 uintptr_t pmm_buddy_allocate(size_t length);
 void pmm_buddy_deallocate(uintptr_t address);
 void pmm_buddy_init(void);
+struct linkedlist *arch_mm_get_regions(void);
 
 bool      arch_mm_virtual_map(uintptr_t virt, uintptr_t phys, size_t size, int flags);
 uintptr_t arch_mm_virtual_unmap(uintptr_t virt);
@@ -24,7 +32,7 @@ static inline uintptr_t mm_physical_alloc(size_t size, bool clear)
 
 static inline void mm_physical_dealloc(uintptr_t addr)
 {
-	pmm_buddy_allocate(addr);
+	pmm_buddy_deallocate(addr);
 }
 
 static inline uintptr_t mm_virtual_alloc(size_t size, bool clear)
