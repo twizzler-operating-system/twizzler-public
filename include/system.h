@@ -10,3 +10,9 @@ static inline unsigned long long __round_up_pow2(unsigned int a)
 	return ((a & (a - 1)) == 0) ? a : 1ull << (sizeof(a) * 8 - __builtin_clz(a));
 }
 
+#define __orderedbefore(x) (x-1)
+#define __orderedafter(x) (x+1)
+
+#define __initializer __attribute__((used,constructor))
+#define __orderedinitializer __attribute__((used,constructor(x+3000)))
+
