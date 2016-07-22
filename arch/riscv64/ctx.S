@@ -132,6 +132,7 @@ riscv_new_context:
 .global riscv_exception_entry
 /* TODO: set sscratch during kernel init */
 riscv_exception_entry:
+	j .
 	csrrw sp, sscratch, sp
 	bnez sp, _save_state
 	csrrw sp, sscratch, sp

@@ -10,7 +10,7 @@ ARCH=$(CONFIG_ARCH)
 MACHINE=$(CONFIG_MACHINE)
 
 INCLUDES=-Iinclude -Imachine/$(MACHINE)/include -Iarch/$(ARCH)/include
-CFLAGS=-Wall -Wextra -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h $(INCLUDES) -include printk.h $(DEFINES) -include system.h
+CFLAGS=-Wall -Wextra -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h $(INCLUDES) -include printk.h $(DEFINES) -include system.h -fno-omit-frame-pointer
 ASFLAGS=$(INCLUDES) $(DEFINES)
 
 ifeq ($(CONFIG_DEBUG),y)
@@ -19,6 +19,10 @@ endif
 
 ifeq ($(CONFIG_WERROR),y)
 CFLAGS+=-Werror
+endif
+
+ifeq ($(CONFIG_UBSAN),y)
+CFLAGS+=-fsanitize=undefined -fstack-check -fstack-protector-all
 endif
 
 CFLAGS+=-O$(CONFIG_OPTIMIZE)
@@ -71,12 +75,12 @@ $(BUILDDIR)/kernel.stage1: $(BUILDDIR)/link.ld $(OBJECTS)
 	@mkdir -p $(BUILDDIR)
 	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTBEGIN) $(CRTI) $(OBJECTS) $(CRTN) $(CRTEND) -o $(BUILDDIR)/kernel.stage1 -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic
 
-$(BUILDDIR)/%.o : %.S
+$(BUILDDIR)/%.o : %.S $(CONFIGFILE)
 	@echo "[AS]  $@"
 	@mkdir -p $(@D)
 	@$(TOOLCHAIN_PREFIX)gcc $(ASFLAGS) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
 
-$(BUILDDIR)/%.o : %.c
+$(BUILDDIR)/%.o : %.c $(CONFIGFILE)
 	@echo "[CC]  $@"
 	@mkdir -p $(@D)
 	@$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
@@ -85,7 +89,7 @@ clean:
 	-rm -rf $(BUILDDIR)
 
 od: $(BUILDDIR)/kernel
-	$(TOOLCHAIN_PREFIX)objdump -d $(BUILDDIR)/kernel
+	$(TOOLCHAIN_PREFIX)objdump -dS $(BUILDDIR)/kernel
 
 re: $(BUILDDIR)/kernel
 	$(TOOLCHAIN_PREFIX)readelf -a $(BUILDDIR)/kernel

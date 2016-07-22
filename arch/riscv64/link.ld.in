@@ -54,9 +54,9 @@ SECTIONS
 	{
 		__kernel_bss_start = .;
 		*(.bss*)
+		. = ALIGN(8);
 		__kernel_bss_end = .;
 	}
 
-	. = ALIGN(8);
 }
 

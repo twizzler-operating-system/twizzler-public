@@ -8,17 +8,14 @@ _start:
 	/* set global pointer */
 	auipc gp, %pcrel_hi(_gp)
 	addi gp, gp, %pcrel_lo(1b)
-
 	/* clear bss */
 	la a0, __kernel_bss_start
-	mv a1, x0
 	la a2, __kernel_bss_end
 	addi a2, a2, -8
 	bssclear:
 		addi a0, a0, 8
-		sd a1, 0(a0)
-		bne a0, a2, bssclear
-
+		sd x0, 0(a0)
+		ble a0, a2, bssclear
 	/* set initial stack pointer and thread pointer */
 	la sp, initial_boot_stack + KERNEL_STACK_SIZE
 	mv tp, x0

@@ -3,6 +3,7 @@ struct sbi_device_msg {
 	unsigned long cmd;
 	unsigned long data;
 	unsigned long private;
+	unsigned long _pad;
 };
 #include <memory.h>
 #include <lib/linkedlist.h>
@@ -77,18 +78,18 @@ typedef void (*func_ptr)(void);
 extern func_ptr __init_array_start, __init_array_end;
 void _init(void)
 {
-        /* _init is called by main (which, if you know about how a C program usually
-         * initializes) is pretty funny. But here, we want to be able to allocate
-         * memory inside constructor functions, so we need to wait until we have a memory
-         * manager.
-         *
-         * Anyway. This function calls constructor functions. This is handled with a little
-         * bit of linker magic - we let the linker script tell us where this section is
-         * so that we can iterate over the array and call the functions.
-         */
-        for ( func_ptr* func = &__init_array_start; func != &__init_array_end; func++ ) {
-                (*func)();
-        }
+    /* _init is called by main (which, if you know about how a C program usually
+     * initializes) is pretty funny. But here, we want to be able to allocate
+     * memory inside constructor functions, so we need to wait until we have a memory
+     * manager.
+     *
+     * Anyway. This function calls constructor functions. This is handled with a little
+     * bit of linker magic - we let the linker script tell us where this section is
+     * so that we can iterate over the array and call the functions.
+     */
+    for ( func_ptr* func = &__init_array_start; func != &__init_array_end; func++ ) {
+        (*func)();
+    }
 }
 
 void riscv_new_context(void *top, void **sp, void *jump, void *arg);
