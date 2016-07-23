@@ -132,7 +132,6 @@ riscv_new_context:
 .global riscv_exception_entry
 /* TODO: set sscratch during kernel init */
 riscv_exception_entry:
-	j .
 	csrrw sp, sscratch, sp
 	bnez sp, _save_state
 	csrrw sp, sscratch, sp
@@ -175,6 +174,7 @@ _save_state:
 	csrr s1, scause
 	sd s1, (8*32)(sp)
 	csrr s2, sepc
+	j .
 	li t0, 8
 	bne t0, s1, _write_sepc
 	addi s2, s2, 4 //advance instruction pointer for syscall
