@@ -2,7 +2,6 @@
 CONFIGFILE=config.mk
 BUILDDIR=build
 
-
 include $(CONFIGFILE)
 DEFINES=$(addprefix -D,$(shell cat $(CONFIGFILE) | sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d'))
 
@@ -10,12 +9,8 @@ ARCH=$(CONFIG_ARCH)
 MACHINE=$(CONFIG_MACHINE)
 
 INCLUDES=-Iinclude -Imachine/$(MACHINE)/include -Iarch/$(ARCH)/include
-CFLAGS=-Wall -Wextra -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h $(INCLUDES) -include printk.h $(DEFINES) -include system.h -fno-omit-frame-pointer
+CFLAGS=-Wall -Wextra -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h $(INCLUDES) -include printk.h $(DEFINES) -include system.h -fno-omit-frame-pointer -g
 ASFLAGS=$(INCLUDES) $(DEFINES)
-
-ifeq ($(CONFIG_DEBUG),y)
-CFLAGS+=-g
-endif
 
 ifeq ($(CONFIG_WERROR),y)
 CFLAGS+=-Werror
