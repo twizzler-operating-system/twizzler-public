@@ -1,7 +1,8 @@
 #include <thread.h>
 #include <machine/memory.h>
 .global _start
-.extern kernel_init
+.extern _init
+.extern kernel_early_init
 .extern riscv_exception_entry
 _start:
 1:
@@ -41,7 +42,11 @@ _start:
 	csrw stvec, t0
 
 	/* done, ready for C code */
-	tail kernel_init
+	call kernel_early_init
+
+	call _init
+
+	call kernel_main
 	j .
 
 
