@@ -16,7 +16,7 @@ void kernel_early_init(void)
  */
 void kernel_main(void)
 {
-	printk("Kernel main %llx!\n", __round_up_pow2(0x1001));
+	printk("Kernel main!\n");
 
 	panic("init completed");
 	for(;;);
