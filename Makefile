@@ -3,7 +3,7 @@ CONFIGFILE=config.mk
 BUILDDIR=build
 
 include $(CONFIGFILE)
-DEFINES=$(addprefix -D,$(shell cat $(CONFIGFILE) | sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d'))
+DEFINES=$(addprefix -D,$(shell sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d' $(CONFIGFILE)))
 
 ARCH=$(CONFIG_ARCH)
 MACHINE=$(CONFIG_MACHINE)
