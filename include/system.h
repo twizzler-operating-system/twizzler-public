@@ -14,8 +14,10 @@ static inline unsigned long long __round_up_pow2(unsigned int a)
 #define __orderedafter(x) (x+1)
 
 #define __initializer __attribute__((used,constructor))
-#define __orderedinitializer __attribute__((used,constructor(x+3000)))
+#define __orderedinitializer(x) __attribute__((used,constructor(x+3000)))
 
 #define __cleanup(f) __attribute__((cleanup(f)))
 #define ___concat(x,y) x##y
 #define __concat(x,y) ___concat(x, y)
+
+#define __get_macro2(_1,_2,NAME,...) NAME

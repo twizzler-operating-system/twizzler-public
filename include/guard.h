@@ -55,8 +55,7 @@ static inline void _guard_release(struct _guard *g)
  */
 #define __defer(f) guard(NULL, NULL, f)
 #define __defer_arg(f,a) guard(a, NULL, f)
-#define __get_macro(_1,_2,NAME,...) NAME
 
 /* defer a function call until a scope is destroyed. */
-#define defer(...) __get_macro(__VA_ARGS__,__defer_arg,__defer)(__VA_ARGS__)
+#define defer(...) __get_macro2(__VA_ARGS__,__defer_arg,__defer)(__VA_ARGS__)
 
