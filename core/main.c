@@ -10,6 +10,7 @@ void func()
 void tes2t(void)
 {
 	defer(func);
+	defer(func, &func);
 }
 
 /* functions called from here expect virtual memory to be set up. However, functions
