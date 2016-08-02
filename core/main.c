@@ -1,5 +1,16 @@
 #include <debug.h>
 #include <memory.h>
+#include <guard.h>
+
+void func()
+{
+	printk("Func!\n");
+}
+
+void tes2t(void)
+{
+	defer(func);
+}
 
 /* functions called from here expect virtual memory to be set up. However, functions
  * called from here cannot rely on global contructors having run, as those are allowed
@@ -18,6 +29,7 @@ void kernel_main(void)
 {
 	printk("Kernel main!\n");
 
+	tes2t();
 	panic("init completed");
 	for(;;);
 }
