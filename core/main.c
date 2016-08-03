@@ -4,8 +4,8 @@
 #include <init.h>
 #include <arena.h>
 
-struct arena post_init_call_arena;
-struct init_call *post_init_call_head = NULL;
+static struct arena post_init_call_arena;
+static struct init_call *post_init_call_head = NULL;
 
 void post_init_call_register(void (*fn)(void *), void *data)
 {
@@ -29,23 +29,6 @@ static void post_init_calls_execute(void)
 	post_init_call_head = NULL;
 }
 
-void func()
-{
-	printk("Func!\n");
-}
-
-void tes2t(void)
-{
-	defer(func);
-	defer(func, &func);
-}
-
-void late(void *d)
-{
-	printk("Late init call!\n");
-}
-POST_INIT(late, &late);
-
 /* functions called from here expect virtual memory to be set up. However, functions
  * called from here cannot rely on global contructors having run, as those are allowed
  * to use memory management routines, so they are run after this.
@@ -61,10 +44,6 @@ void kernel_early_init(void)
  */
 void kernel_main(void)
 {
-	printk("Kernel main!\n");
-
-	tes2t();
-
 	post_init_calls_execute();
 	panic("init completed");
 	for(;;);

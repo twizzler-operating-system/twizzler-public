@@ -14,7 +14,7 @@ struct init_call {
 #define __late_init_arg_ordered(p,f,a) \
 	static inline void __orderedinitializer(p) __concat(__reg_post_init, __COUNTER__) (void) { post_init_call_register(f, a); }
 
-#define __late_init(p,f) __late_init_arg_ordered(p, f, NULL)
+#define __late_init_ordered(p,f) __late_init_arg_ordered(p, f, NULL)
 
 
 #define POST_INIT(...) __get_macro2(__VA_ARGS__,__late_init_arg,__late_init)(__VA_ARGS__)
