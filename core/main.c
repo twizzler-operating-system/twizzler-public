@@ -2,13 +2,31 @@
 #include <memory.h>
 #include <guard.h>
 #include <init.h>
+#include <arena.h>
 
+struct arena post_init_call_arena;
+struct init_call *post_init_call_head = NULL;
 
 void post_init_call_register(void (*fn)(void *), void *data)
 {
-	/* TODO: init call reg use arena allocator to allocate the calls during _init(),
-	 * and then free them after calling. */
-	printk("Registering call to %p (%p)\n", fn, data);
+	if(post_init_call_head == NULL) {
+		arena_create(&post_init_call_arena);
+	}
+
+	struct init_call *ic = arena_allocate(&post_init_call_arena, sizeof(struct init_call));
+	ic->fn = fn;
+	ic->data = data;
+	ic->next = post_init_call_head;
+	post_init_call_head = ic;
+}
+
+static void post_init_calls_execute(void)
+{
+	for(struct init_call *call = post_init_call_head; call != NULL; call = call->next) {
+		call->fn(call->data);
+	}
+	arena_destroy(&post_init_call_arena);
+	post_init_call_head = NULL;
 }
 
 void func()
@@ -24,9 +42,9 @@ void tes2t(void)
 
 void late(void *d)
 {
-
+	printk("Late init call!\n");
 }
-POST_INIT_ORDERED(0, late, &late);
+POST_INIT(late, &late);
 
 /* functions called from here expect virtual memory to be set up. However, functions
  * called from here cannot rely on global contructors having run, as those are allowed
@@ -46,6 +64,8 @@ void kernel_main(void)
 	printk("Kernel main!\n");
 
 	tes2t();
+
+	post_init_calls_execute();
 	panic("init completed");
 	for(;;);
 }
