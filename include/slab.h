@@ -3,10 +3,12 @@
 #include <lib/linkedlist.h>
 #include <spinlock.h>
 
-#define SLAB_OBJ_CREATED 1
+#define SLAB_OBJ_CREATED   1
+#define SLAB_OBJ_ALLOCATED 2
 
 struct slab_object {
 	struct linkedentry entry;
+	void *obj;
 	int flags;
 };
 
@@ -33,7 +35,9 @@ struct slab_allocator {
 };
 
 #define SLAB_ALLOCATOR(s,n,c,i,r,d) \
-	(struct slab_allocator) { \
-		.init = i, .create = c, .release = r, .destroy = d, .size = s + sizeof(struct slab *), .num_per_slab = n, .initialized = false, .lock = SPINLOCK_INIT \
+	/*(struct slab_allocator)*/ { \
+		.init = i, .create = c, .release = r, .destroy = d, .size = (s + sizeof(struct slab *) + 16) & ~15, .num_per_slab = n, .initialized = false, .lock = SPINLOCK_INIT \
 	}
 
+void *slab_alloc(struct slab_allocator *alloc);
+void slab_release(void *obj);
