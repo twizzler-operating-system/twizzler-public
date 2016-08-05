@@ -43,22 +43,6 @@ void kernel_early_init(void)
  * and per-node threading.
  */
 
-#include <trace.h>
-struct trace t = TRACE_INITIALIZER("test", true);
-
-void bar()
-{
-	TRACE(&t, true, "another");
-	TRACE(&t, false, "something happened at this level too");
-}
-
-void foo()
-{
-	TRACE(&t, true, "message");
-	TRACE(&t, false, "something happened at this level");
-	bar();
-}
-
 void kernel_main(void)
 {
 	post_init_calls_execute();
