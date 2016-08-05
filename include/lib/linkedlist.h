@@ -48,4 +48,5 @@ void *linkedlist_remove_tail(struct linkedlist *list);
 void linkedlist_create(struct linkedlist *list, int flags);
 void linkedlist_insert(struct linkedlist *list, struct linkedentry *entry, void *obj);
 void linkedlist_remove(struct linkedlist *list, struct linkedentry *entry);
+struct linkedentry *linkedlist_find(struct linkedlist *list, bool (*fn)(struct linkedentry *, void *data), void *data);
 

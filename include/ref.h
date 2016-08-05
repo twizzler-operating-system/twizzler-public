@@ -1,4 +1,6 @@
 #pragma once
+#include <stdatomic.h>
+#include <debug.h>
 
 struct refcalls {
 	void (*get)(void *);

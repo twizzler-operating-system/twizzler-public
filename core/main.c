@@ -42,10 +42,10 @@ void kernel_early_init(void)
  * kernel state between nodes have been initialized. Now initialize all application processors
  * and per-node threading.
  */
-
 void kernel_main(void)
 {
 	post_init_calls_execute();
+
 
 	panic("init completed");
 	for(;;);

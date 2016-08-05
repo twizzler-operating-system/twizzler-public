@@ -1,4 +1,4 @@
-#include <thread.h>
+#include <thread-bits.h>
 #include <machine/memory.h>
 .global _start
 .extern _init

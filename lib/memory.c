@@ -25,3 +25,15 @@ void *memcpy(void *dest, const void *src, size_t len)
 	return dest;
 }
 
+int memcmp(const void* ptr1, const void* ptr2, size_t num) {
+    const unsigned char* vptr1 = (const unsigned char*)ptr1;
+    const unsigned char* vptr2 = (const unsigned char*)ptr2;
+    while (num) {
+        if (*vptr1 > *vptr2) return 1;
+        else if (*vptr1 < *vptr2) return -1;
+        vptr1++; vptr2++; num--;
+    }
+    return 0;
+}
+
+

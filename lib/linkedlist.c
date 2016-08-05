@@ -84,3 +84,18 @@ void linkedlist_remove(struct linkedlist *list, struct linkedentry *entry)
 	linkedlist_unlock(list);
 }
 
+struct linkedentry *linkedlist_find(struct linkedlist *list, bool (*fn)(struct linkedentry *, void *data), void *data)
+{
+    linkedlist_lock(list);
+    struct linkedentry *ent = list->head->next;
+    while(ent != &list->sentry) {
+        if(fn(ent, data))
+            break;
+        ent = ent->next;
+    }
+    linkedlist_unlock(list);
+    if(ent == &list->sentry)
+        return NULL;
+    return ent;
+}
+
