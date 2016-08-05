@@ -3,7 +3,7 @@ struct sbi_device_msg {
 	unsigned long cmd;
 	unsigned long data;
 	unsigned long private;
-	unsigned long _pad[4];
+	unsigned long _pad[8];
 };
 #include <memory.h>
 #include <lib/linkedlist.h>

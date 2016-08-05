@@ -10,5 +10,5 @@ struct spinlock {
 void spinlock_acquire(struct spinlock *lock);
 void spinlock_release(struct spinlock *lock);
 
-#define spinlock_guard(s) guard(s,spinlock_acquire,spinlock_release)
+#define spinlock_guard(s) guard2(s,spinlock_acquire,spinlock_release)
 

@@ -41,3 +41,4 @@ struct slab_allocator {
 
 void *slab_alloc(struct slab_allocator *alloc);
 void slab_release(void *obj);
+

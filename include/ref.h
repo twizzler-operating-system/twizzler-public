@@ -3,10 +3,12 @@
 #include <debug.h>
 
 struct refcalls {
-	void (*get)(void *);
 	void (*put)(void *);
 	void (*init)(void *);
 };
+
+#define REFCALLS(i,p) \
+	(struct refcalls) { .put = p, .init = i }
 
 struct ref {
 	_Atomic unsigned long count;
@@ -27,8 +29,6 @@ static inline void *ref_get(struct ref *ref)
 {
 	assert(ref->count > 0);
 	atomic_fetch_add(&ref->count, 1);
-	if(ref->calls->get)
-		ref->calls->get(ref->obj);
 }
 
 static inline void ref_put(struct ref *ref)
@@ -38,5 +38,16 @@ static inline void ref_put(struct ref *ref)
 		if(ref->calls->put)
 			ref->calls->put(ref->obj);
 	}
+}
+
+static inline bool ref_try_get_nonzero(struct ref *ref)
+{
+	unsigned long c = ref->count, n;
+	do {
+		if(c == 0)
+			return false;
+		n = c + 1;
+	} while(!atomic_compare_exchange_weak(&ref->count, &c, n));
+	return true;
 }
 

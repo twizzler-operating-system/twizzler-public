@@ -43,11 +43,16 @@ static inline void _guard_release(struct _guard *g)
  *
  * This can be used to implement lock-guards and deferred function calls (useful for profiling, tracing, and cleanup).
  */
+
 #define guard_initializer(l,a,r) \
 	__cleanup(_guard_release) = (struct _guard) { .data = ((a != NULL ? ((void (*)())a)(l) : 0), l), .fn = r }
 
+#define guard_initializer2(l,a,r) \
+	__cleanup(_guard_release) = (struct _guard) { .data = (((void (*)())a)(l), l), .fn = r }
+
 /* create a guard with a unique name. */
 #define guard(m,a,r) struct _guard __concat(_lg_, __COUNTER__) guard_initializer(m,a,r)
+#define guard2(m,a,r) struct _guard __concat(_lg_, __COUNTER__) guard_initializer2(m,a,r)
 
 /* fancy way to overload macros in C. End result is I can call defer(func) or defer(func, arg) and both
  * will work. In the first case, func will be called with no arguments when a scope is destoyed, and in the
