@@ -95,6 +95,10 @@ void vbufprintk(char *buffer, const char *fmt, va_list args)
 			}
 			/* next up, look for min field width */
 			unsigned int min_field_width = parse_number(&s);
+			if(*s == '*') {
+				s++;
+				min_field_width = va_arg(args, int);
+			}
 			unsigned int precision = 0;
 			if(*s == '.') {
 				s++;
