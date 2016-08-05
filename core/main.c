@@ -47,7 +47,6 @@ void kernel_main(void)
 {
 	post_init_calls_execute();
 
-	foo();
 	panic("init completed");
 	for(;;);
 }
