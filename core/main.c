@@ -1,8 +1,8 @@
 #include <debug.h>
 #include <memory.h>
-#include <guard.h>
 #include <init.h>
 #include <arena.h>
+#include <processor.h>
 
 static struct arena post_init_call_arena;
 static struct init_call *post_init_call_head = NULL;
@@ -29,6 +29,11 @@ static void post_init_calls_execute(void)
 	post_init_call_head = NULL;
 }
 
+void kernel_idle(void)
+{
+	panic("init completed");
+}
+
 /* functions called from here expect virtual memory to be set up. However, functions
  * called from here cannot rely on global contructors having run, as those are allowed
  * to use memory management routines, so they are run after this.
@@ -46,8 +51,7 @@ void kernel_main(void)
 {
 	post_init_calls_execute();
 
-
-	panic("init completed");
-	for(;;);
+	processor_perproc_init(NULL);
+	kernel_idle();
 }
 
