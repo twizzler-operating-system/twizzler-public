@@ -30,6 +30,22 @@ struct linkedlist *arch_mm_get_regions(void)
 	return &_mem_region_list;
 }
 
+#include <processor.h>
+void arch_processor_enumerate(void)
+{
+	processor_register(true, 0);
+}
+
+void arch_processor_boot(struct processor *proc)
+{
+
+}
+
+#include <thread.h>
+void arch_thread_initialize(struct thread *idle)
+{
+	asm volatile("mv tp, %0"::"r"(idle));
+}
 
 extern unsigned long va_offset;
 static inline void *__riscv_va_to_pa(void *x)
@@ -78,15 +94,6 @@ typedef void (*func_ptr)(void);
 extern func_ptr __init_array_start, __init_array_end;
 void _init(void)
 {
-    /* _init is called by main (which, if you know about how a C program usually
-     * initializes) is pretty funny. But here, we want to be able to allocate
-     * memory inside constructor functions, so we need to wait until we have a memory
-     * manager.
-     *
-     * Anyway. This function calls constructor functions. This is handled with a little
-     * bit of linker magic - we let the linker script tell us where this section is
-     * so that we can iterate over the array and call the functions.
-     */
     for ( func_ptr* func = &__init_array_start; func != &__init_array_end; func++ ) {
         (*func)();
     }
@@ -94,6 +101,19 @@ void _init(void)
 
 void riscv_new_context(void *top, void **sp, void *jump, void *arg);
 void kernel_main(void);
+
+#include <thread.h>
+void arch_thread_start(struct thread *thread, void *jump, void *arg)
+{
+	riscv_new_context((void *)((uintptr_t)thread->kernel_stack + KERNEL_STACK_SIZE),
+			&thread->stack_pointer, jump, arg);
+}
+
+void arch_thread_switchto(struct thread *old, struct thread *new)
+{
+	riscv_switch_thread(new->stack_pointer, &old->stack_pointer);
+}
+
 void kernel_init(void)
 {
 	riscv_new_context(_st + 4024, &csp, test, NULL);

@@ -2,6 +2,7 @@
 #include <guard.h>
 #include <lib/hash.h>
 #include <slab.h>
+#include <processor.h>
 
 static struct hash thread_hash;
 static struct spinlock thread_hash_lock = SPINLOCK_INIT;
@@ -48,10 +49,19 @@ struct thread *thread_lookup(unsigned long id)
 	return NULL;
 }
 
-struct thread *thread_create(void)
+struct thread *thread_create(void *jump, void *arg)
 {
-	return slab_alloc(&so_thread);
+	struct thread *thread = slab_alloc(&so_thread);
+	arch_thread_start(thread, jump, arg);
+	return thread;
 }
 
 __initializer static void _thread_hash_init(void) { hash_create(&thread_hash, HASH_LOCKLESS, 1024); }
+
+void thread_initialize_processor(struct processor *proc)
+{
+	arch_thread_initialize(&proc->idle_thread);
+	proc->idle_thread.processor = proc;
+	proc->idle_thread.kernel_stack = proc->initial_stack;
+}
 
