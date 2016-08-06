@@ -31,6 +31,7 @@ static void post_init_calls_execute(void)
 
 void kernel_idle(void)
 {
+	printk("reached idle state\n");
 	while(true) {
 		schedule();
 	}

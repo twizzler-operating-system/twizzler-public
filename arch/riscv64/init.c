@@ -1,3 +1,4 @@
+#include <memory.h>
 struct sbi_device_msg {
 	unsigned long dev;
 	unsigned long cmd;
@@ -5,48 +6,6 @@ struct sbi_device_msg {
 	unsigned long private;
 	unsigned long _pad[8];
 };
-#include <memory.h>
-#include <lib/linkedlist.h>
-
-struct riscv_meminfo {
-	uint64_t base;
-	uint64_t size;
-	uint64_t node_id;
-};
-
-static struct linkedlist _mem_region_list;
-static struct memregion _memregion;
-extern struct riscv_meminfo riscv_meminfo;
-extern uint64_t start_phys_free;
-struct linkedlist *arch_mm_get_regions(void)
-{
-	linkedlist_create(&_mem_region_list, 0);
-
-	_memregion.start = start_phys_free;
-	_memregion.length = riscv_meminfo.size - (start_phys_free - riscv_meminfo.base);
-	_memregion.flags = 0;
-	linkedlist_insert(&_mem_region_list, &_memregion.entry, &_memregion);
-
-	return &_mem_region_list;
-}
-
-#include <processor.h>
-void arch_processor_enumerate(void)
-{
-	processor_register(true, 0);
-}
-
-void arch_processor_boot(struct processor *proc)
-{
-
-}
-
-#include <thread.h>
-void arch_thread_initialize(struct thread *idle)
-{
-	asm volatile("mv tp, %0"::"r"(idle));
-}
-
 extern unsigned long va_offset;
 static inline void *__riscv_va_to_pa(void *x)
 {
@@ -101,19 +60,6 @@ void _init(void)
 
 void riscv_new_context(void *top, void **sp, void *jump, void *arg);
 void kernel_main(void);
-
-#include <thread.h>
-void arch_thread_start(struct thread *thread, void *jump, void *arg)
-{
-	riscv_new_context((void *)((uintptr_t)thread->kernel_stack + KERNEL_STACK_SIZE),
-			&thread->stack_pointer, jump, arg);
-}
-
-void arch_thread_switchto(struct thread *old, struct thread *new)
-{
-	asm volatile("mv tp, %0"::"r"(new));
-	riscv_switch_thread(new->stack_pointer, &old->stack_pointer);
-}
 
 void kernel_init(void)
 {
