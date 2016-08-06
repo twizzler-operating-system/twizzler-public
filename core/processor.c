@@ -3,6 +3,8 @@
 #include <slab.h>
 #include <memory.h>
 #include <init.h>
+#include <guard.h>
+
 struct hash processors;
 
 static void _proc_create(void *o)
@@ -71,5 +73,12 @@ void processor_secondary_entry(struct processor *proc)
 {
 	processor_perproc_init(proc);
 	kernel_idle();
+}
+
+void processor_attach_thread(struct processor *proc, struct thread *thread)
+{
+	spinlock_guard(&proc->sched_lock);
+	thread->processor = proc;
+	linkedlist_insert(&proc->runqueue, &thread->entry, thread);
 }
 

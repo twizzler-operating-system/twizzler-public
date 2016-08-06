@@ -9,7 +9,9 @@ static inline struct thread *choose_thread(struct processor *proc)
 	if(current_thread->state == THREADSTATE_RUNNING) {
 		if(proc->runqueue.count == 0)
 			return current_thread;
-		linkedlist_insert(&proc->runqueue, &current_thread->entry, current_thread);
+		/* don't enqueue the idle thread! it only runs when necessary! */
+		if(current_thread != &proc->idle_thread)
+			linkedlist_insert(&proc->runqueue, &current_thread->entry, current_thread);
 	}
 	if(proc->runqueue.count == 0)
 		return &proc->idle_thread;

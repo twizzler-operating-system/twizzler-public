@@ -3,6 +3,7 @@
 #include <lib/hash.h>
 #include <slab.h>
 #include <processor.h>
+#include <memory.h>
 
 static struct hash thread_hash;
 static struct spinlock thread_hash_lock = SPINLOCK_INIT;
@@ -34,7 +35,12 @@ static void _thread_init(void *obj)
 	ref_init(&thr->ref, thr, &thread_ref_calls);
 }
 
-static void _thread_create(void *obj) { _thread_init(obj); }
+static void _thread_create(void *obj)
+{
+	struct thread *thr = obj;
+	thr->kernel_stack = (void *)mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_ANY, false);
+	_thread_init(obj);
+}
 static void _thread_release(void *obj) { printk("thread released\n"); }
 static void _thread_destroy(void *obj) { }
 
@@ -53,6 +59,7 @@ struct thread *thread_create(void *jump, void *arg)
 {
 	struct thread *thread = slab_alloc(&so_thread);
 	arch_thread_start(thread, jump, arg);
+	thread->state = THREADSTATE_RUNNING;
 	return thread;
 }
 

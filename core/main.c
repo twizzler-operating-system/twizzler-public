@@ -29,11 +29,35 @@ static void post_init_calls_execute(void)
 	post_init_call_head = NULL;
 }
 
+void thtest(void)
+{
+	for(;;) {
+		printk("A");
+		schedule();
+	}
+}
+
+void thtest2(void)
+{
+	for(;;) {
+		printk("B");
+		schedule();
+	}
+}
+
+
 void kernel_idle(void)
 {
 	printk("reached idle state\n");
+
+	for(;;);
+	struct thread *t = thread_create(thtest, NULL);
+	processor_attach_thread(current_thread->processor, t);
+	struct thread *t2 = thread_create(thtest2, NULL);
+	processor_attach_thread(current_thread->processor, t2);
 	while(true) {
 		schedule();
+		printk("!");
 	}
 	panic("init completed");
 }

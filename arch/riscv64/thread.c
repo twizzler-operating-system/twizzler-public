@@ -19,4 +19,3 @@ void arch_thread_switchto(struct thread *old, struct thread *new)
 	riscv_switch_thread(new->stack_pointer, &old->stack_pointer);
 }
 
-

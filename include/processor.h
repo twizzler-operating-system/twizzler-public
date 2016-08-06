@@ -48,3 +48,4 @@ static inline void processor_enable_preempt(void)
 	proc->preempt_disable--;
 }
 
+void processor_attach_thread(struct processor *proc, struct thread *thread);
