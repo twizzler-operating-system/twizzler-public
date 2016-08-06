@@ -29,27 +29,21 @@ static void post_init_calls_execute(void)
 	post_init_call_head = NULL;
 }
 
-void thtest(void)
+void kernel_init_thread(void)
 {
-	for(;;) {
-		printk("%ld", current_thread->id);
-		schedule();
-	}
+	printk("kernel init thread reached\n");
+
+	for(;;);
 }
 
 void kernel_idle(void)
 {
 	printk("reached idle state\n");
 
-	struct thread *t = thread_create(thtest, NULL);
-	processor_attach_thread(current_thread->processor, t);
-	struct thread *t2 = thread_create(thtest, NULL);
-	processor_attach_thread(current_thread->processor, t2);
+	processor_attach_thread(current_thread->processor, thread_create(kernel_init_thread, NULL));
 	while(true) {
 		schedule();
-		printk("!");
 	}
-	panic("init completed");
 }
 
 /* functions called from here expect virtual memory to be set up. However, functions
