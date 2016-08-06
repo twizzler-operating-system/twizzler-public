@@ -9,6 +9,8 @@ _start:
 	/* set global pointer */
 	auipc gp, %pcrel_hi(_gp)
 	addi gp, gp, %pcrel_lo(1b)
+	/* clear thread pointer */
+	mv tp, x0
 	/* clear bss */
 	la a0, __kernel_bss_start
 	la a2, __kernel_bss_end
@@ -76,6 +78,7 @@ _init_page_table:
 
 
 .section .bss
+.global initial_boot_stack
 initial_boot_stack: .space KERNEL_STACK_SIZE
 .global va_offset
 va_offset: .space 8
