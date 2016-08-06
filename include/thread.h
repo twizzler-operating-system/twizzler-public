@@ -35,3 +35,5 @@ struct thread *thread_create(void *jump, void *arg);
 
 void thread_initialize_processor(struct processor *proc);
 
+void schedule(void);
+void preempt(void);

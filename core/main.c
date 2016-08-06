@@ -31,6 +31,9 @@ static void post_init_calls_execute(void)
 
 void kernel_idle(void)
 {
+	while(true) {
+		schedule();
+	}
 	panic("init completed");
 }
 
