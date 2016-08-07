@@ -63,7 +63,10 @@ struct thread *thread_create(void *jump, void *arg)
 	return thread;
 }
 
-__initializer static void _thread_hash_init(void) { hash_create(&thread_hash, HASH_LOCKLESS, 1024); }
+__initializer static void _thread_hash_init(void)
+{
+	hash_create(&thread_hash, HASH_LOCKLESS, 1024);
+}
 
 void thread_initialize_processor(struct processor *proc)
 {

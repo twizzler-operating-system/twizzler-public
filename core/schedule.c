@@ -21,24 +21,35 @@ static inline struct thread *choose_thread(struct processor *proc)
 static inline void __do_schedule(void)
 {
 	bool s = arch_interrupt_set(false);
+	/* if we're here, we're either preemptible or the thread
+	 * which has disabled preemption has forced a reschedule.
+	 * Save the preempt_disable value for later and reset it
+	 * to zero (other threads don't necessarily need it disabled!).
+	 */
 	unsigned long preempt_status = atomic_exchange(&current_thread->processor->preempt_disable, 0);
 	struct thread *next = choose_thread(current_thread->processor);
 	if(next != current_thread) {
 		arch_thread_switchto(current_thread, next);
 	}
 	struct workqueue *wq = &current_thread->processor->wq;
-	current_thread->processor->preempt_disable = preempt_status;
+	/* restore preempt_disable */
+	atomic_store(&current_thread->processor->preempt_disable, preempt_status);
 	arch_interrupt_set(s);
+	/* threads in the kernel need to do their fair share of work! */
 	if(workqueue_pending(wq)) {
 		workqueue_dowork(wq);
 	}
 }
 
+/* this will FORCE the kernel to pick a new thread for this processor,
+ * though it may decide to run the same thread (as long as that thread's
+ * state is RUNNING) */
 void schedule(void)
 {
 	__do_schedule();
 }
 
+/* this will try to preempt as long as preemption isn't disabled. */
 void preempt(void)
 {
 	/* TODO: this may not be thread-safe when moving threads between processors */

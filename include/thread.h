@@ -42,8 +42,6 @@ void thread_initialize_processor(struct processor *proc);
 void schedule(void);
 void preempt(void);
 
-
-
 /* blocking */
 
 enum block_result {
@@ -65,4 +63,10 @@ struct blockpoint {
 	enum block_result result;
 	struct linkedentry entry;
 };
+
+enum block_result blockpoint_cleanup(struct blockpoint *bp);
+void blocklist_wake(struct blocklist *bl, int n);
+void blocklist_attach(struct blocklist *bl, struct blockpoint *bp);
+void blockpoint_create(struct blockpoint *bp);
+void blocklist_create(struct blocklist *bl);
 
