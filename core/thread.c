@@ -72,3 +72,13 @@ void thread_initialize_processor(struct processor *proc)
 	proc->idle_thread.kernel_stack = proc->initial_stack;
 }
 
+_Noreturn void thread_exit(void)
+{
+	processor_disable_preempt();
+	current_thread->state = THREADSTATE_DEAD;
+	workqueue_insert(&current_thread->processor->wq, &current_thread->del_task, (void (*)(void *))ref_put, &current_thread->ref);
+	processor_enable_preempt();
+	schedule();
+	panic("unreachable");
+}
+

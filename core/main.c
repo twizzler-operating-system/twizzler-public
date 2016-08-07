@@ -33,7 +33,7 @@ void kernel_init_thread(void)
 {
 	printk("kernel init thread reached\n");
 
-	for(;;);
+	thread_exit();
 }
 
 void kernel_idle(void)

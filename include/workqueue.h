@@ -18,8 +18,10 @@ static inline void workqueue_create(struct workqueue *wq)
 	linkedlist_create(&wq->list, 0);
 }
 
-static inline void workqueue_insert(struct workqueue *wq, struct task *task)
+static inline void workqueue_insert(struct workqueue *wq, struct task *task, void (*fn)(void *), void *data)
 {
+	task->fn = fn;
+	task->data = data;
 	interrupt_set_scope(false);
 	linkedlist_insert(&wq->list, &task->entry, task);
 }
