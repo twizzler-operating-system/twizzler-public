@@ -51,6 +51,8 @@ enum block_result {
 	BLOCKRES_INTERRUPT,
 };
 
+#define BLOCKPOINT_UNINTERRUPT 1
+
 struct blocklist {
 	struct spinlock lock;
 	struct linkedlist list;
@@ -67,6 +69,6 @@ struct blockpoint {
 enum block_result blockpoint_cleanup(struct blockpoint *bp);
 void blocklist_wake(struct blocklist *bl, int n);
 void blocklist_attach(struct blocklist *bl, struct blockpoint *bp);
-void blockpoint_create(struct blockpoint *bp);
+void blockpoint_create(struct blockpoint *bp, int);
 void blocklist_create(struct blocklist *bl);
 

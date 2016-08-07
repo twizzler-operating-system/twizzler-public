@@ -32,7 +32,6 @@ static void post_init_calls_execute(void)
 void kernel_init_thread(void)
 {
 	printk("kernel init thread reached\n");
-
 	thread_exit();
 }
 

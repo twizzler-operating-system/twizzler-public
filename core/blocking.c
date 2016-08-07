@@ -8,10 +8,10 @@ void blocklist_create(struct blocklist *bl)
 	bl->lock = SPINLOCK_INIT;
 }
 
-void blockpoint_create(struct blockpoint *bp)
+void blockpoint_create(struct blockpoint *bp, int flags)
 {
 	bp->thread = current_thread;
-	bp->flags = 0;
+	bp->flags = flags;
 }
 
 void blocklist_attach(struct blocklist *bl, struct blockpoint *bp)
