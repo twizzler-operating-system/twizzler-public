@@ -8,7 +8,7 @@ static inline bool _spinlock_first(struct mutex *mutex)
 {
 	/* improve performance with an optimistic view that the mutex
 	 * might get unlocked soon by a thread on a different CPU */
-	for(int i=0;i<40;i++) {
+	for(int i=0;i<40;i++) { /* also 40 is arbitrary */
 		int exp = 0;
 		if(atomic_compare_exchange_weak(&mutex->lock, &exp, 1))
 			return true;
