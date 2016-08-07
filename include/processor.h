@@ -5,6 +5,7 @@
 #include <lib/linkedlist.h>
 #include <lib/hash.h>
 #include <interrupt.h>
+#include <workqueue.h>
 
 #define PROCESSOR_UP     1
 #define PROCESSOR_ACTIVE 2
@@ -19,6 +20,8 @@ struct processor {
 
 	void *initial_stack;
 	struct thread idle_thread;
+
+	struct workqueue wq;
 
 	struct hashelem elem;
 };
@@ -49,3 +52,4 @@ static inline void processor_enable_preempt(void)
 }
 
 void processor_attach_thread(struct processor *proc, struct thread *thread);
+

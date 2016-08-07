@@ -20,22 +20,27 @@ static inline struct thread *choose_thread(struct processor *proc)
 
 static inline void __do_schedule(void)
 {
+	bool s = arch_interrupt_set(false);
 	struct thread *next = choose_thread(current_thread->processor);
 	if(next != current_thread) {
 		arch_thread_switchto(current_thread, next);
+	}
+	struct workqueue *wq = &current_thread->processor->wq;
+	arch_interrupt_set(s);
+	if(workqueue_pending(wq)) {
+		workqueue_dowork(wq);
 	}
 }
 
 void schedule(void)
 {
-	interrupt_set_scope(false);
 	__do_schedule();
 }
 
 void preempt(void)
 {
-	interrupt_set_scope(false);
-	if(current_thread->processor->preempt_disable == 0)
+	if(current_thread->processor->preempt_disable == 0) {
 		__do_schedule();
+	}
 }
 
