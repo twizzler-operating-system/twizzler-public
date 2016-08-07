@@ -42,3 +42,27 @@ void thread_initialize_processor(struct processor *proc);
 void schedule(void);
 void preempt(void);
 
+
+
+/* blocking */
+
+enum block_result {
+	BLOCKRES_BLOCKED,
+	BLOCKRES_UNBLOCKED,
+	BLOCKRES_TIMEOUT,
+	BLOCKRES_INTERRUPT,
+};
+
+struct blocklist {
+	struct spinlock lock;
+	struct linkedlist list;
+};
+
+struct blockpoint {
+	struct blocklist *blocklist;
+	struct thread *thread;
+	int flags;
+	enum block_result result;
+	struct linkedentry entry;
+};
+
