@@ -39,8 +39,6 @@ void kernel_init_thread(void)
 void kernel_idle(void)
 {
 	printk("reached idle state\n");
-
-	processor_attach_thread(current_thread->processor, thread_create(kernel_init_thread, NULL));
 	while(true) {
 		schedule();
 	}
@@ -64,6 +62,7 @@ void kernel_main(void)
 	post_init_calls_execute();
 
 	processor_perproc_init(NULL);
+	processor_attach_thread(current_thread->processor, thread_create(kernel_init_thread, NULL));
 	kernel_idle();
 }
 
