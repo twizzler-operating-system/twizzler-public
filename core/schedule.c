@@ -29,6 +29,7 @@ static inline void __do_schedule(void)
 	unsigned long preempt_status = atomic_exchange(&current_thread->processor->preempt_disable, 0);
 	struct thread *next = choose_thread(current_thread->processor);
 	if(next != current_thread) {
+		current_thread->flags &= ~THREAD_SCHEDULE;
 		arch_thread_switchto(current_thread, next);
 	}
 	struct workqueue *wq = &current_thread->processor->wq;

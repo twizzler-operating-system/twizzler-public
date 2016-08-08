@@ -12,6 +12,8 @@ enum thread_state {
 	THREADSTATE_DEAD,
 };
 
+#define THREAD_SCHEDULE 1
+
 struct thread {
 	void *kernel_stack;
 	void *stack_pointer;
