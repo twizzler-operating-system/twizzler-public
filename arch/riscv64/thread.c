@@ -6,7 +6,6 @@ void arch_thread_initialize(struct thread *idle)
 	asm volatile("mv tp, %0"::"r"(idle));
 }
 
-#include <thread.h>
 void arch_thread_start(struct thread *thread, void *jump, void *arg)
 {
 	riscv_new_context((void *)((uintptr_t)thread->kernel_stack + KERNEL_STACK_SIZE),

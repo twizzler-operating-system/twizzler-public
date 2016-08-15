@@ -20,6 +20,16 @@ void interrupt_unregister_handler(int vector, struct interrupt_handler *handler)
 
 void kernel_interrupt_entry(struct interrupt_frame *frame)
 {
+	struct linkedlist *list = &handlers[interrupt_vector(frame)];
+	linkedlist_lock(list);
+	struct linkedentry *entry;
+	for(entry = linkedlist_iter_start(list);
+			entry != linkedlist_iter_end(list);
+			entry = linkedlist_iter_next(entry)) {
+		struct interrupt_handler *h = linkedentry_obj(entry);
+		h->fn(frame);
+	}
+	linkedlist_unlock(list);
 }
 
 void kernel_interrupt_postack(struct interrupt_frame *frame)

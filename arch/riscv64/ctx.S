@@ -128,7 +128,7 @@ riscv_new_context:
 
 	ret
 
-.extern arch_interrupt_entry
+.extern riscv_interrupt_entry
 .global riscv_exception_entry
 /* TODO: set sscratch during kernel init */
 riscv_exception_entry:
@@ -193,7 +193,7 @@ _write_sepc:
 	mv a0, sp
 	li a1, 0x12345
 	sd a1, (8*2)(sp)
-	call arch_interrupt_entry
+	call riscv_interrupt_entry
 
 	beqz s0, _ret_to_kernel
 

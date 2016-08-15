@@ -57,3 +57,8 @@ void mm_physical_dealloc(uintptr_t addr)
 	mm_physical_region_dealloc(reg, addr);
 }
 
+void kernel_fault_entry(struct interrupt_frame *frame)
+{
+
+}
+

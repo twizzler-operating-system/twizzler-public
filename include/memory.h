@@ -79,3 +79,6 @@ struct vm_context {
 
 void arch_mm_switch_context(struct vm_context *vm);
 
+#include <interrupt.h>
+void kernel_fault_entry(struct interrupt_frame *frame);
+

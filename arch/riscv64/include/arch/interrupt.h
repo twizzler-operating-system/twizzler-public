@@ -40,6 +40,8 @@ struct interrupt_frame {
 	uint64_t sip;
 };
 
+#define interrupt_vector(frame) ((frame)->scause & 15)
+
 static inline bool arch_interrupt_set(bool on)
 {
 	uint64_t old;
