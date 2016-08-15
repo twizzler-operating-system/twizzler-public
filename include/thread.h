@@ -4,6 +4,8 @@
 #include <lib/hash.h>
 #include <arch/thread.h>
 #include <workqueue.h>
+#include <memory.h>
+
 struct processor;
 
 enum thread_state {
@@ -23,6 +25,7 @@ struct thread {
 	enum thread_state state;
 	
 	struct processor *processor;
+	struct vm_context *ctx;
 
 	struct hashelem elem;
 	struct linkedentry entry;

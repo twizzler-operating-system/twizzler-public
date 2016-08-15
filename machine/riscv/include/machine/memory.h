@@ -13,4 +13,9 @@ static inline size_t arch_mm_page_size(int level)
 		default: panic("invalid page-level %d", level);
 	}
 }
+
+struct arch_vm_context {
+	void *base;
+};
+
 #endif

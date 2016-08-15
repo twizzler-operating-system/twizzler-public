@@ -34,10 +34,6 @@ void pmm_buddy_deallocate(struct memregion *, uintptr_t address);
 void pmm_buddy_init(struct memregion *);
 struct linkedlist *arch_mm_get_regions(void);
 
-bool      arch_mm_virtual_map(uintptr_t virt, uintptr_t phys, size_t size, int flags);
-uintptr_t arch_mm_virtual_unmap(uintptr_t virt);
-bool      arch_mm_virtual_getmap(uintptr_t virt, uintptr_t *phys, size_t *size, int *flags);
-bool      arch_mm_virtual_chmap(uintptr_t virt, int flags);
 
 uintptr_t mm_physical_alloc(size_t length, int type, bool clear);
 struct memregion *mm_physical_find_region(uintptr_t addr);
@@ -75,4 +71,11 @@ static inline void mm_virtual_dealloc(uintptr_t addr)
 {
 	mm_physical_dealloc(addr - PHYSICAL_MAP_START);
 }
+
+
+struct vm_context {
+	struct arch_vm_context arch;
+};
+
+void arch_mm_switch_context(struct vm_context *vm);
 

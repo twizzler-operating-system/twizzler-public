@@ -23,4 +23,9 @@ struct linkedlist *arch_mm_get_regions(void)
 	return &_mem_region_list;
 }
 
+void arch_mm_switch_context(struct vm_context *vm)
+{
+	uintptr_t base = (uintptr_t)vm->arch.base - PHYSICAL_MAP_START;
+	asm volatile("csrw sptbr, %0" :: "r"(base));
+}
 
