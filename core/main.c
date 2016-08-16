@@ -38,6 +38,7 @@ void kernel_init_thread(void)
 void kernel_idle(void)
 {
 	printk("reached idle state\n");
+	uint64_t a;
 	while(true) {
 		schedule();
 	}

@@ -4,10 +4,12 @@ void riscv_new_context(void *top, void **sp, void *jump, void *arg);
 void arch_thread_initialize(struct thread *idle)
 {
 	asm volatile("mv tp, %0"::"r"(idle));
+	*((struct thread **)idle->kernel_stack) = idle;
 }
 
 void arch_thread_start(struct thread *thread, void *jump, void *arg)
 {
+	*((struct thread **)thread->kernel_stack) = thread;
 	riscv_new_context((void *)((uintptr_t)thread->kernel_stack + KERNEL_STACK_SIZE),
 			&thread->stack_pointer, jump, arg);
 }

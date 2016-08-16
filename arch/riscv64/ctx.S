@@ -1,3 +1,4 @@
+#include <thread-bits.h>
 .section .text
 
 .extern _gp
@@ -169,12 +170,15 @@ _save_state:
 	sd x30, (8*30)(sp)
 	sd x31, (8*31)(sp)
 
+	li tp, ~(KERNEL_STACK_SIZE-1)
+	and tp, tp, sp
+	ld tp, 0(tp)
+
 	csrrw s0, sscratch, x0
 	
 	csrr s1, scause
 	sd s1, (8*32)(sp)
 	csrr s2, sepc
-	j .
 	li t0, 8
 	bne t0, s1, _write_sepc
 	addi s2, s2, 4 //advance instruction pointer for syscall

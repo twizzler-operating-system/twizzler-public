@@ -70,9 +70,9 @@ __initializer static void _thread_hash_init(void)
 
 void thread_initialize_processor(struct processor *proc)
 {
-	arch_thread_initialize(&proc->idle_thread);
 	proc->idle_thread.processor = proc;
 	proc->idle_thread.kernel_stack = proc->initial_stack;
+	arch_thread_initialize(&proc->idle_thread);
 }
 
 _Noreturn void thread_exit(void)

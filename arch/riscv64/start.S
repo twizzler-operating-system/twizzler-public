@@ -43,6 +43,12 @@ _start:
 	la t0, riscv_exception_entry
 	csrw stvec, t0
 
+	li t0, 1
+	csrc sstatus, t0
+	li t0, (1 << 5)
+	csrw sie, t0
+	csrw sip, t0
+
 	/* done, ready for C code */
 	call kernel_early_init
 
@@ -79,6 +85,7 @@ _init_page_table:
 
 .section .bss
 .global initial_boot_stack
+.balign KERNEL_STACK_SIZE
 initial_boot_stack: .space KERNEL_STACK_SIZE
 .global va_offset
 va_offset: .space 8

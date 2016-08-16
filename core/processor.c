@@ -67,6 +67,7 @@ void processor_perproc_init(struct processor *proc)
 		proc = proc_bsp;
 	}
 	thread_initialize_processor(proc);
+	arch_interrupt_set(true);
 }
 
 void kernel_idle(void);

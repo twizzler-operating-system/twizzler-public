@@ -4,7 +4,7 @@ struct sbi_device_msg {
 	unsigned long cmd;
 	unsigned long data;
 	unsigned long private;
-	unsigned long _pad[8];
+	unsigned long _pad[16];
 };
 extern unsigned long va_offset;
 static inline void *__riscv_va_to_pa(void *x)
@@ -18,7 +18,8 @@ long (*sbi_send_device_msg)(struct sbi_device_msg *msg) = (long (*)(struct sbi_d
 
 void arch_debug_putchar(unsigned char c)
 {
-	struct sbi_device_msg msg = {.dev = 1, .cmd = 1, .data = c, .private = 0 };
+	static struct sbi_device_msg msg = {.dev = 1, .cmd = 1, .data = 0, .private = 0 };
+	msg.data = c;
 	sbi_send_device_msg(__riscv_va_to_pa(&msg));
 	if(c == '\n')
 		arch_debug_putchar('\r');
