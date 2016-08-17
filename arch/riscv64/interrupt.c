@@ -1,16 +1,23 @@
 #include <interrupt.h>
 #include <syscall.h>
 #include <memory.h>
+#include <time.h>
 #include <debug.h>
 void debug_puts(char *s);
 
 static void (*sbi_set_timecmp)(unsigned long val) = (void *)(-1888);
+static unsigned long (*sbi_timebase)(void) = (void *)(-1920);
 
 static void _riscv_timer_handler(struct interrupt_frame *frame)
 {
+	static uint64_t last = 0;
 	uint64_t a;
 	asm volatile("csrr %0, stime" : "=r"(a));
-	sbi_set_timecmp(a + 0x10000);
+	uint64_t passed = ((a - last) * 1000000000) / sbi_timebase();
+	dur_nsec wait = kernel_timer_tick(passed);
+	asm volatile("csrr %0, stime" : "=r"(a));
+	last = a;
+	sbi_set_timecmp(a + wait * sbi_timebase() / 1000000000);
 }
 
 static struct interrupt_handler timer_handler = {

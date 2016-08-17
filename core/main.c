@@ -29,16 +29,24 @@ static void post_init_calls_execute(void)
 	post_init_call_head = NULL;
 }
 
-void kernel_init_thread(void)
+static void kernel_test_thread(void)
+{
+	while(true) {
+		printk("%ld", current_thread->id);
+	}
+}
+
+static void kernel_init_thread(void)
 {
 	printk("kernel init thread reached\n");
+	processor_attach_thread(current_thread->processor, thread_create(kernel_test_thread, NULL));
+	processor_attach_thread(current_thread->processor, thread_create(kernel_test_thread, NULL));
 	thread_exit();
 }
 
 void kernel_idle(void)
 {
 	printk("reached idle state\n");
-	uint64_t a;
 	while(true) {
 		schedule();
 	}
