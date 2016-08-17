@@ -116,6 +116,8 @@ riscv_switch_thread1:
 _new_context_entry:
 	mv a0, s1
 	mv ra, s0
+	li t0, 1
+	csrs sstatus, t0 // start threads with interrupts enabled
 	ret
 
 /* void riscv_new_context(void *top, void **sp, void *jump, void *arg); */
