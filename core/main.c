@@ -39,8 +39,6 @@ static void kernel_test_thread(void)
 static void kernel_init_thread(void)
 {
 	printk("kernel init thread reached\n");
-	processor_attach_thread(current_thread->processor, thread_create(kernel_test_thread, NULL));
-	processor_attach_thread(current_thread->processor, thread_create(kernel_test_thread, NULL));
 	thread_exit();
 }
 

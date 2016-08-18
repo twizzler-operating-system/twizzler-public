@@ -59,6 +59,6 @@ void mm_physical_dealloc(uintptr_t addr)
 
 void kernel_fault_entry(struct interrupt_frame *frame)
 {
-
+	panic("page fault");
 }
 
