@@ -38,6 +38,11 @@ include arch/$(ARCH)/include.mk
 include machine/$(MACHINE)/include.mk
 include lib/include.mk
 include core/include.mk
+FEATURE_FLAGS=$(addprefix -D,$(addsuffix =1,$(ARCH_KERNEL_SUPPORT)))
+
+CFLAGS+=$(FEATURE_FLAGS)
+ASFLAGS+=$(FEATURE_FLAGS)
+
 -include $(OBJECTS:.o=.d)
 
 test: $(BUILDDIR)/kernel
