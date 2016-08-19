@@ -18,3 +18,13 @@ __attribute__ ((format (printf, 4, 5))) _Noreturn void __panic(const char *file,
 
 #include <interrupt.h>
 void kernel_debug_entry(struct interrupt_frame *frame);
+
+#if FEATURE_SUPPORTED_UNWIND
+struct frame {
+	        uintptr_t pc, fp;
+};
+void debug_print_backtrace(void);
+bool arch_debug_unwind_frame(struct frame *frame);
+#endif
+
+

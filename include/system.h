@@ -21,3 +21,7 @@ static inline unsigned long long __round_up_pow2(unsigned int a)
 #define __concat(x,y) ___concat(x, y)
 
 #define __get_macro2(_1,_2,NAME,...) NAME
+
+#define stringify_define(x) stringify(x)
+#define stringify(x) #x
+

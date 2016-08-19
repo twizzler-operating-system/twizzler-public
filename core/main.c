@@ -37,9 +37,20 @@ static void kernel_test_thread(void)
 	}
 }
 
+void bar()
+{
+	debug_print_backtrace();
+}
+
+void foo()
+{
+	bar();
+}
+
 static void kernel_init_thread(void)
 {
 	printk("kernel init thread reached\n");
+	foo();
 	thread_exit();
 }
 
