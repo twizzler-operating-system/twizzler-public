@@ -76,12 +76,60 @@ void linkedlist_insert(struct linkedlist *list, struct linkedentry *entry, void 
 	linkedlist_unlock(list);
 }
 
+/* TODO: wrote this in a hurry while drunk; clean it up */
+void linkedlist_insert_sorted(struct linkedlist *list, int (*compar)(void *, void *), struct linkedentry *entry, void *obj)
+{
+	linkedlist_lock(list);
+	
+	struct linkedentry *ent = list->head->next;
+	struct linkedentry *next = ent->next;
+	while(ent != &list->sentry) {
+		if(compar(ent->obj, obj) > 0) {
+			entry->next = ent;
+			entry->prev = ent->prev;
+			ent->prev->next = entry;
+			ent->prev = entry;
+			entry->obj = obj;
+			entry->list = list;
+			list->count++;
+			linkedlist_unlock(list);
+			return;
+		}
+		if(next == &list->sentry || compar(next->obj, obj) > 0) {
+			entry->next = next;
+			entry->prev = ent;
+			ent->next = entry;
+			next->prev = entry;
+			entry->obj = obj;
+			entry->list = list;
+			list->count++;
+			linkedlist_unlock(list);
+			return;
+		}
+	}
+
+	entry->next = list->head->next;
+	entry->prev = list->head;
+	entry->prev->next = entry;
+	entry->next->prev = entry;
+	entry->obj = obj;
+	entry->list = list;
+	list->count++;
+	linkedlist_unlock(list);
+}
+
 void linkedlist_remove(struct linkedlist *list, struct linkedentry *entry)
 {
 	assert(list->head == &list->sentry);
 	linkedlist_lock(list);
 	linkedlist_do_remove(list, entry);
 	linkedlist_unlock(list);
+}
+
+void __linkedlist_remove_unlocked(struct linkedlist *list, struct linkedentry *entry)
+{
+	assert(list->head == &list->sentry);
+	linkedlist_do_remove(list, entry);
 }
 
 struct linkedentry *linkedlist_find(struct linkedlist *list, bool (*fn)(struct linkedentry *, void *data), void *data)

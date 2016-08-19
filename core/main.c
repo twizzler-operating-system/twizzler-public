@@ -3,6 +3,7 @@
 #include <init.h>
 #include <arena.h>
 #include <processor.h>
+#include <time.h>
 
 static struct arena post_init_call_arena;
 static struct init_call *post_init_call_head = NULL;
@@ -36,9 +37,23 @@ static void kernel_test_thread(void)
 	}
 }
 
+static void _test(void *v)
+{
+	printk("TIMER FIRED\n");
+}
+static void _test2(void *v)
+{
+	printk("TIMER2 FIRED\n");
+}
+
+
 static void kernel_init_thread(void)
 {
 	printk("kernel init thread reached\n");
+	struct timer t;
+	timer_add(&t, 1000000000ul, _test, NULL);
+	struct timer t2;
+	timer_add(&t2, 3000000000ul, _test2, NULL);
 	thread_exit();
 }
 
