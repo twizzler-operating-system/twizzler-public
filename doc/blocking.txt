@@ -1,0 +1,50 @@
+Thread Blocking
+===============
+
+Blocking is done with a combination of blockpoints and blocklists. Many blockpoints may
+be on a given blocklist, and a thread may have multiple blockpoints. A thread may only
+ever block itself, but any thread may wake up any other thread.
+
+In order to block, a thread must create a blockpoint and attach it to a blocklist:
+
+    struct blockpoint bp;
+    blockpoint_create(&bp, <flags>);
+    blocklist_attach(some_blocklist, &bp);
+
+This will put this blockpoint in the blocklist, and prepare the thread for blocking.
+When blocklist_attach returns, the processor will have preemption disabled, meaning
+that the scheduler will not run unless explicitely called, allowing the thread to do
+some final preparations and tests before actually stopping its execution. When the
+thread is ready, it can call schedule() to actually block. After calling schedule,
+it must cleanup the blockpoint (and remove it from the blocklist). Thus the entire
+process for blocking on a blocklist blist is as follows:
+
+    struct blockpoint bp;
+    blockpoint_create(&bp, <flags>);
+    blocklist_attach(blist, &bp);
+    if(some_condition)
+        schedule();
+    enum block_result res = blockpoint_cleanup(&bp);
+    ... do something about the result ...
+
+This condition on which the thread is blocking MUST come after the thread has been
+attached to the blocklist so that if the condition changes after it has been attached,
+the thread wont call schedule, and if it changes after the if statement but before
+the schedule the thread that causes the change can unblock the thread since it is already
+attached.
+
+In order to unblock some threads that are waiting on a blocklist, blocklist_wake(blist, n)
+is called, where n specifies how many threads to unblock. If n is 0, all threads are
+unblocked. Some code that would unblock threads on a condition (that fits with the example
+above) is:
+
+    some_condition = false;
+    blocklist_wake(blist, 1);
+
+Which will wake up 1 thread. Note the order: the condition is updated first. See the mutex
+code for a full example of the basic use of blocking.
+
+Also note that this construct enables a thread to be blocked on multiple blocklists, and
+can then sleep on multiple conditions, see which condition woke it up, and take appropriate
+action (this is useful for implementing calls like select()).
+
