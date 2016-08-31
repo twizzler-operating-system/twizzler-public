@@ -1,0 +1,16 @@
+BUILDING
+========
+The build system is make-based, and is relatively straight-forward. You must have a copy of
+the appropriate toolchain for the target system (such as x86_64-pc-elf-, or riscv-unknown-elf-,
+etc). Acquiring the toolchain for your target is outside of the scope of this repo, see
+twizzler-main for information on how to acquire this. The toolchain must be in your PATH.
+
+Building is based around projects. These are self-contained configurations and builds that the
+build system uses to make decisions. Existing projects are in projects/, and there are several
+pre-configured ones. If you wish, you may add your own. Each project contains, when clean, just
+a config.mk file specifying all of the configuration for that project.
+
+When you execute make to build the kernel, you must specify a project to use in the PROJECT
+variable, like so: `make PROJECT=riscv`. A project can be tested via the 'test' target like so:
+`make PROJECT=riscv test`.
+
