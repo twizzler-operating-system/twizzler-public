@@ -1,6 +1,13 @@
+ifndef PROJECT
+$(error PROJECT is not set. Please choose one of ($(shell ls --format=commas projects)), or create a new one in projects/)
+endif
 
-CONFIGFILE=config.mk
-BUILDDIR=build
+ifneq ("$(shell ls -d projects/$(PROJECT))","projects/$(PROJECT)")
+$(error Project $(PROJECT) does not exist. Perhaps you wish to create it?)
+endif
+
+CONFIGFILE=projects/$(PROJECT)/config.mk
+BUILDDIR=projects/$(PROJECT)/build
 
 include $(CONFIGFILE)
 DEFINES=$(addprefix -D,$(shell sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d' $(CONFIGFILE)))
