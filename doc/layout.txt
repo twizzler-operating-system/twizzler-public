@@ -1,0 +1,18 @@
+Directory Structure
+===================
+
+arch     - Architecture dependent code
+           +- <arch>: Each supported processor has a directory here.
+core     - Core kernel code (mutexes, threading, allocators, etc), architecture independent
+doc      - Documentation
+include  - include files (may reference other include files in arch or machine)
+lib      - Kernel library (data structures, minimal CRT)
+machine  - Machine dependent code
+           +- <mach>: Each machine has a directory here.
+projects - All build configurations and outputs here.
+           +- <name>: Each project has a directory here.
+              +- build: Built files for the kernel.
+
+There is a separation between machine and architecture because it is possible for
+a single architecture to be present on multiple machines, and vice versa.
+
