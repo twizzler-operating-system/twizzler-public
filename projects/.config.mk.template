@@ -1,0 +1,16 @@
+CONFIG_DEBUG=y
+CONFIG_WERROR=n
+CONFIG_OPTIMIZE=g
+
+# look under arch/ for a list of architectures
+CONFIG_ARCH=<ARCH>
+# look under machine/ for a list of machines. Note
+# that there are only certain allowed combinations
+# of arch and machine.
+CONFIG_MACHINE=<MACHINE>
+
+CONFIG_UBSAN=y
+
+# set this to your toolchain path
+TOOLCHAIN_PATH=/home/dbittman/twizzler/toolchains/riscv64
+
