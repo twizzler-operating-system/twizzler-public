@@ -8,5 +8,5 @@ CONFIG_MACHINE=riscv
 CONFIG_UBSAN=n
 
 # set this to your toolchain path
-TOOLCHAIN_PATH=${HOME}/twizzler/toolchain
+TOOLCHAIN_PATH=/path/to/toolchain/here
 

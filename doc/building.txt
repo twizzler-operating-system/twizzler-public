@@ -20,3 +20,10 @@ They're password protected (username 'ssrc', password 'nvram'). Once downloaded,
 decompressed and unpacked. They contain compiled versions of gcc and binutils for a particular target.
 For example, the twizzler-toolchain-riscv64-1.tar.xz file provides the toolchain for riscv64,
 and is version 1. Toolchains will get updated over time, so try to stay current.
+
+Once you have a particular toolchain extracted to say, /opt/toolchains/riscv64, you will need to
+update the project file to include that path. For the project that needs the toolchain, say
+for the above example, projects/riscv, edit projects/<projectname>/config.mk and set the TOOLCHAIN_PATH
+variable to point to where you extracted the toolchain (/opt/toolchains/riscv64 in the above example).
+These config.mk files are set to not be tracked in git, so changes you make are entirely local to
+your setup.
