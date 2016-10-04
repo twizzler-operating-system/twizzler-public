@@ -2,6 +2,12 @@ ifndef PROJECT
 $(error PROJECT is not set. Please choose one of ($(shell ls --format=commas projects)), or create a new one in projects/)
 endif
 
+.DEFAULT_GOAL=all
+
+.newproj:
+	mkdir projects/${PROJECT}
+	cp projects/.config.mk.template projects/${PROJECT}/config.mk
+
 ifneq ("$(shell ls -d projects/$(PROJECT))","projects/$(PROJECT)")
 $(error Project $(PROJECT) does not exist. Perhaps you wish to create it?)
 endif
@@ -10,7 +16,7 @@ CONFIGFILE=projects/$(PROJECT)/config.mk
 BUILDDIR=projects/$(PROJECT)/build
 
 include $(CONFIGFILE)
-PATH+=${TOOLCHAIN_PREFIX}/bin
+export PATH := ${TOOLCHAIN_PATH}/bin:$(PATH)
 DEFINES=$(addprefix -D,$(shell sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d' $(CONFIGFILE)))
 
 ARCH=$(CONFIG_ARCH)
@@ -35,10 +41,10 @@ ASM_SOURCES=
 
 OBJECTS=$(addprefix $(BUILDDIR)/,$(ASM_SOURCES:.S=.o) $(C_SOURCES:.c=.o))
 
-CRTBEGIN=$(shell $(TOOLCHAIN_PREFIX)gcc -print-file-name=crtbegin.o)
-CRTEND=$(shell $(TOOLCHAIN_PREFIX)gcc -print-file-name=crtend.o)
-CRTI=$(shell $(TOOLCHAIN_PREFIX)gcc -print-file-name=crti.o)
-CRTN=$(shell $(TOOLCHAIN_PREFIX)gcc -print-file-name=crtn.o)
+CRTBEGIN=$(shell $(TOOLCHAIN_PATH)/bin/$(TOOLCHAIN_PREFIX)gcc -print-file-name=crtbegin.o)
+CRTEND=$(shell $(TOOLCHAIN_PATH)/bin/$(TOOLCHAIN_PREFIX)gcc -print-file-name=crtend.o)
+CRTI=$(shell $(TOOLCHAIN_PATH)/bin/$(TOOLCHAIN_PREFIX)gcc -print-file-name=crti.o)
+CRTN=$(shell $(TOOLCHAIN_PATH)/bin/$(TOOLCHAIN_PREFIX)gcc -print-file-name=crtn.o)
 
 all: $(BUILDDIR)/kernel
 
@@ -102,5 +108,5 @@ od: $(BUILDDIR)/kernel
 re: $(BUILDDIR)/kernel
 	$(TOOLCHAIN_PREFIX)readelf -a $(BUILDDIR)/kernel
 
-.PHONY: od re clean all test
+.PHONY: od re clean all test newproj
 
