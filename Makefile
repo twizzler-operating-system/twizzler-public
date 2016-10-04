@@ -10,6 +10,7 @@ CONFIGFILE=projects/$(PROJECT)/config.mk
 BUILDDIR=projects/$(PROJECT)/build
 
 include $(CONFIGFILE)
+PATH+=${TOOLCHAIN_PREFIX}/bin
 DEFINES=$(addprefix -D,$(shell sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d' $(CONFIGFILE)))
 
 ARCH=$(CONFIG_ARCH)

@@ -15,4 +15,8 @@ variable, like so: `make PROJECT=riscv`. A project can be tested via the 'test' 
 
 Toolchains
 ----------
-
+Pre-built toolchains are available from http://googoo-16.ssrc.ucsc.edu/dbittman/twizzler/toolchains.
+They're password protected (username 'ssrc', password 'nvram'). Once downloaded, they can be
+decompressed and unpacked. They contain compiled versions of gcc and binutils for a particular target.
+For example, the twizzler-toolchain-riscv64-1.tar.xz file provides the toolchain for riscv64,
+and is version 1. Toolchains will get updated over time, so try to stay current.
