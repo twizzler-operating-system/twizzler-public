@@ -1,5 +1,6 @@
 #include <memory.h>
 #include <debug.h>
+#include <thread.h>
 static struct linkedlist *physical_regions;
 
 void mm_init(void)
@@ -59,6 +60,9 @@ void mm_physical_dealloc(uintptr_t addr)
 
 void kernel_fault_entry(struct interrupt_frame *frame)
 {
+	int oldec = atomic_fetch_or(&current_thread->econtext, ECONTEXT_FAULT);
 	panic("page fault");
+
+	current_thread->econtext = oldec;
 }
 

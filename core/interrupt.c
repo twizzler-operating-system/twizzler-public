@@ -20,6 +20,7 @@ void interrupt_unregister_handler(int vector, struct interrupt_handler *handler)
 
 void kernel_interrupt_entry(struct interrupt_frame *frame)
 {
+	int oldec = atomic_fetch_or(&current_thread->econtext, ECONTEXT_INTERRUPT);
 	struct linkedlist *list = &handlers[interrupt_vector(frame)];
 	linkedlist_lock(list);
 	struct linkedentry *entry;
@@ -30,6 +31,7 @@ void kernel_interrupt_entry(struct interrupt_frame *frame)
 		h->fn(frame);
 	}
 	linkedlist_unlock(list);
+	current_thread->econtext = oldec;
 }
 
 void kernel_interrupt_postack(struct interrupt_frame *frame)

@@ -16,6 +16,12 @@ enum thread_state {
 
 #define THREAD_SCHEDULE 1
 
+#define ECONTEXT_USER      0
+#define ECONTEXT_KERNEL    1
+#define ECONTEXT_DEBUG     2
+#define ECONTEXT_INTERRUPT 4
+#define ECONTEXT_FAULT     8
+
 struct thread {
 	void *kernel_stack;
 	void *stack_pointer;
@@ -23,6 +29,8 @@ struct thread {
 	unsigned long id;
 	_Atomic int flags;
 	enum thread_state state;
+	_Atomic int econtext;
+	int oldec;
 	
 	struct processor *processor;
 	struct vm_context *ctx;
