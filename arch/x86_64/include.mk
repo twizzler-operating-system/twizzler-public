@@ -1,13 +1,13 @@
 
-ifneq ($(CONFIG_MACHINE),riscv)
-$(error "Architecture riscv64 supports machines: riscv")
+ifneq ($(CONFIG_MACHINE),pc)
+$(error "Architecture x86_64 supports machines: pc")
 endif
 
 ARCH_KERNEL_SUPPORT=FEATURE_SUPPORTED_UNWIND
 
-QEMU=qemu-system-riscv64 -kernel $(TOOLCHAIN_PATH)/riscv64-unknown-elf/bin/bbl -append $(BUILDDIR)/kernel
-TOOLCHAIN_PREFIX=riscv64-unknown-linux-gnu-
-C_SOURCES+=$(addprefix arch/$(ARCH)/,init.c interrupt.c thread.c processor.c memory.c)
+QEMU=qemu-system-x86_64 -kernel $(BUILDDIR)/kernel
+TOOLCHAIN_PREFIX=x86_64-pc-elf-
+C_SOURCES+=$(addprefix arch/$(ARCH)/,init.c)
 ASM_SOURCES+=$(addprefix arch/$(ARCH)/,start.S ctx.S)
 $(BUILDDIR)/link.ld: arch/$(ARCH)/link.ld.in machine/$(MACHINE)/include/machine/memory.h
 	@echo "[GEN] $@"

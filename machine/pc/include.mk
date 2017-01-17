@@ -1,4 +1,4 @@
-ifneq ($(CONFIG_ARCH),riscv64)
-$(error "Machine riscv supports architectures: riscv64")
+ifneq ($(CONFIG_ARCH),x86_64)
+$(error "Machine pc supports architectures: x86_64")
 endif
 

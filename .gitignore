@@ -1,2 +1,3 @@
 projects/*/build
 .lvimrc
+.toolchains
