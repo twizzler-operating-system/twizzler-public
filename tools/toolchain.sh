@@ -22,7 +22,7 @@ GCCVER=6.3.0
 wget ftp://ftp.gnu.org/gnu/binutils/binutils-${BINUTILSVER}.tar.bz2
 wget ftp://ftp.gnu.org/gnu/gcc/gcc-${GCCVER}/gcc-${GCCVER}.tar.bz2
 
-tar xf binutils-${BINTUILSVER}.tar.bz2
+tar xf binutils-${BINUTILSVER}.tar.bz2
 tar xf gcc-${GCCVER}.tar.bz2
 
 mkdir build-binutils build-gcc
