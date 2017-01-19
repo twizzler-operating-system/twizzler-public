@@ -18,25 +18,18 @@ void interrupt_unregister_handler(int vector, struct interrupt_handler *handler)
 	linkedlist_remove(&handlers[vector], &handler->entry);
 }
 
-void kernel_interrupt_entry(struct interrupt_frame *frame)
+void kernel_interrupt_entry(void)
 {
-	int oldec = atomic_fetch_or(&current_thread->econtext, ECONTEXT_INTERRUPT);
-	struct linkedlist *list = &handlers[interrupt_vector(frame)];
+#warning "TODO"
+	struct linkedlist *list = &handlers[0]; //todo
 	linkedlist_lock(list);
 	struct linkedentry *entry;
 	for(entry = linkedlist_iter_start(list);
 			entry != linkedlist_iter_end(list);
 			entry = linkedlist_iter_next(entry)) {
 		struct interrupt_handler *h = linkedentry_obj(entry);
-		h->fn(frame);
+		//h->fn(frame);
 	}
 	linkedlist_unlock(list);
-	current_thread->econtext = oldec;
-}
-
-void kernel_interrupt_postack(struct interrupt_frame *frame)
-{
-	if(current_thread->flags & THREAD_SCHEDULE)
-		preempt();
 }
 

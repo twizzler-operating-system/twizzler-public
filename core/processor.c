@@ -12,7 +12,6 @@ static void _proc_create(void *o)
 	struct processor *proc = o;
 	linkedlist_create(&proc->runqueue, LINKEDLIST_LOCKLESS);
 	proc->sched_lock = SPINLOCK_INIT;
-	workqueue_create(&proc->wq);
 }
 
 struct slab_allocator so_processor = SLAB_ALLOCATOR(sizeof(struct processor), 64, _proc_create, NULL, NULL, NULL);
@@ -66,7 +65,7 @@ void processor_perproc_init(struct processor *proc)
 		/* bootstrap processor */
 		proc = proc_bsp;
 	}
-	thread_initialize_processor(proc);
+	//thread_initialize_processor(proc);
 	arch_interrupt_set(true);
 }
 

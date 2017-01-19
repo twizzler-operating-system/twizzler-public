@@ -33,7 +33,7 @@ static void post_init_calls_execute(void)
 static void kernel_test_thread(void)
 {
 	while(true) {
-		printk("%ld", current_thread->id);
+		//printk("%ld", current_thread->id);
 	}
 }
 
@@ -47,18 +47,11 @@ void foo()
 	bar();
 }
 
-static void kernel_init_thread(void)
-{
-	printk("kernel init thread reached\n");
-	foo();
-	thread_exit();
-}
-
 void kernel_idle(void)
 {
 	printk("reached idle state\n");
 	while(true) {
-		schedule();
+		//schedule();
 	}
 }
 
@@ -80,7 +73,7 @@ void kernel_main(void)
 	post_init_calls_execute();
 
 	processor_perproc_init(NULL);
-	processor_attach_thread(current_thread->processor, thread_create(kernel_init_thread, NULL));
+	//processor_attach_thread(current_thread->processor, thread_create(kernel_init_thread, NULL));
 	kernel_idle();
 }
 

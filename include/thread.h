@@ -16,28 +16,17 @@ enum thread_state {
 
 #define THREAD_SCHEDULE 1
 
-#define ECONTEXT_USER      0
-#define ECONTEXT_KERNEL    1
-#define ECONTEXT_DEBUG     2
-#define ECONTEXT_INTERRUPT 4
-#define ECONTEXT_FAULT     8
-
 struct thread {
-	void *kernel_stack;
-	void *stack_pointer;
 	struct ref ref;
 	unsigned long id;
 	_Atomic int flags;
 	enum thread_state state;
-	_Atomic int econtext;
-	int oldec;
 	
 	struct processor *processor;
 	struct vm_context *ctx;
 
 	struct hashelem elem;
 	struct linkedentry entry;
-	struct task del_task;
 };
 
 void arch_thread_switchto(struct thread *old, struct thread *new);
@@ -48,40 +37,7 @@ struct thread *thread_lookup(unsigned long id);
 struct thread *thread_create(void *jump, void *arg);
 _Noreturn void thread_exit(void);
 
-#define current_thread arch_thread_get_current()
-
 void thread_initialize_processor(struct processor *proc);
 
 void schedule(void);
-void preempt(void);
-
-/* blocking */
-
-enum block_result {
-	BLOCKRES_BLOCKED,
-	BLOCKRES_UNBLOCKED,
-	BLOCKRES_TIMEOUT,
-	BLOCKRES_INTERRUPT,
-};
-
-#define BLOCKPOINT_UNINTERRUPT 1
-
-struct blocklist {
-	struct spinlock lock;
-	struct linkedlist list;
-};
-
-struct blockpoint {
-	struct blocklist *blocklist;
-	struct thread *thread;
-	int flags;
-	enum block_result result;
-	struct linkedentry entry;
-};
-
-enum block_result blockpoint_cleanup(struct blockpoint *bp);
-void blocklist_wake(struct blocklist *bl, int n);
-void blocklist_attach(struct blocklist *bl, struct blockpoint *bp);
-void blockpoint_create(struct blockpoint *bp, int);
-void blocklist_create(struct blocklist *bl);
 

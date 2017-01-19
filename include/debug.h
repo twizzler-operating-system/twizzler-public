@@ -17,7 +17,7 @@ __attribute__ ((format (printf, 4, 5))) _Noreturn void __panic(const char *file,
 #endif
 
 #include <interrupt.h>
-void kernel_debug_entry(struct interrupt_frame *frame);
+void kernel_debug_entry(void);
 
 #if FEATURE_SUPPORTED_UNWIND
 struct frame {

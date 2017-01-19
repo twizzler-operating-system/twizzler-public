@@ -41,11 +41,6 @@ ASM_SOURCES=
 
 OBJECTS=$(addprefix $(BUILDDIR)/,$(ASM_SOURCES:.S=.o) $(C_SOURCES:.c=.o))
 
-CRTBEGIN=$(shell $(TOOLCHAIN_PATH)/bin/$(TOOLCHAIN_PREFIX)gcc -print-file-name=crtbegin.o)
-CRTEND=$(shell $(TOOLCHAIN_PATH)/bin/$(TOOLCHAIN_PREFIX)gcc -print-file-name=crtend.o)
-CRTI=$(shell $(TOOLCHAIN_PATH)/bin/$(TOOLCHAIN_PREFIX)gcc -print-file-name=crti.o)
-CRTN=$(shell $(TOOLCHAIN_PATH)/bin/$(TOOLCHAIN_PREFIX)gcc -print-file-name=crtn.o)
-
 all: $(BUILDDIR)/kernel
 
 include arch/$(ARCH)/include.mk
@@ -57,7 +52,16 @@ FEATURE_FLAGS=$(addprefix -D,$(addsuffix =1,$(ARCH_KERNEL_SUPPORT)))
 CFLAGS+=$(FEATURE_FLAGS)
 ASFLAGS+=$(FEATURE_FLAGS)
 
--include $(OBJECTS:.o=.d)
+CRTBEGIN=$(shell $(TOOLCHAIN_PATH)/bin/$(TOOLCHAIN_PREFIX)gcc -print-file-name=crtbegin.o)
+CRTEND=$(shell $(TOOLCHAIN_PATH)/bin/$(TOOLCHAIN_PREFIX)gcc -print-file-name=crtend.o)
+ifeq ($(CRTI),)
+CRTI=$(shell $(TOOLCHAIN_PATH)/bin/$(TOOLCHAIN_PREFIX)gcc -print-file-name=crti.o)
+endif
+ifeq ($(CRTN),)
+CRTN=$(shell $(TOOLCHAIN_PATH)/bin/$(TOOLCHAIN_PREFIX)gcc -print-file-name=crtn.o)
+endif
+
+-include $(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d)
 
 test: $(BUILDDIR)/kernel
 	$(QEMU) $(QEMU_FLAGS) -serial stdio

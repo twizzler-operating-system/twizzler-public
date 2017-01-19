@@ -8,8 +8,7 @@ struct interrupt_handler {
 	struct linkedentry entry;
 };
 
-void kernel_interrupt_postack(struct interrupt_frame *frame);
-void kernel_interrupt_entry(struct interrupt_frame *frame);
+void kernel_interrupt_entry(void);
 void interrupt_unregister_handler(int vector, struct interrupt_handler *handler);
 void interrupt_register_handler(int vector, struct interrupt_handler *handler);
 static inline void __interrupt_scoped_destruct(bool *set)
