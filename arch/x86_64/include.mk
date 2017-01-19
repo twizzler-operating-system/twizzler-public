@@ -8,7 +8,7 @@ ARCH_KERNEL_SUPPORT=FEATURE_SUPPORTED_UNWIND
 CFLAGS+=-mno-red-zone -mno-sse -mcmodel=kernel -mno-avx
 LDFLAGS+=-mcmodel=kernel -Wl,-z,max-page-size=4096
 
-QEMU=qemu-system-x86_64 -kernel $(BUILDDIR)/kernel
+QEMU=qemu-system-x86_64 -enable-kvm -kernel $(BUILDDIR)/kernel
 TOOLCHAIN_PREFIX=x86_64-pc-elf-
 C_SOURCES+=$(addprefix arch/$(ARCH)/,init.c processor.c memory.c debug.c)
 ASM_SOURCES+=$(addprefix arch/$(ARCH)/,start.S ctx.S)
