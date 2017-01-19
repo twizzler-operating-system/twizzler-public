@@ -37,7 +37,9 @@ $(BUILDDIR)/kernel.stage1: $(CRTI) $(CRTN)
 $(BUILDDIR)/kernel: $(CRTI) $(CRTN)
 
 bootiso: $(BUILDDIR)/kernel
-	cd $(BUILDDIR); grub-mkrescue -o boot.iso kernel
+	@mkdir -p $(BUILDDIR)/boot/grub
+	@cp machine/pc/grub.cfg $(BUILDDIR)/boot/grub
+	cd $(BUILDDIR); grub-mkrescue -o boot.iso kernel .
 
 test-bochs: bootiso
 	bochs -f machine/pc/bochsrc.txt

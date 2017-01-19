@@ -8,5 +8,5 @@ CONFIG_MACHINE=pc
 CONFIG_UBSAN=n
 
 # set this to your toolchain path
-TOOLCHAIN_PATH=/path/to/toolchain/here
+TOOLCHAIN_PATH=/home/dbittman/code/twizzler-kernel/toolchain/x86_64
 
