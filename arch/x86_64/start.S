@@ -15,6 +15,7 @@
 .code32
 .global _start
 _start:
+	mov $0x1234, %eax
     jmp real_start
 
 .align 8
@@ -46,6 +47,7 @@ multiboot_header:
 
 
 real_start:
+	mov $0x5678, %eax
 	jmp .
 
 .section .bss
