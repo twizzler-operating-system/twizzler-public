@@ -11,10 +11,7 @@ struct processor;
 enum thread_state {
 	THREADSTATE_RUNNING,
 	THREADSTATE_BLOCKED,
-	THREADSTATE_DEAD,
 };
-
-#define THREAD_SCHEDULE 1
 
 struct thread {
 	struct ref ref;
@@ -29,7 +26,6 @@ struct thread {
 	struct linkedentry entry;
 };
 
-void arch_thread_switchto(struct thread *old, struct thread *new);
 void arch_thread_start(struct thread *thread, void *jump, void *arg);
 void arch_thread_initialize(struct thread *idle);
 

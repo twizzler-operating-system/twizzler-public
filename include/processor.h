@@ -12,12 +12,13 @@
 #define PROCESSOR_BSP    4
 
 struct processor {
+	struct arch_processor arch;
 	struct linkedlist runqueue;
 	struct spinlock sched_lock;
 	_Atomic int flags;
 	unsigned long id;
 
-	void *initial_stack;
+	void *kernel_stack;
 	struct hashelem elem;
 };
 

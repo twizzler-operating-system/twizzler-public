@@ -29,6 +29,10 @@ SECTIONS
     	KEEP (*(SORT(.dtors.*)))
     	KEEP (*(.dtors))
   	}
+
+	.init : {*(.init)}
+	.fini : {*(.fini)}
+
 	.data : ALIGN(0x1000) {
 		kernel_data_start = .;
 		*(.data*)

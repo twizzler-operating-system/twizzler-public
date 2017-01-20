@@ -209,6 +209,7 @@ gdtdesc_virt:
     .quad      gdtable
 
 .align 8
+.global gdtable
 gdtable:
     .word      0, 0                    # null segment
     .byte      0, 0, 0, 0

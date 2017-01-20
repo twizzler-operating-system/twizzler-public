@@ -27,9 +27,9 @@ void processor_register(bool bsp, unsigned long id)
 		assert(proc_bsp == NULL);
 		proc->flags = PROCESSOR_BSP;
 		proc_bsp = proc;
-		proc->initial_stack = &initial_boot_stack;
+		proc->kernel_stack = &initial_boot_stack;
 	} else {
-		proc->initial_stack = (void *)mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_ANY, true);
+		proc->kernel_stack = (void *)mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_ANY, true);
 	}
 	hash_insert(&processors, &proc->id, sizeof(proc->id), &proc->elem, proc);
 }
@@ -65,8 +65,7 @@ void processor_perproc_init(struct processor *proc)
 		/* bootstrap processor */
 		proc = proc_bsp;
 	}
-	//thread_initialize_processor(proc);
-	arch_interrupt_set(true);
+	arch_processor_init(proc);
 }
 
 void kernel_idle(void);
