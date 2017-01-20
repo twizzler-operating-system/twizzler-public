@@ -36,7 +36,7 @@ multiboot_header:
     /* header_addr */
     .int PHYS(multiboot_header)
     /* load_addr */
-    .int PHYS(_start)
+    .int PHYS(kernel_start)
     /* load_end_addr */
     .int PHYS(kernel_data_end)
     /* bss_end_addr */
@@ -58,6 +58,7 @@ _start:
     	addl $4, %edi
 	    loop .Lbss
 
+	movl %ebx, PHYS(multiboot_ptr_save)
 
 init_paging:
 	/* 1 - 1 mapping for lower */
@@ -131,6 +132,40 @@ _start_64:
 
 	mov  $(initial_boot_stack + KERNEL_STACK_SIZE), %rsp
 
+	/* fill out the physical mapping */
+	xorq %rax, %rax
+	movq $(32*1024), %rcx
+	movq $boot_phys_mapping, %rdi
+
+	.Lfill_map:
+		movq %rax, %rbx
+		shlq $21, %rbx
+		orq $0x83, %rbx
+		movq %rbx, (%rdi)
+		addq $8, %rdi
+		inc %rax
+		loop .Lfill_map
+
+	movq $boot_pdpt_high, %rdi
+	movq $64, %rcx
+	movq $PHYS(boot_phys_mapping), %rax
+	orq $0x3, %rax
+
+	.Lwrite_map_entries:
+		movq %rax, (%rdi)
+		addq $8, %rdi
+		addq $0x1000, %rax
+		loop .Lwrite_map_entries
+	
+	/* flush */
+	movq %cr3, %rax
+	movq %rax, %cr3
+
+	xorq %rdi, %rdi
+	movl multiboot_ptr_save, %edi
+	movq $0xFFFFFF8000000000, %rax
+	addq %rax, %rdi
+
 	call x86_64_init
 
 	jmp . // hang
@@ -155,6 +190,11 @@ boot_pdpt_high:
 boot_pd:
 	.skip 0x1000
 
+boot_phys_mapping:
+	.skip 8 * (32 * 1024) // 64GB / 2MB
+
+multiboot_ptr_save:
+	.skip 4
 
 .section .data
 .align 8

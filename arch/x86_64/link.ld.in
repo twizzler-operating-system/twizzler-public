@@ -2,9 +2,9 @@ ENTRY(_start)
 OUTPUT_FORMAT("elf64-x86-64")
 SECTIONS
 {
-	. = %KERNEL_VIRTUAL_BASE% + %KERNEL_PHYSICAL_BASE%;
-	kernel_start = .;
+	. = %KERNEL_VIRTUAL_BASE% + %KERNEL_LOAD_OFFSET%;
 	. += SIZEOF_HEADERS;
+	kernel_start = .;
 	.text : AT(%KERNEL_PHYSICAL_BASE% + %KERNEL_LOAD_OFFSET%) ALIGN(0x1000)
 	{
 		*(.boot)
