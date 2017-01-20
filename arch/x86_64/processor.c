@@ -2,11 +2,7 @@
 
 void arch_processor_enumerate()
 {
-	processor_register(true, 0);
+	/* this is handled by initializers in madt.c */
 }
 
-void arch_processor_boot(struct processor *proc)
-{
-
-}
 

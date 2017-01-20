@@ -34,7 +34,7 @@ void processor_register(bool bsp, unsigned long id)
 	hash_insert(&processors, &proc->id, sizeof(proc->id), &proc->elem, proc);
 }
 
-__initializer static void processor_init(void)
+__orderedinitializer(PROCESSR_INITIALIZER_ORDER) static void processor_init(void)
 {
 	hash_create(&processors, 64, 0);
 	arch_processor_enumerate();
@@ -71,6 +71,7 @@ void processor_perproc_init(struct processor *proc)
 void kernel_idle(void);
 void processor_secondary_entry(struct processor *proc)
 {
+	proc->flags |= PROCESSOR_UP;
 	processor_perproc_init(proc);
 	kernel_idle();
 }

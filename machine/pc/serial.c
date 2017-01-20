@@ -22,13 +22,17 @@ static void serial_putc(unsigned char byte)
 	x86_64_outb(PORT, byte);
 }
 
+#include <spinlock.h>
+static struct spinlock _lock = SPINLOCK_INIT;
 void debug_puts(char *s)
 {
+	spinlock_acquire(&_lock);
 	while(*s) {
 		serial_putc(*s);
 		if(*s == '\n')
 			serial_putc('\r');
 		s++;
 	}
+	spinlock_release(&_lock);
 }
 

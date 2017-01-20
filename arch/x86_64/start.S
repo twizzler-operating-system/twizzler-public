@@ -178,6 +178,7 @@ initial_boot_stack:
 __stack_top:
 
 .align 0x1000
+.global boot_pml4
 boot_pml4:
 	.skip 0x1000
 
@@ -198,12 +199,14 @@ multiboot_ptr_save:
 
 .section .data
 .align 8
+.global gdtdesc
 gdtdesc:
     .word      0x47
     .long      PHYS(gdtable)
     .long      0
 
 .align 8
+.global gdtdesc_virt
 gdtdesc_virt:
     .word      0x47
     .quad      gdtable

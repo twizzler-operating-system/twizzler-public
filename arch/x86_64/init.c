@@ -5,8 +5,11 @@ void serial_init();
 
 extern void _init();
 uint64_t x86_64_top_mem;
+extern void idt_init(void);
+extern void idt_init_secondary(void);
 void x86_64_init(struct multiboot *mth)
 {
+	idt_init();
 	serial_init();
 
 	if(!(mth->flags & MULTIBOOT_FLAG_MEM))
@@ -18,6 +21,14 @@ void x86_64_init(struct multiboot *mth)
 	kernel_early_init();
 	_init();
 	kernel_main();
+}
+
+void x86_64_cpu_secondary_entry(struct processor *proc)
+{
+	idt_init_secondary();
+	x86_64_lapic_init_percpu();
+	assert(proc != NULL);
+	processor_secondary_entry();
 }
 
 #include <processor.h>

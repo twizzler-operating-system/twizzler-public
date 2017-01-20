@@ -11,6 +11,8 @@
 #define PROCESSOR_ACTIVE 2
 #define PROCESSOR_BSP    4
 
+#define PROCESSR_INITIALIZER_ORDER 0
+
 struct processor {
 	struct arch_processor arch;
 	struct linkedlist runqueue;

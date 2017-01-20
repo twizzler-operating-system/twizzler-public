@@ -36,4 +36,14 @@ int memcmp(const void* ptr1, const void* ptr2, size_t num) {
     return 0;
 }
 
+int strncmp(const char *s1, const char *s2, size_t n)
+{
+	while(n) {
+		if(*s1 > *s2) return 1;
+		else if(*s1 < *s2) return -1;
+		else if(!*s1 && !*s2) return 0;
+		s1++; s2++; n--;
+	}
+	return 0;
+}
 
