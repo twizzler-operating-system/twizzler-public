@@ -1,12 +1,51 @@
 #include <machine/pc-multiboot.h>
 #include <machine/memory.h>
 #include <debug.h>
+#include <arch/x86_64-msr.h>
 void serial_init();
 
 extern void _init();
 uint64_t x86_64_top_mem;
 extern void idt_init(void);
 extern void idt_init_secondary(void);
+
+static void proc_init(void)
+{
+	uint64_t cr0, cr4;
+	asm volatile("finit");
+	asm volatile("mov %%cr0, %0" : "=r"(cr0));
+	cr0 |= (1 << 2);
+	cr0 |= (1 << 5);
+	cr0 |= (1 << 1);
+	cr0 |= (1 << 16);
+	cr0 &= ~(1 << 30); // make sure caching is on
+	asm volatile("mov %0, %%cr0" :: "r"(cr0));
+	
+	
+	asm volatile("mov %%cr4, %0" : "=r"(cr4));
+	//cr4 |= (1 << 7); //enable page global TODO: get this to work
+	cr4 |= (1 << 10); //enable fast fxsave etc, sse
+	/* TODO: bit 16 of CR4 enables wrfsbase etc instructions.
+	 * But we need to check CPUID before using them. */
+	//cr4 |= (1 << 16); //enable wrfsbase etc
+	asm volatile("mov %0, %%cr4" :: "r"(cr4));
+
+
+
+	x86_64_wrmsr(X86_MSR_GS_BASE, 0x87654321, 0);
+	x86_64_wrmsr(X86_MSR_KERNEL_GS_BASE, 0x12345678, 0);
+	asm volatile("swapgs");
+
+	uint32_t lo, hi;
+	uint32_t klo, khi;
+	x86_64_rdmsr(X86_MSR_GS_BASE, &lo, &hi);
+	x86_64_rdmsr(X86_MSR_KERNEL_GS_BASE, &klo, &khi);
+	printk(":: %x %x\n", lo, hi);
+	printk("::k %x %x\n", klo, khi);
+
+	for(;;);
+}
+
 void x86_64_init(struct multiboot *mth)
 {
 	idt_init();
@@ -20,12 +59,14 @@ void x86_64_init(struct multiboot *mth)
 
 	kernel_early_init();
 	_init();
+	proc_init();
 	kernel_main();
 }
 
 void x86_64_cpu_secondary_entry(struct processor *proc)
 {
 	idt_init_secondary();
+	proc_init();
 	x86_64_lapic_init_percpu();
 	assert(proc != NULL);
 	processor_secondary_entry();
