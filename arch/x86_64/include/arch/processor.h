@@ -43,8 +43,10 @@ struct x86_64_gdt_entry
 	uint8_t  base_high; 
 } __attribute__((packed));
 
-
 struct arch_processor {
+	void *scratch_sp;
+	void *tcb;
+	void *kernel_stack;
 	_Alignas(16) struct x86_64_tss tss;
 	_Alignas(16) struct x86_64_gdt_entry gdt[8];
 	_Alignas(16) struct __attribute__((packed)) {

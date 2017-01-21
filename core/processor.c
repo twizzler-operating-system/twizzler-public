@@ -27,14 +27,11 @@ void processor_register(bool bsp, unsigned long id)
 		assert(proc_bsp == NULL);
 		proc->flags = PROCESSOR_BSP;
 		proc_bsp = proc;
-		proc->kernel_stack = &initial_boot_stack;
-	} else {
-		proc->kernel_stack = (void *)mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_ANY, true);
 	}
 	hash_insert(&processors, &proc->id, sizeof(proc->id), &proc->elem, proc);
 }
 
-__orderedinitializer(PROCESSR_INITIALIZER_ORDER) static void processor_init(void)
+__orderedinitializer(PROCESSOR_INITIALIZER_ORDER) static void processor_init(void)
 {
 	hash_create(&processors, 64, 0);
 	arch_processor_enumerate();

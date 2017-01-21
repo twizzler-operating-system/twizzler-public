@@ -32,9 +32,10 @@ static void proc_init(void)
 
 
 
-	x86_64_wrmsr(X86_MSR_GS_BASE, 0x87654321, 0);
-	x86_64_wrmsr(X86_MSR_KERNEL_GS_BASE, 0x12345678, 0);
-	asm volatile("swapgs");
+	uint64_t tmp = 0x556677;
+	x86_64_wrmsr(X86_MSR_GS_BASE, (uint32_t)&tmp, (uint32_t)((uintptr_t)&tmp >> 32));
+	x86_64_wrmsr(X86_MSR_KERNEL_GS_BASE, (uint32_t)&tmp, (uint32_t)((uintptr_t)&tmp >> 32));
+	//asm volatile("swapgs");
 
 	uint32_t lo, hi;
 	uint32_t klo, khi;
@@ -42,6 +43,11 @@ static void proc_init(void)
 	x86_64_rdmsr(X86_MSR_KERNEL_GS_BASE, &klo, &khi);
 	printk(":: %x %x\n", lo, hi);
 	printk("::k %x %x\n", klo, khi);
+
+
+	uint64_t x, a;
+	asm volatile("movq %%gs:0, %0 ; pushq %%gs:0; popq %1" : "=r"(x), "=r"(a));
+	printk(" --> %lx %lx\n", x, a);
 
 	for(;;);
 }
@@ -111,9 +117,13 @@ void x86_64_gdt_init(struct processor *proc)
 	asm volatile("lgdt (%0)" :: "r"(&proc->arch.gdtptr));
 }
 
+extern int initial_boot_stack;
 void arch_processor_init(struct processor *proc)
 {
 	x86_64_gdt_init(proc);
 	x86_64_tss_init(proc);
+	if(proc->flags & PROCESSOR_BSP) {
+		proc->arch.kernel_stack = &initial_boot_stack;
+	}
 }
 

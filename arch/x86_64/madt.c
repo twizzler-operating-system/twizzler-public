@@ -23,7 +23,7 @@ struct __attribute__((packed)) lapic_entry {
 
 static struct madt_desc *madt;
 
-__orderedinitializer(MADT_INITIALIZER_ORDER + __orderedafter(PROCESSR_INITIALIZER_ORDER))
+__orderedinitializer(MADT_INITIALIZER_ORDER + __orderedafter(PROCESSOR_INITIALIZER_ORDER))
 static void madt_init(void)
 {
 	madt = acpi_find_table("APIC");
