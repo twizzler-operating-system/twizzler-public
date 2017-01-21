@@ -106,11 +106,12 @@ void x86_64_gdt_init(struct processor *proc)
 
 void user_test()
 {
+	asm volatile("movq $0x1234, %%rax ; syscall; " ::: "rax");
 	for(;;);
 }
 
 extern int initial_boot_stack;
-extern void x86_64_syscall_entry();
+extern void x86_64_syscall_entry_from_userspace();
 void arch_processor_init(struct processor *proc)
 {
 	x86_64_gdt_init(proc);
@@ -118,6 +119,11 @@ void arch_processor_init(struct processor *proc)
 	if(proc->flags & PROCESSOR_BSP) {
 		proc->arch.kernel_stack = &initial_boot_stack;
 	}
+
+	/* save GS kernel base */
+	uint64_t gs = (uint64_t)&proc->arch;
+	x86_64_wrmsr(X86_MSR_GS_BASE, gs & 0xFFFFFFFF, gs >> 32);
+	x86_64_wrmsr(X86_MSR_KERNEL_GS_BASE, gs & 0xFFFFFFFF, gs >> 32);
 
 	/* okay, now set up the registers for fast syscall.
 	 * This means storing x86_64_syscall_entry to LSTAR,
@@ -131,8 +137,8 @@ void arch_processor_init(struct processor *proc)
 	x86_64_wrmsr(X86_MSR_STAR, lo, hi);
 
 	/* LSTAR: contains kernel entry point for syscall */
-	lo = (uintptr_t)(&x86_64_syscall_entry) & 0xFFFFFFFF;
-	hi = ((uintptr_t)(&x86_64_syscall_entry) >> 32) & 0xFFFFFFFF;
+	lo = (uintptr_t)(&x86_64_syscall_entry_from_userspace) & 0xFFFFFFFF;
+	hi = ((uintptr_t)(&x86_64_syscall_entry_from_userspace) >> 32) & 0xFFFFFFFF;
 	x86_64_wrmsr(X86_MSR_LSTAR, lo, hi);
 
 	/* SFMASK contains mask for eflags. Each bit set in SFMASK will
