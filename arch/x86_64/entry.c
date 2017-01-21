@@ -1,4 +1,5 @@
 #include <processor.h>
+#include <thread.h>
 
 struct __attribute__((packed)) arch_exception_frame
 {
@@ -6,11 +7,6 @@ struct __attribute__((packed)) arch_exception_frame
 	uint64_t int_no, err_code;
 	uint64_t rip, cs, rflags, userrsp, ss;
 };
-
-struct __attribute__((packed)) x86_64_syscall_frame {
-	uint64_t r10, r9, r8, rdx, rsi, rdi, rax, r11, rcx, rsp, cs;
-};
-
 void x86_64_exception_entry(struct arch_exception_frame *frame)
 {
 	/*if(frame->int_no < 32) {
@@ -27,5 +23,13 @@ void x86_64_exception_entry(struct arch_exception_frame *frame)
 
 void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 {
+}
+
+extern void x86_64_resume_userspace(void *);
+void x86_64_resume(struct thread *thread)
+{
+	printk("resuming thread!\n");
+	thread->processor->arch.tcb = &thread->arch.tcb;
+	x86_64_resume_userspace(&thread->arch.tcb);
 }
 

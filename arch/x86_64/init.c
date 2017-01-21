@@ -19,6 +19,7 @@ static void proc_init(void)
 	cr0 |= (1 << 1);
 	cr0 |= (1 << 16);
 	cr0 &= ~(1 << 30); // make sure caching is on
+	cr0 &= ~(1 << 29); // make sure caching is on
 	asm volatile("mov %0, %%cr0" :: "r"(cr0));
 	
 	
@@ -30,32 +31,19 @@ static void proc_init(void)
 	//cr4 |= (1 << 16); //enable wrfsbase etc
 	asm volatile("mov %0, %%cr4" :: "r"(cr4));
 
-
-
-	uint64_t tmp = 0x556677;
-	x86_64_wrmsr(X86_MSR_GS_BASE, (uint32_t)&tmp, (uint32_t)((uintptr_t)&tmp >> 32));
-	x86_64_wrmsr(X86_MSR_KERNEL_GS_BASE, (uint32_t)&tmp, (uint32_t)((uintptr_t)&tmp >> 32));
-	//asm volatile("swapgs");
-
+	/* enable fast syscall extension */
 	uint32_t lo, hi;
-	uint32_t klo, khi;
-	x86_64_rdmsr(X86_MSR_GS_BASE, &lo, &hi);
-	x86_64_rdmsr(X86_MSR_KERNEL_GS_BASE, &klo, &khi);
-	printk(":: %x %x\n", lo, hi);
-	printk("::k %x %x\n", klo, khi);
+	x86_64_rdmsr(X86_MSR_EFER, &lo, &hi);
+	lo |= X86_MSR_EFER_SYSCALL;
+	x86_64_wrmsr(X86_MSR_EFER, lo, hi);
 
-
-	uint64_t x, a;
-	asm volatile("movq %%gs:0, %0 ; pushq %%gs:0; popq %1" : "=r"(x), "=r"(a));
-	printk(" --> %lx %lx\n", x, a);
-
-	for(;;);
 }
 
 void x86_64_init(struct multiboot *mth)
 {
 	idt_init();
 	serial_init();
+	proc_init();
 
 	if(!(mth->flags & MULTIBOOT_FLAG_MEM))
 		panic("don't know how to detect memory!");
@@ -65,7 +53,6 @@ void x86_64_init(struct multiboot *mth)
 
 	kernel_early_init();
 	_init();
-	proc_init();
 	kernel_main();
 }
 
@@ -117,7 +104,13 @@ void x86_64_gdt_init(struct processor *proc)
 	asm volatile("lgdt (%0)" :: "r"(&proc->arch.gdtptr));
 }
 
+void user_test()
+{
+	for(;;);
+}
+
 extern int initial_boot_stack;
+extern void x86_64_syscall_entry();
 void arch_processor_init(struct processor *proc)
 {
 	x86_64_gdt_init(proc);
@@ -125,5 +118,34 @@ void arch_processor_init(struct processor *proc)
 	if(proc->flags & PROCESSOR_BSP) {
 		proc->arch.kernel_stack = &initial_boot_stack;
 	}
+
+	/* okay, now set up the registers for fast syscall.
+	 * This means storing x86_64_syscall_entry to LSTAR,
+	 * the EFLAGS mask to SFMASK, and the CS kernel segment
+	 * to STAR. */
+
+	
+	/* STAR: bits 32-47 are kernel CS, 48-63 are user CS. */
+	uint32_t lo = 0, hi;
+	hi = (0x1bull << 16) | 0x08;
+	x86_64_wrmsr(X86_MSR_STAR, lo, hi);
+
+	/* LSTAR: contains kernel entry point for syscall */
+	lo = (uintptr_t)(&x86_64_syscall_entry) & 0xFFFFFFFF;
+	hi = ((uintptr_t)(&x86_64_syscall_entry) >> 32) & 0xFFFFFFFF;
+	x86_64_wrmsr(X86_MSR_LSTAR, lo, hi);
+
+	/* SFMASK contains mask for eflags. Each bit set in SFMASK will
+	 * be cleared in eflags on syscall */
+	/*      TF         IF          DF        IOPL0       IOPL1         NT         AC */
+	lo = (1 << 8) | (1 << 9) | (1 << 10) | (1 << 12) | (1 << 13) | (1 << 14) | (1 << 18);
+	hi = 0;
+	x86_64_wrmsr(X86_MSR_SFMASK, lo, hi);
+
+	struct thread thread;
+	asm("cli");
+	thread.processor = proc;
+	thread.arch.tcb.rcx = &user_test;
+	x86_64_resume(&thread);
 }
 

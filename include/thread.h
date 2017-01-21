@@ -15,6 +15,7 @@ enum thread_state {
 
 struct thread {
 	struct ref ref;
+	struct arch_thread arch;
 	unsigned long id;
 	_Atomic int flags;
 	enum thread_state state;

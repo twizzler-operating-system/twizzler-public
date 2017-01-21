@@ -61,22 +61,23 @@ _start:
 	movl %ebx, PHYS(multiboot_ptr_save)
 
 init_paging:
+	/* TODO: don't map for user */
 	/* 1 - 1 mapping for lower */
 	movl $PHYS(boot_pdpt), %eax
-	orl $3, %eax
+	orl $7, %eax
 	movl %eax, PHYS(boot_pml4)
 
 	/* upper -2GB mapping */
 	movl $PHYS(boot_pdpt_high), %eax
-	orl $3, %eax
+	orl $7, %eax
 	movl %eax, PHYS(boot_pml4 + 8*511)
 
 	movl $PHYS(boot_pd), %eax
-	orl $3, %eax
+	orl $7, %eax
 	movl %eax, PHYS(boot_pdpt)
 
 	movl $PHYS(boot_pd), %eax
-    orl  $3, %eax
+    orl  $7, %eax
     movl %eax, PHYS(boot_pdpt_high + 8*510)
 	
 	mov $PHYS(boot_pd), %edi
@@ -85,7 +86,7 @@ init_paging:
 	.Lfill_pd1:
 		movl %eax, %ebx
 		shll $21, %ebx
-		orl $0x83, %ebx
+		orl $0x87, %ebx
 		movl %ebx, (%edi)
 		addl $8, %edi
 		inc %eax
@@ -140,7 +141,7 @@ _start_64:
 	.Lfill_map:
 		movq %rax, %rbx
 		shlq $21, %rbx
-		orq $0x83, %rbx
+		orq $0x87, %rbx
 		movq %rbx, (%rdi)
 		addq $8, %rdi
 		inc %rax
@@ -149,7 +150,7 @@ _start_64:
 	movq $boot_pdpt_high, %rdi
 	movq $64, %rcx
 	movq $PHYS(boot_phys_mapping), %rax
-	orq $0x3, %rax
+	orq $0x7, %rax
 
 	.Lwrite_map_entries:
 		movq %rax, (%rdi)

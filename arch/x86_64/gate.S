@@ -25,8 +25,10 @@ x86_64_syscall_entry:
 
 
 
+.global x86_64_resume_userspace
 /* _Noreturn void x86_64_resume_userspace(void *tcb); */
 x86_64_resume_userspace:
+	xchg %bx, %bx
 	cli
 	movq %rdi, %rsp
 
@@ -40,10 +42,12 @@ x86_64_resume_userspace:
 	popq %r11
 	popq %rcx
 	
-	bts $9, %r11 // set IF in EFLAGS
 
 	/* TODO: check if rcx is canonical */
+	//bts $9, %r11 // set IF in EFLAGS
+	and $~(0x200), %r11 // set IF in EFLAGS
+	
 
 	swapgs
-	sysret
+	sysretq
 
