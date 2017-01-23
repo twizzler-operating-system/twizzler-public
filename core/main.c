@@ -69,9 +69,17 @@ void kernel_early_init(void)
  * and per-node threading.
  */
 
+long _syscall(long num)
+{
+	long ret;
+	asm volatile("movq %1, %%rax ; syscall ; movq %%rax, %0 " :"=r"(ret):"r"(num):"r11", "rcx", "rax", "memory");
+	return ret;
+}
+
 void user_test(void *arg)
 {
-	for(;;) asm volatile("movq %0, %%rax ; syscall" :: "r"(arg) : "rax");
+	for(;;)
+		_syscall((long)arg);
 }
 
 struct thread t1, t2;
