@@ -109,7 +109,6 @@ ignore_handler:
 
 .extern x86_64_exception_entry
 isr_common:
-	//xchg %bx, %bx
 	PUSH_CONTEXT
 	movq %rsp, %rdi
 	testl $3, 144(%rsp) #test CPL for pushed CS desc
@@ -126,7 +125,6 @@ isr_common:
 kernel_exception:
 	movq $0, %rsi
 	call x86_64_exception_entry
-	//xchg %bx, %bx
 	RESTORE_CONTEXT
 	iretq
 
@@ -134,7 +132,6 @@ kernel_exception:
 .global x86_64_resume_userspace_interrupt
 /* _Noreturn void x86_64_resume_userspace_interrupt(void *frame); */
 x86_64_resume_userspace_interrupt:
-	//xchg %bx, %bx
 	movq %rdi, %rsp
 	RESTORE_CONTEXT
 	swapgs

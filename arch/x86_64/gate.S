@@ -22,16 +22,12 @@ x86_64_syscall_entry_from_userspace:
 	movq %gs:16, %rsp
 	addq $KERNEL_STACK_SIZE, %rsp
 
-	movq $0, %r8
 	call x86_64_syscall_entry
-	movq $0x4321, %rax
 
 
 .global x86_64_resume_userspace
 /* _Noreturn void x86_64_resume_userspace(void *tcb); */
 x86_64_resume_userspace:
-	xchg %bx, %bx
-	cli
 	movq %rdi, %rsp
 
 	popq %r10
@@ -45,11 +41,8 @@ x86_64_resume_userspace:
 	popq %rcx
 	popq %rsp
 	
-
 	/* TODO: check if rcx is canonical */
 	bts $9, %r11 // set IF in EFLAGS
-	//and $~(0x200), %r11 // set IF in EFLAGS
-	
 
 	swapgs
 	sysretq
