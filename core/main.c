@@ -68,12 +68,32 @@ void kernel_early_init(void)
  * kernel state between nodes have been initialized. Now initialize all application processors
  * and per-node threading.
  */
+
+void user_test(void *arg)
+{
+	for(;;) asm volatile("movq %0, %%rax ; syscall" :: "r"(arg) : "rax");
+}
+
+struct thread t1, t2;
+char us1[0x1000];
+char us2[0x1000];
+
 void kernel_main(void)
 {
 	post_init_calls_execute();
 
 	processor_perproc_init(NULL);
-	//processor_attach_thread(current_thread->processor, thread_create(kernel_init_thread, NULL));
+
+	t1.id = 1;
+	t2.id = 2;
+	arch_thread_init(&t1, user_test, (void *)1, us1);
+	arch_thread_init(&t2, user_test, (void *)2, us2);
+
+	processor_attach_thread(NULL, &t1);
+	processor_attach_thread(NULL, &t2);
+
+	thread_schedule_resume();
+
 	kernel_idle();
 }
 

@@ -10,19 +10,20 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 	printk("Interrupt! %d %lx (%p)\n", frame->int_no, frame->rip, &current_thread->processor->arch.curr);
 	x86_64_signal_eoi();
 	if(was_userspace) {
-		x86_64_resume(current_thread);
+		thread_schedule_resume();
 	}
 }
 
 void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 {
 	current_thread->arch.was_syscall = true;
-	x86_64_resume(current_thread);
+	printk("syscall! %lx\n", frame->rax);
+	thread_schedule_resume();
 }
 
 extern void x86_64_resume_userspace(void *);
 extern void x86_64_resume_userspace_interrupt(void *);
-void x86_64_resume(struct thread *thread)
+void arch_thread_resume(struct thread *thread)
 {
 	thread->processor->arch.curr = thread;
 	thread->processor->arch.tcb = (void *)((uint64_t)&thread->arch.syscall + sizeof(struct x86_64_syscall_frame));

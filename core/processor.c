@@ -75,8 +75,19 @@ void processor_secondary_entry(struct processor *proc)
 
 void processor_attach_thread(struct processor *proc, struct thread *thread)
 {
-	spinlock_guard(&proc->sched_lock);
+	/* TODO: do we need a lock here? */
+	//spinlock_guard(&proc->sched_lock);
+	if(proc == NULL) proc = proc_bsp; //TODO: get rid of this
 	thread->processor = proc;
 	linkedlist_insert(&proc->runqueue, &thread->entry, thread);
+}
+
+struct processor *processor_get_current(void)
+{
+	/* TODO: this wont work for SMP */
+	if(current_thread == NULL)
+		return proc_bsp;
+
+	return current_thread->processor;
 }
 

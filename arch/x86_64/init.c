@@ -104,14 +104,6 @@ void x86_64_gdt_init(struct processor *proc)
 	asm volatile("lgdt (%0)" :: "r"(&proc->arch.gdtptr));
 }
 
-char userstack[0x1000];
-struct thread thread;
-void user_test()
-{
-	asm volatile("movq $0x5678, %%r8 ; movq $0x1234, %%rax ; syscall; " ::: "rax");
-	for(;;);
-}
-
 extern int initial_boot_stack;
 extern void x86_64_syscall_entry_from_userspace();
 void arch_processor_init(struct processor *proc)
@@ -148,15 +140,15 @@ void arch_processor_init(struct processor *proc)
 	lo = (1 << 8) | (1 << 9) | (1 << 10) | (1 << 12) | (1 << 13) | (1 << 14) | (1 << 18);
 	hi = 0;
 	x86_64_wrmsr(X86_MSR_SFMASK, lo, hi);
+	proc->arch.curr = NULL;
+}
 
-	printk("proc kernel stack = %p\n", proc->arch.kernel_stack);
-	printk("thread = %p, gs = %llx %p\n", &thread, gs, &proc->arch);
-	asm("cli");
-	thread.processor = proc;
-	thread.arch.syscall.rcx = &user_test;
-	thread.arch.syscall.r11 = 0;
-	thread.arch.syscall.rsp = (uint64_t)&userstack + 0x1000;
-	thread.arch.was_syscall = 1;
-	x86_64_resume(&thread);
+void arch_thread_init(struct thread *thread, void *entry, void *arg, void *stack)
+{
+	memset(&thread->arch.syscall, 0, sizeof(thread->arch.syscall));
+	thread->arch.syscall.rcx = (uint64_t)entry;
+	thread->arch.syscall.rsp = (uint64_t)stack;
+	thread->arch.syscall.rdi = (uint64_t)arg;
+	thread->arch.was_syscall = 1;
 }
 
