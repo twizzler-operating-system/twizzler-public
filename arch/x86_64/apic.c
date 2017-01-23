@@ -118,7 +118,7 @@ static void lapic_configure(int bsp)
     /* finally write to the spurious interrupt register to enable
      * the interrupts */
     lapic_write(LAPIC_SPIV, 0x0100 | 0xFF);
-	set_lapic_timer(0x100); /* TODO: timer calibrate */
+	set_lapic_timer(0x1000000); /* TODO: timer calibrate */
 }
 
 __initializer void x86_64_lapic_init_percpu(void)
