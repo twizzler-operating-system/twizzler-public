@@ -61,7 +61,7 @@ ifeq ($(CRTN),)
 CRTN=$(shell $(TOOLCHAIN_PATH)/bin/$(TOOLCHAIN_PREFIX)gcc -print-file-name=crtn.o)
 endif
 
--include $(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d)
+-include $(addprefix $(BUILDDIR)/,$(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d))
 
 test: $(BUILDDIR)/kernel
 	$(QEMU) $(QEMU_FLAGS) -serial stdio

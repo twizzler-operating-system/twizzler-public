@@ -95,18 +95,20 @@ void x86_64_gdt_init(struct processor *proc)
 {
 	memset(&proc->arch.gdt, 0, sizeof(proc->arch.gdt));
 	x86_64_write_gdt_entry(&proc->arch.gdt[0], 0, 0, 0, 0);
-	x86_64_write_gdt_entry(&proc->arch.gdt[1], 0, 0xFFFFF, 0x9A, 0xA);
-	x86_64_write_gdt_entry(&proc->arch.gdt[2], 0, 0xFFFFF, 0x92, 0xA);
-	x86_64_write_gdt_entry(&proc->arch.gdt[3], 0, 0xFFFFF, 0xFA, 0xA);
-	x86_64_write_gdt_entry(&proc->arch.gdt[4], 0, 0xFFFFF, 0xF2, 0xA);
+	x86_64_write_gdt_entry(&proc->arch.gdt[1], 0, 0xFFFFF, 0x9A, 0xA); /* C64 K */
+	x86_64_write_gdt_entry(&proc->arch.gdt[2], 0, 0xFFFFF, 0x92, 0xA); /* D64 K */
+	x86_64_write_gdt_entry(&proc->arch.gdt[3], 0, 0xFFFFF, 0xF2, 0xA); /* D64 U */
+	x86_64_write_gdt_entry(&proc->arch.gdt[4], 0, 0xFFFFF, 0xFA, 0xA); /* C64 U */
 	proc->arch.gdtptr.limit = sizeof(struct x86_64_gdt_entry) * 8 - 1;
 	proc->arch.gdtptr.base = (uintptr_t)&proc->arch.gdt;
 	asm volatile("lgdt (%0)" :: "r"(&proc->arch.gdtptr));
 }
 
+char userstack[0x1000];
+struct thread thread;
 void user_test()
 {
-	asm volatile("movq $0x1234, %%rax ; syscall; " ::: "rax");
+	asm volatile("movq $0x5678, %%r8 ; movq $0x1234, %%rax ; syscall; " ::: "rax");
 	for(;;);
 }
 
@@ -120,10 +122,9 @@ void arch_processor_init(struct processor *proc)
 		proc->arch.kernel_stack = &initial_boot_stack;
 	}
 
-	/* save GS kernel base */
+	/* save GS kernel base (saved to user, because we swapgs on sysret) */
 	uint64_t gs = (uint64_t)&proc->arch;
 	x86_64_wrmsr(X86_MSR_GS_BASE, gs & 0xFFFFFFFF, gs >> 32);
-	x86_64_wrmsr(X86_MSR_KERNEL_GS_BASE, gs & 0xFFFFFFFF, gs >> 32);
 
 	/* okay, now set up the registers for fast syscall.
 	 * This means storing x86_64_syscall_entry to LSTAR,
@@ -133,7 +134,7 @@ void arch_processor_init(struct processor *proc)
 	
 	/* STAR: bits 32-47 are kernel CS, 48-63 are user CS. */
 	uint32_t lo = 0, hi;
-	hi = (0x1bull << 16) | 0x08;
+	hi = (0x10 << 16) | 0x08;
 	x86_64_wrmsr(X86_MSR_STAR, lo, hi);
 
 	/* LSTAR: contains kernel entry point for syscall */
@@ -148,10 +149,14 @@ void arch_processor_init(struct processor *proc)
 	hi = 0;
 	x86_64_wrmsr(X86_MSR_SFMASK, lo, hi);
 
-	struct thread thread;
+	printk("proc kernel stack = %p\n", proc->arch.kernel_stack);
+	printk("thread = %p, gs = %llx %p\n", &thread, gs, &proc->arch);
 	asm("cli");
 	thread.processor = proc;
-	thread.arch.tcb.rcx = &user_test;
+	thread.arch.syscall.rcx = &user_test;
+	thread.arch.syscall.r11 = 0;
+	thread.arch.syscall.rsp = (uint64_t)&userstack + 0x1000;
+	thread.arch.was_syscall = 1;
 	x86_64_resume(&thread);
 }
 

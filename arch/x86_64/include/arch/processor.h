@@ -43,10 +43,12 @@ struct x86_64_gdt_entry
 	uint8_t  base_high; 
 } __attribute__((packed));
 
+struct thread;
 struct arch_processor {
 	void *scratch_sp;
 	void *tcb;
 	void *kernel_stack;
+	struct thread *curr;
 	_Alignas(16) struct x86_64_tss tss;
 	_Alignas(16) struct x86_64_gdt_entry gdt[8];
 	_Alignas(16) struct __attribute__((packed)) {
@@ -54,6 +56,16 @@ struct arch_processor {
 		uint64_t base;
 	} gdtptr;
 };
+
+/* TODO: const, attr_const, etc */
+static inline struct thread *__x86_64_get_current_thread(void)
+{
+	uint64_t tmp;
+	asm volatile("movq %%gs:24, %0" : "=r"(tmp));
+	return (void *)tmp;
+}
+
+#define current_thread __x86_64_get_current_thread()
 
 static inline void arch_processor_relax(void)
 {

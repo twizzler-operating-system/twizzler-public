@@ -4,6 +4,7 @@
 # have a dummy code pushed so that the exception frames are
 # the same for both types.
 
+#include <thread-bits.h>
 .macro isr_errcode num, handler
 .global x86_64_isr\num
 .align 8
@@ -59,10 +60,8 @@ x86_64_isr_ignore:
 	pushq $0x80
 	jmp ignore_handler
 
-
-.macro handler name, entrypoint
-\name:
-	# save the frame
+.macro PUSH_CONTEXT
+# save the frame
 	pushq %rdi
 	pushq %rsi
 	pushq %rdx
@@ -78,11 +77,9 @@ x86_64_isr_ignore:
 	pushq %r13
 	pushq %r14
 	pushq %r15
+.endm
 
-	# call C code with the exception frame as an argument
-	movq %rsp, %rdi
-	call \entrypoint
-
+.macro RESTORE_CONTEXT
 	# restore the frame
 	popq %r15
 	popq %r14
@@ -101,11 +98,45 @@ x86_64_isr_ignore:
 	popq %rdi
 	
 	add $16, %rsp # cleanup error code and int number
-	iretq # and return from interrupt
 .endm
 
+ignore_handler:
+	PUSH_CONTEXT
+	call x86_64_signal_eoi
+	RESTORE_CONTEXT
+	iretq
+
+
 .extern x86_64_exception_entry
-.extern x86_64_syscall_entry
-handler isr_common, x86_64_exception_entry
-handler ignore_handler, x86_64_signal_eoi
+isr_common:
+	xchg %bx, %bx
+	PUSH_CONTEXT
+	movq %rsp, %rdi
+	testl $3, 144(%rsp) #test CPL for pushed CS desc
+	je kernel_exception
+
+	swapgs
+	movq $1, %rsi
+	movq %gs:16, %rsp
+	addq $KERNEL_STACK_SIZE, %rsp
+
+	call x86_64_exception_entry
+
+
+kernel_exception:
+	movq $0, %rsi
+	call x86_64_exception_entry
+	xchg %bx, %bx
+	RESTORE_CONTEXT
+	iretq
+
+
+.global x86_64_resume_userspace_interrupt
+/* _Noreturn void x86_64_resume_userspace_interrupt(void *frame); */
+x86_64_resume_userspace_interrupt:
+	xchg %bx, %bx
+	movq %rdi, %rsp
+	RESTORE_CONTEXT
+	swapgs
+	iretq
 
