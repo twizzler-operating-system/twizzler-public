@@ -37,7 +37,8 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 {
 	current_thread->arch.was_syscall = true;
-	printk("syscall! %lx\n", frame->rax);
+	printk("syscall! %lx (%lx, %lx, %lx, %lx, %lx, %lx)\n", frame->rax, frame->rdi, frame->rsi, frame->rdx, frame->r8, frame->r9, frame->r10);
+	frame->rax = 0x55667;
 	thread_schedule_resume();
 }
 
@@ -55,7 +56,7 @@ void arch_thread_resume(struct thread *thread)
 	x86_64_wrmsr(X86_MSR_KERNEL_GS_BASE, thread->arch.gs & 0xFFFFFFFF, (thread->arch.gs >> 32) & 0xFFFFFFFF);
 
 	if(old && old->arch.usedfpu) {
-		/* store FPU sate */
+		/* store FPU state */
 		asm volatile ("fxsave (%0)" 
 				:: "r" (old->arch.fpu_data) : "memory");
 	}

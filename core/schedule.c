@@ -3,9 +3,9 @@
 
 void thread_schedule_resume_proc(struct processor *proc)
 {
-	struct thread *next = linkedlist_remove_tail(&proc->runqueue);
 	if(current_thread)
 		linkedlist_insert(&proc->runqueue, &current_thread->entry, current_thread);
+	struct thread *next = linkedlist_remove_tail(&proc->runqueue);
 	if(next)
 		arch_thread_resume(next);
 	printk("processor %ld halting\n", proc->id);
