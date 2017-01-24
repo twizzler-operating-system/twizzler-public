@@ -15,6 +15,9 @@ struct __attribute__((packed)) x86_64_syscall_frame {
 struct arch_thread {
 	struct x86_64_syscall_frame syscall;
 	struct x86_64_exception_frame exception;
+	uint64_t fs, gs;
+	_Alignas(16) uint8_t fpu_data[512];
 	bool was_syscall;
+	bool usedfpu;
 };
 

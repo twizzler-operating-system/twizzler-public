@@ -26,9 +26,7 @@ static void proc_init(void)
 	asm volatile("mov %%cr4, %0" : "=r"(cr4));
 	//cr4 |= (1 << 7); //enable page global TODO: get this to work
 	cr4 |= (1 << 10); //enable fast fxsave etc, sse
-	/* TODO: bit 16 of CR4 enables wrfsbase etc instructions.
-	 * But we need to check CPUID before using them. */
-	//cr4 |= (1 << 16); //enable wrfsbase etc
+	cr4 &= ~(1 << 9);
 	asm volatile("mov %0, %%cr4" :: "r"(cr4));
 
 	/* enable fast syscall extension */
@@ -150,5 +148,7 @@ void arch_thread_init(struct thread *thread, void *entry, void *arg, void *stack
 	thread->arch.syscall.rsp = (uint64_t)stack;
 	thread->arch.syscall.rdi = (uint64_t)arg;
 	thread->arch.was_syscall = 1;
+	thread->arch.usedfpu = false;
+	thread->arch.fs = thread->arch.gs = 0;
 }
 
