@@ -18,17 +18,18 @@ void interrupt_unregister_handler(int vector, struct interrupt_handler *handler)
 	linkedlist_remove(&handlers[vector], &handler->entry);
 }
 
-void kernel_interrupt_entry(void)
+void kernel_interrupt_entry(int vector)
 {
-#warning "TODO"
-	struct linkedlist *list = &handlers[0]; //todo
+	struct linkedlist *list = &handlers[vector];
+	if(list->count == 0)
+		return;
 	linkedlist_lock(list);
 	struct linkedentry *entry;
 	for(entry = linkedlist_iter_start(list);
 			entry != linkedlist_iter_end(list);
 			entry = linkedlist_iter_next(entry)) {
 		struct interrupt_handler *h = linkedentry_obj(entry);
-		//h->fn(frame);
+		h->fn(vector);
 	}
 	linkedlist_unlock(list);
 }

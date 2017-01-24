@@ -44,20 +44,17 @@ void kernel_early_init(void)
  * and per-node threading.
  */
 
-long _syscall(long num, long a1, long a2, long a3, long a4, long a5, long a6)
-{
-	register long r8 asm("r10") = a4;
-	register long r9 asm("r10") = a5;
-	register long r10 asm("r10") = a6;
-	long ret;
-	asm volatile("syscall" : "=a"(ret) : "a"(num), "D"(a1), "S"(a2), "d"(a3), "r"(r8), "r"(r9), "r"(r10) : "rcx", "r11", "memory");
-	return ret;
-}
+
+#include "../us/include/arch-syscall.h"
+#define make_guid(g, h, l) do { g = h; g <<= 64; g |= l; } while(0)
 
 void user_test(void *arg)
 {
-	for(;;)
-		_syscall((long)arg, 1, 2, 3, 4, 5, 6);
+	unsigned __int128 guid;
+	//make_guid(guid, 0x123456789abcdef, 0x1122334455667788);
+	guid = _syscallrg(8);
+	_syscallg10(1, guid);
+	for(;;);
 }
 
 struct thread t1, t2, t3, t4;
@@ -87,10 +84,10 @@ void kernel_main(struct processor *proc)
 
 	if(proc->flags & PROCESSOR_BSP) {
 		processor_attach_thread(proc, &t1);
-		processor_attach_thread(proc, &t2);
-		processor_attach_thread(proc, &t3);
+		//processor_attach_thread(proc, &t2);
+		//processor_attach_thread(proc, &t3);
 	} else {
-		processor_attach_thread(proc, &t4);
+		//processor_attach_thread(proc, &t4);
 	}
 
 	thread_schedule_resume_proc(proc);

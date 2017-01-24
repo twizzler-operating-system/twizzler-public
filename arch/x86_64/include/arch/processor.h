@@ -71,3 +71,8 @@ static inline void arch_processor_relax(void)
 	asm volatile("pause");
 }
 
+static inline void arch_processor_halt(void)
+{
+	asm volatile("hlt");
+}
+

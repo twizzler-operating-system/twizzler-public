@@ -62,7 +62,6 @@ void processor_perproc_init(struct processor *proc)
 		proc = proc_bsp;
 	}
 	arch_processor_init(proc);
-	printk("Per proc init: %p\n", proc);
 	kernel_main(proc);
 }
 
@@ -74,9 +73,7 @@ void processor_secondary_entry(struct processor *proc)
 
 void processor_attach_thread(struct processor *proc, struct thread *thread)
 {
-	/* TODO: do we need a lock here? */
-	//spinlock_guard(&proc->sched_lock);
-	if(proc == NULL) proc = proc_bsp; //TODO: get rid of this
+	spinlock_guard(&proc->sched_lock);
 	thread->processor = proc;
 	linkedlist_insert(&proc->runqueue, &thread->entry, thread);
 }

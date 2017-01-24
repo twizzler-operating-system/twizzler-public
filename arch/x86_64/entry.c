@@ -19,28 +19,50 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 	if(was_userspace) {
 		current_thread->arch.was_syscall = false;
 		if((frame->int_no == 6 || frame->int_no == 7) && current_thread && !current_thread->arch.usedfpu) {
-			printk("FPU/SSE instruction used at %lx\n", frame->rip);
 			/* we're emulating FPU instructions / disallowing SSE. Set a flag,
 			 * and allow the thread to do its thing */
 			current_thread->arch.usedfpu = true;
 			x86_64_change_fpusse_allow(true);
 			asm volatile ("finit"); /* also, we may need to clear the FPU state */
+		} else if(frame->int_no == 14) {
+			/* page fault */
+			kernel_fault_entry();
+		} else if(frame->int_no < 32) {
+			/* TODO: userspace exception */
 		}
+	} else if(frame->int_no < 32) {
+		/* TODO: kernel page-fault? */
+		if(frame->int_no == 3) {
+			printk("[debug]: recv debug interrupt\n");
+			kernel_debug_entry();
+		}
+		panic("kernel exception: %ld, from %lx\n", frame->int_no, frame->rip);
 	}
 
-	printk("Interrupt! %d %lx (%p)\n", frame->int_no, frame->rip, &current_thread->processor->arch.curr);
+	if(frame->int_no >= 32) {
+		kernel_interrupt_entry(frame->int_no);
+	}
+
 	x86_64_signal_eoi();
 	if(was_userspace) {
 		thread_schedule_resume();
 	}
+	/* if we aren't in userspace, we just return and the kernel_exception handler will
+	 * properly restore the frame and continue */
 }
 
 extern long (*syscall_table[])();
+extern __int128 (*syscall_table128[])();
 void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 {
 	current_thread->arch.was_syscall = true;
 	if(frame->rax < NUM_SYSCALLS) {
 		frame->rax = syscall_table[frame->rax](frame->rdi, frame->rsi, frame->rdx, frame->r8, frame->r9, frame->r10);
+	} else if(frame->rax - NUM_SYSCALLS < NUM_SYSCALLS128) {
+		__int128 ret = syscall_table128[frame->rax - NUM_SYSCALLS](frame->rdi, frame->rsi, frame->rdx, frame->r8, frame->r9, frame->r10);
+		frame->rax = (uint64_t)ret;
+		frame->rdx = (uint64_t)(ret >> 64);
+		printk("Set %lx %lx\n", frame->rdx, frame->rax);
 	} /* TODO: handle error */
 	thread_schedule_resume();
 }

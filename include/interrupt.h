@@ -4,11 +4,11 @@
 #include <lib/linkedlist.h>
 
 struct interrupt_handler {
-	void (*fn)(struct interrupt_frame *);
+	void (*fn)(int);
 	struct linkedentry entry;
 };
 
-void kernel_interrupt_entry(void);
+void kernel_interrupt_entry(int);
 void interrupt_unregister_handler(int vector, struct interrupt_handler *handler);
 void interrupt_register_handler(int vector, struct interrupt_handler *handler);
 static inline void __interrupt_scoped_destruct(bool *set)
