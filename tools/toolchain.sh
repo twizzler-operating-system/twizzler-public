@@ -37,5 +37,12 @@ cd ../build-gcc
 ../gcc-${GCCVER}/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --without-headers
 
 make all-gcc all-target-libgcc
+if [[ "$TARGET" == "x86_64-pc-elf" ]]; then
+	cd $(TARGET)/libgcc
+	sed -i 's/^CRTSTUFF_T_CFLAGS =.*$/CRTSTUFF_T_CFLAGS = -mcmodel=kernel/g' Makefile
+	make clean
+	make
+	cd ../..
+fi
 make install-gcc install-target-libgcc
 
