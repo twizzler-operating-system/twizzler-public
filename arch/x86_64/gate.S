@@ -1,7 +1,6 @@
 #include <thread-bits.h>
 .global x86_64_syscall_entry_from_userspace
 x86_64_syscall_entry_from_userspace:
-	xchg %bx, %bx
 	swapgs
 	movq %rsp, %gs:0
 	movq %gs:8, %rsp
