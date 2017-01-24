@@ -18,6 +18,7 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 	if(was_userspace) {
 		current_thread->arch.was_syscall = false;
 		if((frame->int_no == 6 || frame->int_no == 7) && current_thread && !current_thread->arch.usedfpu) {
+			printk("FPU/SSE instruction used at %lx\n", frame->rip);
 			/* we're emulating FPU instructions / disallowing SSE. Set a flag,
 			 * and allow the thread to do its thing */
 			current_thread->arch.usedfpu = true;
@@ -65,7 +66,6 @@ void arch_thread_resume(struct thread *thread)
 		asm volatile ("fxrstor (%0)" 
 				:: "r" (thread->arch.fpu_data) : "memory");
 	}
-
 	if(thread->arch.was_syscall)
 		x86_64_resume_userspace(&thread->arch.syscall);
 	else {
