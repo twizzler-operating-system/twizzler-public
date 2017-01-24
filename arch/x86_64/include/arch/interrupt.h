@@ -4,7 +4,7 @@
 
 static inline bool arch_interrupt_set(bool on)
 {
-	long old;
+	register long old;
 	asm volatile ("pushfq; pop %0;" : "=r"(old) :: "memory"); /* need full barrier for sync */
 	if(on)
 		asm volatile ("mfence; sti");

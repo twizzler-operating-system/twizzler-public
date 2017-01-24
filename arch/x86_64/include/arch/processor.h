@@ -57,11 +57,10 @@ struct arch_processor {
 	} gdtptr;
 };
 
-/* TODO: const, attr_const, etc */
-static inline struct thread *__x86_64_get_current_thread(void)
+__attribute__((const)) static inline struct thread * __x86_64_get_current_thread(void)
 {
 	uint64_t tmp;
-	asm volatile("movq %%gs:24, %0" : "=r"(tmp));
+	asm ("movq %%gs:24, %0" : "=r"(tmp));
 	return (void *)tmp;
 }
 

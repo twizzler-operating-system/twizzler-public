@@ -1,10 +1,11 @@
 #include <processor.h>
 #include <thread.h>
+#include <syscall.h>
 #include <arch/x86_64-msr.h>
 
 static void x86_64_change_fpusse_allow(bool enable)
 {
-	uint64_t tmp;
+	register uint64_t tmp;
 	asm volatile("mov %%cr0, %0" : "=r"(tmp));
 	tmp = enable ? (tmp & ~(1 << 2)) : (tmp | (1 << 2));
 	asm volatile("mov %0, %%cr0" :: "r"(tmp));
@@ -34,11 +35,13 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 	}
 }
 
+extern long (*syscall_table[])();
 void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 {
 	current_thread->arch.was_syscall = true;
-	printk("syscall! %lx (%lx, %lx, %lx, %lx, %lx, %lx)\n", frame->rax, frame->rdi, frame->rsi, frame->rdx, frame->r8, frame->r9, frame->r10);
-	frame->rax = 0x55667;
+	if(frame->rax < NUM_SYSCALLS) {
+		frame->rax = syscall_table[frame->rax](frame->rdi, frame->rsi, frame->rdx, frame->r8, frame->r9, frame->r10);
+	} /* TODO: handle error */
 	thread_schedule_resume();
 }
 
@@ -55,6 +58,14 @@ void arch_thread_resume(struct thread *thread)
 	x86_64_wrmsr(X86_MSR_FS_BASE, thread->arch.fs & 0xFFFFFFFF, (thread->arch.fs >> 32) & 0xFFFFFFFF);
 	x86_64_wrmsr(X86_MSR_KERNEL_GS_BASE, thread->arch.gs & 0xFFFFFFFF, (thread->arch.gs >> 32) & 0xFFFFFFFF);
 
+	/* TODO: we can be smarter about FPU state:
+	 *  - we should allocate a separate (slab-based) structure to hold
+	 *    FPU state, making thread allocations cheaper.
+	 *  - we can store more info than "did thread use FPU",
+	 *    such as how long has it been since it was used... and
+	 *    then we can 're-disable' the FPU for that thread, and possibly
+	 *    even free the allocated FPU state space.
+	 */
 	if(old && old->arch.usedfpu) {
 		/* store FPU state */
 		asm volatile ("fxsave (%0)" 

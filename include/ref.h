@@ -29,6 +29,7 @@ static inline void *ref_get(struct ref *ref)
 {
 	assert(ref->count > 0);
 	atomic_fetch_add(&ref->count, 1);
+	return ref->obj;
 }
 
 static inline void ref_put(struct ref *ref)
