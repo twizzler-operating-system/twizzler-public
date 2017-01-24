@@ -35,7 +35,6 @@ __orderedinitializer(PROCESSOR_INITIALIZER_ORDER) static void processor_init(voi
 {
 	hash_create(&processors, 64, 0);
 	arch_processor_enumerate();
-	/* enumerate processors on system */
 }
 
 static void processor_init_secondaries(void *arg)
@@ -63,14 +62,14 @@ void processor_perproc_init(struct processor *proc)
 		proc = proc_bsp;
 	}
 	arch_processor_init(proc);
+	printk("Per proc init: %p\n", proc);
+	kernel_main(proc);
 }
 
-void kernel_idle(void);
 void processor_secondary_entry(struct processor *proc)
 {
 	proc->flags |= PROCESSOR_UP;
 	processor_perproc_init(proc);
-	kernel_idle();
 }
 
 void processor_attach_thread(struct processor *proc, struct thread *thread)
@@ -80,14 +79,5 @@ void processor_attach_thread(struct processor *proc, struct thread *thread)
 	if(proc == NULL) proc = proc_bsp; //TODO: get rid of this
 	thread->processor = proc;
 	linkedlist_insert(&proc->runqueue, &thread->entry, thread);
-}
-
-struct processor *processor_get_current(void)
-{
-	/* TODO: this wont work for SMP */
-	if(current_thread == NULL)
-		return proc_bsp;
-
-	return current_thread->processor;
 }
 

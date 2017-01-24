@@ -53,7 +53,7 @@ void x86_64_init(struct multiboot *mth)
 
 	kernel_early_init();
 	_init();
-	kernel_main();
+	kernel_init();
 }
 
 void x86_64_cpu_secondary_entry(struct processor *proc)
@@ -62,7 +62,7 @@ void x86_64_cpu_secondary_entry(struct processor *proc)
 	proc_init();
 	x86_64_lapic_init_percpu();
 	assert(proc != NULL);
-	processor_secondary_entry();
+	processor_secondary_entry(proc);
 }
 
 #include <processor.h>

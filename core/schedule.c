@@ -1,13 +1,20 @@
 #include <processor.h>
+#include <debug.h>
 
-/* TODO: would rather not need this function */
-struct processor *processor_get_current(void);
-void thread_schedule_resume(void)
+void thread_schedule_resume_proc(struct processor *proc)
 {
-	struct processor *proc = processor_get_current();
 	struct thread *next = linkedlist_remove_tail(&proc->runqueue);
 	if(current_thread)
 		linkedlist_insert(&proc->runqueue, &current_thread->entry, current_thread);
-	arch_thread_resume(next);
+	if(next)
+		arch_thread_resume(next);
+	printk("processor %ld halting\n", proc->id);
+	for(;;);
+}
+
+void thread_schedule_resume(void)
+{
+	assert(current_thread != NULL);
+	thread_schedule_resume_proc(current_thread->processor);
 }
 

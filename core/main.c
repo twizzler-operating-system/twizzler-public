@@ -30,31 +30,6 @@ static void post_init_calls_execute(void)
 	post_init_call_head = NULL;
 }
 
-static void kernel_test_thread(void)
-{
-	while(true) {
-		//printk("%ld", current_thread->id);
-	}
-}
-
-void bar()
-{
-	debug_print_backtrace();
-}
-
-void foo()
-{
-	bar();
-}
-
-void kernel_idle(void)
-{
-	printk("reached idle state\n");
-	while(true) {
-		//schedule();
-	}
-}
-
 /* functions called from here expect virtual memory to be set up. However, functions
  * called from here cannot rely on global contructors having run, as those are allowed
  * to use memory management routines, so they are run after this.
@@ -86,22 +61,26 @@ struct thread t1, t2;
 char us1[0x1000];
 char us2[0x1000];
 
-void kernel_main(void)
+void kernel_init(void)
 {
 	post_init_calls_execute();
-
 	processor_perproc_init(NULL);
+}
 
-	t1.id = 1;
-	t2.id = 2;
-	arch_thread_init(&t1, user_test, (void *)1, us1);
-	arch_thread_init(&t2, user_test, (void *)2, us2);
+void kernel_main(struct processor *proc)
+{
+	printk("processor %ld reached resume state\n", proc->id);
+	
+	if(proc->flags & PROCESSOR_BSP) {
+		t1.id = 1;
+		t2.id = 2;
+		arch_thread_init(&t1, user_test, (void *)1, us1);
+		arch_thread_init(&t2, user_test, (void *)2, us2);
 
-	processor_attach_thread(NULL, &t1);
-	processor_attach_thread(NULL, &t2);
+		processor_attach_thread(NULL, &t1);
+		processor_attach_thread(NULL, &t2);
+	}
 
-	thread_schedule_resume();
-
-	kernel_idle();
+	thread_schedule_resume_proc(proc);
 }
 
