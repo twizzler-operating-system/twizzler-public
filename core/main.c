@@ -74,8 +74,8 @@ void kernel_main(struct processor *proc)
 	if(proc->flags & PROCESSOR_BSP) {
 		t1.id = 1;
 		t2.id = 2;
-		arch_thread_init(&t1, user_test, (void *)1, us1);
-		arch_thread_init(&t2, user_test, (void *)2, us2);
+		arch_thread_init(&t1, user_test, (void *)1, us1 + 0x1000);
+		arch_thread_init(&t2, user_test, (void *)2, us2 + 0x1000);
 
 		processor_attach_thread(NULL, &t1);
 		processor_attach_thread(NULL, &t2);
