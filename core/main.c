@@ -66,6 +66,7 @@ char us4[0x1000];
 void kernel_init(void)
 {
 	post_init_calls_execute();
+	panic("Test");
 	processor_perproc_init(NULL);
 }
 

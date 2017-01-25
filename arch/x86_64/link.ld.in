@@ -39,6 +39,7 @@ SECTIONS
 	}
 	.rodata : ALIGN(0x1000) {
 		*(.rodata*)
+		*(.ksyms*)
 	}
 	kernel_data_end = .;
 	.bss : ALIGN(0x1000) {
@@ -47,6 +48,7 @@ SECTIONS
 		*(.bss*)
 	}
 	kernel_bss_end = .;
+
 
 	.extra :
 	{
