@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 static inline long _syscall0(long num)
 {
 	long ret;

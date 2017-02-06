@@ -1,6 +1,7 @@
 #include <machine/pc-multiboot.h>
 #include <machine/memory.h>
 #include <debug.h>
+#include <init.h>
 #include <arch/x86_64-msr.h>
 void serial_init();
 
@@ -8,6 +9,8 @@ extern void _init();
 uint64_t x86_64_top_mem;
 extern void idt_init(void);
 extern void idt_init_secondary(void);
+
+static struct multiboot *mb;
 
 static void proc_init(void)
 {
@@ -37,6 +40,12 @@ static void proc_init(void)
 
 }
 
+static void x86_64_initrd(void)
+{
+	printk("%d mods\n", mb->mods_count);
+}
+POST_INIT(x86_64_initrd);
+
 void x86_64_init(struct multiboot *mth)
 {
 	idt_init();
@@ -47,7 +56,7 @@ void x86_64_init(struct multiboot *mth)
 		panic("don't know how to detect memory!");
 	printk("%lx\n", mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET);
 	x86_64_top_mem = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
-
+	mb = mth;
 
 	kernel_early_init();
 	_init();

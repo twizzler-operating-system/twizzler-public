@@ -62,7 +62,6 @@ void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 		__int128 ret = syscall_table128[frame->rax - NUM_SYSCALLS](frame->rdi, frame->rsi, frame->rdx, frame->r8, frame->r9, frame->r10);
 		frame->rax = (uint64_t)ret;
 		frame->rdx = (uint64_t)(ret >> 64);
-		printk("Set %lx %lx\n", frame->rdx, frame->rax);
 	} /* TODO: handle error */
 	thread_schedule_resume();
 }

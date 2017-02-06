@@ -39,12 +39,6 @@ void kernel_early_init(void)
 	mm_init();
 }
 
-/* at this point, memory management, interrupt routines, global constructors, and shared
- * kernel state between nodes have been initialized. Now initialize all application processors
- * and per-node threading.
- */
-
-
 #include "../us/include/arch-syscall.h"
 #define make_guid(g, h, l) do { g = h; g <<= 64; g |= l; } while(0)
 
@@ -63,10 +57,14 @@ char us2[0x1000];
 char us3[0x1000];
 char us4[0x1000];
 
+/* at this point, memory management, interrupt routines, global constructors, and shared
+ * kernel state between nodes have been initialized. Now initialize all application processors
+ * and per-node threading.
+ */
+
 void kernel_init(void)
 {
 	post_init_calls_execute();
-	panic("Test");
 	processor_perproc_init(NULL);
 }
 

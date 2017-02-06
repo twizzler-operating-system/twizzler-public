@@ -63,8 +63,17 @@ endif
 
 -include $(addprefix $(BUILDDIR)/,$(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d))
 
-test: $(BUILDDIR)/kernel
+test: $(BUILDDIR)/kernel userspace
 	$(QEMU) $(QEMU_FLAGS) -serial stdio
+
+export TOOLCHAIN_PREFIX
+export BUILDDIR
+
+userspace: tools/fotgen
+	$(MAKE) -C us all
+
+tools/fotgen: tools/fotgen.c
+	$(CC) -Wall -Wextra -std=gnu11 -Og -g tools/fotgen.c -o tools/fotgen
 
 $(BUILDDIR)/kernel: $(BUILDDIR)/link.ld $(OBJECTS) $(BUILDDIR)/symbols.o
 	@mkdir -p $(BUILDDIR)
@@ -112,5 +121,5 @@ od: $(BUILDDIR)/kernel
 re: $(BUILDDIR)/kernel
 	$(TOOLCHAIN_PREFIX)readelf -a $(BUILDDIR)/kernel
 
-.PHONY: od re clean all test newproj
+.PHONY: od re clean all test newproj userspace
 
