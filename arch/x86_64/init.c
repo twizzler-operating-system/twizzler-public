@@ -3,6 +3,7 @@
 #include <debug.h>
 #include <init.h>
 #include <arch/x86_64-msr.h>
+#include <processor.h>
 void serial_init();
 
 extern void _init();
@@ -38,6 +39,31 @@ static void proc_init(void)
 	lo |= X86_MSR_EFER_SYSCALL;
 	x86_64_wrmsr(X86_MSR_EFER, lo, hi);
 
+	
+}
+
+void x86_64_enable_vmx(void)
+{
+	uint32_t ecx;
+	asm volatile("push %%rbx; push %%rcx; push %%rdx; mov $1, %%eax; cpuid; mov %%ecx, %%eax; pop %%rdx; pop %%rcx; pop %%rbx;" : "=a"(ecx));
+	if(!(ecx & (1 << 5))) {
+		panic("VMX extensions not available (not supported");
+	}
+
+	uint32_t lo, hi;
+	x86_64_rdmsr(X86_MSR_FEATURE_CONTROL, &lo, &hi);
+	if(!(lo & 1) /* lock bit */ || !(lo & (1 << 2))) {
+		panic("VMX extensions not available (not enabled)");
+	}
+
+
+	/* okay, now try to enable VMX instructions. */
+	uint64_t cr4;
+	asm volatile("mov %%cr4, %0" : "=r"(cr4));
+	cr4 |= (1 << 13); //enable VMX
+	uintptr_t vmxon_region = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+	asm volatile("mov %0, %%cr4; vmxon %1" :: "r"(cr4), "m"(vmxon_region));
+	/* we are now in VMX-root mode. We will have to set-up and enable a VMCS and a VPROC for ourselves to switch to. */
 }
 
 static void x86_64_initrd(void)
@@ -60,6 +86,7 @@ void x86_64_init(struct multiboot *mth)
 
 	kernel_early_init();
 	_init();
+	x86_64_enable_vmx();
 	kernel_init();
 }
 
@@ -72,7 +99,6 @@ void x86_64_cpu_secondary_entry(struct processor *proc)
 	processor_secondary_entry(proc);
 }
 
-#include <processor.h>
 
 void x86_64_write_gdt_entry(struct x86_64_gdt_entry *entry, uint32_t base, uint32_t limit,
 		uint8_t access, uint8_t gran)

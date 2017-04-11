@@ -131,6 +131,36 @@ int fn(int holy, char *shit)
 	return 1234;
 }
 
+#define FOTE_FOO 1
+#define FOTE_BAR 2
+
+struct __fote {
+	uint64_t flags, ad, nr, gr;
+	union {
+		char *name;
+		unsigned __int128 guid;
+	};
+};
+
+#define DEFAULT_RES_NAME 1234
+#define DEFAULT_RES_GUID 5678
+
+#define FOT_NAME (1 << 2) /* or whatever */
+
+#define NAME(e, f, n, nr, gr, ad) \
+	[e] = {flags : f | FOT_NAME, ad : ad, nr : nr, gr : gr, {.name = n}}
+
+#define GUID(e, f, g, gr, ad) \
+	[e] = {f & ~FOT_NAME, 0, gr, .guid = g}
+
+#define FOT_ENTRIES struct __fote __twiz_foreign_object_table[]
+
+FOT_ENTRIES = {
+	NAME(FOTE_FOO, 0, "foo", DEFAULT_RES_NAME, 0, 0),
+	GUID(FOTE_BAR, 0, 123456, DEFAULT_RES_GUID, 0),
+};
+
+
 int main()
 {
 	int lid=1;
@@ -151,5 +181,4 @@ int main()
 	int r = f(5, "batman");
 	printf("Got %d\n", r);
 }
-
 

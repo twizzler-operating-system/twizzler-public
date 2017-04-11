@@ -14,6 +14,8 @@
 #define X86_MSR_LSTAR               0xC0000082
 #define X86_MSR_SFMASK              0xC0000084
 
+#define X86_MSR_FEATURE_CONTROL     0x3A
+
 static inline void x86_64_rdmsr(uint32_t msr, uint32_t *lo, uint32_t *hi)
 {
 	asm volatile("rdmsr" : "=a"(*lo), "=d"(*hi) : "c"(msr));
