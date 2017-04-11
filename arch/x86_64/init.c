@@ -42,20 +42,25 @@ static void proc_init(void)
 	
 }
 
+static uint32_t __attribute__((noinline)) cpuid(uint32_t x, int rnum)
+{
+	uint32_t regs[4];
+	asm volatile("push %%rbx; cpuid; mov %%ebx, %0; pop %%rbx" : "=a"(regs[0]), "=r"(regs[1]), "=c"(regs[2]), "=d"(regs[3]) : "a"(x));
+	return regs[rnum];
+}
+
 void x86_64_enable_vmx(void)
 {
-	uint32_t ecx;
-	asm volatile("push %%rbx; push %%rcx; push %%rdx; mov $1, %%eax; cpuid; mov %%ecx, %%eax; pop %%rdx; pop %%rcx; pop %%rbx;" : "=a"(ecx));
+	uint32_t ecx = cpuid(1, 2);
 	if(!(ecx & (1 << 5))) {
 		panic("VMX extensions not available (not supported");
 	}
 
 	uint32_t lo, hi;
 	x86_64_rdmsr(X86_MSR_FEATURE_CONTROL, &lo, &hi);
-	if(!(lo & 1) /* lock bit */ || !(lo & (1 << 2))) {
+	if(!(lo & 1) /* lock bit */ || !(lo & (1 << 2)) /* enable-outside-smx bit */) {
 		panic("VMX extensions not available (not enabled)");
 	}
-
 
 	/* okay, now try to enable VMX instructions. */
 	uint64_t cr4;
@@ -63,7 +68,6 @@ void x86_64_enable_vmx(void)
 	cr4 |= (1 << 13); //enable VMX
 	uintptr_t vmxon_region = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 	asm volatile("mov %0, %%cr4; vmxon %1" :: "r"(cr4), "m"(vmxon_region));
-	/* we are now in VMX-root mode. We will have to set-up and enable a VMCS and a VPROC for ourselves to switch to. */
 }
 
 static void x86_64_initrd(void)
