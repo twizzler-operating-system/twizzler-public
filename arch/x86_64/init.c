@@ -49,6 +49,7 @@ static uint32_t __attribute__((noinline)) cpuid(uint32_t x, int rnum)
 	return regs[rnum];
 }
 
+void x86_64_start_vmx(void);
 void x86_64_enable_vmx(void)
 {
 	uint32_t ecx = cpuid(1, 2);
@@ -68,6 +69,7 @@ void x86_64_enable_vmx(void)
 	cr4 |= (1 << 13); //enable VMX
 	uintptr_t vmxon_region = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 	asm volatile("mov %0, %%cr4; vmxon %1" :: "r"(cr4), "m"(vmxon_region));
+	x86_64_start_vmx();
 }
 
 static void x86_64_initrd(void)

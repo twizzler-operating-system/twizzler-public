@@ -10,7 +10,7 @@ LDFLAGS+=-mcmodel=kernel -Wl,-z,max-page-size=4096
 
 QEMU=qemu-system-x86_64 -m 1024 -kernel $(BUILDDIR)/kernel -initrd $(BUILDDIR)/initrd.tar -cpu host
 TOOLCHAIN_PREFIX=x86_64-pc-elf-
-C_SOURCES+=$(addprefix arch/$(ARCH)/,init.c processor.c memory.c debug.c apic.c ioapic.c acpi.c madt.c idt.c entry.c)
+C_SOURCES+=$(addprefix arch/$(ARCH)/,init.c processor.c memory.c debug.c apic.c ioapic.c acpi.c madt.c idt.c entry.c vmx.c)
 ASM_SOURCES+=$(addprefix arch/$(ARCH)/,start.S ctx.S trampoline.S interrupt.S gate.S)
 $(BUILDDIR)/link.ld: arch/$(ARCH)/link.ld.in machine/$(MACHINE)/include/machine/memory.h
 	@echo "[GEN] $@"
