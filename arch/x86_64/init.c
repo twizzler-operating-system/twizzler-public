@@ -42,7 +42,7 @@ static void proc_init(void)
 	
 }
 
-void x86_64_start_vmx(void);
+void x86_64_start_vmx(struct processor *proc);
 static void x86_64_initrd(void)
 {
 	printk("%d mods\n", mb->mods_count);
@@ -63,7 +63,6 @@ void x86_64_init(struct multiboot *mth)
 
 	kernel_early_init();
 	_init();
-	x86_64_start_vmx();
 	kernel_init();
 }
 
@@ -123,6 +122,8 @@ void arch_processor_init(struct processor *proc)
 	if(proc->flags & PROCESSOR_BSP) {
 		proc->arch.kernel_stack = &initial_boot_stack;
 	}
+
+	x86_64_start_vmx(proc);
 
 	/* save GS kernel base (saved to user, because we swapgs on sysret) */
 	uint64_t gs = (uint64_t)&proc->arch;

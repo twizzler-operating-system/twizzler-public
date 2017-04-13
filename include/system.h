@@ -25,3 +25,4 @@ static inline unsigned long long __round_up_pow2(unsigned int a)
 #define stringify_define(x) stringify(x)
 #define stringify(x) #x
 
+#define array_len(x) (sizeof((x)) / sizeof((x)[0]))

@@ -43,6 +43,26 @@ struct x86_64_gdt_entry
 	uint8_t  base_high; 
 } __attribute__((packed));
 
+enum {
+	REG_RAX,
+	REG_RBX,
+	REG_RCX,
+	REG_RDX,
+	REG_RDI,
+	REG_RSI,
+	REG_RBP,
+	REG_R8,
+	REG_R9,
+	REG_R10,
+	REG_R11,
+	REG_R12,
+	REG_R13,
+	REG_R14,
+	REG_R15,
+	REG_CR2,
+	NUM_REGS,
+};
+
 struct thread;
 struct arch_processor {
 	void *scratch_sp;
@@ -55,6 +75,10 @@ struct arch_processor {
 		uint16_t limit;
 		uint64_t base;
 	} gdtptr;
+	uintptr_t vmcs;
+	uint64_t vcpu_state_regs[NUM_REGS];
+	int launched;
+	uint32_t revid;
 };
 
 __attribute__((const)) static inline struct thread * __x86_64_get_current_thread(void)
