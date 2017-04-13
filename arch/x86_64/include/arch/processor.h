@@ -67,7 +67,7 @@ struct thread;
 struct arch_processor {
 	void *scratch_sp;
 	void *tcb;
-	void *kernel_stack;
+	void *kernel_stack, *hyper_stack;
 	struct thread *curr;
 	_Alignas(16) struct x86_64_tss tss;
 	_Alignas(16) struct x86_64_gdt_entry gdt[8];
