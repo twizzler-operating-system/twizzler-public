@@ -158,8 +158,7 @@ void x86_64_vmenter(struct processor *proc)
 			[r13]"i"(REG_R13*8),
 			[r14]"i"(REG_R14*8),
 			[r15]"i"(REG_R15*8),
-			[cr2]"i"(REG_CR2*8)
-			);
+			[cr2]"i"(REG_CR2*8));
 }
 
 void x86_64_start_vmx(struct processor *proc)
