@@ -264,6 +264,8 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_SS_SEL, 0x10);
 	vmcs_writel(VMCS_HOST_TS_SEL, 0x2B);
 
+	vmcs_writel(VMCS_HOST_RIP, vmexit_point);
+	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
 }
 
 void x86_64_start_vmx(struct processor *proc)
