@@ -60,6 +60,8 @@ enum {
 	REG_R14,
 	REG_R15,
 	REG_CR2,
+	HOST_RSP,
+	PROC_PTR,
 	NUM_REGS,
 };
 

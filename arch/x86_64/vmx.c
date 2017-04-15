@@ -111,6 +111,13 @@ __attribute__((used)) static void x86_64_vmentry_failed(void)
 	for(;;);
 }
 
+void x86_64_vmexit_handler(struct processor *proc)
+{
+	/* so, in theory we now have a valid pointer to a processor struct, and a stack
+	 * to work in (see code below). */
+
+}
+
 void x86_64_vmenter(struct processor *proc)
 {
 	/* VMCS does not deal with CPU registers, so we must save and restore them. */
@@ -140,6 +147,27 @@ void x86_64_vmenter(struct processor *proc)
 			"launched: vmresume; failed:"
 			"popf;"
 			"call x86_64_vmentry_failed;"
+			/* okay, let's have an assembly stub for a VM exit */
+			".global vmexit_point;"
+			"vmexit_point:;"
+			"mov %%rax, %c[rax](%%rsp);"
+			"mov %%rbx, %c[rbx](%%rsp);"
+			"mov %%rcx, %c[rcx](%%rsp);"
+			"mov %%rdx, %c[rdx](%%rsp);"
+			"mov %%rdi, %c[rdi](%%rsp);"
+			"mov %%rsi, %c[rsi](%%rsp);"
+			"mov %%rbp, %c[rbp](%%rsp);"
+			"mov %%r8,  %c[r8](%%rsp);"
+			"mov %%r9,  %c[r9](%%rsp);"
+			"mov %%r10, %c[r10](%%rsp);"
+			"mov %%r11, %c[r11](%%rsp);"
+			"mov %%r12, %c[r12](%%rsp);"
+			"mov %%r13, %c[r13](%%rsp);"
+			"mov %%r14, %c[r14](%%rsp);"
+			"mov %%r15, %c[r15](%%rsp);"
+			"mov %c[procptr](%%rsp), %%rdi;"
+			"mov %c[hrsp](%%rsp), %%rsp;"
+			"jmp x86_64_vmexit_handler;"
 			::
 			"r"(proc->arch.launched),
 			"c"(proc->arch.vcpu_state_regs),
@@ -158,7 +186,9 @@ void x86_64_vmenter(struct processor *proc)
 			[r13]"i"(REG_R13*8),
 			[r14]"i"(REG_R14*8),
 			[r15]"i"(REG_R15*8),
-			[cr2]"i"(REG_CR2*8));
+			[cr2]"i"(REG_CR2*8),
+			[hrsp]"i"(HOST_RSP*8),
+			[procptr]"i"(PROC_PTR));
 }
 
 void x86_64_start_vmx(struct processor *proc)
@@ -167,6 +197,8 @@ void x86_64_start_vmx(struct processor *proc)
 
 	proc->arch.launched = 0;
 	memset(proc->arch.vcpu_state_regs, 0, sizeof(proc->arch.vcpu_state_regs));
+	proc->arch.vcpu_state_regs[HOST_RSP] = (uintptr_t)proc->arch.kernel_stack;
+	proc->arch.vcpu_state_regs[PROC_PTR] = (uintptr_t)proc;
 	printk("Starting VMX system\n");
 	proc->arch.vmcs = mm_physical_alloc(VMCS_SIZE, PM_TYPE_DRAM, true);
 	uint32_t *vmcs_rev = (uint32_t *)(proc->arch.vmcs + PHYSICAL_MAP_START);
