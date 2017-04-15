@@ -105,7 +105,7 @@ static void x86_64_enable_vmx(void)
 }
 
 
-__attribute__((used)) static void x86_64_vmentry_failed(void)
+__attribute__((used)) static void x86_64_vmentry_failed(struct processor *proc)
 {
 	printk("HERE! %s\n", vmcs_read_vminstr_err());
 	for(;;);
@@ -118,15 +118,18 @@ void x86_64_vmexit_handler(struct processor *proc)
 
 }
 
-void x86_64_vmenter(struct processor *proc)
+_Noreturn void x86_64_vmenter(struct processor *proc)
 {
 	/* VMCS does not deal with CPU registers, so we must save and restore them. */
 
 	asm volatile(
 			"pushf;"
+			"push %%rcx;"
 			"cmp $0, %0;"
+			/* load the "guest" registers into the cpu. We can trash the host regs because
+			 * we are also the guest. Wheee. */
 			"mov %c[cr2](%%rcx), %%rax;"
-			"mov %%rax, %%cr2;"
+			"mov %%rax, %%cr2;" /* CR2 must be loaded from a register */
 			"mov %c[rax](%%rcx), %%rax;"
 			"mov %c[rbx](%%rcx), %%rbx;"
 			"mov %c[rdx](%%rcx), %%rdx;"
@@ -141,16 +144,21 @@ void x86_64_vmenter(struct processor *proc)
 			"mov %c[r13](%%rcx), %%r13;"
 			"mov %c[r14](%%rcx), %%r14;"
 			"mov %c[r15](%%rcx), %%r15;"
-			"mov %c[rcx](%%rcx), %%rcx;" //this kills rcx
+			"mov %c[rcx](%%rcx), %%rcx;" /* this kills rcx */
+			/* okay, now try to start the "vm". This means either vmlaunch (if we're initializing), or vmresume otherwise. */
 			"jne launched;"
 			"vmlaunch; jmp failed;"
 			"launched: vmresume; failed:"
-			"popf;"
+			"pop %%rcx;"
+			"mov %c[procptr](%%rcx), %%rdi;" /* we destroyed our registers, so lets load a pointer to the proc structure. */
+			"popf;" /* restore our flags */
 			"call x86_64_vmentry_failed;"
 			/* okay, let's have an assembly stub for a VM exit */
 			".global vmexit_point;"
 			"vmexit_point:;"
-			"mov %%rax, %c[rax](%%rsp);"
+			/* save the guest registers for reloading later. Again, we don't need to reload host regs because we're treating
+			 * this like any other "kernel entry", so we can just start from a stack with a pointer to a processor. */
+			"mov %%rax, %c[rax](%%rsp);" /* help me im lost in assembly land */
 			"mov %%rbx, %c[rbx](%%rsp);"
 			"mov %%rcx, %c[rcx](%%rsp);"
 			"mov %%rdx, %c[rdx](%%rsp);"
@@ -165,8 +173,10 @@ void x86_64_vmenter(struct processor *proc)
 			"mov %%r13, %c[r13](%%rsp);"
 			"mov %%r14, %c[r14](%%rsp);"
 			"mov %%r15, %c[r15](%%rsp);"
+			/* okay, load the processor pointer and the _actual_ "host" stack pointer (hyper stack) */
 			"mov %c[procptr](%%rsp), %%rdi;"
 			"mov %c[hrsp](%%rsp), %%rsp;"
+			/* and go back to C */
 			"jmp x86_64_vmexit_handler;"
 			::
 			"r"(proc->arch.launched),
@@ -194,6 +204,19 @@ void x86_64_vmenter(struct processor *proc)
 void vmx_entry_point(void)
 {
 	for(;;);
+}
+
+static uint64_t read_cr(int n)
+{
+	uint64_t v;
+	switch(n) {
+		case 0: asm volatile("mov %%cr0, %%rax" : "=a"(v) :: "rax"); break;
+		case 2: asm volatile("mov %%cr2, %%rax" : "=a"(v) :: "rax"); break;
+		case 3: asm volatile("mov %%cr3, %%rax" : "=a"(v) :: "rax"); break;
+		case 4: asm volatile("mov %%cr4, %%rax" : "=a"(v) :: "rax"); break;
+		default: panic("invalid control register");
+	}
+	return v;
 }
 
 void vtx_setup_vcpu(struct processor *proc)
