@@ -219,6 +219,13 @@ static uint64_t read_cr(int n)
 	return v;
 }
 
+static uint64_t read_efer(void)
+{
+	uint32_t lo, hi;
+	x86_64_rdmsr(X86_MSR_EFER, &lo, &hi);
+	return ((uint64_t)hi << 32) | lo;
+}
+
 void vtx_setup_vcpu(struct processor *proc)
 {
 	/* we have to set-up the vcpu state to "mirror" our physical CPU.
@@ -252,6 +259,11 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_GUEST_RIP, vmx_entry_point);
 	vmcs_writel(VMCS_GUEST_RSP, proc->arch.kernel_stack + KERNEL_STACK_SIZE);
 	
+	vmcs_writel(VMCS_GUEST_CR0, read_cr(0));
+	vmcs_writel(VMCS_GUEST_CR3, read_cr(3));
+	vmcs_writel(VMCS_GUEST_CR4, read_cr(4));
+	vmcs_writel(VMCS_GUEST_EFER, read_efer());
+
 	/* TODO: debug registers? */
 
 
@@ -270,7 +282,13 @@ void vtx_setup_vcpu(struct processor *proc)
 	/* VM control fields. */
 	/* TODO: PROCBASED */
 	// PINBASED_CTLS
+	vmcs_writel(VMCS_PINBASED_CONTROLS, 0); //TODO: we should check an MSR for this
+	vmcs_writel(VMCS_PROCBASED_CONTROLS, (1 << 31)); //TODO: ^
 	
+	vmcs_writel(VMCS_PROCBASED_CONTROLS_SECONDARY,
+			/* TODO: APIC */
+			(1 << 1) /* EPT */ | (1 << 3) /* allow RDTSCP */ | (1 << 13) /* enable VMFUNC */ | (1 << 18) /* guest handles EPT violations */);
+
 	vmcs_writel(VMCS_EXCEPTION_BITMAP, 0);
 	vmcs_writel(VMCS_PF_ERROR_CODE_MASK, 0);
 	vmcs_writel(VMCS_PF_ERROR_CODE_MATCH, 0);
@@ -278,6 +296,7 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_CR0, read_cr(0));
 	vmcs_writel(VMCS_HOST_CR3, read_cr(1));
 	vmcs_writel(VMCS_HOST_CR4, read_cr(1));
+	vmcs_writel(VMCS_HOST_EFER, read_efer());
 
 	vmcs_writel(VMCS_HOST_CS_SEL, 0x8);
 	vmcs_writel(VMCS_HOST_DS_SEL, 0x10);
@@ -285,10 +304,30 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_FS_SEL, 0x10);
 	vmcs_writel(VMCS_HOST_GS_SEL, 0x10);
 	vmcs_writel(VMCS_HOST_SS_SEL, 0x10);
-	vmcs_writel(VMCS_HOST_TS_SEL, 0x2B);
+	vmcs_writel(VMCS_HOST_TR_SEL, 0x2B);
+
+	/* TODO: IDTR base */
+	vmcs_writel(VMCS_HOST_GDTR_BASE, proc->arch->gdtptr.base); //TODO: base or ptr?
+	vmcs_writel(VMCS_HOST_TR_BASE, proc->arch->tss);
+
+	/* TODO: MSRs */
+
+	vmcs_writel_fixed(X86_MSR_VMX_EXIT_CTLS, VMCS_EXIT_CONTROLS,
+			(1 << 9) /* 64-bit host */); //TODO: interrupt control
+
+	vmcs_writel_fixed(X86_MSR_VMX_ENTRY_CTLS, VMCS_ENTRY_CONTROLS,
+			(1 << 9) /* IA-32e guest */);
+
+	vmcs_writel(VMCS_ENTRY_INTR_INFO, 0);
+	vmcs_writel(VMCS_APIC_VIRT_ADDR, 0); //TODO: what?
+
+	vmcs_writel(VMCS_TPR_THRESHOLD, 0); //TODO: what?
+
 
 	vmcs_writel(VMCS_HOST_RIP, vmexit_point);
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
+
+	vmcs_writel(VMCS_EPT_PTR, (uintptr_t)ept_root | (3 << 3) | 6);
 }
 
 void x86_64_start_vmx(struct processor *proc)
