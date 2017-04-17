@@ -226,8 +226,27 @@ static uint64_t read_efer(void)
 	return ((uint64_t)hi << 32) | lo;
 }
 
+uintptr_t init_ept(void)
+{
+	uintptr_t pml4phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+	uintptr_t *pml4 = (void *)(pml4phys + PHYSICAL_MAP_START);
+	uintptr_t phys = 0;
+	for(int i=0;i<512;i++) {
+		uintptr_t pdptphys = pml4[i] = mm_physical_alloc();
+		pml4[i] |= 3;
+		uintptr_t *pdpt = (void *)(pdptphys + PHYSICAL_MAP_START);
+		for(int i=0;i<512;i++) {
+			pdpt[i] = phys | 3 | (1 << 7);
+			phys += (1024ull * 1024ull * 1024ull);
+		}
+	}
+	return pml4phys;
+}
+
 void vtx_setup_vcpu(struct processor *proc)
 {
+	uintptr_t ept_root = init_ept();
+
 	/* we have to set-up the vcpu state to "mirror" our physical CPU.
 	 * Strap yourself in, it's gonna be a long ride. */
 
@@ -263,6 +282,8 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_GUEST_CR3, read_cr(3));
 	vmcs_writel(VMCS_GUEST_CR4, read_cr(4));
 	vmcs_writel(VMCS_GUEST_EFER, read_efer());
+	vmcs_writel(VMCS_CR4_READ_SHADOW, 0);
+	vmcs_writel(VMCS_CR0_READ_SHADOW, 0);
 
 	/* TODO: debug registers? */
 
