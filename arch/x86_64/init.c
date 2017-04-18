@@ -115,6 +115,42 @@ void x86_64_gdt_init(struct processor *proc)
 
 extern int initial_boot_stack;
 extern void x86_64_syscall_entry_from_userspace();
+extern void kernel_main(struct processor *proc);
+
+void x86_64_processor_post_vm_init(struct processor *proc)
+{
+	
+	/* save GS kernel base (saved to user, because we swapgs on sysret) */
+	uint64_t gs = (uint64_t)&proc->arch;
+	x86_64_wrmsr(X86_MSR_GS_BASE, gs & 0xFFFFFFFF, gs >> 32);
+
+	/* okay, now set up the registers for fast syscall.
+	 * This means storing x86_64_syscall_entry to LSTAR,
+	 * the EFLAGS mask to SFMASK, and the CS kernel segment
+	 * to STAR. */
+
+	
+	/* STAR: bits 32-47 are kernel CS, 48-63 are user CS. */
+	uint32_t lo = 0, hi;
+	hi = (0x10 << 16) | 0x08;
+	x86_64_wrmsr(X86_MSR_STAR, lo, hi);
+
+	/* LSTAR: contains kernel entry point for syscall */
+	lo = (uintptr_t)(&x86_64_syscall_entry_from_userspace) & 0xFFFFFFFF;
+	hi = ((uintptr_t)(&x86_64_syscall_entry_from_userspace) >> 32) & 0xFFFFFFFF;
+	x86_64_wrmsr(X86_MSR_LSTAR, lo, hi);
+
+	/* SFMASK contains mask for eflags. Each bit set in SFMASK will
+	 * be cleared in eflags on syscall */
+	/*      TF         IF          DF        IOPL0       IOPL1         NT         AC */
+	lo = (1 << 8) | (1 << 9) | (1 << 10) | (1 << 12) | (1 << 13) | (1 << 14) | (1 << 18);
+	hi = 0;
+	x86_64_wrmsr(X86_MSR_SFMASK, lo, hi);
+	proc->arch.curr = NULL;
+
+	kernel_main(proc);
+}
+
 void arch_processor_init(struct processor *proc)
 {
 	x86_64_gdt_init(proc);
@@ -124,6 +160,8 @@ void arch_processor_init(struct processor *proc)
 	}
 
 	x86_64_start_vmx(proc);
+
+	/* TODO: this code is never reached, but is left here for reference. Delete it soon. */
 
 	/* save GS kernel base (saved to user, because we swapgs on sysret) */
 	uint64_t gs = (uint64_t)&proc->arch;

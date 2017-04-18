@@ -4,10 +4,6 @@
 #define VMCS_SIZE 0x1000
 static uint32_t revision_id;
 
-enum vmcs_fields {
-	VMCS_VM_INSTRUCTION_ERROR = 0x4400,
-};
-
 static const char *vm_errs[] = {
 	"Success",
 	"VMCALL in vmx-root",
@@ -65,6 +61,18 @@ static inline void vmcs_writel(unsigned long field, unsigned long val)
 	}
 }
 
+static inline void vmcs_write32_fixed(uint32_t msr, uint32_t vmcs_field, uint32_t val)
+{
+	uint32_t msr_high, msr_low;
+
+	x86_64_msr_read(msr, &msr_low, &msr_high);
+	
+	val &= msr_high;
+	val |= msr_low;
+	vmcs_writel(vmcs_field, val);
+}
+
+
 static uint32_t __attribute__((noinline)) cpuid(uint32_t x, int rnum)
 {
 	uint32_t regs[4];
@@ -91,12 +99,14 @@ static void x86_64_enable_vmx(void)
 	cr4 |= (1 << 13); //enable VMX
 	uintptr_t vmxon_region = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 	
+	/* get the revision ID. This is needed for several VM data structures. */
 	x86_64_rdmsr(X86_MSR_VMX_BASIC, &lo, &hi);
 	revision_id = lo & 0x7FFFFFFF;
 	uint32_t *vmxon_revid = (uint32_t *)(vmxon_region + PHYSICAL_MAP_START);
 	*vmxon_revid = revision_id;
 
 	uint8_t error;
+	/* enable VT-x by setting the enable bit in cr4 and executing the 'on' vmx instr. */
 	asm volatile("mov %1, %%cr4; vmxon %2; setc %0" :"=g"(error): "r"(cr4), "m"(vmxon_region) : "cc");
 	if(error) {
 		panic("failed to enter VMX operation");
@@ -115,13 +125,17 @@ void x86_64_vmexit_handler(struct processor *proc)
 {
 	/* so, in theory we now have a valid pointer to a processor struct, and a stack
 	 * to work in (see code below). */
-
+	register uint64_t rsp asm("rsp");
+	printk("Got VMEXIT (%p) %lx\n", proc, rsp);
+	for(;;);
 }
 
 _Noreturn void x86_64_vmenter(struct processor *proc)
 {
 	/* VMCS does not deal with CPU registers, so we must save and restore them. */
 
+	/* TODO: do we need this? Or should we follow an "interrupt" model for vmexits (push/pop)? */
+	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
 	asm volatile(
 			"pushf;"
 			"push %%rcx;"
@@ -201,8 +215,11 @@ _Noreturn void x86_64_vmenter(struct processor *proc)
 			[procptr]"i"(PROC_PTR));
 }
 
-void vmx_entry_point(void)
+void x86_64_processor_post_vm_init(struct processor *proc);
+void vmx_entry_point(struct processor *proc)
 {
+	/* TODO: actually call this. */
+	//x86_64_processor_post_vm_init(proc);
 	for(;;);
 }
 
@@ -211,6 +228,7 @@ static uint64_t read_cr(int n)
 	uint64_t v;
 	switch(n) {
 		case 0: asm volatile("mov %%cr0, %%rax" : "=a"(v) :: "rax"); break;
+		/* cr1 is not accessible */
 		case 2: asm volatile("mov %%cr2, %%rax" : "=a"(v) :: "rax"); break;
 		case 3: asm volatile("mov %%cr3, %%rax" : "=a"(v) :: "rax"); break;
 		case 4: asm volatile("mov %%cr4, %%rax" : "=a"(v) :: "rax"); break;
@@ -228,16 +246,17 @@ static uint64_t read_efer(void)
 
 uintptr_t init_ept(void)
 {
+	/* let's map 1-G pages for the EPT, in a flat and linear fashion for now. */
 	uintptr_t pml4phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 	uintptr_t *pml4 = (void *)(pml4phys + PHYSICAL_MAP_START);
 	uintptr_t phys = 0;
 	for(int i=0;i<512;i++) {
 		uintptr_t pdptphys = pml4[i] = mm_physical_alloc();
-		pml4[i] |= 3;
+		pml4[i] |= 3; /* we have all permissions */
 		uintptr_t *pdpt = (void *)(pdptphys + PHYSICAL_MAP_START);
 		for(int i=0;i<512;i++) {
-			pdpt[i] = phys | 3 | (1 << 7);
-			phys += (1024ull * 1024ull * 1024ull);
+			pdpt[i] = phys | 3 | (1 << 7); /* all permissions + is-page bit */
+			phys += (1024ull * 1024ull * 1024ull); /* increment phys by 1-G */
 		}
 	}
 	return pml4phys;
@@ -299,6 +318,7 @@ enum {
 	VMCS_HOST_RIP                     = ,
 	VMCS_HOST_RSP                     = ,
 	VMCS_EPT_PTR                      = ,
+	VMCS_VM_INSTRUCTION_ERROR         = 0x4400,
 };
 
 void vtx_setup_vcpu(struct processor *proc)
@@ -387,14 +407,15 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	/* TODO: IDTR base */
 	vmcs_writel(VMCS_HOST_GDTR_BASE, proc->arch->gdtptr.base); //TODO: base or ptr?
+	vmcs_writel(VMCS_HOST_GDTR_LIM, sizeof(struct x86_64_gdt_entry) * 8 - 1);
 	vmcs_writel(VMCS_HOST_TR_BASE, proc->arch->tss);
 
 	/* TODO: MSRs */
 
-	vmcs_writel_fixed(X86_MSR_VMX_EXIT_CTLS, VMCS_EXIT_CONTROLS,
+	vmcs_write32_fixed(X86_MSR_VMX_EXIT_CTLS, VMCS_EXIT_CONTROLS,
 			(1 << 9) /* 64-bit host */); //TODO: interrupt control
 
-	vmcs_writel_fixed(X86_MSR_VMX_ENTRY_CTLS, VMCS_ENTRY_CONTROLS,
+	vmcs_write32_fixed(X86_MSR_VMX_ENTRY_CTLS, VMCS_ENTRY_CONTROLS,
 			(1 << 9) /* IA-32e guest */);
 
 	vmcs_writel(VMCS_ENTRY_INTR_INFO, 0);
@@ -406,7 +427,7 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_RIP, vmexit_point);
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
 
-	vmcs_writel(VMCS_EPT_PTR, (uintptr_t)ept_root | (3 << 3) | 6);
+	vmcs_writel(VMCS_EPT_PTR, (uintptr_t)ept_root | (3 << 3) | 6); /*TODO: these numbers probably do something useful. */
 }
 
 void x86_64_start_vmx(struct processor *proc)
@@ -417,6 +438,7 @@ void x86_64_start_vmx(struct processor *proc)
 	memset(proc->arch.vcpu_state_regs, 0, sizeof(proc->arch.vcpu_state_regs));
 	proc->arch.vcpu_state_regs[HOST_RSP] = (uintptr_t)proc->arch.kernel_stack;
 	proc->arch.vcpu_state_regs[PROC_PTR] = (uintptr_t)proc;
+	proc->arch.vcpu_state_regs[REG_RDI] = (uintptr_t)proc; /* set initial argument to vmx_entry_point */
 	printk("Starting VMX system\n");
 	proc->arch.vmcs = mm_physical_alloc(VMCS_SIZE, PM_TYPE_DRAM, true);
 	uint32_t *vmcs_rev = (uint32_t *)(proc->arch.vmcs + PHYSICAL_MAP_START);
