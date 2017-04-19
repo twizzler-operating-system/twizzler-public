@@ -412,7 +412,7 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	/* TODO: IDTR base */
 	vmcs_writel(VMCS_HOST_GDTR_BASE, proc->arch->gdtptr.base); //TODO: base or ptr?
-	vmcs_writel(VMCS_HOST_GDTR_LIM, sizeof(struct x86_64_gdt_entry) * 8 - 1);
+	//vmcs_writel(VMCS_HOST_GDTR_LIM, sizeof(struct x86_64_gdt_entry) * 8 - 1);
 	vmcs_writel(VMCS_HOST_TR_BASE, proc->arch->tss);
 
 	/* TODO: MSRs */

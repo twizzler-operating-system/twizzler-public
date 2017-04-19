@@ -11,6 +11,9 @@
    #define X86_MSR_EFER_SYSCALL     0x1
    #define X86_MSR_EFER_NX          (1 << 11)
 
+#define X86_MSR_VMX_ENTRY_CTLS      0x484
+#define X86_MSR_VMX_EXIT_CTLS       0x483
+
 #define X86_MSR_STAR                0xC0000081
 #define X86_MSR_LSTAR               0xC0000082
 #define X86_MSR_SFMASK              0xC0000084
