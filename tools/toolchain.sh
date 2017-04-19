@@ -25,7 +25,7 @@ wget ftp://ftp.gnu.org/gnu/gcc/gcc-${GCCVER}/gcc-${GCCVER}.tar.bz2
 tar xf binutils-${BINUTILSVER}.tar.bz2
 tar xf gcc-${GCCVER}.tar.bz2
 
-mkdir build-binutils build-gcc
+mkdir -p build-binutils build-gcc
 cd build-binutils
 
 ../binutils-${BINUTILSVER}/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot --disable-nls --disable-werror
@@ -38,7 +38,7 @@ cd ../build-gcc
 
 make all-gcc all-target-libgcc
 if [[ "$TARGET" == "x86_64-pc-elf" ]]; then
-	cd $(TARGET)/libgcc
+	cd $TARGET/libgcc
 	sed -i 's/^CRTSTUFF_T_CFLAGS =.*$/CRTSTUFF_T_CFLAGS = -mcmodel=kernel/g' Makefile
 	make clean
 	make

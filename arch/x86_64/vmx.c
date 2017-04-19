@@ -4,6 +4,71 @@
 #define VMCS_SIZE 0x1000
 static uint32_t revision_id;
 
+enum {
+	VMCS_GUEST_CS_SEL                 = 0x802,
+	VMCS_GUEST_CS_BASE                = 0x6808,
+	VMCS_GUEST_CS_LIM                 = 0x4802,
+	VMCS_GUEST_CS_ARBYTES             = 0x4816,
+	VMCS_GUEST_TR_SEL                 = 0x80e,
+	VMCS_GUEST_TR_BASE                = 0x6814,
+	VMCS_GUEST_TR_LIM                 = 0x480e,
+	VMCS_GUEST_TR_ARBYTES             = 0x4822,
+	VMCS_GUEST_LDTR_SEL               = 0x80c,
+	VMCS_GUEST_LDTR_BASE              = 0x6812,
+	VMCS_GUEST_LDTR_LIM               = 0x480c,
+	VMCS_GUEST_LDTR_ARBYTES           = 0x4820,
+	VMCS_GUEST_GDTR_BASE              = 0x6816,
+	VMCS_GUEST_GDTR_LIM               = 0x4810,
+	VMCS_GUEST_RFLAGS                 = 0x6820,
+	VMCS_GUEST_RIP                    = 0x681e,
+	VMCS_GUEST_RSP                    = 0x681c,
+	VMCS_GUEST_CR0                    = 0x6800,
+	VMCS_GUEST_CR3                    = 0x6802,
+	VMCS_GUEST_CR4                    = 0x6804,
+	VMCS_GUEST_EFER                   = 0x2806,
+	VMCS_CR4_READ_SHADOW              = 0x6006,
+	VMCS_CR0_READ_SHADOW              = 0x6004,
+	VMCS_GUEST_ACTIVITY_STATE         = 0x4826,
+	VMCS_GUEST_INTRRUPTIBILITY_INFO   = 0x810, //confirm
+	VMCS_GUEST_PENDING_DBG_EXCEPTIONS = 0x6822,
+	VMCS_GUEST_IA32_DEBUGCTL          = 0x2802,
+	VMCS_IO_BITMAP_B                  = 0x2002,
+	VMCS_IO_BITMAP_A                  = 0x2000,
+	VMCS_LINK_POINTER                 = 0x2800,
+	VMCS_PINBASED_CONTROLS            = 0x4000,
+	VMCS_PROCBASED_CONTROLS           = 0x4002,
+	VMCS_PROCBASED_CONTROLS_SECONDARY = 0x401e,
+	VMCS_EXCEPTION_BITMAP             = 0x4004,
+	VMCS_PF_ERROR_CODE_MASK           = 0x4006,
+	VMCS_PF_ERROR_CODE_MATCH          = 0x4008,
+	VMCS_HOST_CR0                     = 0x6c00,
+	VMCS_HOST_CR3                     = 0x6c02,
+	VMCS_HOST_CR4                     = 0x6c04,
+	VMCS_HOST_EFER                    = 0x2c02,
+	VMCS_HOST_CS_SEL                  = 0xc02,
+	VMCS_HOST_DS_SEL                  = 0xc06,
+	VMCS_HOST_ES_SEL                  = 0xc00,
+	VMCS_HOST_FS_SEL                  = 0xc08,
+	VMCS_HOST_GS_SEL                  = 0xc0a,
+	VMCS_HOST_SS_SEL                  = 0xc04,
+	VMCS_HOST_TR_SEL                  = 0xc0c,
+	VMCS_HOST_GDTR_BASE               = 0x6c0c,
+	VMCS_HOST_TR_BASE                 = 0x6c0a,
+	VMCS_ENTRY_INTR_INFO              = 0x4016,
+	VMCS_APIC_VIRT_ADDR               = 0x2012,
+	VMCS_TPR_THRESHOLD                = 0x401c,
+	VMCS_HOST_RIP                     = 0x6c16,
+	VMCS_HOST_RSP                     = 0x6c14,
+	VMCS_EPT_PTR                      = 0x201a,
+	VMCS_VM_INSTRUCTION_ERROR         = 0x4400,
+	VMCS_ENTRY_CONTROLS               = 0x400c,
+	VMCS_EXIT_CONTROLS                = 0x4012,
+	VMCS_EXIT_REASON                  = 0x4402,
+	VMCS_IA32_SYSENTER_CS             = 0x482a,
+	VMCS_IA32_HOST_SYSENTER_CS        = 0x4c00,
+};
+
+
 static const char *vm_errs[] = {
 	"Success",
 	"VMCALL in vmx-root",
@@ -261,66 +326,6 @@ uintptr_t init_ept(void)
 	}
 	return pml4phys;
 }
-
-enum {
-	VMCS_GUEST_CS_SEL                 = ,
-	VMCS_GUEST_CS_BASE                = ,
-	VMCS_GUEST_CS_LIM                 = ,
-	VMCS_GUEST_CS_ARBYTES             = ,
-	VMCS_GUEST_TR_SEL                 = ,
-	VMCS_GUEST_TR_BASE                = ,
-	VMCS_GUEST_TR_LIM                 = ,
-	VMCS_GUEST_TR_ARBYTES             = ,
-	VMCS_GUEST_LDTR_SEL               = ,
-	VMCS_GUEST_LDTR_BASE              = ,
-	VMCS_GUEST_LDTR_LIM               = ,
-	VMCS_GUEST_LDTR_ARBYTES           = ,
-	VMCS_GUEST_GDTR_BASE              = ,
-	VMCS_GUEST_GDTR_LIM               = ,
-	VMCS_GUEST_RFLAGS                 = ,
-	VMCS_GUEST_RIP                    = ,
-	VMCS_GUEST_RSP                    = ,
-	VMCS_GUEST_CR0                    = ,
-	VMCS_GUEST_CR3                    = ,
-	VMCS_GUEST_CR4                    = ,
-	VMCS_GUEST_EFER                   = ,
-	VMCS_CR4_READ_SHADOW              = ,
-	VMCS_CR0_READ_SHADOW              = ,
-	VMCS_GUEST_ACTIVITY_STATE         = ,
-	VMCS_GUEST_INTRRUPTIBILITY_INFO   = ,
-	VMCS_GUEST_PENDING_DBG_EXCEPTIONS = ,
-	VMCS_GUEST_IA32_DEBUGCTL          = ,
-	VMCS_IO_BITMAP_B                  = ,
-	VMCS_IO_BITMAP_A                  = ,
-	VMCS_LINK_POINTER                 = ,
-	VMCS_PINBASED_CONTROLS            = ,
-	VMCS_PROCBASED_CONTROLS           = ,
-	VMCS_PROCBASED_CONTROLS_SECONDARY = ,
-	VMCS_EXCEPTION_BITMAP             = ,
-	VMCS_PF_ERROR_CODE_MASK           = ,
-	VMCS_PF_ERROR_CODE_MATCH          = ,
-	VMCS_HOST_CR0                     = ,
-	VMCS_HOST_CR3                     = ,
-	VMCS_HOST_CR4                     = ,
-	VMCS_HOST_EFER                    = ,
-	VMCS_HOST_CS_SEL                  = ,
-	VMCS_HOST_DS_SEL                  = ,
-	VMCS_HOST_ES_SEL                  = ,
-	VMCS_HOST_FS_SEL                  = ,
-	VMCS_HOST_GS_SEL                  = ,
-	VMCS_HOST_SS_SEL                  = ,
-	VMCS_HOST_TR_SEL                  = ,
-	VMCS_HOST_GDTR_BASE               = ,
-	VMCS_HOST_TR_BASE                 = ,
-	VMCS_ENTRY_INTR_INFO              = ,
-	VMCS_APIC_VIRT_ADDR               = ,
-	VMCS_TPR_THRESHOLD                = ,
-	VMCS_HOST_RIP                     = ,
-	VMCS_HOST_RSP                     = ,
-	VMCS_EPT_PTR                      = ,
-	VMCS_VM_INSTRUCTION_ERROR         = 0x4400,
-};
-
 void vtx_setup_vcpu(struct processor *proc)
 {
 	uintptr_t ept_root = init_ept();
@@ -423,6 +428,7 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	vmcs_writel(VMCS_TPR_THRESHOLD, 0); //TODO: what?
 
+	/* TODO: VMFUNC */
 
 	vmcs_writel(VMCS_HOST_RIP, vmexit_point);
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
