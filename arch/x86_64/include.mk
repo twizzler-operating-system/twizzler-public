@@ -39,6 +39,7 @@ $(BUILDDIR)/kernel: $(CRTI) $(CRTN)
 bootiso: $(BUILDDIR)/kernel
 	@mkdir -p $(BUILDDIR)/boot/grub
 	@cp machine/pc/grub.cfg $(BUILDDIR)/boot/grub
+	@-rm $(BUILDDIR)/boot.iso
 	cd $(BUILDDIR); grub-mkrescue -o boot.iso kernel .
 
 test-bochs: bootiso

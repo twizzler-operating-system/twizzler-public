@@ -121,5 +121,15 @@ od: $(BUILDDIR)/kernel
 re: $(BUILDDIR)/kernel
 	$(TOOLCHAIN_PREFIX)readelf -a $(BUILDDIR)/kernel
 
+$(BUILDDIR)/hd.img: $(USRPROGS)
+	@-sudo umount $(BUILDDIR)/mnt
+	truncate -s 1GB $(BUILDDIR)/hd.img
+	mke2fs -F $(BUILDDIR)/hd.img
+	mkdir -p $(BUILDDIR)/mnt
+	sudo mount $(BUILDDIR)/hd.img $(BUILDDIR)/mnt
+	sudo cp $(BUILDDIR)/kernel $(BUILDDIR)/mnt/
+	sudo umount $(BUILDDIR)/mnt
+
+
 .PHONY: od re clean all test newproj userspace
 

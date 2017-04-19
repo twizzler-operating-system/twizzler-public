@@ -120,7 +120,7 @@ static inline const char *vmcs_read_vminstr_err(void)
 static inline void vmcs_writel(unsigned long field, unsigned long val)
 {
 	uint8_t err;
-	asm volatile("vmwrite %%rax, %%rdx" : "=q"(err) : "a"(val), "d"(field) : "cc");
+	asm volatile("vmwrite %%rax, %%rdx; setna %0" : "=q"(err) : "a"(val), "d"(field) : "cc");
 	if(unlikely(err)) {
 		panic("vmwrite error: %s", vmcs_read_vminstr_err());
 	}
@@ -130,13 +130,13 @@ static inline void vmcs_write32_fixed(uint32_t msr, uint32_t vmcs_field, uint32_
 {
 	uint32_t msr_high, msr_low;
 
-	x86_64_msr_read(msr, &msr_low, &msr_high);
-	
+	x86_64_rdmsr(msr, &msr_low, &msr_high);
+	printk("fixed: %x %x %x", val, msr_low, msr_high);
 	val &= msr_high;
 	val |= msr_low;
+	printk(" -> %x\n", val);
 	vmcs_writel(vmcs_field, val);
 }
-
 
 static uint32_t __attribute__((noinline)) cpuid(uint32_t x, int rnum)
 {
@@ -154,7 +154,12 @@ static void x86_64_enable_vmx(void)
 
 	uint32_t lo, hi;
 	x86_64_rdmsr(X86_MSR_FEATURE_CONTROL, &lo, &hi);
-	if(!(lo & 1) /* lock bit */ || !(lo & (1 << 2)) /* enable-outside-smx bit */) {
+	if(!(lo & 1)) {
+		lo |= (1 << 2) | 1;
+		x86_64_wrmsr(X86_MSR_FEATURE_CONTROL, lo, hi);
+	}
+	x86_64_rdmsr(X86_MSR_FEATURE_CONTROL, &lo, &hi);
+	if(!(lo & (1 << 2)) /* enable-outside-smx bit */) {
 		panic("VMX extensions not available (not enabled)");
 	}
 
@@ -195,12 +200,13 @@ void x86_64_vmexit_handler(struct processor *proc)
 	for(;;);
 }
 
-_Noreturn void x86_64_vmenter(struct processor *proc)
+void x86_64_vmenter(struct processor *proc)
 {
 	/* VMCS does not deal with CPU registers, so we must save and restore them. */
 
 	/* TODO: do we need this? Or should we follow an "interrupt" model for vmexits (push/pop)? */
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
+	printk("Trying to launch!\n");
 	asm volatile(
 			"pushf;"
 			"push %%rcx;"
@@ -208,7 +214,7 @@ _Noreturn void x86_64_vmenter(struct processor *proc)
 			/* load the "guest" registers into the cpu. We can trash the host regs because
 			 * we are also the guest. Wheee. */
 			"mov %c[cr2](%%rcx), %%rax;"
-			"mov %%rax, %%cr2;" /* CR2 must be loaded from a register */
+			"mov %%rax, %%cr2;"         /* CR2 must be loaded from a register */
 			"mov %c[rax](%%rcx), %%rax;"
 			"mov %c[rbx](%%rcx), %%rbx;"
 			"mov %c[rdx](%%rcx), %%rdx;"
@@ -292,11 +298,11 @@ static uint64_t read_cr(int n)
 {
 	uint64_t v;
 	switch(n) {
-		case 0: asm volatile("mov %%cr0, %%rax" : "=a"(v) :: "rax"); break;
+		case 0: asm volatile("mov %%cr0, %%rax" : "=a"(v)); break;
 		/* cr1 is not accessible */
-		case 2: asm volatile("mov %%cr2, %%rax" : "=a"(v) :: "rax"); break;
-		case 3: asm volatile("mov %%cr3, %%rax" : "=a"(v) :: "rax"); break;
-		case 4: asm volatile("mov %%cr4, %%rax" : "=a"(v) :: "rax"); break;
+		case 2: asm volatile("mov %%cr2, %%rax" : "=a"(v)); break;
+		case 3: asm volatile("mov %%cr3, %%rax" : "=a"(v)); break;
+		case 4: asm volatile("mov %%cr4, %%rax" : "=a"(v)); break;
 		default: panic("invalid control register");
 	}
 	return v;
@@ -316,7 +322,7 @@ uintptr_t init_ept(void)
 	uintptr_t *pml4 = (void *)(pml4phys + PHYSICAL_MAP_START);
 	uintptr_t phys = 0;
 	for(int i=0;i<512;i++) {
-		uintptr_t pdptphys = pml4[i] = mm_physical_alloc();
+		uintptr_t pdptphys = pml4[i] = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 		pml4[i] |= 3; /* we have all permissions */
 		uintptr_t *pdpt = (void *)(pdptphys + PHYSICAL_MAP_START);
 		for(int i=0;i<512;i++) {
@@ -326,14 +332,16 @@ uintptr_t init_ept(void)
 	}
 	return pml4phys;
 }
+
+void vmexit_point(void);
 void vtx_setup_vcpu(struct processor *proc)
 {
 	uintptr_t ept_root = init_ept();
 
 	/* we have to set-up the vcpu state to "mirror" our physical CPU.
 	 * Strap yourself in, it's gonna be a long ride. */
-
 	/* segment selectors */
+	printk("A\n");
 	vmcs_writel(VMCS_GUEST_CS_SEL, 0x8);
 	vmcs_writel(VMCS_GUEST_CS_BASE, 0);
 	vmcs_writel(VMCS_GUEST_CS_LIM, 0xffff);
@@ -356,10 +364,11 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	/* TODO: ldt, idt? */
 
+	printk("A\n");
 	/* CPU control info and stack */
 	vmcs_writel(VMCS_GUEST_RFLAGS, 0x02);
-	vmcs_writel(VMCS_GUEST_RIP, vmx_entry_point);
-	vmcs_writel(VMCS_GUEST_RSP, proc->arch.kernel_stack + KERNEL_STACK_SIZE);
+	vmcs_writel(VMCS_GUEST_RIP, (uintptr_t)vmx_entry_point);
+	vmcs_writel(VMCS_GUEST_RSP, (uintptr_t)proc->arch.kernel_stack + KERNEL_STACK_SIZE);
 	
 	vmcs_writel(VMCS_GUEST_CR0, read_cr(0));
 	vmcs_writel(VMCS_GUEST_CR3, read_cr(3));
@@ -377,6 +386,7 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_GUEST_PENDING_DBG_EXCEPTIONS, 0);
 	vmcs_writel(VMCS_GUEST_IA32_DEBUGCTL, 0);
 
+	printk("A\n");
 	/* I/O */
 	vmcs_writel(VMCS_IO_BITMAP_A, 0); //TODO: what values?
 	vmcs_writel(VMCS_IO_BITMAP_B, 0);
@@ -386,8 +396,8 @@ void vtx_setup_vcpu(struct processor *proc)
 	/* VM control fields. */
 	/* TODO: PROCBASED */
 	// PINBASED_CTLS
-	vmcs_writel(VMCS_PINBASED_CONTROLS, 0); //TODO: we should check an MSR for this
-	vmcs_writel(VMCS_PROCBASED_CONTROLS, (1 << 31)); //TODO: ^
+	vmcs_write32_fixed(X86_MSR_VMX_PINBASED_CTLS, VMCS_PINBASED_CONTROLS, 0); //TODO: we should check an MSR for this
+	vmcs_write32_fixed(X86_MSR_VMX_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1 << 31)); //TODO: ^
 	
 	vmcs_writel(VMCS_PROCBASED_CONTROLS_SECONDARY,
 			/* TODO: APIC */
@@ -398,10 +408,11 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_PF_ERROR_CODE_MATCH, 0);
 
 	vmcs_writel(VMCS_HOST_CR0, read_cr(0));
-	vmcs_writel(VMCS_HOST_CR3, read_cr(1));
-	vmcs_writel(VMCS_HOST_CR4, read_cr(1));
+	vmcs_writel(VMCS_HOST_CR3, read_cr(3));
+	vmcs_writel(VMCS_HOST_CR4, read_cr(4));
 	vmcs_writel(VMCS_HOST_EFER, read_efer());
 
+	printk("A\n");
 	vmcs_writel(VMCS_HOST_CS_SEL, 0x8);
 	vmcs_writel(VMCS_HOST_DS_SEL, 0x10);
 	vmcs_writel(VMCS_HOST_ES_SEL, 0x10);
@@ -411,9 +422,9 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_TR_SEL, 0x2B);
 
 	/* TODO: IDTR base */
-	vmcs_writel(VMCS_HOST_GDTR_BASE, proc->arch->gdtptr.base); //TODO: base or ptr?
+	vmcs_writel(VMCS_HOST_GDTR_BASE, (uintptr_t)proc->arch.gdtptr.base); //TODO: base or ptr?
 	//vmcs_writel(VMCS_HOST_GDTR_LIM, sizeof(struct x86_64_gdt_entry) * 8 - 1);
-	vmcs_writel(VMCS_HOST_TR_BASE, proc->arch->tss);
+	vmcs_writel(VMCS_HOST_TR_BASE, (uintptr_t)&proc->arch.tss);
 
 	/* TODO: MSRs */
 
@@ -423,6 +434,7 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_write32_fixed(X86_MSR_VMX_ENTRY_CTLS, VMCS_ENTRY_CONTROLS,
 			(1 << 9) /* IA-32e guest */);
 
+	printk("A\n");
 	vmcs_writel(VMCS_ENTRY_INTR_INFO, 0);
 	vmcs_writel(VMCS_APIC_VIRT_ADDR, 0); //TODO: what?
 
@@ -430,7 +442,7 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	/* TODO: VMFUNC */
 
-	vmcs_writel(VMCS_HOST_RIP, vmexit_point);
+	vmcs_writel(VMCS_HOST_RIP, (uintptr_t)vmexit_point);
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
 
 	vmcs_writel(VMCS_EPT_PTR, (uintptr_t)ept_root | (3 << 3) | 6); /*TODO: these numbers probably do something useful. */
@@ -461,6 +473,7 @@ void x86_64_start_vmx(struct processor *proc)
 
 
 
+	vtx_setup_vcpu(proc);
 
 
 	printk("Launching!\n");
