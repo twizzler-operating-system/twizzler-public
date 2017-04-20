@@ -61,8 +61,8 @@ enum {
 	VMCS_HOST_RSP                     = 0x6c14,
 	VMCS_EPT_PTR                      = 0x201a,
 	VMCS_VM_INSTRUCTION_ERROR         = 0x4400,
-	VMCS_ENTRY_CONTROLS               = 0x400c,
-	VMCS_EXIT_CONTROLS                = 0x4012,
+	VMCS_ENTRY_CONTROLS               = 0x4012,
+	VMCS_EXIT_CONTROLS                = 0x400c,
 	VMCS_EXIT_REASON                  = 0x4402,
 	VMCS_IA32_SYSENTER_CS             = 0x482a,
 	VMCS_IA32_HOST_SYSENTER_CS        = 0x4c00,
@@ -428,7 +428,8 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	/* TODO: MSRs */
 
-	vmcs_write32_fixed(X86_MSR_VMX_EXIT_CTLS, VMCS_EXIT_CONTROLS,
+	printk("Exit ctlx\n");
+	vmcs_write32_fixed(X86_MSR_VMX_TRUE_EXIT_CTLS, VMCS_EXIT_CONTROLS,
 			(1 << 9) /* 64-bit host */); //TODO: interrupt control
 
 	vmcs_write32_fixed(X86_MSR_VMX_ENTRY_CTLS, VMCS_ENTRY_CONTROLS,

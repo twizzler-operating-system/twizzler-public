@@ -12,6 +12,7 @@
    #define X86_MSR_EFER_NX          (1 << 11)
 
 #define X86_MSR_VMX_ENTRY_CTLS      0x484
+#define X86_MSR_VMX_TRUE_EXIT_CTLS  0x48f
 #define X86_MSR_VMX_EXIT_CTLS       0x483
 
 #define X86_MSR_STAR                0xC0000081
