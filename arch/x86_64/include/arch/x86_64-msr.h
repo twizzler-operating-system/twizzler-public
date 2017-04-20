@@ -11,6 +11,7 @@
    #define X86_MSR_EFER_SYSCALL     0x1
    #define X86_MSR_EFER_NX          (1 << 11)
 
+#define X86_MSR_VMX_TRUE_ENTRY_CTLS 0x490
 #define X86_MSR_VMX_ENTRY_CTLS      0x484
 #define X86_MSR_VMX_TRUE_EXIT_CTLS  0x48f
 #define X86_MSR_VMX_EXIT_CTLS       0x483
@@ -23,9 +24,11 @@
 
 #define X86_MSR_VMX_BASIC           0x480
 
-#define X86_MSR_VMX_PROCBASED_CTLS2 0x48b
+#define X86_MSR_VMX_PROCBASED_CTLS2 0x48b /* does not have a "true" variant */
 #define X86_MSR_VMX_PROCBASED_CTLS  0x482
+#define X86_MSR_VMX_TRUE_PROCBASED_CTLS 0x48e
 #define X86_MSR_VMX_PINBASED_CTLS   0x481
+#define X86_MSR_VMX_TRUE_PINBASED_CTLS 0x48D
 
 static inline void x86_64_rdmsr(uint32_t msr, uint32_t *lo, uint32_t *hi)
 {

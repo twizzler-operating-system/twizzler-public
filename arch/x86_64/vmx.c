@@ -383,7 +383,6 @@ void vtx_setup_vcpu(struct processor *proc)
 	/* we have to set-up the vcpu state to "mirror" our physical CPU.
 	 * Strap yourself in, it's gonna be a long ride. */
 	/* segment selectors */
-	printk("A\n");
 	vmcs_writel(VMCS_GUEST_CS_SEL, 0x8);
 	vmcs_writel(VMCS_GUEST_CS_BASE, 0);
 	vmcs_writel(VMCS_GUEST_CS_LIM, 0xffff);
@@ -465,10 +464,10 @@ void vtx_setup_vcpu(struct processor *proc)
 	/* VM control fields. */
 	/* TODO: PROCBASED */
 	// PINBASED_CTLS
-	vmcs_write32_fixed(X86_MSR_VMX_PINBASED_CTLS, VMCS_PINBASED_CONTROLS, 0); //TODO: we should check an MSR for this
-	vmcs_write32_fixed(X86_MSR_VMX_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1 << 31)); //TODO: ^
+	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PINBASED_CTLS, VMCS_PINBASED_CONTROLS, 0);
+	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1 << 31));
 	
-	vmcs_writel(VMCS_PROCBASED_CONTROLS_SECONDARY,
+	vmcs_write32_fixed(X86_MSR_VMX_PROCBASED_CTLS2, VMCS_PROCBASED_CONTROLS_SECONDARY,
 			/* TODO: APIC */
 			(1 << 1) /* EPT */ | (1 << 3) /* allow RDTSCP */ | (1 << 13) /* enable VMFUNC */ | (1 << 18) /* guest handles EPT violations */);
 
@@ -481,7 +480,6 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_CR4, read_cr(4));
 	vmcs_writel(VMCS_HOST_EFER, read_efer());
 
-	printk("A\n");
 	vmcs_writel(VMCS_HOST_CS_SEL, 0x8);
 	vmcs_writel(VMCS_HOST_DS_SEL, 0x10);
 	vmcs_writel(VMCS_HOST_ES_SEL, 0x10);
@@ -496,14 +494,12 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	/* TODO: MSRs */
 
-	printk("Exit ctlx\n");
 	vmcs_write32_fixed(X86_MSR_VMX_TRUE_EXIT_CTLS, VMCS_EXIT_CONTROLS,
 			(1 << 9) /* 64-bit host */); //TODO: interrupt control
 
-	vmcs_write32_fixed(X86_MSR_VMX_ENTRY_CTLS, VMCS_ENTRY_CONTROLS,
+	vmcs_write32_fixed(X86_MSR_VMX_TRUE_ENTRY_CTLS, VMCS_ENTRY_CONTROLS,
 			(1 << 9) /* IA-32e guest */);
 
-	printk("A\n");
 	vmcs_writel(VMCS_ENTRY_INTR_INFO, 0);
 	vmcs_writel(VMCS_APIC_VIRT_ADDR, 0); //TODO: what?
 
