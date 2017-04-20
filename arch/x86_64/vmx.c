@@ -87,6 +87,9 @@ enum {
 	VMCS_ENTRY_CONTROLS               = 0x4012,
 	VMCS_EXIT_CONTROLS                = 0x400c,
 	VMCS_EXIT_REASON                  = 0x4402,
+	VMCS_EXIT_QUALIFICATION           = 0x6400,
+	VMCS_VMFUNC_CONTROLS              = 0x2018,
+	VMCS_VIRT_EXCEPTION_INFO_ADDR     = 0x202a,
 	VMCS_IA32_SYSENTER_CS             = 0x482a,
 	VMCS_IA32_HOST_SYSENTER_CS        = 0x4c00,
 };
@@ -219,7 +222,9 @@ void x86_64_vmexit_handler(struct processor *proc)
 	/* so, in theory we now have a valid pointer to a processor struct, and a stack
 	 * to work in (see code below). */
 	register uint64_t rsp asm("rsp");
-	printk("Got VMEXIT (%p) %lx\n", proc, rsp);
+	unsigned reason = vmcs_readl(VMCS_EXIT_REASON);
+	unsigned long qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
+	printk("Got VMEXIT (%p) %lx. reason=%x, qual=%lx\n", proc, rsp, reason, qual);
 	for(;;);
 }
 
@@ -229,7 +234,7 @@ void x86_64_vmenter(struct processor *proc)
 
 	/* TODO: do we need this? Or should we follow an "interrupt" model for vmexits (push/pop)? */
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
-	printk("Trying to launch!\n");
+	printk("Trying to launch! (hyper stack = %p, stack = %p, regsstate = %p)\n", proc->arch.hyper_stack, proc->arch.kernel_stack, proc->arch.vcpu_state_regs);
 	asm volatile(
 			"pushf;"
 			"push %%rcx;"
@@ -306,14 +311,16 @@ void x86_64_vmenter(struct processor *proc)
 			[r15]"i"(REG_R15*8),
 			[cr2]"i"(REG_CR2*8),
 			[hrsp]"i"(HOST_RSP*8),
-			[procptr]"i"(PROC_PTR));
+			[procptr]"i"(PROC_PTR * 8));
 }
 
 void x86_64_processor_post_vm_init(struct processor *proc);
 void vmx_entry_point(struct processor *proc)
 {
+	register uint64_t rsp asm("rsp");
+	printk("vm entered successfully %p, rsp=%lx\n", proc, rsp);
 	/* TODO: actually call this. */
-	//x86_64_processor_post_vm_init(proc);
+	x86_64_processor_post_vm_init(proc);
 	for(;;);
 }
 
@@ -425,12 +432,8 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_GUEST_GDTR_LIM, sizeof(struct x86_64_gdt_entry) * 8 - 1);
 
 	vmcs_writel(VMCS_GUEST_IDTR_BASE, (uintptr_t)idt);
-	vmcs_writel(VMCS_HOST_IDTR_BASE, (uintptr_t)idt);
 	vmcs_writel(VMCS_GUEST_IDTR_LIM, 256*16 - 1);
 
-	/* TODO: ldt, idt? */
-
-	printk("A\n");
 	/* CPU control info and stack */
 	vmcs_writel(VMCS_GUEST_RFLAGS, 0x02);
 	vmcs_writel(VMCS_GUEST_RIP, (uintptr_t)vmx_entry_point);
@@ -488,9 +491,9 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_SS_SEL, 0x10);
 	vmcs_writel(VMCS_HOST_TR_SEL, 0x28);
 
-	/* TODO: IDTR base */
 	vmcs_writel(VMCS_HOST_GDTR_BASE, (uintptr_t)proc->arch.gdtptr.base); //TODO: base or ptr?
 	vmcs_writel(VMCS_HOST_TR_BASE, (uintptr_t)&proc->arch.tss);
+	vmcs_writel(VMCS_HOST_IDTR_BASE, (uintptr_t)idt);
 
 	/* TODO: MSRs */
 
@@ -519,7 +522,8 @@ void x86_64_start_vmx(struct processor *proc)
 
 	proc->arch.launched = 0;
 	memset(proc->arch.vcpu_state_regs, 0, sizeof(proc->arch.vcpu_state_regs));
-	proc->arch.vcpu_state_regs[HOST_RSP] = (uintptr_t)proc->arch.kernel_stack;
+	proc->arch.hyper_stack = mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_DRAM, true);
+	proc->arch.vcpu_state_regs[HOST_RSP] = (uintptr_t)proc->arch.hyper_stack + KERNEL_STACK_SIZE;
 	proc->arch.vcpu_state_regs[PROC_PTR] = (uintptr_t)proc;
 	proc->arch.vcpu_state_regs[REG_RDI] = (uintptr_t)proc; /* set initial argument to vmx_entry_point */
 	printk("Starting VMX system\n");
@@ -533,7 +537,7 @@ void x86_64_start_vmx(struct processor *proc)
 		panic("failed to load VMCS region: %s", vmcs_read_vminstr_err());
 	}
 
-	printk("Got here.\n");
+	printk("Got here. (stack sz = %x)\n", KERNEL_STACK_SIZE);
 
 
 
@@ -541,7 +545,7 @@ void x86_64_start_vmx(struct processor *proc)
 	vtx_setup_vcpu(proc);
 
 
-	printk("Launching!\n");
+	printk("Launching! %p\n", proc);
 
 	x86_64_vmenter(proc);
 
