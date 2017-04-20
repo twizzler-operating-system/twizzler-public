@@ -341,13 +341,18 @@ uintptr_t init_ept(void)
 	uintptr_t pml4phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 	uintptr_t *pml4 = (void *)(pml4phys + PHYSICAL_MAP_START);
 	uintptr_t phys = 0;
-	for(int i=0;i<512;i++) {
+	for(int i=0;i<1;i++) {
 		uintptr_t pdptphys = pml4[i] = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 		pml4[i] |= 7; /* we have all permissions */
 		uintptr_t *pdpt = (void *)(pdptphys + PHYSICAL_MAP_START);
-		for(int i=0;i<512;i++) {
-			pdpt[i] = phys | 7 | (1 << 7); /* all permissions + is-page bit */
-			phys += (1024ull * 1024ull * 1024ull); /* increment phys by 1-G */
+		for(int j=0;j<8;j++) { /* maps 8-G of memory. TODO: map all of memory */
+			uintptr_t pdphys = pdpt[j] = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+			pdpt[j] |= 7;
+			uintptr_t *pd = (void *)(pdphys + PHYSICAL_MAP_START);
+			for(int k=0;k<512;k++) {
+				pd[k] = phys | 7 | (1 << 7); /* all permissions + is-page bit */
+				phys += (2ull * 1024ull * 1024ull); /* increment phys by 1-G */
+			}
 		}
 	}
 	return pml4phys;
