@@ -15,7 +15,7 @@ struct idt_entry {
 	uint32_t __pad1;
 } __attribute__((packed));
 
-static _Alignas(16) struct idt_entry idt[256];
+_Alignas(16) struct idt_entry idt[256];
 
 static _Alignas(16) struct {
 	uint16_t limit;

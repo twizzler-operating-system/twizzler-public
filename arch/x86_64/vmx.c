@@ -39,6 +39,8 @@ enum {
 	VMCS_GUEST_LDTR_ARBYTES           = 0x4820,
 	VMCS_GUEST_GDTR_BASE              = 0x6816,
 	VMCS_GUEST_GDTR_LIM               = 0x4810,
+	VMCS_GUEST_IDTR_LIM               = 0x4812,
+	VMCS_GUEST_IDTR_BASE              = 0x6818,
 	VMCS_GUEST_RFLAGS                 = 0x6820,
 	VMCS_GUEST_RIP                    = 0x681e,
 	VMCS_GUEST_RSP                    = 0x681c,
@@ -73,6 +75,7 @@ enum {
 	VMCS_HOST_SS_SEL                  = 0xc04,
 	VMCS_HOST_TR_SEL                  = 0xc0c,
 	VMCS_HOST_GDTR_BASE               = 0x6c0c,
+	VMCS_HOST_IDTR_BASE               = 0x6c0e,
 	VMCS_HOST_TR_BASE                 = 0x6c0a,
 	VMCS_ENTRY_INTR_INFO              = 0x4016,
 	VMCS_APIC_VIRT_ADDR               = 0x2012,
@@ -359,6 +362,20 @@ uintptr_t init_ept(void)
 }
 
 void vmexit_point(void);
+
+/* TODO: get rid of this extern */
+struct idt_entry {
+	uint16_t offset_low;
+	uint16_t selector;
+	uint8_t __pad0;
+	uint8_t type;
+	uint16_t offset_mid;
+	uint32_t offset_high;
+	uint32_t __pad1;
+} __attribute__((packed));
+extern struct idt_entry idt[256];
+
+
 void vtx_setup_vcpu(struct processor *proc)
 {
 	uintptr_t ept_root = init_ept();
@@ -394,10 +411,10 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_GUEST_GS_ARBYTES, 0xA093);
 	vmcs_writel(VMCS_GUEST_SS_ARBYTES, 0xA093);
 
-	vmcs_writel(VMCS_GUEST_TR_SEL, 0);
-	vmcs_writel(VMCS_GUEST_TR_BASE, 0);
+	vmcs_writel(VMCS_GUEST_TR_SEL, 0x28);
+	vmcs_writel(VMCS_GUEST_TR_BASE, (uintptr_t)&proc->arch.tss);
 	vmcs_writel(VMCS_GUEST_TR_LIM, 0xffff);
-	vmcs_writel(VMCS_GUEST_TR_ARBYTES, 0x008b);
+	vmcs_writel(VMCS_GUEST_TR_ARBYTES, 0x00eb);
 
 	vmcs_writel(VMCS_GUEST_LDTR_SEL, 0);
 	vmcs_writel(VMCS_GUEST_LDTR_BASE, 0);
@@ -407,6 +424,10 @@ void vtx_setup_vcpu(struct processor *proc)
 	/* GDT */
 	vmcs_writel(VMCS_GUEST_GDTR_BASE, (uintptr_t)&proc->arch.gdt);
 	vmcs_writel(VMCS_GUEST_GDTR_LIM, sizeof(struct x86_64_gdt_entry) * 8 - 1);
+
+	vmcs_writel(VMCS_GUEST_IDTR_BASE, (uintptr_t)idt);
+	vmcs_writel(VMCS_HOST_IDTR_BASE, (uintptr_t)idt);
+	vmcs_writel(VMCS_GUEST_IDTR_LIM, 256*16 - 1);
 
 	/* TODO: ldt, idt? */
 
@@ -439,6 +460,8 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	vmcs_writel(VMCS_LINK_POINTER, ~0ull);
 
+	/* TODO: controls for execute permissions in EPT */
+
 	/* VM control fields. */
 	/* TODO: PROCBASED */
 	// PINBASED_CTLS
@@ -469,7 +492,6 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	/* TODO: IDTR base */
 	vmcs_writel(VMCS_HOST_GDTR_BASE, (uintptr_t)proc->arch.gdtptr.base); //TODO: base or ptr?
-	//vmcs_writel(VMCS_HOST_GDTR_LIM, sizeof(struct x86_64_gdt_entry) * 8 - 1);
 	vmcs_writel(VMCS_HOST_TR_BASE, (uintptr_t)&proc->arch.tss);
 
 	/* TODO: MSRs */
