@@ -9,6 +9,26 @@ enum {
 	VMCS_GUEST_CS_BASE                = 0x6808,
 	VMCS_GUEST_CS_LIM                 = 0x4802,
 	VMCS_GUEST_CS_ARBYTES             = 0x4816,
+	VMCS_GUEST_DS_SEL                 = 0x806,
+	VMCS_GUEST_DS_BASE                = 0x680c,
+	VMCS_GUEST_DS_LIM                 = 0x4806,
+	VMCS_GUEST_DS_ARBYTES             = 0x481a,
+	VMCS_GUEST_ES_SEL                 = 0x800,
+	VMCS_GUEST_ES_BASE                = 0x6806,
+	VMCS_GUEST_ES_LIM                 = 0x4800,
+	VMCS_GUEST_ES_ARBYTES             = 0x4814,
+	VMCS_GUEST_FS_SEL                 = 0x808,
+	VMCS_GUEST_FS_BASE                = 0x680e,
+	VMCS_GUEST_FS_LIM                 = 0x4808,
+	VMCS_GUEST_FS_ARBYTES             = 0x481c,
+	VMCS_GUEST_GS_SEL                 = 0x80a,
+	VMCS_GUEST_GS_BASE                = 0x6810,
+	VMCS_GUEST_GS_LIM                 = 0x480a,
+	VMCS_GUEST_GS_ARBYTES             = 0x481e,
+	VMCS_GUEST_SS_SEL                 = 0x804,
+	VMCS_GUEST_SS_BASE                = 0x680a,
+	VMCS_GUEST_SS_LIM                 = 0x4804,
+	VMCS_GUEST_SS_ARBYTES             = 0x4818,
 	VMCS_GUEST_TR_SEL                 = 0x80e,
 	VMCS_GUEST_TR_BASE                = 0x6814,
 	VMCS_GUEST_TR_LIM                 = 0x480e,
@@ -323,10 +343,10 @@ uintptr_t init_ept(void)
 	uintptr_t phys = 0;
 	for(int i=0;i<512;i++) {
 		uintptr_t pdptphys = pml4[i] = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
-		pml4[i] |= 3; /* we have all permissions */
+		pml4[i] |= 7; /* we have all permissions */
 		uintptr_t *pdpt = (void *)(pdptphys + PHYSICAL_MAP_START);
 		for(int i=0;i<512;i++) {
-			pdpt[i] = phys | 3 | (1 << 7); /* all permissions + is-page bit */
+			pdpt[i] = phys | 7 | (1 << 7); /* all permissions + is-page bit */
 			phys += (1024ull * 1024ull * 1024ull); /* increment phys by 1-G */
 		}
 	}
@@ -346,7 +366,28 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_GUEST_CS_BASE, 0);
 	vmcs_writel(VMCS_GUEST_CS_LIM, 0xffff);
 	vmcs_writel(VMCS_GUEST_CS_ARBYTES, 0xA09B);
-	/* TODO: do we need to do the other segments? */
+
+
+	vmcs_writel(VMCS_GUEST_ES_SEL, 0x10);
+	vmcs_writel(VMCS_GUEST_DS_SEL, 0x10);
+	vmcs_writel(VMCS_GUEST_FS_SEL, 0x10);
+	vmcs_writel(VMCS_GUEST_GS_SEL, 0x10);
+	vmcs_writel(VMCS_GUEST_SS_SEL, 0x10);
+	vmcs_writel(VMCS_GUEST_ES_BASE, 0);
+	vmcs_writel(VMCS_GUEST_DS_BASE, 0);
+	vmcs_writel(VMCS_GUEST_FS_BASE, 0);
+	vmcs_writel(VMCS_GUEST_GS_BASE, 0);
+	vmcs_writel(VMCS_GUEST_SS_BASE, 0);
+	vmcs_writel(VMCS_GUEST_ES_LIM, 0xffff);
+	vmcs_writel(VMCS_GUEST_DS_LIM, 0xffff);
+	vmcs_writel(VMCS_GUEST_FS_LIM, 0xffff);
+	vmcs_writel(VMCS_GUEST_GS_LIM, 0xffff);
+	vmcs_writel(VMCS_GUEST_SS_LIM, 0xffff);
+	vmcs_writel(VMCS_GUEST_ES_ARBYTES, 0xA093);
+	vmcs_writel(VMCS_GUEST_DS_ARBYTES, 0xA093);
+	vmcs_writel(VMCS_GUEST_FS_ARBYTES, 0xA093);
+	vmcs_writel(VMCS_GUEST_GS_ARBYTES, 0xA093);
+	vmcs_writel(VMCS_GUEST_SS_ARBYTES, 0xA093);
 
 	vmcs_writel(VMCS_GUEST_TR_SEL, 0);
 	vmcs_writel(VMCS_GUEST_TR_BASE, 0);
@@ -419,7 +460,7 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_FS_SEL, 0x10);
 	vmcs_writel(VMCS_HOST_GS_SEL, 0x10);
 	vmcs_writel(VMCS_HOST_SS_SEL, 0x10);
-	vmcs_writel(VMCS_HOST_TR_SEL, 0x2B);
+	vmcs_writel(VMCS_HOST_TR_SEL, 0x28);
 
 	/* TODO: IDTR base */
 	vmcs_writel(VMCS_HOST_GDTR_BASE, (uintptr_t)proc->arch.gdtptr.base); //TODO: base or ptr?
