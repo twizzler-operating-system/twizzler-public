@@ -44,6 +44,7 @@ void kernel_early_init(void)
 
 void user_test(void *arg)
 {
+	for(;;);
 	unsigned __int128 guid;
 	//make_guid(guid, 0x123456789abcdef, 0x1122334455667788);
 	guid = _syscallrg(8);
@@ -70,7 +71,7 @@ void kernel_init(void)
 
 void kernel_main(struct processor *proc)
 {
-	printk("processor %ld reached resume state\n", proc->id);
+	printk("processor %ld reached resume state %p\n", proc->id, proc);
 	
 	if(proc->flags & PROCESSOR_BSP) {
 		t1.id = 1;
@@ -80,15 +81,14 @@ void kernel_main(struct processor *proc)
 		arch_thread_init(&t1, user_test, (void *)1, us1 + 0x1000);
 		arch_thread_init(&t2, user_test, (void *)2, us2 + 0x1000);
 		arch_thread_init(&t3, user_test, (void *)3, us3 + 0x1000);
-		arch_thread_init(&t4, user_test, (void *)4, us4 + 0x1000);
 
 		processor_attach_thread(proc, &t1);
-		//processor_attach_thread(proc, &t2);
-		//processor_attach_thread(proc, &t3);
+		processor_attach_thread(proc, &t2);
+		processor_attach_thread(proc, &t3);
 	} else {
+		//arch_thread_init(&t4, user_test, (void *)4, us4 + 0x1000);
 		//processor_attach_thread(proc, &t4);
 	}
-
 	thread_schedule_resume_proc(proc);
 }
 

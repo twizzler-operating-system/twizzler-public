@@ -92,6 +92,7 @@ enum {
 	VMCS_VIRT_EXCEPTION_INFO_ADDR     = 0x202a,
 	VMCS_IA32_SYSENTER_CS             = 0x482a,
 	VMCS_IA32_HOST_SYSENTER_CS        = 0x4c00,
+	VMCS_MSR_BITMAPS_ADDR             = 0x2004,
 };
 
 
@@ -224,7 +225,8 @@ void x86_64_vmexit_handler(struct processor *proc)
 	register uint64_t rsp asm("rsp");
 	unsigned reason = vmcs_readl(VMCS_EXIT_REASON);
 	unsigned long qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
-	printk("Got VMEXIT (%p) %lx. reason=%x, qual=%lx\n", proc, rsp, reason, qual);
+	unsigned long grip = vmcs_readl(VMCS_GUEST_RIP);
+	printk("Got VMEXIT (%p) %lx. reason=%d, qual=%lx, rip=%lx\n", proc, rsp, reason, qual, grip);
 	for(;;);
 }
 
@@ -237,6 +239,7 @@ void x86_64_vmenter(struct processor *proc)
 	printk("Trying to launch! (hyper stack = %p, stack = %p, regsstate = %p)\n", proc->arch.hyper_stack, proc->arch.kernel_stack, proc->arch.vcpu_state_regs);
 	asm volatile(
 			"pushf;"
+			"cli;"
 			"push %%rcx;"
 			"cmp $0, %0;"
 			/* load the "guest" registers into the cpu. We can trash the host regs because
@@ -311,7 +314,7 @@ void x86_64_vmenter(struct processor *proc)
 			[r15]"i"(REG_R15*8),
 			[cr2]"i"(REG_CR2*8),
 			[hrsp]"i"(HOST_RSP*8),
-			[procptr]"i"(PROC_PTR * 8));
+			[procptr]"i"(PROC_PTR*8));
 }
 
 void x86_64_processor_post_vm_init(struct processor *proc);
@@ -468,7 +471,7 @@ void vtx_setup_vcpu(struct processor *proc)
 	/* TODO: PROCBASED */
 	// PINBASED_CTLS
 	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PINBASED_CTLS, VMCS_PINBASED_CONTROLS, 0);
-	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1 << 31));
+	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1 << 31) | (1 << 28) /* Use MSR bitmaps */);
 	
 	vmcs_write32_fixed(X86_MSR_VMX_PROCBASED_CTLS2, VMCS_PROCBASED_CONTROLS_SECONDARY,
 			/* TODO: APIC */
@@ -508,7 +511,10 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	vmcs_writel(VMCS_TPR_THRESHOLD, 0); //TODO: what?
 
-	/* TODO: VMFUNC */
+	vmcs_writel(VMCS_MSR_BITMAPS_ADDR, (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true));
+
+	/* TODO: check if we can do this, and then do it. */
+	//vmcs_writel(VMCS_VMFUNC_CONTROLS, 1 /* enable EPT-switching */);
 
 	vmcs_writel(VMCS_HOST_RIP, (uintptr_t)vmexit_point);
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);

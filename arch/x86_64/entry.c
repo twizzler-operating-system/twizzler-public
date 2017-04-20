@@ -16,6 +16,7 @@ static void x86_64_change_fpusse_allow(bool enable)
 
 void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_userspace)
 {
+	printk("Exception! %d %d from %lx\n", frame->int_no, was_userspace, frame->rip);
 	if(was_userspace) {
 		current_thread->arch.was_syscall = false;
 		if((frame->int_no == 6 || frame->int_no == 7) && current_thread && !current_thread->arch.usedfpu) {

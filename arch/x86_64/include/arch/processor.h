@@ -86,7 +86,7 @@ struct arch_processor {
 __attribute__((const)) static inline struct thread * __x86_64_get_current_thread(void)
 {
 	uint64_t tmp;
-	asm ("movq %%gs:24, %0" : "=r"(tmp));
+	asm ("movq %%gs:%c[curr], %0" : "=r"(tmp) : [curr]"i"(offsetof(struct arch_processor, curr)));
 	return (void *)tmp;
 }
 

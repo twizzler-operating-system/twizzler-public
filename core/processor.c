@@ -74,6 +74,7 @@ void processor_secondary_entry(struct processor *proc)
 void processor_attach_thread(struct processor *proc, struct thread *thread)
 {
 	spinlock_guard(&proc->sched_lock);
+	printk("attacking %p -> %p\n", thread, proc);
 	thread->processor = proc;
 	linkedlist_insert(&proc->runqueue, &thread->entry, thread);
 }
