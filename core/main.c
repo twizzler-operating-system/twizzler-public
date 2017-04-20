@@ -44,7 +44,6 @@ void kernel_early_init(void)
 
 void user_test(void *arg)
 {
-	for(;;);
 	unsigned __int128 guid;
 	//make_guid(guid, 0x123456789abcdef, 0x1122334455667788);
 	guid = _syscallrg(8);
