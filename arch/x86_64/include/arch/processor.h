@@ -43,6 +43,17 @@ struct x86_64_gdt_entry
 	uint8_t  base_high; 
 } __attribute__((packed));
 
+struct idt_entry {
+	uint16_t offset_low;
+	uint16_t selector;
+	uint8_t __pad0;
+	uint8_t type;
+	uint16_t offset_mid;
+	uint32_t offset_high;
+	uint32_t __pad1;
+} __attribute__((packed));
+extern struct idt_entry idt[256];
+
 enum {
 	REG_RAX,
 	REG_RBX,
@@ -65,6 +76,15 @@ enum {
 	NUM_REGS,
 };
 
+struct virtexcep_info {
+	uint32_t exitreason;
+	uint32_t res1;
+	uint64_t exitqual;
+	uint64_t guest_linear;
+	uint64_t guest_phys;
+	uint16_t eptp_idx;
+} __attribute__((packed));
+
 struct thread;
 struct arch_processor {
 	void *scratch_sp;
@@ -79,6 +99,7 @@ struct arch_processor {
 	} gdtptr;
 	uintptr_t vmcs;
 	uint64_t vcpu_state_regs[NUM_REGS];
+	struct virtexcep_info *virtexcep_info;
 	int launched;
 	uint32_t revid;
 };

@@ -5,16 +5,6 @@
 #define TYPE_INT_KERNEL 0x8E
 #define TYPE_INT_USER   0xEE
 
-struct idt_entry {
-	uint16_t offset_low;
-	uint16_t selector;
-	uint8_t __pad0;
-	uint8_t type;
-	uint16_t offset_mid;
-	uint32_t offset_high;
-	uint32_t __pad1;
-} __attribute__((packed));
-
 _Alignas(16) struct idt_entry idt[256];
 
 static _Alignas(16) struct {

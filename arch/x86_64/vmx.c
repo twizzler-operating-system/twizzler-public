@@ -51,7 +51,7 @@ enum {
 	VMCS_CR4_READ_SHADOW              = 0x6006,
 	VMCS_CR0_READ_SHADOW              = 0x6004,
 	VMCS_GUEST_ACTIVITY_STATE         = 0x4826,
-	VMCS_GUEST_INTRRUPTIBILITY_INFO   = 0x810, //confirm
+	VMCS_GUEST_INTRRUPTIBILITY_INFO   = 0x4824,
 	VMCS_GUEST_PENDING_DBG_EXCEPTIONS = 0x6822,
 	VMCS_GUEST_IA32_DEBUGCTL          = 0x2802,
 	VMCS_IO_BITMAP_B                  = 0x2002,
@@ -93,6 +93,8 @@ enum {
 	VMCS_IA32_SYSENTER_CS             = 0x482a,
 	VMCS_IA32_HOST_SYSENTER_CS        = 0x4c00,
 	VMCS_MSR_BITMAPS_ADDR             = 0x2004,
+	VMCS_CR0_MASK                     = 0x6000,
+	VMCS_CR4_MASK                     = 0x6002,
 };
 
 
@@ -234,7 +236,7 @@ void x86_64_vmenter(struct processor *proc)
 {
 	/* VMCS does not deal with CPU registers, so we must save and restore them. */
 
-	/* TODO: do we need this? Or should we follow an "interrupt" model for vmexits (push/pop)? */
+	/* any time we trap back to the "hypervisor" we need this state reset */
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
 	printk("Trying to launch! (hyper stack = %p, stack = %p, regsstate = %p)\n", proc->arch.hyper_stack, proc->arch.kernel_stack, proc->arch.vcpu_state_regs);
 	asm volatile(
@@ -322,7 +324,6 @@ void vmx_entry_point(struct processor *proc)
 {
 	register uint64_t rsp asm("rsp");
 	printk("vm entered successfully %p, rsp=%lx\n", proc, rsp);
-	/* TODO: actually call this. */
 	x86_64_processor_post_vm_init(proc);
 	for(;;);
 }
@@ -373,32 +374,18 @@ uintptr_t init_ept(void)
 
 void vmexit_point(void);
 
-/* TODO: get rid of this extern */
-struct idt_entry {
-	uint16_t offset_low;
-	uint16_t selector;
-	uint8_t __pad0;
-	uint8_t type;
-	uint16_t offset_mid;
-	uint32_t offset_high;
-	uint32_t __pad1;
-} __attribute__((packed));
-extern struct idt_entry idt[256];
-
-
 void vtx_setup_vcpu(struct processor *proc)
 {
 	uintptr_t ept_root = init_ept();
 
 	/* we have to set-up the vcpu state to "mirror" our physical CPU.
 	 * Strap yourself in, it's gonna be a long ride. */
+
 	/* segment selectors */
 	vmcs_writel(VMCS_GUEST_CS_SEL, 0x8);
 	vmcs_writel(VMCS_GUEST_CS_BASE, 0);
 	vmcs_writel(VMCS_GUEST_CS_LIM, 0xffff);
 	vmcs_writel(VMCS_GUEST_CS_ARBYTES, 0xA09B);
-
-
 	vmcs_writel(VMCS_GUEST_ES_SEL, 0x10);
 	vmcs_writel(VMCS_GUEST_DS_SEL, 0x10);
 	vmcs_writel(VMCS_GUEST_FS_SEL, 0x10);
@@ -419,23 +406,21 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_GUEST_FS_ARBYTES, 0xA093);
 	vmcs_writel(VMCS_GUEST_GS_ARBYTES, 0xA093);
 	vmcs_writel(VMCS_GUEST_SS_ARBYTES, 0xA093);
-
 	vmcs_writel(VMCS_GUEST_TR_SEL, 0x28);
 	vmcs_writel(VMCS_GUEST_TR_BASE, (uintptr_t)&proc->arch.tss);
 	vmcs_writel(VMCS_GUEST_TR_LIM, 0xffff);
 	vmcs_writel(VMCS_GUEST_TR_ARBYTES, 0x00eb);
-
 	vmcs_writel(VMCS_GUEST_LDTR_SEL, 0);
 	vmcs_writel(VMCS_GUEST_LDTR_BASE, 0);
 	vmcs_writel(VMCS_GUEST_LDTR_LIM, 0xffff);
 	vmcs_writel(VMCS_GUEST_LDTR_ARBYTES, 0x0082);
 
-	/* GDT */
+	/* GDT and IDT */
 	vmcs_writel(VMCS_GUEST_GDTR_BASE, (uintptr_t)&proc->arch.gdt);
 	vmcs_writel(VMCS_GUEST_GDTR_LIM, sizeof(struct x86_64_gdt_entry) * 8 - 1);
 
 	vmcs_writel(VMCS_GUEST_IDTR_BASE, (uintptr_t)idt);
-	vmcs_writel(VMCS_GUEST_IDTR_LIM, 256*16 - 1);
+	vmcs_writel(VMCS_GUEST_IDTR_LIM, 256*sizeof(struct idt_entry) - 1);
 
 	/* CPU control info and stack */
 	vmcs_writel(VMCS_GUEST_RFLAGS, 0x02);
@@ -448,28 +433,24 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_GUEST_EFER, read_efer());
 	vmcs_writel(VMCS_CR4_READ_SHADOW, 0);
 	vmcs_writel(VMCS_CR0_READ_SHADOW, 0);
+	vmcs_writel(VMCS_CR4_MASK, 0);
+	vmcs_writel(VMCS_CR0_MASK, 0);
 
 	/* TODO: debug registers? */
 
 
-	/* TODO: what? */
 	vmcs_writel(VMCS_GUEST_ACTIVITY_STATE, 0);
 	vmcs_writel(VMCS_GUEST_INTRRUPTIBILITY_INFO, 0);
 	vmcs_writel(VMCS_GUEST_PENDING_DBG_EXCEPTIONS, 0);
 	vmcs_writel(VMCS_GUEST_IA32_DEBUGCTL, 0);
 
-	printk("A\n");
-	/* I/O */
-	vmcs_writel(VMCS_IO_BITMAP_A, 0); //TODO: what values?
+	/* I/O - allow it all */
+	vmcs_writel(VMCS_IO_BITMAP_A, 0);
 	vmcs_writel(VMCS_IO_BITMAP_B, 0);
 
 	vmcs_writel(VMCS_LINK_POINTER, ~0ull);
 
-	/* TODO: controls for execute permissions in EPT */
-
 	/* VM control fields. */
-	/* TODO: PROCBASED */
-	// PINBASED_CTLS
 	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PINBASED_CTLS, VMCS_PINBASED_CONTROLS, 0);
 	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1 << 31) | (1 << 28) /* Use MSR bitmaps */);
 	
@@ -498,23 +479,25 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_TR_BASE, (uintptr_t)&proc->arch.tss);
 	vmcs_writel(VMCS_HOST_IDTR_BASE, (uintptr_t)idt);
 
-	/* TODO: MSRs */
-
 	vmcs_write32_fixed(X86_MSR_VMX_TRUE_EXIT_CTLS, VMCS_EXIT_CONTROLS,
-			(1 << 9) /* 64-bit host */); //TODO: interrupt control
+			(1 << 9) /* IA-32e host */);
 
 	vmcs_write32_fixed(X86_MSR_VMX_TRUE_ENTRY_CTLS, VMCS_ENTRY_CONTROLS,
 			(1 << 9) /* IA-32e guest */);
 
 	vmcs_writel(VMCS_ENTRY_INTR_INFO, 0);
-	vmcs_writel(VMCS_APIC_VIRT_ADDR, 0); //TODO: what?
+	vmcs_writel(VMCS_APIC_VIRT_ADDR, 0);
+	vmcs_writel(VMCS_TPR_THRESHOLD, 0);
 
-	vmcs_writel(VMCS_TPR_THRESHOLD, 0); //TODO: what?
 
+	/* we actually have to use these, and they should be all zero (none owned by host) */
 	vmcs_writel(VMCS_MSR_BITMAPS_ADDR, (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true));
 
 	/* TODO: check if we can do this, and then do it. */
 	//vmcs_writel(VMCS_VMFUNC_CONTROLS, 1 /* enable EPT-switching */);
+	/* TODO: don't waste a whole page on this */
+	//proc->arch.virtexcep_info = mm_virtual_alloc(0x1000, PM_TYPE_DRAM, true);
+	//vmcs_writel(VMCS_VIRT_EXCEPTION_INFO_ADDR, (uintptr_t)proc->arch.virtexcep_info - PHYSICAL_MAP_START);
 
 	vmcs_writel(VMCS_HOST_RIP, (uintptr_t)vmexit_point);
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
