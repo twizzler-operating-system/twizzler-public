@@ -104,6 +104,10 @@ struct arch_processor {
 	uint32_t revid;
 };
 
+_Static_assert(offsetof(struct arch_processor, scratch_sp) == 0, "scratch_sp offset must be 0 (or update offsets in gate.S)");
+_Static_assert(offsetof(struct arch_processor, tcb) == 8, "tcb offset must be 8 (or update offsets in gate.S)");
+_Static_assert(offsetof(struct arch_processor, kernel_stack) == 16, "kernel_stack offset must be 0 (or update offsets in gate.S)");
+
 __attribute__((const)) static inline struct thread * __x86_64_get_current_thread(void)
 {
 	uint64_t tmp;
