@@ -7,8 +7,9 @@ void spinlock_acquire(struct spinlock *lock)
 {
 	bool set = arch_interrupt_set(0);
 
-	while(atomic_fetch_or(&lock->data, 1) & 1)
+	while(atomic_fetch_or(&lock->data, 1) & 1) {
 		arch_processor_relax();
+	}
 	
 	lock->data |= set ? (1 << 1) : 0;
 }
