@@ -17,7 +17,7 @@ BUILDDIR=projects/$(PROJECT)/build
 
 include $(CONFIGFILE)
 export PATH := ${TOOLCHAIN_PATH}/bin:$(PATH)
-DEFINES=$(addprefix -D,$(shell sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d' $(CONFIGFILE)))
+DEFINES=$(addprefix -D,$(shell sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d' -e 's/+=/=/g' $(CONFIGFILE)))
 
 ARCH=$(CONFIG_ARCH)
 MACHINE=$(CONFIG_MACHINE)

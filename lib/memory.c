@@ -47,3 +47,36 @@ int strncmp(const char *s1, const char *s2, size_t n)
 	return 0;
 }
 
+long strtol(char *str, char **end, int base)
+{
+	long tmp = 0;
+	bool neg = false;
+	if(*str == '-') {
+		neg = true;
+		str++;
+	}
+	if(*str == '+')
+		str++;
+
+	while(*str) {
+		if(*str >= '0' && *str <= '0' + (base - 1)) {
+			tmp *= base;
+			tmp += *str - '0';
+		} else if(*str >= 'a' && *str < 'a' + (base - 10)) {
+			tmp *= base;
+			tmp += *str - 'a';
+		} else if(*str >= 'A' && *str < 'A' + (base - 10)) {
+			tmp *= base;
+			tmp += *str - 'A';
+		} else {
+			break;
+		}
+
+		str++;
+	}
+
+	if(end) *end = str;
+
+	return neg ? -tmp : tmp;
+}
+

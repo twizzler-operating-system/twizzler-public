@@ -160,10 +160,8 @@ static inline void vmcs_write32_fixed(uint32_t msr, uint32_t vmcs_field, uint32_
 	uint32_t msr_high, msr_low;
 
 	x86_64_rdmsr(msr, &msr_low, &msr_high);
-	printk("fixed: %x %x %x", val, msr_low, msr_high);
 	val &= msr_high;
 	val |= msr_low;
-	printk(" -> %x\n", val);
 	vmcs_writel(vmcs_field, val);
 }
 
@@ -210,7 +208,6 @@ static void x86_64_enable_vmx(void)
 	if(error) {
 		panic("failed to enter VMX operation");
 	}
-	printk("VMX enabled.\n");
 }
 
 
@@ -238,7 +235,6 @@ void x86_64_vmenter(struct processor *proc)
 
 	/* any time we trap back to the "hypervisor" we need this state reset */
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
-	printk("Trying to launch! (hyper stack = %p, stack = %p, regsstate = %p)\n", proc->arch.hyper_stack, proc->arch.kernel_stack, proc->arch.vcpu_state_regs);
 	asm volatile(
 			"pushf;"
 			"cli;"
@@ -323,7 +319,6 @@ void x86_64_processor_post_vm_init(struct processor *proc);
 void vmx_entry_point(struct processor *proc)
 {
 	register uint64_t rsp asm("rsp");
-	printk("vm entered successfully %p, rsp=%lx\n", proc, rsp);
 	x86_64_processor_post_vm_init(proc);
 	for(;;);
 }
@@ -515,7 +510,6 @@ void x86_64_start_vmx(struct processor *proc)
 	proc->arch.vcpu_state_regs[HOST_RSP] = (uintptr_t)proc->arch.hyper_stack + KERNEL_STACK_SIZE;
 	proc->arch.vcpu_state_regs[PROC_PTR] = (uintptr_t)proc;
 	proc->arch.vcpu_state_regs[REG_RDI] = (uintptr_t)proc; /* set initial argument to vmx_entry_point */
-	printk("Starting VMX system\n");
 	proc->arch.vmcs = mm_physical_alloc(VMCS_SIZE, PM_TYPE_DRAM, true);
 	uint32_t *vmcs_rev = (uint32_t *)(proc->arch.vmcs + PHYSICAL_MAP_START);
 	*vmcs_rev = revision_id & 0x7FFFFFFF;
@@ -526,7 +520,6 @@ void x86_64_start_vmx(struct processor *proc)
 		panic("failed to load VMCS region: %s", vmcs_read_vminstr_err());
 	}
 
-	printk("Got here. (stack sz = %x)\n", KERNEL_STACK_SIZE);
 
 
 
@@ -534,7 +527,6 @@ void x86_64_start_vmx(struct processor *proc)
 	vtx_setup_vcpu(proc);
 
 
-	printk("Launching! %p\n", proc);
 
 	x86_64_vmenter(proc);
 

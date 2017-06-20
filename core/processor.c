@@ -67,6 +67,7 @@ void processor_perproc_init(struct processor *proc)
 
 void processor_secondary_entry(struct processor *proc)
 {
+	printk("Second!\n");
 	proc->flags |= PROCESSOR_UP;
 	processor_perproc_init(proc);
 }

@@ -9,4 +9,4 @@ CONFIG_UBSAN=n
 
 # set this to your toolchain path
 TOOLCHAIN_PATH=/home/dbittman/code/twizzler-kernel/.toolchains/x86_64
-QEMU_FLAGS="-enable-kvm"
+QEMU_FLAGS+="-enable-kvm"

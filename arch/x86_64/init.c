@@ -8,6 +8,7 @@ void serial_init();
 
 extern void _init();
 uint64_t x86_64_top_mem;
+uint64_t x86_64_bot_mem;
 extern void idt_init(void);
 extern void idt_init_secondary(void);
 
@@ -42,15 +43,63 @@ static void proc_init(void)
 	
 }
 
+struct ustar_header {
+        char name[100];
+        char mode[8];
+        char uid[8];
+        char gid[8];
+        char size[12];
+        char mtime[12];
+        char checksum[8];
+        char typeflag[1];
+        char linkname[100];
+        char magic[6];
+        char version[2];
+        char uname[32];
+        char gname[32];
+        char devmajor[8];
+        char devminor[8];
+        char prefix[155];
+        char pad[12];
+};
+
+#define PHYS_LOAD_ADDRESS (KERNEL_PHYSICAL_BASE + KERNEL_LOAD_OFFSET)
+#define PHYS_ADDR_DELTA (KERNEL_VIRTUAL_BASE + KERNEL_LOAD_OFFSET - PHYS_LOAD_ADDRESS)
+#define PHYS(x) ((x) - PHYS_ADDR_DELTA)
 void x86_64_start_vmx(struct processor *proc);
-static void x86_64_initrd(void)
+extern int kernel_end;
+static void x86_64_initrd(void *u)
 {
 	printk("%d mods\n", mb->mods_count);
+	struct mboot_module *m = (void *)(mb->mods_addr + PHYSICAL_MAP_START);
+	struct ustar_header *h = (void *)(m->start + PHYSICAL_MAP_START);
+	char *start = (char *)h;
+	printk(":: %s\n", h->magic);
+	size_t len = m->end - m->start;
+	while((char *)h < start + len) {
+		char *name = h->name;
+		if(!*name) break;
+		if(strncmp(h->magic, "ustar", 5)) break;
+		char *data = h+512;
+		size_t len = strtol(h->size, NULL, 8);
+		size_t reclen = (len + 511) & ~511;
+
+		switch(h->typeflag[0]) {
+			case '0': case '7':
+				printk("Loading object: %s\n", name);
+				break;
+			default:
+				printk("Unknown file type in tar archive: %c %s\n", h->typeflag[0], name);
+		}
+
+		h = (struct ustar_header *)((char *)h + 512 + reclen);
+	}
 }
 POST_INIT(x86_64_initrd);
 
 void x86_64_init(struct multiboot *mth)
 {
+	mb = mth;
 	idt_init();
 	serial_init();
 	proc_init();
@@ -58,8 +107,10 @@ void x86_64_init(struct multiboot *mth)
 	if(!(mth->flags & MULTIBOOT_FLAG_MEM))
 		panic("don't know how to detect memory!");
 	printk("%lx\n", mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET);
+	struct mboot_module *m = (void *)(mb->mods_addr + PHYSICAL_MAP_START);
 	x86_64_top_mem = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
-	mb = mth;
+	x86_64_bot_mem = m->end > PHYS((uintptr_t)&kernel_end) ? m->end : PHYS((uintptr_t)&kernel_end);
+	printk("Set bottom to %lx %lx\n", x86_64_bot_mem, m->end);
 
 	kernel_early_init();
 	_init();
@@ -159,6 +210,7 @@ void arch_processor_init(struct processor *proc)
 		proc->arch.kernel_stack = &initial_boot_stack;
 	}
 
+	printk("Here1 %d\n", proc->id);
 	x86_64_start_vmx(proc);
 
 	/* TODO: this code is never reached, but is left here for reference. Delete it soon. */
