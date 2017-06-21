@@ -76,10 +76,25 @@ static inline void mm_virtual_dealloc(uintptr_t addr)
 
 struct vm_context {
 	struct arch_vm_context arch;
+	struct ihtable *maps;
 };
 
 void arch_mm_switch_context(struct vm_context *vm);
 
-#include <interrupt.h>
-void kernel_fault_entry(void);
+#define VMAP_NONE  0
+#define VMAP_READ  1
+#define VMAP_WRITE 2
+#define VMAP_EXEC  4
+
+int vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t flags);
+void vm_context_destroy(struct vm_context *v);
+struct vm_context *vm_context_create(void);
+void vm_context_fault(uintptr_t addr, int flags);
+
+#define FAULT_EXEC  0x1
+#define FAULT_WRITE 0x2
+#define FAULT_USER  0x4
+#define FAULT_ERROR_PERM 0x10
+#define FAULT_ERROR_PRES 0x20
+void kernel_fault_entry(uintptr_t addr, int flags);
 

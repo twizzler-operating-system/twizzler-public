@@ -213,8 +213,7 @@ static void x86_64_enable_vmx(void)
 
 __attribute__((used)) static void x86_64_vmentry_failed(struct processor *proc)
 {
-	printk("HERE! %s\n", vmcs_read_vminstr_err());
-	for(;;);
+	panic("vmentry failed on processor %ld: %s\n", proc->id, vmcs_read_vminstr_err());
 }
 
 void x86_64_vmexit_handler(struct processor *proc)
@@ -318,9 +317,8 @@ void x86_64_vmenter(struct processor *proc)
 void x86_64_processor_post_vm_init(struct processor *proc);
 void vmx_entry_point(struct processor *proc)
 {
-	register uint64_t rsp asm("rsp");
+	printk("processor %ld entered vmx-non-root mode\n", proc->id);
 	x86_64_processor_post_vm_init(proc);
-	for(;;);
 }
 
 static uint64_t read_cr(int n)
@@ -506,7 +504,7 @@ void x86_64_start_vmx(struct processor *proc)
 
 	proc->arch.launched = 0;
 	memset(proc->arch.vcpu_state_regs, 0, sizeof(proc->arch.vcpu_state_regs));
-	proc->arch.hyper_stack = mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_DRAM, true);
+	proc->arch.hyper_stack = (void *)mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_DRAM, true);
 	proc->arch.vcpu_state_regs[HOST_RSP] = (uintptr_t)proc->arch.hyper_stack + KERNEL_STACK_SIZE;
 	proc->arch.vcpu_state_regs[PROC_PTR] = (uintptr_t)proc;
 	proc->arch.vcpu_state_regs[REG_RDI] = (uintptr_t)proc; /* set initial argument to vmx_entry_point */

@@ -5,6 +5,8 @@ const char *DIGITS_upper = "0123456789ABCDEF";
 #define WN_LOWER 1
 #define WN_NONEG 2
 #define WN_LJUST 4
+#define WN_ZERO  8
+#define WN_NOPRE 16
 static char *write_number(char *buffer, long long value, int base, int options, int min_width, int precision)
 {
 	char digits[256];
@@ -31,14 +33,16 @@ static char *write_number(char *buffer, long long value, int base, int options, 
 		*buffer++ = '-';
 	if(!(options & WN_LJUST)) {
 		for(int i=0;i+((len > precision) ? len : precision )< min_width;i++)
-			*buffer++ = ' ';
+			*buffer++ = (options & WN_ZERO) ? '0' : ' ';
 	}
-	if(base == 16) {
-		*buffer++ = '0';
-		*buffer++ = 'x';
-	} else if(base == 2) {
-		*buffer++ = '0';
-		*buffer++ = 'b';
+	if(!(options & WN_NOPRE)) {
+		if(base == 16) {
+			*buffer++ = '0';
+			*buffer++ = 'x';
+		} else if(base == 2) {
+			*buffer++ = '0';
+			*buffer++ = 'b';
+		}
 	}
 
 	for(int i=len;i<precision;i++)
@@ -52,7 +56,7 @@ static char *write_number(char *buffer, long long value, int base, int options, 
 	}
 	if(options & WN_LJUST) {
 		for(int i=0;i+((len > precision ? len : precision)) < min_width;i++)
-			*buffer++ = ' ';
+			*buffer++ = (options & WN_ZERO) ? '0' : ' ';
 	}
 
 	return buffer;
@@ -92,6 +96,14 @@ void vbufprintk(char *buffer, const char *fmt, va_list args)
 			if(*s == '-') {
 				s++;
 				flags |= WN_LJUST;
+			}
+			if(*s == '#') {
+				s++;
+				flags |= WN_NOPRE;
+			}
+			if(*s == '0') {
+				s++;
+				flags |= WN_ZERO;
 			}
 			/* next up, look for min field width */
 			unsigned int min_field_width = parse_number(&s);

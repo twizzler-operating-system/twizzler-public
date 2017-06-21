@@ -12,7 +12,7 @@ void mm_init(void)
 		struct memregion *reg = linkedentry_obj(entry);
 		pmm_buddy_init(reg);
 
-		printk("[mm]: memory region %lx -> %lx (%d KB), %x\n",
+		printk("[mm]: memory region %lx -> %lx (%ld KB), %x\n",
 				reg->start, reg->start + reg->length, reg->length / 1024, reg->flags);
 
 		for(uintptr_t addr = reg->start; addr < reg->start + reg->length;
@@ -58,8 +58,12 @@ void mm_physical_dealloc(uintptr_t addr)
 	mm_physical_region_dealloc(reg, addr);
 }
 
-void kernel_fault_entry(void)
+void kernel_fault_entry(uintptr_t addr, int flags)
 {
-	panic("page fault");
+	if(addr < KERNEL_VIRTUAL_BASE) {
+		vm_context_fault(addr, flags);
+	} else {
+		panic("kernel page fault: %lx, %x", addr, flags);
+	}
 }
 

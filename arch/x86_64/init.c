@@ -4,6 +4,7 @@
 #include <init.h>
 #include <arch/x86_64-msr.h>
 #include <processor.h>
+#include <string.h>
 void serial_init();
 
 extern void _init();
@@ -68,8 +69,11 @@ struct ustar_header {
 #define PHYS(x) ((x) - PHYS_ADDR_DELTA)
 void x86_64_start_vmx(struct processor *proc);
 extern int kernel_end;
+#include <object.h>
 static void x86_64_initrd(void *u)
 {
+	(void)u;
+	static int __id = 0;
 	printk("%d mods\n", mb->mods_count);
 	struct mboot_module *m = (void *)(mb->mods_addr + PHYSICAL_MAP_START);
 	struct ustar_header *h = (void *)(m->start + PHYSICAL_MAP_START);
@@ -80,13 +84,14 @@ static void x86_64_initrd(void *u)
 		char *name = h->name;
 		if(!*name) break;
 		if(strncmp(h->magic, "ustar", 5)) break;
-		char *data = h+512;
+//		char *data = (char *)h+512;
 		size_t len = strtol(h->size, NULL, 8);
 		size_t reclen = (len + 511) & ~511;
 
 		switch(h->typeflag[0]) {
 			case '0': case '7':
 				printk("Loading object: %s\n", name);
+				obj_create(++__id, reclen, 0x1000);
 				break;
 			default:
 				printk("Unknown file type in tar archive: %c %s\n", h->typeflag[0], name);
@@ -97,6 +102,9 @@ static void x86_64_initrd(void *u)
 }
 POST_INIT(x86_64_initrd);
 
+void kernel_early_init(void);
+void kernel_init(void);
+void x86_64_lapic_init_percpu(void);
 void x86_64_init(struct multiboot *mth)
 {
 	mb = mth;
@@ -106,11 +114,9 @@ void x86_64_init(struct multiboot *mth)
 
 	if(!(mth->flags & MULTIBOOT_FLAG_MEM))
 		panic("don't know how to detect memory!");
-	printk("%lx\n", mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET);
 	struct mboot_module *m = (void *)(mb->mods_addr + PHYSICAL_MAP_START);
 	x86_64_top_mem = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
 	x86_64_bot_mem = m->end > PHYS((uintptr_t)&kernel_end) ? m->end : PHYS((uintptr_t)&kernel_end);
-	printk("Set bottom to %lx %lx\n", x86_64_bot_mem, m->end);
 
 	kernel_early_init();
 	_init();
@@ -210,7 +216,6 @@ void arch_processor_init(struct processor *proc)
 		proc->arch.kernel_stack = &initial_boot_stack;
 	}
 
-	printk("Here1 %d\n", proc->id);
 	x86_64_start_vmx(proc);
 
 	/* TODO: this code is never reached, but is left here for reference. Delete it soon. */

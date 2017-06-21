@@ -212,7 +212,7 @@ extern int trampoline_start, trampoline_end, rm_gdt, pmode_enter, rm_gdt_pointer
 void arch_processor_boot(struct processor *proc)
 {
 	proc->arch.kernel_stack = (void *)mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_ANY, true);
-	printk("Poking secondary CPU %ld, proc->arch.kernel_stack = %lx (proc=%p)\n", proc->id, proc->arch.kernel_stack, proc);
+	printk("Poking secondary CPU %ld, proc->arch.kernel_stack = %p (proc=%p)\n", proc->id, proc->arch.kernel_stack, proc);
 	*(void **)(proc->arch.kernel_stack + KERNEL_STACK_SIZE - sizeof(void *)) = proc;
 
 	uintptr_t bootaddr_phys = 0x7000;
@@ -229,7 +229,7 @@ void arch_processor_boot(struct processor *proc)
 			&rm_gdt_pointer, GDT_POINTER_SIZE);
 	memcpy((void *)(0x7200 + PHYSICAL_MAP_START), &pmode_enter, 0x100);
 
-	*(volatile uintptr_t *)(0x7300 + PHYSICAL_MAP_START) = proc->arch.kernel_stack + KERNEL_STACK_SIZE;
+	*(volatile uintptr_t *)(0x7300 + PHYSICAL_MAP_START) = (uintptr_t)proc->arch.kernel_stack + KERNEL_STACK_SIZE;
 	asm volatile("mfence" ::: "memory");
 	lapic_write(LAPIC_ESR, 0);
 	x86_cpu_send_ipi(LAPIC_ICR_SHORT_DEST, proc->id, LAPIC_ICR_TM_LEVEL | LAPIC_ICR_LEVELASSERT | LAPIC_ICR_DM_INIT);
@@ -251,7 +251,7 @@ void arch_processor_boot(struct processor *proc)
 	}
 
 	if(timeout == 0) {
-		printk("failed to start CPU %d\n", proc->id);
+		printk("failed to start CPU %ld\n", proc->id);
 	}
 }
 

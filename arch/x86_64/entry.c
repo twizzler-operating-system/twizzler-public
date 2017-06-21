@@ -3,6 +3,8 @@
 #include <syscall.h>
 #include <arch/x86_64-msr.h>
 
+void x86_64_signal_eoi(void);
+
 static void x86_64_change_fpusse_allow(bool enable)
 {
 	register uint64_t tmp;
@@ -26,7 +28,24 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 			asm volatile ("finit"); /* also, we may need to clear the FPU state */
 		} else if(frame->int_no == 14) {
 			/* page fault */
-			kernel_fault_entry();
+			uint64_t cr2;
+			asm volatile("mov %%cr2, %0" : "=r"(cr2) :: "memory");
+			int flags = 0;
+			if(frame->err_code & 1) {
+				flags |= FAULT_ERROR_PERM;
+			} else {
+				flags |= FAULT_ERROR_PRES;
+			}
+			if(frame->err_code & (1 << 1)) {
+				flags |= FAULT_WRITE;
+			}
+			if(frame->err_code & (1 << 2)) {
+				flags |= FAULT_USER;
+			}
+			if(frame->err_code & (1 << 4)) {
+				flags |= FAULT_EXEC;
+			}
+			kernel_fault_entry(cr2, flags);
 		} else if(frame->int_no < 32) {
 			/* TODO: userspace exception */
 		}

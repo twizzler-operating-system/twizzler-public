@@ -1,5 +1,6 @@
 #include <processor.h>
 #include <debug.h>
+#include <thread.h>
 
 void thread_schedule_resume_proc(struct processor *proc)
 {

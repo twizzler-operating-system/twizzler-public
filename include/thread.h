@@ -33,8 +33,11 @@ void arch_thread_initialize(struct thread *idle);
 struct thread *thread_lookup(unsigned long id);
 struct thread *thread_create(void *jump, void *arg);
 _Noreturn void thread_exit(void);
+void arch_thread_init(struct thread *thread, void *entry, void *arg, void *stack);
 
 void thread_initialize_processor(struct processor *proc);
 
-void schedule(void);
+void thread_schedule_resume(void);
+void thread_schedule_resume_proc(struct processor *proc);
+void arch_thread_resume(struct thread *thread);
 

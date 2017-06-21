@@ -28,4 +28,7 @@ void processor_perproc_init(struct processor *proc);
 void processor_register(bool bsp, unsigned long id);
 void arch_processor_enumerate(void);
 void arch_processor_boot(struct processor *proc);
+void processor_secondary_entry(struct processor *proc);
+void processor_attach_thread(struct processor *proc, struct thread *thread);
+void arch_processor_init(struct processor *proc);
 

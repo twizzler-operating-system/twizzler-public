@@ -6,22 +6,23 @@
 #include <guard.h>
 
 struct hash processors;
+void kernel_main(struct processor *);
 
-static void _proc_create(void *o)
+static void _proc_create(void *_ptr, void *o)
 {
+	(void)_ptr;
 	struct processor *proc = o;
 	linkedlist_create(&proc->runqueue, LINKEDLIST_LOCKLESS);
 	proc->sched_lock = SPINLOCK_INIT;
 }
 
-struct slab_allocator so_processor = SLAB_ALLOCATOR(sizeof(struct processor), 64, _proc_create, NULL, NULL, NULL);
-
+struct slabcache sc_processor;
 static struct processor *proc_bsp = NULL;
 
 extern int initial_boot_stack;
 void processor_register(bool bsp, unsigned long id)
 {
-	struct processor *proc = slab_alloc(&so_processor);
+	struct processor *proc = slabcache_alloc(&sc_processor);
 	proc->id = id;
 	if(bsp) {
 		assert(proc_bsp == NULL);
@@ -34,6 +35,7 @@ void processor_register(bool bsp, unsigned long id)
 __orderedinitializer(PROCESSOR_INITIALIZER_ORDER) static void processor_init(void)
 {
 	hash_create(&processors, 64, 0);
+	slabcache_init(&sc_processor, sizeof(struct processor), _proc_create, NULL, NULL);
 	arch_processor_enumerate();
 }
 
@@ -67,7 +69,6 @@ void processor_perproc_init(struct processor *proc)
 
 void processor_secondary_entry(struct processor *proc)
 {
-	printk("Second!\n");
 	proc->flags |= PROCESSOR_UP;
 	processor_perproc_init(proc);
 }
