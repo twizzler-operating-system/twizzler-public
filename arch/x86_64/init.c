@@ -84,7 +84,7 @@ static void x86_64_initrd(void *u)
 		char *name = h->name;
 		if(!*name) break;
 		if(strncmp(h->magic, "ustar", 5)) break;
-//		char *data = (char *)h+512;
+		char *data = (char *)h+512;
 		size_t len = strtol(h->size, NULL, 8);
 		size_t reclen = (len + 511) & ~511;
 
@@ -92,6 +92,17 @@ static void x86_64_initrd(void *u)
 			case '0': case '7':
 				printk("Loading object: %s\n", name);
 				obj_create(++__id, reclen, 0x1000);
+				struct object *obj = obj_lookup(__id);
+				assert(obj);
+				size_t idx = 0;
+				for(size_t s = 0;s<reclen;s+=mm_page_size(0),idx++) {
+					uintptr_t phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+					size_t thislen = 0x1000;
+					if((reclen - s) < thislen)
+						thislen = reclen - s;
+					memcpy((void *)(phys + PHYSICAL_MAP_START), data + s, thislen);
+					obj_cache_page(obj, idx, phys);
+				}
 				break;
 			default:
 				printk("Unknown file type in tar archive: %c %s\n", h->typeflag[0], name);

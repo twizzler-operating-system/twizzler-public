@@ -121,6 +121,9 @@ void arch_thread_resume(struct thread *thread)
 		asm volatile ("fxrstor (%0)" 
 				:: "r" (thread->arch.fpu_data) : "memory");
 	}
+	if(old->ctx != thread->ctx && thread->ctx) {
+		arch_mm_switch_context(thread->ctx);
+	}
 	if(thread->arch.was_syscall)
 		x86_64_resume_userspace(&thread->arch.syscall);
 	else {

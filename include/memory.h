@@ -80,6 +80,17 @@ struct vm_context {
 };
 
 void arch_mm_switch_context(struct vm_context *vm);
+void arch_mm_context_init(struct vm_context *ctx);
+
+#include <lib/inthash.h>
+struct vmap {
+	uint128_t target;
+	size_t slot;
+	uint32_t flags;
+	int status;
+
+	struct ihelem elem;
+};
 
 #define VMAP_NONE  0
 #define VMAP_READ  1
@@ -90,6 +101,8 @@ int vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t 
 void vm_context_destroy(struct vm_context *v);
 struct vm_context *vm_context_create(void);
 void vm_context_fault(uintptr_t addr, int flags);
+struct object;
+void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object *obj);
 
 #define FAULT_EXEC  0x1
 #define FAULT_WRITE 0x2

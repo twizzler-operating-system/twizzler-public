@@ -37,6 +37,13 @@ static inline void ihtable_init(struct ihtable *t, int bits)
 	t->bits = bits;
 }
 
+__attribute__((used))
+static void _iht_ctor(void *sz, void *obj)
+{
+	struct ihtable *iht = obj;
+	ihtable_init(iht, (long)sz);
+}
+
 #define GOLDEN_RATIO_64 0x61C8864680B583EBull
 
 static inline uint64_t hash64(uint64_t val)
