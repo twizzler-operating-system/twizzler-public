@@ -66,7 +66,7 @@ void kernel_main(struct processor *proc)
 		vm_context_map(init_thread.ctx, 2, 0x1000 / mm_page_size(MAX_PGLEVEL),
 				VMAP_READ | VMAP_EXEC);
 		//arch_thread_init(&init_thread, (void *)0x7ff000001000, NULL, us1 + 0x1000);
-		arch_thread_init(&init_thread, (void *)0x1000, NULL, us1 + 0x1000);
+		arch_thread_init(&init_thread, (void *)0x400078, NULL, us1 + 0x1000);
 		processor_attach_thread(proc, &init_thread);
 	}
 	thread_schedule_resume_proc(proc);

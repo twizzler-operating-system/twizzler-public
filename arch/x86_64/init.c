@@ -91,7 +91,9 @@ static void x86_64_initrd(void *u)
 		switch(h->typeflag[0]) {
 			case '0': case '7':
 				printk("Loading object: %s\n", name);
-				obj_create(++__id, reclen, 0x1000);
+				int off = 0x400000;
+				if(!strncmp(name, "sys", 3)) off = 0x1000; //HACK
+				obj_create(++__id, reclen, off);
 				struct object *obj = obj_lookup(__id);
 				assert(obj);
 				size_t idx = 0;

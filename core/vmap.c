@@ -67,6 +67,10 @@ void vm_context_fault(uintptr_t addr, int flags)
 	}
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
 	struct vmap *map = ihtable_find(current_thread->ctx->maps, slot, struct vmap, elem, slot);
+	if(!map) {
+		/* KILL TODO */
+		panic("kill process");
+	}
 	printk("mapping virt slot %ld -> obj " PR128FMTd "\n", map->slot, PR128(map->target));
 
 	struct object *obj = obj_lookup(map->target);
