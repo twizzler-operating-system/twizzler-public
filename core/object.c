@@ -79,7 +79,7 @@ void obj_alloc_slot(struct object *obj)
 
 	bitmap_set(slot_bitmap, slot);
 	/* TODO: don't hard-code these */
-	int es = slot + 4096;
+	int es = slot + 4096 - 1;
 	if(obj->pglevel < MAX_PGLEVEL) {
 		es *= 512;
 	}
