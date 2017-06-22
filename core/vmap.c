@@ -63,7 +63,7 @@ void vm_context_fault(uintptr_t addr, int flags)
 	printk("Page Fault: %lx %x\n", addr, flags);
 	if(flags & FAULT_ERROR_PERM) {
 		/* TODO: COW here? */
-		panic("page fault: %lx %x\n", addr, flags);
+		panic("page fault addr=%lx flags=%x\n", addr, flags);
 	}
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
 	struct vmap *map = ihtable_find(current_thread->ctx->maps, slot, struct vmap, elem, slot);

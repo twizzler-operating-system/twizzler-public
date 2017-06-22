@@ -1,7 +1,7 @@
 
 RAMDISK_OFILES=syshandle.bin
 
-RAMDISK_FILES=hw
+RAMDISK_FILES=hw.bin
 
 OBJCOPY=$(TOOLCHAIN_PREFIX)objcopy
 CFLAGS=-Wall -Wextra -std=gnu11 -Og -g -ffreestanding -nostdlib -Iinclude

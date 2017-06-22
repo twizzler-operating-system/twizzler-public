@@ -527,7 +527,7 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	/* VM control fields. */
 	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PINBASED_CTLS, VMCS_PINBASED_CONTROLS, 0);
-	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1 << 31) | (1 << 28) /* Use MSR bitmaps */);
+	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1ul << 31) | (1 << 28) /* Use MSR bitmaps */);
 	
 	vmcs_write32_fixed(X86_MSR_VMX_PROCBASED_CTLS2, VMCS_PROCBASED_CONTROLS_SECONDARY,
 			/* TODO: APIC */
