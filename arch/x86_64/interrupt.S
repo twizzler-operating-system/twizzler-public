@@ -109,6 +109,7 @@ ignore_handler:
 
 .extern x86_64_exception_entry
 isr_common:
+	cld
 	PUSH_CONTEXT
 	movq %rsp, %rdi
 	testl $3, 144(%rsp) #test CPL for pushed CS desc

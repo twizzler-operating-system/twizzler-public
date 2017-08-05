@@ -4,6 +4,7 @@ x86_64_syscall_entry_from_userspace:
 	swapgs
 	movq %rsp, %gs:0
 	movq %gs:8, %rsp
+	cld
 
 	/* TODO: I don't think we need to save this many registers here. */
 	pushq $0x1B      // user CS
