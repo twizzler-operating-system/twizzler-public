@@ -130,6 +130,11 @@ $(BUILDDIR)/hd.img: $(USRPROGS)
 	sudo cp $(BUILDDIR)/kernel $(BUILDDIR)/mnt/
 	sudo umount $(BUILDDIR)/mnt
 
+CHEADERS=$(foreach file,$(C_SOURCES),$(shell cpp -MM -I include -I arch/$(ARCH)/include -I machine/$(MACHINE)/include $(file) -H 2>&1 >/dev/null | grep '^\.' | awk '{print $$2}'))
+AHEADERS=$(foreach file,$(ASM_SOURCES),$(shell cpp -MM -I include -I arch/$(ARCH)/include -I machine/$(MACHINE)/include $(file) -H 2>&1 >/dev/null | grep '^\.' | awk '{print $$2}'))
+
+tags: $(C_SOURCES) $(ASM_SOURCES) $(CHEADERS) $(AHEADERS)
+	@ctags $(C_SOURCES) $(ASM_SOURCES) $(CHEADERS) $(AHEADERS)
 
 .PHONY: od re clean all test newproj userspace
 
