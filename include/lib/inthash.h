@@ -14,7 +14,7 @@ struct ihtable {
 };
 
 #define ihtable_size(bits) \
-	(sizeof(struct ihtable) + (1ul << (bits)) * sizeof(struct ihelem))
+	(sizeof(struct ihtable) + ((1ul << (bits)) + 1) * sizeof(struct ihelem))
 
 #define ihtable_lock(t) \
 	(t)->fl=spinlock_acquire(&(t)->lock)

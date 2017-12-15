@@ -64,7 +64,9 @@ void kernel_main(struct processor *proc)
 {
 	printk("processor %ld reached resume state %p\n", proc->id, proc);
 	
+#if CONFIG_INSTRUMENT
 	instrument_print_results();
+#endif
 
 	if(proc->flags & PROCESSOR_BSP) {
 		init_thread.id = 1;

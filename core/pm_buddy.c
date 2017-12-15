@@ -2,7 +2,7 @@
 #include <lib/bitmap.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <lib/linkedlist.h>
+#include <lib/list.h>
 #include <memory.h>
 #include <string.h>
 #include <debug.h>
@@ -37,17 +37,17 @@ static uintptr_t __do_pmm_buddy_allocate(struct memregion *reg, size_t length)
 
 	int order = min_possible_order(length);
 
-	if(reg->freelists[order].count == 0) {
+	if(list_empty(&reg->freelists[order])) {
 		uintptr_t a = __do_pmm_buddy_allocate(reg, length * 2);
 
-		struct linkedentry *elem1 = (void *)(a + PHYSICAL_MAP_START);
-		struct linkedentry *elem2 = (void *)(a + length + PHYSICAL_MAP_START);
+		struct list *elem1 = (void *)(a + PHYSICAL_MAP_START);
+		struct list *elem2 = (void *)(a + length + PHYSICAL_MAP_START);
 
-		linkedlist_insert(&reg->freelists[order], elem1, (void *)a);
-		linkedlist_insert(&reg->freelists[order], elem2, (void *)(a + length));
+		list_insert(&reg->freelists[order], elem1);
+		list_insert(&reg->freelists[order], elem2);
 	}
 
-	uintptr_t address = (uintptr_t)linkedlist_remove_head(&reg->freelists[order]);
+	uintptr_t address = ((uintptr_t)list_pop(&reg->freelists[order]) - PHYSICAL_MAP_START);
 	int bit = address / length;
 	assert(!bitmap_test(reg->bitmaps[order], bit));
 	bitmap_set(reg->bitmaps[order], bit);
@@ -69,12 +69,12 @@ static int deallocate(struct memregion *reg, uintptr_t address, int order)
 		bitmap_reset(reg->bitmaps[order], bit);
 
 		if(!bitmap_test(reg->bitmaps[order], buddy_bit)) {
-			struct linkedentry *elem = (void *)(buddy + PHYSICAL_MAP_START);
-			linkedlist_remove(&reg->freelists[order], elem);
+			struct list *elem = (void *)(buddy + PHYSICAL_MAP_START);
+			list_remove(elem);
 			deallocate(reg, buddy > address ? address : buddy, order + 1);
 		} else {
-			struct linkedentry *elem = (void *)(address + PHYSICAL_MAP_START);
-			linkedlist_insert(&reg->freelists[order], elem, (void *)address);
+			struct list *elem = (void *)(address + PHYSICAL_MAP_START);
+			list_insert(&reg->freelists[order], elem);
 		}
 		reg->num_allocated[order]--;
 		return order;
@@ -94,12 +94,16 @@ uintptr_t pmm_buddy_allocate(struct memregion *reg, size_t length)
 
 void pmm_buddy_deallocate(struct memregion *reg, uintptr_t address)
 {
-	bool fl = spinlock_acquire(&reg->pm_buddy_lock);
+	if(reg->ready) {
+		spinlock_acquire_save(&reg->pm_buddy_lock);
+	}
 	int order = deallocate(reg, address, 0);
 	if(order >= 0) {
 		reg->free_memory += MIN_SIZE << order;
 	}
-	spinlock_release(&reg->pm_buddy_lock, fl);
+	if(reg->ready) {
+		spinlock_release_restore(&reg->pm_buddy_lock);
+	}
 }
 
 void pmm_buddy_init(struct memregion *reg)
@@ -109,7 +113,7 @@ void pmm_buddy_init(struct memregion *reg)
 	for(int i=0;i<=MAX_ORDER;i++) {
 		reg->bitmaps[i] = (uint8_t *)start;
 		memset(reg->bitmaps[i], ~0, length);
-		linkedlist_create(&reg->freelists[i], LINKEDLIST_LOCKLESS);
+		list_init(&reg->freelists[i]);
 		start += length;
 		length /= 2;
 		reg->num_allocated[i] = buddy_order_max_blocks(i);

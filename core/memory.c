@@ -1,15 +1,14 @@
 #include <memory.h>
 #include <debug.h>
 #include <thread.h>
-static struct linkedlist *physical_regions;
+#include <lib/iter.h>
+static DECLARE_LIST(physical_regions);
 
 void mm_init(void)
 {
-	physical_regions = arch_mm_get_regions();
-	for(struct linkedentry *entry = linkedlist_iter_start(physical_regions);
-			entry != linkedlist_iter_end(physical_regions);
-			entry = linkedlist_iter_next(entry)) {
-		struct memregion *reg = linkedentry_obj(entry);
+	arch_mm_get_regions(&physical_regions);
+	foreach(e, list, &physical_regions) {
+		struct memregion *reg = list_entry(e, struct memregion, entry);
 		pmm_buddy_init(reg);
 
 		printk("[mm]: memory region %lx -> %lx (%ld KB), %x\n",
@@ -19,15 +18,14 @@ void mm_init(void)
 				addr += MM_BUDDY_MIN_SIZE) {
 			pmm_buddy_deallocate(reg, addr);
 		}
+		reg->ready = true;
 	}
 }
 
 struct memregion *mm_physical_find_region(uintptr_t addr)
 {
-	for(struct linkedentry *entry = linkedlist_iter_start(physical_regions);
-			entry != linkedlist_iter_end(physical_regions);
-			entry = linkedlist_iter_next(entry)) {
-		struct memregion *reg = linkedentry_obj(entry);
+	foreach(e, list, &physical_regions) {
+		struct memregion *reg = list_entry(e, struct memregion, entry);
 		if(addr >= reg->start && addr < reg->start + reg->length)
 			return reg;
 	}
@@ -36,11 +34,8 @@ struct memregion *mm_physical_find_region(uintptr_t addr)
 
 uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 {
-	physical_regions = arch_mm_get_regions();
-	for(struct linkedentry *entry = linkedlist_iter_start(physical_regions);
-			entry != linkedlist_iter_end(physical_regions);
-			entry = linkedlist_iter_next(entry)) {
-		struct memregion *reg = linkedentry_obj(entry);
+	foreach(e, list, &physical_regions) {
+		struct memregion *reg = list_entry(e, struct memregion, entry);
 
 		if((reg->flags & type) == reg->flags && reg->free_memory > 0) {
 			/* TODO: if this fails, keep trying on a different region */

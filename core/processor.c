@@ -5,38 +5,36 @@
 #include <init.h>
 #include <guard.h>
 
-struct hash processors;
 void kernel_main(struct processor *);
 
-static void _proc_create(void *_ptr, void *o)
-{
-	(void)_ptr;
-	struct processor *proc = o;
-	linkedlist_create(&proc->runqueue, LINKEDLIST_LOCKLESS);
-	proc->sched_lock = SPINLOCK_INIT;
-}
+static struct processor processors[PROCESSOR_MAX_CPUS];
 
-struct slabcache sc_processor;
 static struct processor *proc_bsp = NULL;
-
 extern int initial_boot_stack;
 void processor_register(bool bsp, unsigned long id)
 {
-	struct processor *proc = slabcache_alloc(&sc_processor);
+	if(id >= PROCESSOR_MAX_CPUS) {
+		printk("[kernel]: not registering cpu %ld: increase MAX_CPUS\n", id);
+		return;
+	}
+	struct processor *proc = &processors[id];
 	proc->id = id;
 	if(bsp) {
 		assert(proc_bsp == NULL);
 		proc->flags = PROCESSOR_BSP;
 		proc_bsp = proc;
 	}
-	/* TODO: use the new hash table */
-	hash_insert(&processors, &proc->id, sizeof(proc->id), &proc->elem, proc);
+	proc->flags |= PROCESSOR_REGISTERED;
+	list_init(&proc->runqueue);
+	proc->sched_lock = SPINLOCK_INIT;
 }
 
 __orderedinitializer(PROCESSOR_INITIALIZER_ORDER) static void processor_init(void)
 {
-	hash_create(&processors, 64, 0);
-	slabcache_init(&sc_processor, sizeof(struct processor), _proc_create, NULL, NULL);
+	for(unsigned int i=0;i<PROCESSOR_MAX_CPUS;i++) {
+		processors[i].id = 0;
+		processors[i].flags = 0;
+	}
 	arch_processor_enumerate();
 }
 
@@ -44,16 +42,13 @@ static void processor_init_secondaries(void *arg)
 {
 	(void)arg;
 	printk("Initializing secondary processors...\n");
-	struct hashiter iter;
-	__hash_lock(&processors);
-	for(hash_iter_init(&iter, &processors);
-			!hash_iter_done(&iter);
-			hash_iter_next(&iter)) {
-		struct processor *proc = hash_iter_get(&iter);
-		if(!(proc->flags & PROCESSOR_BSP) && !(proc->flags & PROCESSOR_UP))
+	for(int i=0;i<PROCESSOR_MAX_CPUS;i++) {
+		struct processor *proc = &processors[i];
+		if(!(proc->flags & PROCESSOR_BSP) && !(proc->flags & PROCESSOR_UP)
+				&& (proc->flags & PROCESSOR_REGISTERED)) {
 			arch_processor_boot(proc);
+		}
 	}
-	__hash_unlock(&processors);
 }
 POST_INIT(processor_init_secondaries, NULL);
 
@@ -78,7 +73,7 @@ void processor_attach_thread(struct processor *proc, struct thread *thread)
 {
 	bool fl = spinlock_acquire(&proc->sched_lock);
 	thread->processor = proc;
-	linkedlist_insert(&proc->runqueue, &thread->entry, thread);
+	list_insert(&proc->runqueue, &thread->rq_entry);
 	spinlock_release(&proc->sched_lock, fl);
 }
 

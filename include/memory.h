@@ -2,7 +2,8 @@
 #include <machine/memory.h>
 #include <arch/memory.h>
 #include <string.h>
-#include <lib/linkedlist.h>
+#include <lib/list.h>
+#include <spinlock.h>
 
 #define MM_BUDDY_MIN_SIZE 0x1000
 #define MAX_ORDER 20
@@ -21,19 +22,20 @@ struct memregion {
 
 	struct spinlock pm_buddy_lock;
 	uint8_t *bitmaps[MAX_ORDER + 1];
-	struct linkedlist freelists[MAX_ORDER+1];
+	struct list freelists[MAX_ORDER+1];
 	char static_bitmaps[((MEMORY_SIZE / MIN_SIZE) / 8) * 2];
 	size_t num_allocated[MAX_ORDER + 1];
 	_Atomic size_t free_memory;
+	bool ready;
 
-	struct linkedentry entry;
+	struct list entry;
 };
 
 void mm_init(void);
 uintptr_t pmm_buddy_allocate(struct memregion *, size_t length);
 void pmm_buddy_deallocate(struct memregion *, uintptr_t address);
 void pmm_buddy_init(struct memregion *);
-struct linkedlist *arch_mm_get_regions(void);
+void arch_mm_get_regions(struct list *);
 
 
 uintptr_t mm_physical_alloc(size_t length, int type, bool clear);

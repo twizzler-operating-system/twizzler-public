@@ -1,36 +1,41 @@
 #include <interrupt.h>
 #include <thread.h>
 #include <stdatomic.h>
-static struct linkedlist handlers[MAX_INTERRUPT_VECTORS];
-static _Atomic int initialized[MAX_INTERRUPT_VECTORS] = { false };
+#include <lib/iter.h>
+static struct list handlers[MAX_INTERRUPT_VECTORS];
+static struct spinlock locks[MAX_INTERRUPT_VECTORS] = {
+	[0 ... MAX_INTERRUPT_VECTORS-1] = SPINLOCK_INIT
+};
+static bool initialized[MAX_INTERRUPT_VECTORS] = { false };
 
 void interrupt_register_handler(int vector, struct interrupt_handler *handler)
 {
-	if(!atomic_exchange(&initialized[vector], true)) {
-		linkedlist_create(&handlers[vector], 0);
+	spinlock_acquire_save(&locks[vector]);
+	if(!initialized[vector]) {
+		list_init(&handlers[vector]);
+		initialized[vector] = true;
 	}
-	linkedlist_insert(&handlers[vector], &handler->entry, handler);
+	list_insert(&handlers[vector], &handler->entry);
+	spinlock_release_restore(&locks[vector]);
 }
 
-void interrupt_unregister_handler(int vector, struct interrupt_handler *handler)
+void interrupt_unregister_handler(int vector __unused, struct interrupt_handler *handler)
 {
 	assert(initialized[vector]);
-	linkedlist_remove(&handlers[vector], &handler->entry);
+	spinlock_acquire_save(&locks[vector]);
+	list_remove(&handler->entry);
+	spinlock_release_restore(&locks[vector]);
 }
 
 void kernel_interrupt_entry(int vector)
 {
-	struct linkedlist *list = &handlers[vector];
-	if(list->count == 0)
-		return;
-	linkedlist_lock(list);
-	struct linkedentry *entry;
-	for(entry = linkedlist_iter_start(list);
-			entry != linkedlist_iter_end(list);
-			entry = linkedlist_iter_next(entry)) {
-		struct interrupt_handler *h = linkedentry_obj(entry);
+	struct list *list = &handlers[vector];
+	if(list_empty(list)) return;
+	spinlock_acquire_save(&locks[vector]);
+	foreach(entry, list, list) {
+		struct interrupt_handler *h = list_entry(entry, struct interrupt_handler, entry);
 		h->fn(vector);
 	}
-	linkedlist_unlock(list);
+	spinlock_release_restore(&locks[vector]);
 }
 

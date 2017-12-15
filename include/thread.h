@@ -1,10 +1,11 @@
 #pragma once
 #include <thread-bits.h>
 #include <ref.h>
-#include <lib/hash.h>
+#include <lib/inthash.h>
 #include <arch/thread.h>
 #include <workqueue.h>
 #include <memory.h>
+#include <lib/list.h>
 
 struct processor;
 
@@ -23,8 +24,7 @@ struct thread {
 	struct processor *processor;
 	struct vm_context *ctx;
 
-	struct hashelem elem;
-	struct linkedentry entry;
+	struct list rq_entry;
 };
 
 void arch_thread_start(struct thread *thread, void *jump, void *arg);
