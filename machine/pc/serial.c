@@ -24,6 +24,7 @@ static void serial_putc(unsigned char byte)
 
 #include <spinlock.h>
 static struct spinlock _lock = SPINLOCK_INIT;
+__noinstrument
 void debug_puts(char *s)
 {
 	spinlock_acquire(&_lock);

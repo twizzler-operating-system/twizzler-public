@@ -40,7 +40,7 @@ C_SOURCES=
 ASM_SOURCES=
 
 ifeq ($(CONFIG_INSTRUMENT),y)
-CFLAGS+=-finstrument-functions '-finstrument-functions-exclude-file-list=lib/vsprintk.c,core/panic.c,core/instrument.c,arch/*,core/*,lib/*,include/*'
+CFLAGS+=-finstrument-functions '-finstrument-functions-exclude-file-list=lib/vsprintk.c,core/panic.c,core/instrument.c,core/ksymbol.c'
 C_SOURCES+=core/instrument.c
 endif
 

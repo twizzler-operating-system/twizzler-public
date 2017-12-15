@@ -1,4 +1,6 @@
 #include <ksymbol.h>
+
+__noinstrument
 const struct ksymbol *ksymbol_find_by_value(uintptr_t val, bool range)
 {
 	for(size_t i=0;i<kernel_symbol_table_length;i++) {
