@@ -14,8 +14,8 @@ static inline unsigned long long __round_up_pow2(unsigned int a)
 #define __orderedbefore(x) (x-1)
 #define __orderedafter(x) (x+1)
 
-#define __initializer __attribute__((used,constructor))
-#define __orderedinitializer(x) __attribute__((used,constructor(x+3000)))
+#define __initializer __attribute__((used,constructor,no_instrument_function))
+#define __orderedinitializer(x) __attribute__((used,constructor(x+3000),no_instrument_function))
 
 #define __cleanup(f) __attribute__((cleanup(f)))
 #define ___concat(x,y) x##y
@@ -31,5 +31,9 @@ static inline unsigned long long __round_up_pow2(unsigned int a)
 #define container_of(ptr, type, member) ({                      \
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
         (type *)( (char *)__mptr - offsetof(type,member) );})
+
+#define __unused __attribute__((unused))
+
+#define __noinstrument __attribute__((no_instrument_function))
 
 long strtol(char *str, char **end, int base);

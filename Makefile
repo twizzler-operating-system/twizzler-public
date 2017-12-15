@@ -39,6 +39,11 @@ CFLAGS+=-O$(CONFIG_OPTIMIZE)
 C_SOURCES=
 ASM_SOURCES=
 
+ifeq ($(CONFIG_INSTRUMENT),y)
+CFLAGS+=-finstrument-functions '-finstrument-functions-exclude-file-list=lib/vsprintk.c,core/panic.c,core/instrument.c,arch/*,core/*,lib/*,include/*'
+C_SOURCES+=core/instrument.c
+endif
+
 OBJECTS=$(addprefix $(BUILDDIR)/,$(ASM_SOURCES:.S=.o) $(C_SOURCES:.c=.o))
 
 all: $(BUILDDIR)/kernel
@@ -63,17 +68,17 @@ endif
 
 -include $(addprefix $(BUILDDIR)/,$(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d))
 
-test: $(BUILDDIR)/kernel userspace
+test: $(BUILDDIR)/kernel# userspace
 	$(QEMU) $(QEMU_FLAGS) -serial stdio
 
 export TOOLCHAIN_PREFIX
 export BUILDDIR
 
-userspace: tools/fotgen
-	$(MAKE) -C us all
+#userspace: tools/fotgen
+#	$(MAKE) -C us all
 
-tools/fotgen: tools/fotgen.c
-	$(CC) -Wall -Wextra -std=gnu11 -Og -g tools/fotgen.c -o tools/fotgen
+#tools/fotgen: tools/fotgen.c
+#	$(CC) -Wall -Wextra -std=gnu11 -Og -g tools/fotgen.c -o tools/fotgen
 
 $(BUILDDIR)/kernel: $(BUILDDIR)/link.ld $(OBJECTS) $(BUILDDIR)/symbols.o
 	@mkdir -p $(BUILDDIR)
