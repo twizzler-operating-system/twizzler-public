@@ -55,6 +55,11 @@ struct thread init_thread;
 char us1[0x1000];
 
 #include <instrument.h>
+
+void doo() {
+	instr_start(doo);
+}
+
 void kernel_main(struct processor *proc)
 {
 	printk("processor %ld reached resume state %p\n", proc->id, proc);
