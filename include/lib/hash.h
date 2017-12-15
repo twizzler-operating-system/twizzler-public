@@ -17,6 +17,7 @@ struct hash {
 	struct linkedlist *table;
 	_Atomic size_t length, count;
 	int flags;
+	bool fl;
 	struct spinlock lock;
 };
 

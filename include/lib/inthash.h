@@ -9,6 +9,7 @@ struct ihelem {
 struct ihtable {
 	struct spinlock lock;
 	int bits;
+	bool fl;
 	struct ihelem *table[];
 };
 
@@ -16,10 +17,10 @@ struct ihtable {
 	(sizeof(struct ihtable) + (1ul << (bits)) * sizeof(struct ihelem))
 
 #define ihtable_lock(t) \
-	spinlock_acquire(&(t)->lock)
+	(t)->fl=spinlock_acquire(&(t)->lock)
 
 #define ihtable_unlock(t) \
-		spinlock_release(&(t)->lock)
+		spinlock_release(&(t)->lock, (t)->fl)
 
 #define DECLARE_IHTABLE(name, nbits) \
 	struct ihtable name = { \

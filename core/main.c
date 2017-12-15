@@ -54,10 +54,13 @@ void kernel_init(void)
 struct thread init_thread;
 char us1[0x1000];
 
+#include <instrument.h>
 void kernel_main(struct processor *proc)
 {
 	printk("processor %ld reached resume state %p\n", proc->id, proc);
 	
+	instrument_print_results();
+
 	if(proc->flags & PROCESSOR_BSP) {
 		init_thread.id = 1;
 		init_thread.ctx = vm_context_create();

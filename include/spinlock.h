@@ -8,8 +8,6 @@ struct spinlock {
 
 #define SPINLOCK_INIT (struct spinlock) { .data = 0 }
 
-void spinlock_acquire(struct spinlock *lock);
-void spinlock_release(struct spinlock *lock);
-
-#define spinlock_guard(s) guard2(s,spinlock_acquire,spinlock_release)
+bool spinlock_acquire(struct spinlock *lock);
+void spinlock_release(struct spinlock *lock, bool);
 

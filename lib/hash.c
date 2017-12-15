@@ -6,8 +6,8 @@
 #include <lib/hash.h>
 #include <memory.h>
 #include <system.h>
-#define __lock(h) do { if(!(h->flags & HASH_LOCKLESS)) spinlock_acquire(&h->lock); } while(0)
-#define __unlock(h) do { if(!(h->flags & HASH_LOCKLESS)) spinlock_release(&h->lock); } while(0)
+#define __lock(h) do { if(!(h->flags & HASH_LOCKLESS)) h->fl = spinlock_acquire(&h->lock); } while(0)
+#define __unlock(h) do { if(!(h->flags & HASH_LOCKLESS)) spinlock_release(&h->lock, h->fl); } while(0)
 
 void __hash_lock(struct hash *h)
 {

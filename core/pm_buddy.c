@@ -85,21 +85,21 @@ uintptr_t pmm_buddy_allocate(struct memregion *reg, size_t length)
 {
 	if(length < MIN_SIZE)
 		length = MIN_SIZE;
-	spinlock_acquire(&reg->pm_buddy_lock);
+	bool fl = spinlock_acquire(&reg->pm_buddy_lock);
 	uintptr_t ret = __do_pmm_buddy_allocate(reg, length);
 	reg->free_memory -= length;
-	spinlock_release(&reg->pm_buddy_lock);
+	spinlock_release(&reg->pm_buddy_lock, fl);
 	return ret;
 }
 
 void pmm_buddy_deallocate(struct memregion *reg, uintptr_t address)
 {
-	spinlock_acquire(&reg->pm_buddy_lock);
+	bool fl = spinlock_acquire(&reg->pm_buddy_lock);
 	int order = deallocate(reg, address, 0);
 	if(order >= 0) {
 		reg->free_memory += MIN_SIZE << order;
 	}
-	spinlock_release(&reg->pm_buddy_lock);
+	spinlock_release(&reg->pm_buddy_lock, fl);
 }
 
 void pmm_buddy_init(struct memregion *reg)

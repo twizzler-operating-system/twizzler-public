@@ -73,7 +73,7 @@ struct object *obj_lookup(uint128_t id)
 void obj_alloc_slot(struct object *obj)
 {
 	/* TODO: lock free? */
-	spinlock_acquire(&slotlock);
+	bool fl = spinlock_acquire(&slotlock);
 	int slot = bitmap_ffr(slot_bitmap, NUM_TL_SLOTS);
 	if(slot == -1)
 		panic("Out of top-level slots");
@@ -87,19 +87,19 @@ void obj_alloc_slot(struct object *obj)
 	obj->slot = es;
 
 	ihtable_insert(&objslots, &obj->slotelem, obj->slot);
-	spinlock_release(&slotlock);
+	spinlock_release(&slotlock, fl);
 	printk("Assigned object " PR128FMT " slot %d (%lx)\n", PR128(obj->id), es, es * mm_page_size(obj->pglevel));
 }
 
 void obj_cache_page(struct object *obj, size_t idx, uintptr_t phys)
 {
-	spinlock_acquire(&obj->lock);
+	bool fl = spinlock_acquire(&obj->lock);
 	/* TODO: duplicates? */
 	struct objpage *page = slabcache_alloc(&sc_objpage);
 	page->idx = idx;
 	page->phys = phys;
 	ihtable_insert(obj->pagecache, &page->elem, page->idx);
-	spinlock_release(&obj->lock);
+	spinlock_release(&obj->lock, fl);
 }
 
 struct object *obj_lookup_slot(uintptr_t oaddr)

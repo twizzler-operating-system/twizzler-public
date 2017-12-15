@@ -29,6 +29,7 @@ void processor_register(bool bsp, unsigned long id)
 		proc->flags = PROCESSOR_BSP;
 		proc_bsp = proc;
 	}
+	/* TODO: use the new hash table */
 	hash_insert(&processors, &proc->id, sizeof(proc->id), &proc->elem, proc);
 }
 
@@ -75,8 +76,9 @@ void processor_secondary_entry(struct processor *proc)
 
 void processor_attach_thread(struct processor *proc, struct thread *thread)
 {
-	spinlock_guard(&proc->sched_lock);
+	bool fl = spinlock_acquire(&proc->sched_lock);
 	thread->processor = proc;
 	linkedlist_insert(&proc->runqueue, &thread->entry, thread);
+	spinlock_release(&proc->sched_lock, fl);
 }
 

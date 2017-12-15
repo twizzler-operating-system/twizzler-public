@@ -27,13 +27,13 @@ static struct spinlock _lock = SPINLOCK_INIT;
 __noinstrument
 void debug_puts(char *s)
 {
-	spinlock_acquire(&_lock);
+	bool fl = spinlock_acquire(&_lock);
 	while(*s) {
 		serial_putc(*s);
 		if(*s == '\n')
 			serial_putc('\r');
 		s++;
 	}
-	spinlock_release(&_lock);
+	spinlock_release(&_lock, fl);
 }
 

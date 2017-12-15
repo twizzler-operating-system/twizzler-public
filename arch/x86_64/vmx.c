@@ -439,9 +439,7 @@ uintptr_t init_ept(void)
 {
 	/* identity map. TODO: map all physical memory */
 	uintptr_t pml4phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
-	printk(":: %lx\n", pml4phys);
 	for(uintptr_t phys = 0; phys < 8*1024*1024*1024ull; phys += 2*1024ul*1024) {
-		printk(":: %lx\n", phys);
 		x86_64_ept_map(pml4phys, phys, phys, 1, EPT_READ | EPT_WRITE | EPT_EXEC);
 	}
 

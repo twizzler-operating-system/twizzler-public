@@ -117,13 +117,23 @@ __attribute__((const)) static inline struct thread * __x86_64_get_current_thread
 
 #define current_thread __x86_64_get_current_thread()
 
+__noinstrument
 static inline void arch_processor_relax(void)
 {
 	asm volatile("pause");
 }
 
+__noinstrument
 static inline void arch_processor_halt(void)
 {
 	asm volatile("hlt");
+}
+
+__noinstrument
+static inline unsigned long long arch_processor_timestamp(void)
+{
+    unsigned int lo, hi;
+    __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));                        
+    return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );  
 }
 

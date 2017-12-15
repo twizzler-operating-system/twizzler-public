@@ -23,7 +23,7 @@ ARCH=$(CONFIG_ARCH)
 MACHINE=$(CONFIG_MACHINE)
 
 INCLUDES=-Iinclude -Imachine/$(MACHINE)/include -Iarch/$(ARCH)/include
-CFLAGS=-ffreestanding -Wall -Wextra -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h $(INCLUDES) -include printk.h $(DEFINES) -include system.h -fno-omit-frame-pointer -g
+CFLAGS=-ffreestanding -Wall -Wextra -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h $(INCLUDES) -include printk.h $(DEFINES) -include system.h -fno-omit-frame-pointer -g -Wno-error=unused-variable
 ASFLAGS=$(INCLUDES) $(DEFINES)
 
 ifeq ($(CONFIG_WERROR),y)

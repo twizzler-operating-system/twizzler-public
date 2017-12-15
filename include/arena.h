@@ -29,7 +29,7 @@ static inline void arena_create(struct arena *arena)
  * of starting from the beginning each time. */
 static inline void *arena_allocate(struct arena *arena, size_t length)
 {
-	spinlock_acquire(&arena->lock);
+	bool fl = spinlock_acquire(&arena->lock);
 	
 	length = (length & ~15) + 16;
 
@@ -52,7 +52,7 @@ static inline void *arena_allocate(struct arena *arena, size_t length)
 	void *ret = (void *)((uintptr_t)node + node->used);
 	node->used += length;
 
-	spinlock_release(&arena->lock);
+	spinlock_release(&arena->lock, fl);
 	return ret;
 }
 

@@ -140,7 +140,7 @@ static void x86_cpu_send_ipi(unsigned char dest_shorthand, unsigned int dst, uns
     assert((v & LAPIC_ICR_DM_INIT) || (v & LAPIC_ICR_LEVELASSERT));
     int send_status;
     int old = arch_interrupt_set(0);
-    spinlock_acquire(&ipi_lock);
+    bool fl = spinlock_acquire(&ipi_lock);
     /* Writing to the lower ICR register causes the interrupt
      * to get sent off (Intel 3A 10.6.1), so do the higher reg first */
     lapic_write(LAPIC_ICR+0x10, (dst << 24));
@@ -152,7 +152,7 @@ static void x86_cpu_send_ipi(unsigned char dest_shorthand, unsigned int dst, uns
         asm("pause");
         send_status = lapic_read(LAPIC_ICR) & LAPIC_ICR_STATUS_PEND;
     } while (send_status);
-    spinlock_release(&ipi_lock);
+    spinlock_release(&ipi_lock, fl);
     arch_interrupt_set(old);
 }
 

@@ -80,20 +80,20 @@ void *slabcache_alloc(struct slabcache *c)
 {
 	struct slab *s;
 	int new = 0;
-	spinlock_acquire(&c->lock);
+	bool fl = spinlock_acquire(&c->lock);
 	if(!is_empty(c->partial)) {
 		s = c->partial.next;
 	} else if(!is_empty(c->empty)) {
 		s = c->empty.next;
 	} else {
-		spinlock_release(&c->lock);
+		spinlock_release(&c->lock, fl);
 		s = new_slab(c);
-		spinlock_acquire(&c->lock);
+		fl = spinlock_acquire(&c->lock);
 		new = 1;
 	}
 
 	void *ret = alloc_slab(s, new);
-	spinlock_release(&c->lock);
+	spinlock_release(&c->lock, fl);
 	return ret;
 }
 
@@ -102,7 +102,7 @@ void slabcache_free(void *obj)
 	struct slab *s = (struct slab *)((uintptr_t)obj & (~(PAGE_SIZE - 1)));
 	int slot = ((char *)obj - s->data) / s->slabcache->sz;
 
-	spinlock_acquire(&s->slabcache->lock);
+	bool fl = spinlock_acquire(&s->slabcache->lock);
 	s->alloc |= (1ull << slot);
 	if(num_set(s->alloc) == obj_per_slab(s->slabcache->sz)) {
 		del_from_list(s);
@@ -111,7 +111,7 @@ void slabcache_free(void *obj)
 		del_from_list(s);
 		add_to_list(&s->slabcache->partial, s);
 	}
-	spinlock_release(&s->slabcache->lock);
+	spinlock_release(&s->slabcache->lock, fl);
 }
 
 static void destroy_slab(struct slab *s)

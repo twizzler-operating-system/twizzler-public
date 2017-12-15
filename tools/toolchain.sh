@@ -19,22 +19,23 @@ export PATH="$PREFIX/bin:$PATH"
 BINUTILSVER=2.27
 GCCVER=6.3.0
 
-wget ftp://ftp.gnu.org/gnu/binutils/binutils-${BINUTILSVER}.tar.bz2
-wget ftp://ftp.gnu.org/gnu/gcc/gcc-${GCCVER}/gcc-${GCCVER}.tar.bz2
+#wget ftp://ftp.gnu.org/gnu/binutils/binutils-${BINUTILSVER}.tar.bz2
+#wget ftp://ftp.gnu.org/gnu/gcc/gcc-${GCCVER}/gcc-${GCCVER}.tar.bz2
 
-tar xf binutils-${BINUTILSVER}.tar.bz2
-tar xf gcc-${GCCVER}.tar.bz2
+#tar xf binutils-${BINUTILSVER}.tar.bz2
+#tar xf gcc-${GCCVER}.tar.bz2
 
-mkdir -p build-binutils build-gcc
-cd build-binutils
+#mkdir -p build-binutils build-gcc
+#cd build-binutils
 
-../binutils-${BINUTILSVER}/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot --disable-nls --disable-werror
-make
-make install
+#../binutils-${BINUTILSVER}/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot --disable-nls --disable-werror
+#make
+#make install
 
-cd ../build-gcc
+#cd ../build-gcc
 
-../gcc-${GCCVER}/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --without-headers
+cd build-gcc
+#../gcc-${GCCVER}/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --without-headers
 
 make all-gcc all-target-libgcc
 if [[ "$TARGET" == "x86_64-pc-elf" ]]; then

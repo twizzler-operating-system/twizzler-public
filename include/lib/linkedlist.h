@@ -18,6 +18,7 @@ struct linkedlist {
 	struct spinlock lock;
 	_Atomic ssize_t count;
 	int flags;
+	bool slflag;
 };
 
 #define linkedlist_iter_end(list) &(list)->sentry
@@ -31,14 +32,14 @@ struct linkedlist {
 static inline void linkedlist_lock(struct linkedlist *list)
 {
 	if(likely(!(list->flags & LINKEDLIST_LOCKLESS))) {
-		spinlock_acquire(&list->lock);
+		list->slflag = spinlock_acquire(&list->lock);
 	}
 }
 
 static inline void linkedlist_unlock(struct linkedlist *list)
 {
 	if(likely(!(list->flags & LINKEDLIST_LOCKLESS))) {
-		spinlock_release(&list->lock);
+		spinlock_release(&list->lock, list->slflag);
 	}
 }
 
