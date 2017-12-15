@@ -260,6 +260,7 @@ void x86_64_vmexit_handler(struct processor *proc)
 	x86_64_vmenter(proc);
 }
 
+__noinstrument
 void x86_64_vmenter(struct processor *proc)
 {
 	/* VMCS does not deal with CPU registers, so we must save and restore them. */
@@ -438,16 +439,20 @@ uintptr_t init_ept(void)
 {
 	/* identity map. TODO: map all physical memory */
 	uintptr_t pml4phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+	printk(":: %lx\n", pml4phys);
 	for(uintptr_t phys = 0; phys < 8*1024*1024*1024ull; phys += 2*1024ul*1024) {
+		printk(":: %lx\n", phys);
 		x86_64_ept_map(pml4phys, phys, phys, 1, EPT_READ | EPT_WRITE | EPT_EXEC);
 	}
 
 	return pml4phys;
 }
+
 __initializer
 static void __init_ept_root(void) {
 	ept_root = init_ept();
 }
+
 void vmexit_point(void);
 
 void vtx_setup_vcpu(struct processor *proc)
@@ -582,6 +587,7 @@ void vtx_setup_vcpu(struct processor *proc)
 
 void x86_64_start_vmx(struct processor *proc)
 {
+
 	x86_64_enable_vmx();
 
 	proc->arch.launched = 0;

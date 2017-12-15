@@ -74,7 +74,7 @@ void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object 
 	uintptr_t vaddr = map->slot * mm_page_size(MAX_PGLEVEL);
 	uintptr_t oaddr = obj->slot * mm_page_size(obj->pglevel);
 	for(int i=0;i<512;i++) {
-		printk(":: %lx -> %lx\n", vaddr + i*(2*MB), oaddr + i*(2*MB));
+		//printk(":: %lx -> %lx\n", vaddr + i*(2*MB), oaddr + i*(2*MB));
 		/* TODO: also, actually allow null pointers to work */
 		if(arch_vm_map(ctx, vaddr + i * (2*MB), oaddr + i * (2*MB), 1, VM_MAP_USER | VM_MAP_EXEC | VM_MAP_WRITE) == false) panic("remap failed"); //TODO: fix flags
 	}
