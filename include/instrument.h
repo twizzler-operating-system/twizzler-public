@@ -16,6 +16,7 @@ struct instr {
 static inline void __instr_end(struct instr *in)
 {
 	in->end = arch_processor_timestamp();
+	printk("{instr %s: %lld %lld}\n", in->name, in->start, in->end);
 }
 
 #define instr_start(_name) \

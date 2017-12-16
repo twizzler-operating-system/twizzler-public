@@ -115,6 +115,13 @@ __attribute__((const)) static inline struct thread * __x86_64_get_current_thread
 	return (void *)tmp;
 }
 
+static inline struct arch_processor *arch_processor_get_self(void)
+{
+	uint64_t tmp;
+	asm ("leaq %%gs:0, %0" : "=r"(tmp));
+	return (struct arch_processor *)tmp;
+}
+
 #define current_thread __x86_64_get_current_thread()
 
 __noinstrument

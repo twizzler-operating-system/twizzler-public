@@ -14,11 +14,10 @@ struct tracepoint {
 	unsigned long long start;
 };
 
+/* TODO: percpu */
+static DECLARE_PERCPU(int, disable_trace) = 0;
 static struct tracepoint function_trace_stack[1024] = {NULL};
 static int fts_ind = 0;
-
-/* TODO: percpu */
-static int disable_trace = 0;
 static bool disable_trace_output = true;
 
 __noinstrument
@@ -47,14 +46,6 @@ void __cyg_profile_func_enter(void *func, void *caller)
 	if(function_trace_stack[fts_ind].fn == func) {
 		panic("direct recusive call detected");
 	}
-#if 0
-	for(int i=0;i<fts_ind-1;i++) {
-		if(function_trace_stack[i].fn == func) {
-			instrument_enable();
-			return;
-		}
-	}
-#endif
 	function_trace_stack[fts_ind].fn = func;
 	function_trace_stack[fts_ind].caller = caller;
 	instrument_enable();

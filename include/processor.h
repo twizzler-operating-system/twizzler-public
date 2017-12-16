@@ -25,6 +25,7 @@ struct processor {
 	struct spinlock sched_lock;
 	_Atomic int flags;
 	unsigned long id;
+	void *percpu;
 };
 
 void processor_perproc_init(struct processor *proc);
@@ -35,4 +36,16 @@ void arch_processor_boot(struct processor *proc);
 void processor_secondary_entry(struct processor *proc);
 void processor_attach_thread(struct processor *proc, struct thread *thread);
 void arch_processor_init(struct processor *proc);
+
+#define current_processor \
+	container_of(arch_processor_get_self(), struct processor, arch);
+
+#define DECLARE_PER_CPU(type, name) \
+	__attribute__((section(".data.percpu"))) type __per_cpu_var_##name
+
+#define PTR_ADVANCE(ptr, off) \
+	({ uintptr_t p = (uintptr_t)(ptr); (typeof(ptr)) (p + (off)) }) 
+
+#define __per_cpu_var_lea(name, proc) \
+	PTR_ADVANCE(&name, (uintptr_t)((proc)->percpu))
 
