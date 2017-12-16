@@ -2,6 +2,7 @@
 #include <interrupt.h>
 #include <stdatomic.h>
 #include <processor.h>
+#include <instrument.h>
 
 bool spinlock_acquire(struct spinlock *lock)
 {

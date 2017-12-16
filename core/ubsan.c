@@ -58,7 +58,7 @@ static void ubsan_prologue(struct source_location *location)
 noreturn static void ubsan_epilogue(void)
 {
 	printk("----------------------\n");
-	spinlock_release(&lock);
+	spinlock_release(&lock, 0);
 	panic("ubsan handled - panic");
 }
 

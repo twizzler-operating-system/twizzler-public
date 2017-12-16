@@ -96,7 +96,7 @@ static void x86_64_initrd(void *u)
 				if(!strncmp(name, "sys", 3)) off = 0x1000; //HACK
 				obj_create(++__id, reclen, off);
 				struct object *obj = obj_lookup(__id);
-				assert(obj);
+				assert(obj != NULL);
 				size_t idx = 0;
 				for(size_t s = 0;s<reclen;s+=mm_page_size(0),idx++) {
 					uintptr_t phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);

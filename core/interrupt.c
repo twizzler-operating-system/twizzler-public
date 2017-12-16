@@ -30,7 +30,9 @@ void interrupt_unregister_handler(int vector __unused, struct interrupt_handler 
 void kernel_interrupt_entry(int vector)
 {
 	struct list *list = &handlers[vector];
-	if(list_empty(list)) return;
+	if(!initialized[vector] || list_empty(list)) {
+		return;
+	}
 	spinlock_acquire_save(&locks[vector]);
 	foreach(entry, list, list) {
 		struct interrupt_handler *h = list_entry(entry, struct interrupt_handler, entry);

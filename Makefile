@@ -23,7 +23,7 @@ ARCH=$(CONFIG_ARCH)
 MACHINE=$(CONFIG_MACHINE)
 
 INCLUDES=-Iinclude -Imachine/$(MACHINE)/include -Iarch/$(ARCH)/include
-CFLAGS=-ffreestanding -Wall -Wextra -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h $(INCLUDES) -include printk.h $(DEFINES) -include system.h -fno-omit-frame-pointer -g -Wno-error=unused-variable
+CFLAGS=-ffreestanding -Wall -Wextra -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h $(INCLUDES) -include printk.h $(DEFINES) -include system.h -fno-omit-frame-pointer -g -Wno-error=unused-variable -Wno-error=unused-function
 ASFLAGS=$(INCLUDES) $(DEFINES)
 
 ifeq ($(CONFIG_WERROR),y)
@@ -69,7 +69,7 @@ endif
 -include $(addprefix $(BUILDDIR)/,$(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d))
 
 test: $(BUILDDIR)/kernel# userspace
-	$(QEMU) $(QEMU_FLAGS) -serial stdio
+	$(QEMU) $(QEMU_FLAGS) -serial stdio | tee serial.txt
 
 export TOOLCHAIN_PREFIX
 export BUILDDIR

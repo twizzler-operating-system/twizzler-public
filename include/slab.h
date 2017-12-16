@@ -19,6 +19,16 @@ struct slabcache {
 	struct spinlock lock;
 };
 
+#define DECLARE_SLABCACHE(name, _sz, ct, dt) \
+	struct slabcache name = { \
+		.empty.next = &name.empty,\
+		.partial.next = &name.partial,\
+		.full.next = &name.full,\
+		.sz = _sz,\
+		.ctor = ct,\
+		.dtor = dt,\
+		.lock = SPINLOCK_INIT,\
+	}
 
 void slabcache_init(struct slabcache *c, size_t sz,
 		void (*ctor)(void *, void *), void (*dtor)(void *, void *), void *ptr);

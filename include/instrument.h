@@ -1,6 +1,10 @@
 #pragma once
 
 #include <interrupt.h>
+#include <processor.h>
+
+void instrument_disable(void);
+void instrument_enable(void);
 
 void instrument_print_results(void);
 
@@ -19,4 +23,5 @@ static inline void __instr_end(struct instr *in)
 		.start = arch_processor_timestamp(), \
 		.name = stringify(_name), \
 	}; defer(__instr_end, & __concat(__instr_, _name));
+
 

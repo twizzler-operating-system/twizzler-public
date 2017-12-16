@@ -1,4 +1,6 @@
 #include <arch/x86_64-io.h>
+#include <instrument.h>
+#include <debug.h>
 #define PORT 0x3f8   /* COM1 */
 
 void serial_init()
@@ -27,6 +29,10 @@ static struct spinlock _lock = SPINLOCK_INIT;
 __noinstrument
 void debug_puts(char *s)
 {
+#if CONFIG_INSTRUMENT
+	instrument_disable();
+#endif
+
 	bool fl = spinlock_acquire(&_lock);
 	while(*s) {
 		serial_putc(*s);
@@ -35,5 +41,9 @@ void debug_puts(char *s)
 		s++;
 	}
 	spinlock_release(&_lock, fl);
+
+#if CONFIG_INSTRUMENT
+	instrument_enable();
+#endif
 }
 

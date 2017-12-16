@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include <string.h>
+#include <debug.h>
 const char *DIGITS_lower = "0123456789abcdef";
 const char *DIGITS_upper = "0123456789ABCDEF";
 #define WN_LOWER 1
@@ -190,7 +191,6 @@ done:
 	*b = 0;
 }
 
-void debug_puts(char *);
 int snprintf(char *buf, size_t len, const char *fmt, ...)
 {
 	(void)len; //TODO (minor) [dbittman]: we should actually care about this.
@@ -206,7 +206,6 @@ int printk(const char *fmt, ...)
 	va_list args;
 	va_start(args, fmt);
 	char buf[1024];
-	for(int i=0;i<1024;i++) buf[i]=0;
 	vbufprintk(buf, fmt, args);
 	debug_puts(buf);
 	va_end(args);
@@ -216,7 +215,6 @@ int printk(const char *fmt, ...)
 int vprintk(const char *fmt, va_list args)
 {
 	char buf[1024];
-	for(int i=0;i<1024;i++) buf[i]=0;
 	vbufprintk(buf, fmt, args);
 	debug_puts(buf);
 	return 0;

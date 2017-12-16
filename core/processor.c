@@ -38,9 +38,8 @@ __orderedinitializer(PROCESSOR_INITIALIZER_ORDER) static void processor_init(voi
 	arch_processor_enumerate();
 }
 
-static void processor_init_secondaries(void *arg)
+static void processor_init_secondaries(void *arg __unused)
 {
-	(void)arg;
 	printk("Initializing secondary processors...\n");
 	for(int i=0;i<PROCESSOR_MAX_CPUS;i++) {
 		struct processor *proc = &processors[i];

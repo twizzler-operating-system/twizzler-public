@@ -25,6 +25,7 @@ struct frame {
 };
 void debug_print_backtrace(void);
 bool arch_debug_unwind_frame(struct frame *frame);
+void debug_puts(char *);
 #endif
 
 
