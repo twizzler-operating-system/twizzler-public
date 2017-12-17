@@ -74,7 +74,6 @@ void kernel_main(struct processor *proc)
 	*/
 
 	if(proc->flags & PROCESSOR_BSP) {
-		printk("Bootstrap proc creating initial thread\n");
 		init_thread.id = 1;
 		init_thread.ctx = vm_context_create();
 		vm_context_map(init_thread.ctx, 1, 0x7ff000001000 / mm_page_size(MAX_PGLEVEL),

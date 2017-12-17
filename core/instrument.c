@@ -84,8 +84,8 @@ void __cyg_profile_func_exit(void *func, void *caller __unused)
 	if(function_trace_stack[*fi-1].fn == func) {
 		const struct ksymbol *ks = ksymbol_find_by_value((uintptr_t)func, true);
 		if(ks) {
-	//		printk("{instrtrace %d %d %s %lld %lld}", current_processor->id, *fi, ks->name,
-	//				function_trace_stack[*fi-1].start, ts);
+			printk("{instrtrace %d %d %s %lld %lld}", current_processor->id, *fi, ks->name,
+					function_trace_stack[*fi-1].start, ts);
 		}
 		function_trace_stack[--(*fi)].fn = NULL;
 	}
