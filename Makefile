@@ -83,7 +83,7 @@ export BUILDDIR
 $(BUILDDIR)/kernel: $(BUILDDIR)/link.ld $(OBJECTS) $(BUILDDIR)/symbols.o
 	@mkdir -p $(BUILDDIR)
 	@echo "[LD]  $@"
-	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(BUILDDIR)/symbols.o $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic
+	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(BUILDDIR)/symbols.o $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
 
 $(BUILDDIR)/symbols.o: $(BUILDDIR)/symbols.c
 	@echo "[CC]  $@"
@@ -105,7 +105,7 @@ $(BUILDDIR)/kernel.sym.c: $(BUILDDIR)/kernel.stage1
 $(BUILDDIR)/kernel.stage1: $(BUILDDIR)/link.ld $(OBJECTS)
 	@echo "[LD]  $@"
 	@mkdir -p $(BUILDDIR)
-	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel.stage1 -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic
+	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel.stage1 -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
 
 $(BUILDDIR)/%.o : %.S $(CONFIGFILE)
 	@echo "[AS]  $@"

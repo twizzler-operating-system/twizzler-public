@@ -11,6 +11,11 @@ static struct processor processors[PROCESSOR_MAX_CPUS];
 
 static struct processor *proc_bsp = NULL;
 extern int initial_boot_stack;
+extern int kernel_data_percpu_load;
+extern int kernel_data_percpu_length;
+
+static void *bsp_percpu_region = NULL;
+
 void processor_register(bool bsp, unsigned long id)
 {
 	if(id >= PROCESSOR_MAX_CPUS) {
@@ -23,6 +28,11 @@ void processor_register(bool bsp, unsigned long id)
 		assert(proc_bsp == NULL);
 		proc->flags = PROCESSOR_BSP;
 		proc_bsp = proc;
+		proc->percpu = bsp_percpu_region;
+	} else {
+		size_t percpu_length = (size_t)&kernel_data_percpu_length;
+		proc->percpu = (void *)mm_virtual_alloc(percpu_length, PM_TYPE_DRAM, true);
+		memcpy(proc->percpu, &kernel_data_percpu_load, percpu_length);
 	}
 	proc->flags |= PROCESSOR_REGISTERED;
 	list_init(&proc->runqueue);
@@ -74,5 +84,14 @@ void processor_attach_thread(struct processor *proc, struct thread *thread)
 	thread->processor = proc;
 	list_insert(&proc->runqueue, &thread->rq_entry);
 	spinlock_release(&proc->sched_lock, fl);
+}
+
+void processor_percpu_regions_init(void)
+{
+	size_t percpu_length = (size_t)&kernel_data_percpu_length;
+	printk("loading percpu data from %p, length %ld bytes\n",
+			&kernel_data_percpu_load, percpu_length);
+	bsp_percpu_region = (void *)mm_virtual_alloc(percpu_length, PM_TYPE_DRAM, true);
+	memcpy(bsp_percpu_region, &kernel_data_percpu_load, percpu_length);
 }
 

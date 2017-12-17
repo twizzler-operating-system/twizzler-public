@@ -33,11 +33,13 @@ static void post_init_calls_execute(void)
 
 /* functions called from here expect virtual memory to be set up. However, functions
  * called from here cannot rely on global contructors having run, as those are allowed
- * to use memory management routines, so they are run after this.
+ * to use memory management routines, so they are run after this. Furthermore,
+ * they cannot use per-cpu data.
  */
 void kernel_early_init(void)
 {
 	mm_init();
+	processor_percpu_regions_init();
 }
 
 /* at this point, memory management, interrupt routines, global constructors, and shared
@@ -60,11 +62,20 @@ void doo() {
 	instr_start(doo);
 }
 
-DECLARE_PER_CPU(int, foo);
+DECLARE_PER_CPU(int, foo) = 12345;
+DECLARE_PER_CPU(int, bar) = 67890;
+int baz = 5544666;
+static int zer = 0;
 
 void kernel_main(struct processor *proc)
 {
 	printk("processor %ld reached resume state %p\n", proc->id, proc);
+
+	printk("baz = %d, zer - %d\n", baz, zer);
+	int *x = per_cpu_get(foo);
+	printk(":: %p %d\n", x, *x);
+	x = per_cpu_get(bar);
+	printk(":: %p %d\n", x, *x);
 
 	if(proc->flags & PROCESSOR_BSP) {
 		init_thread.id = 1;

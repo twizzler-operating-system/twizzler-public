@@ -57,6 +57,7 @@ static inline void mm_physical_region_dealloc(struct memregion *r, uintptr_t add
 
 static inline uintptr_t mm_virtual_region_alloc(struct memregion *r, size_t size, bool clear)
 {
+	/* TODO: change this manual addition to macros everywhere */
 	return mm_physical_region_alloc(r, size, clear) + PHYSICAL_MAP_START;
 }
 

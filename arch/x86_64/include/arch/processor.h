@@ -91,6 +91,7 @@ struct arch_processor {
 	void *tcb;
 	void *kernel_stack, *hyper_stack;
 	struct thread *curr;
+	struct processor *proc;
 	_Alignas(16) struct x86_64_tss tss;
 	_Alignas(16) struct x86_64_gdt_entry gdt[8];
 	_Alignas(16) struct __attribute__((packed)) {
@@ -106,7 +107,7 @@ struct arch_processor {
 
 _Static_assert(offsetof(struct arch_processor, scratch_sp) == 0, "scratch_sp offset must be 0 (or update offsets in gate.S)");
 _Static_assert(offsetof(struct arch_processor, tcb) == 8, "tcb offset must be 8 (or update offsets in gate.S)");
-_Static_assert(offsetof(struct arch_processor, kernel_stack) == 16, "kernel_stack offset must be 0 (or update offsets in gate.S)");
+_Static_assert(offsetof(struct arch_processor, kernel_stack) == 16, "kernel_stack offset must be 16 (or update offsets in gate.S)");
 
 __attribute__((const)) static inline struct thread * __x86_64_get_current_thread(void)
 {
@@ -115,11 +116,11 @@ __attribute__((const)) static inline struct thread * __x86_64_get_current_thread
 	return (void *)tmp;
 }
 
-static inline struct arch_processor *arch_processor_get_self(void)
+static inline struct processor *arch_processor_get_self(void)
 {
 	uint64_t tmp;
-	asm ("leaq %%gs:0, %0" : "=r"(tmp));
-	return (struct arch_processor *)tmp;
+	asm ("movq %%gs:%c[proc], %0" : "=r"(tmp) : [proc]"i"(offsetof(struct arch_processor, proc)));
+	return (struct processor *)tmp;
 }
 
 #define current_thread __x86_64_get_current_thread()

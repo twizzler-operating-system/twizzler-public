@@ -11,8 +11,8 @@ void mm_init(void)
 		struct memregion *reg = list_entry(e, struct memregion, entry);
 		pmm_buddy_init(reg);
 
-		printk("[mm]: memory region %lx -> %lx (%ld KB), %x\n",
-				reg->start, reg->start + reg->length, reg->length / 1024, reg->flags);
+		printk("[mm]: memory region %lx -> %lx (%ld MB), %x\n",
+				reg->start, reg->start + reg->length, reg->length / (1024*1024), reg->flags);
 
 		for(uintptr_t addr = reg->start; addr < reg->start + reg->length;
 				addr += MM_BUDDY_MIN_SIZE) {

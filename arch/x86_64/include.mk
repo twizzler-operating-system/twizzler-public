@@ -6,7 +6,7 @@ endif
 ARCH_KERNEL_SUPPORT=FEATURE_SUPPORTED_UNWIND
 
 CFLAGS+=-mno-red-zone -mno-sse -mcmodel=kernel -mno-avx
-LDFLAGS+=-mcmodel=kernel -Wl,-z,max-page-size=4096
+LDFLAGS+=-mcmodel=kernel -Wl,-z,max-page-size=4096 -Wl,-z,common-page-size=4096
 
 QEMU=qemu-system-x86_64 -m 1024 -kernel $(BUILDDIR)/kernel -cpu host # -initrd $(BUILDDIR)/initrd.tar -cpu host
 TOOLCHAIN_PREFIX=x86_64-pc-elf-

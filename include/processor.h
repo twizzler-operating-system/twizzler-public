@@ -29,6 +29,7 @@ struct processor {
 };
 
 void processor_perproc_init(struct processor *proc);
+void processor_percpu_regions_init(void);
 
 void processor_register(bool bsp, unsigned long id);
 void arch_processor_enumerate(void);
@@ -38,14 +39,18 @@ void processor_attach_thread(struct processor *proc, struct thread *thread);
 void arch_processor_init(struct processor *proc);
 
 #define current_processor \
-	container_of(arch_processor_get_self(), struct processor, arch);
+	arch_processor_get_self()
 
 #define DECLARE_PER_CPU(type, name) \
 	__attribute__((section(".data.percpu"))) type __per_cpu_var_##name
 
 #define PTR_ADVANCE(ptr, off) \
-	({ uintptr_t p = (uintptr_t)(ptr); (typeof(ptr)) (p + (off)) }) 
+	({ uintptr_t p = (uintptr_t)(ptr); (typeof(ptr)) (p + (off)); }) 
 
 #define __per_cpu_var_lea(name, proc) \
-	PTR_ADVANCE(&name, (uintptr_t)((proc)->percpu))
+	PTR_ADVANCE(& __per_cpu_var_##name, (uintptr_t)((proc)->percpu))
+
+#define per_cpu_get(name) \
+	__per_cpu_var_lea(name, current_processor)
+
 
