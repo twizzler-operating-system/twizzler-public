@@ -24,22 +24,25 @@ struct processor {
 	struct list runqueue;
 	struct spinlock sched_lock;
 	_Atomic int flags;
-	unsigned long id;
+	unsigned int id;
 	void *percpu;
 };
 
 void processor_perproc_init(struct processor *proc);
 void processor_percpu_regions_init(void);
 
-void processor_register(bool bsp, unsigned long id);
+void processor_register(bool bsp, unsigned int id);
 void arch_processor_enumerate(void);
 void arch_processor_boot(struct processor *proc);
 void processor_secondary_entry(struct processor *proc);
 void processor_attach_thread(struct processor *proc, struct thread *thread);
 void arch_processor_init(struct processor *proc);
+void processor_init_secondaries(void);
+struct processor *processor_get_current(void);
+unsigned int arch_processor_current_id(void);
 
 #define current_processor \
-	arch_processor_get_self()
+	processor_get_current()
 
 #define DECLARE_PER_CPU(type, name) \
 	__attribute__((section(".data.percpu"))) type __per_cpu_var_##name

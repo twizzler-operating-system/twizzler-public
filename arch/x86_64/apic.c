@@ -63,6 +63,7 @@ static inline void lapic_write(int reg, uint32_t data)
     *((volatile uint32_t *)(lapic_addr + reg)) = data;
 }
 
+__noinstrument
 static inline uint32_t lapic_read(int reg)
 {
 	return *(volatile uint32_t *)(lapic_addr + reg);
@@ -73,7 +74,8 @@ void x86_64_signal_eoi(void)
     lapic_write(LAPIC_EOI, 0x0);
 }
 
-int arch_processor_current_id(void)
+__noinstrument
+unsigned int arch_processor_current_id(void)
 {
 	if(!lapic_addr)
 		return 0;
@@ -212,7 +214,7 @@ extern int trampoline_start, trampoline_end, rm_gdt, pmode_enter, rm_gdt_pointer
 void arch_processor_boot(struct processor *proc)
 {
 	proc->arch.kernel_stack = (void *)mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_ANY, true);
-	printk("Poking secondary CPU %ld, proc->arch.kernel_stack = %p (proc=%p)\n", proc->id, proc->arch.kernel_stack, proc);
+	printk("Poking secondary CPU %d, proc->arch.kernel_stack = %p (proc=%p)\n", proc->id, proc->arch.kernel_stack, proc);
 	*(void **)(proc->arch.kernel_stack + KERNEL_STACK_SIZE - sizeof(void *)) = proc;
 
 	uintptr_t bootaddr_phys = 0x7000;
@@ -251,7 +253,7 @@ void arch_processor_boot(struct processor *proc)
 	}
 
 	if(timeout == 0) {
-		printk("failed to start CPU %ld\n", proc->id);
+		printk("failed to start CPU %d\n", proc->id);
 	}
 }
 

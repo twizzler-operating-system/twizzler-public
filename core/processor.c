@@ -9,6 +9,12 @@ void kernel_main(struct processor *);
 
 static struct processor processors[PROCESSOR_MAX_CPUS];
 
+__noinstrument
+struct processor *processor_get_current(void)
+{
+	return &processors[arch_processor_current_id()];
+}
+
 static struct processor *proc_bsp = NULL;
 extern int initial_boot_stack;
 extern int kernel_data_percpu_load;
@@ -16,10 +22,10 @@ extern int kernel_data_percpu_length;
 
 static void *bsp_percpu_region = NULL;
 
-void processor_register(bool bsp, unsigned long id)
+void processor_register(bool bsp, unsigned int id)
 {
 	if(id >= PROCESSOR_MAX_CPUS) {
-		printk("[kernel]: not registering cpu %ld: increase MAX_CPUS\n", id);
+		printk("[kernel]: not registering cpu %d: increase MAX_CPUS\n", id);
 		return;
 	}
 	struct processor *proc = &processors[id];
@@ -48,7 +54,7 @@ __orderedinitializer(PROCESSOR_INITIALIZER_ORDER) static void processor_init(voi
 	arch_processor_enumerate();
 }
 
-static void processor_init_secondaries(void *arg __unused)
+void processor_init_secondaries(void)
 {
 	printk("Initializing secondary processors...\n");
 	for(int i=0;i<PROCESSOR_MAX_CPUS;i++) {
@@ -59,7 +65,6 @@ static void processor_init_secondaries(void *arg __unused)
 		}
 	}
 }
-POST_INIT(processor_init_secondaries, NULL);
 
 void processor_perproc_init(struct processor *proc)
 {
@@ -93,5 +98,6 @@ void processor_percpu_regions_init(void)
 			&kernel_data_percpu_load, percpu_length);
 	bsp_percpu_region = (void *)mm_virtual_alloc(percpu_length, PM_TYPE_DRAM, true);
 	memcpy(bsp_percpu_region, &kernel_data_percpu_load, percpu_length);
+	printk("To %p - %p\n", bsp_percpu_region, (char *)bsp_percpu_region + percpu_length);
 }
 

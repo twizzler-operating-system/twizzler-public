@@ -217,7 +217,7 @@ static void x86_64_enable_vmx(void)
 
 __attribute__((used)) static void x86_64_vmentry_failed(struct processor *proc)
 {
-	panic("vmentry failed on processor %ld: %s\n", proc->id, vmcs_read_vminstr_err());
+	panic("vmentry failed on processor %d: %s\n", proc->id, vmcs_read_vminstr_err());
 }
 
 bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int level, uint64_t flags);
@@ -350,7 +350,7 @@ void x86_64_vmenter(struct processor *proc)
 void x86_64_processor_post_vm_init(struct processor *proc);
 void vmx_entry_point(struct processor *proc)
 {
-	printk("processor %ld entered vmx-non-root mode\n", proc->id);
+	printk("processor %d entered vmx-non-root mode\n", proc->id);
 	x86_64_processor_post_vm_init(proc);
 }
 

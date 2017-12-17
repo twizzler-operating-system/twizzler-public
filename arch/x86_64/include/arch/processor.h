@@ -91,7 +91,6 @@ struct arch_processor {
 	void *tcb;
 	void *kernel_stack, *hyper_stack;
 	struct thread *curr;
-	struct processor *proc;
 	_Alignas(16) struct x86_64_tss tss;
 	_Alignas(16) struct x86_64_gdt_entry gdt[8];
 	_Alignas(16) struct __attribute__((packed)) {
@@ -114,13 +113,6 @@ __attribute__((const)) static inline struct thread * __x86_64_get_current_thread
 	uint64_t tmp;
 	asm ("movq %%gs:%c[curr], %0" : "=r"(tmp) : [curr]"i"(offsetof(struct arch_processor, curr)));
 	return (void *)tmp;
-}
-
-static inline struct processor *arch_processor_get_self(void)
-{
-	uint64_t tmp;
-	asm ("movq %%gs:%c[proc], %0" : "=r"(tmp) : [proc]"i"(offsetof(struct arch_processor, proc)));
-	return (struct processor *)tmp;
 }
 
 #define current_thread __x86_64_get_current_thread()

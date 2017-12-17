@@ -224,7 +224,6 @@ void x86_64_processor_post_vm_init(struct processor *proc)
 
 void arch_processor_init(struct processor *proc)
 {
-	proc->arch.proc = proc;
 	x86_64_gdt_init(proc);
 	x86_64_tss_init(proc);
 	if(proc->flags & PROCESSOR_BSP) {

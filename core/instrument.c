@@ -6,6 +6,7 @@
 #include <lib/lib.h>
 #include <slab.h>
 #include <debug.h>
+#include <init.h>
 #define INSTRUMENT_TABLE_LEN 1024
 
 struct tracepoint {
@@ -14,78 +15,88 @@ struct tracepoint {
 	unsigned long long start;
 };
 
-/* TODO: percpu */
-static DECLARE_PERCPU(int, disable_trace) = 0;
-static struct tracepoint function_trace_stack[1024] = {NULL};
-static int fts_ind = 0;
-static bool disable_trace_output = true;
+_Atomic int disable_trace = 100;
+static DECLARE_PER_CPU(struct tracepoint, function_trace_stack)[1024] = {NULL};
+static DECLARE_PER_CPU(_Atomic int, disable_trace_local) = 100;
+static DECLARE_PER_CPU(int, fts_ind) = 0;
 
 __noinstrument
 void instrument_disable(void)
 {
-	disable_trace++;
+	if(disable_trace)
+		return;
+	_Atomic int *disable_trace_local = per_cpu_get(disable_trace_local);
+	(*disable_trace_local)++;
 }
 
 __noinstrument
 void instrument_enable(void)
 {
-	disable_trace--;
+	if(disable_trace)
+		return;
+	_Atomic int *disable_trace_local = per_cpu_get(disable_trace_local);
+	(*disable_trace_local)--;
+}
+
+__noinstrument
+bool instrument_disabled(void)
+{
+	if(disable_trace)
+		return true;
+	_Atomic int *disable_trace_local = per_cpu_get(disable_trace_local);
+	return *disable_trace_local != 0;
 }
 
 __noinstrument
 void __cyg_profile_func_enter(void *func, void *caller)
 {
-	if(disable_trace) return;
+	if(instrument_disabled()) return;
 	instrument_disable();
 	if(unlikely(kernel_symbol_table_length >= INSTRUMENT_TABLE_LEN)) {
 		panic("--> increase INSTRUMENT_TABLE_LEN");
 	}
-	if(fts_ind == 1024) {
+	int *fi = per_cpu_get(fts_ind);
+	if(*fi == 1024) {
 		panic("function_trace_stack exceeded");
 	}
-	if(function_trace_stack[fts_ind].fn == func) {
+	struct tracepoint *function_trace_stack = *per_cpu_get(function_trace_stack);
+	if(function_trace_stack[*fi].fn == func) {
 		panic("direct recusive call detected");
 	}
-	function_trace_stack[fts_ind].fn = func;
-	function_trace_stack[fts_ind].caller = caller;
+	function_trace_stack[*fi].fn = func;
+	function_trace_stack[*fi].caller = caller;
 	instrument_enable();
-	function_trace_stack[fts_ind++].start = arch_processor_timestamp();
+	function_trace_stack[(*fi)++].start = arch_processor_timestamp();
 }
 
 __noinstrument
 void __cyg_profile_func_exit(void *func, void *caller __unused)
 {
 	unsigned long long ts = arch_processor_timestamp();
-	if(disable_trace) return;
+	if(instrument_disabled()) return;
 	instrument_disable();
-	if(fts_ind == 0) {
-		panic("function_trace_stack underflow");
+	int *fi = per_cpu_get(fts_ind);
+	if(*fi == 0) {
+		instrument_enable();
+		return;
 	}
-	if(function_trace_stack[fts_ind-1].fn == func) {
+	struct tracepoint *function_trace_stack = *per_cpu_get(function_trace_stack);
+	if(function_trace_stack[*fi-1].fn == func) {
 		const struct ksymbol *ks = ksymbol_find_by_value((uintptr_t)func, true);
-		if(ks && !disable_trace_output) {
-			printk("{instrtrace %d %s %lld %lld}", fts_ind, ks->name,
-					function_trace_stack[fts_ind-1].start, ts);
+		if(ks) {
+	//		printk("{instrtrace %d %d %s %lld %lld}", current_processor->id, *fi, ks->name,
+	//				function_trace_stack[*fi-1].start, ts);
 		}
-		function_trace_stack[--fts_ind].fn = NULL;
+		function_trace_stack[--(*fi)].fn = NULL;
 	}
 	instrument_enable();
 }
 
-static void __calibrate_instrumentation(void);
-__attribute__((noinline))
-static void __calibration_amount(void)
+static void __start_instrumentation(void *_a __unused)
 {
-	__cyg_profile_func_enter(__calibration_amount, __calibrate_instrumentation);
-	__cyg_profile_func_exit(__calibration_amount, __calibrate_instrumentation);
+	disable_trace = 0;
+	_Atomic int *disable_trace_local = per_cpu_get(disable_trace_local);
+	(*disable_trace_local) = 0;
 }
-
-__initializer
-__noinstrument
-static void __calibrate_instrumentation(void)
-{
-	printk("calibrating instrumentation system\n");
-	for(int i=0;i<100000;i++) __calibration_amount();
-	disable_trace_output = false;
-}
+POST_INIT_ALLCPUS(__start_instrumentation);
 

@@ -9,7 +9,7 @@
 static struct arena post_init_call_arena;
 static struct init_call *post_init_call_head = NULL;
 
-void post_init_call_register(void (*fn)(void *), void *data)
+void post_init_call_register(bool ac, void (*fn)(void *), void *data)
 {
 	if(post_init_call_head == NULL) {
 		arena_create(&post_init_call_arena);
@@ -18,17 +18,18 @@ void post_init_call_register(void (*fn)(void *), void *data)
 	struct init_call *ic = arena_allocate(&post_init_call_arena, sizeof(struct init_call));
 	ic->fn = fn;
 	ic->data = data;
+	ic->allcpus = ac;
 	ic->next = post_init_call_head;
 	post_init_call_head = ic;
 }
 
-static void post_init_calls_execute(void)
+static void post_init_calls_execute(bool secondary)
 {
 	for(struct init_call *call = post_init_call_head; call != NULL; call = call->next) {
-		call->fn(call->data);
+		if(!secondary || call->allcpus) {
+			call->fn(call->data);
+		}
 	}
-	arena_destroy(&post_init_call_arena);
-	post_init_call_head = NULL;
 }
 
 /* functions called from here expect virtual memory to be set up. However, functions
@@ -49,7 +50,7 @@ void kernel_early_init(void)
 
 void kernel_init(void)
 {
-	post_init_calls_execute();
+	processor_init_secondaries();
 	processor_perproc_init(NULL);
 }
 
@@ -62,22 +63,18 @@ void doo() {
 	instr_start(doo);
 }
 
-DECLARE_PER_CPU(int, foo) = 12345;
-DECLARE_PER_CPU(int, bar) = 67890;
-int baz = 5544666;
-static int zer = 0;
-
 void kernel_main(struct processor *proc)
 {
-	printk("processor %ld reached resume state %p\n", proc->id, proc);
+	post_init_calls_execute(!!(proc->flags & PROCESSOR_BSP));
+	printk("processor %d reached resume state %p\n", proc->id, proc);
 
-	printk("baz = %d, zer - %d\n", baz, zer);
-	int *x = per_cpu_get(foo);
-	printk(":: %p %d\n", x, *x);
-	x = per_cpu_get(bar);
-	printk(":: %p %d\n", x, *x);
+	/* TODO: SMP_BARRIER *
+	arena_destroy(&post_init_call_arena);
+	post_init_call_head = NULL;
+	*/
 
 	if(proc->flags & PROCESSOR_BSP) {
+		printk("Bootstrap proc creating initial thread\n");
 		init_thread.id = 1;
 		init_thread.ctx = vm_context_create();
 		vm_context_map(init_thread.ctx, 1, 0x7ff000001000 / mm_page_size(MAX_PGLEVEL),
