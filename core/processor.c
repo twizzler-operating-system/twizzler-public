@@ -16,6 +16,7 @@ struct processor *processor_get_current(void)
 }
 
 static struct processor *proc_bsp = NULL;
+static _Atomic unsigned int processor_count = 0;
 extern int initial_boot_stack;
 extern int kernel_data_percpu_load;
 extern int kernel_data_percpu_length;
@@ -54,14 +55,29 @@ __orderedinitializer(PROCESSOR_INITIALIZER_ORDER) static void processor_init(voi
 	arch_processor_enumerate();
 }
 
+void processor_barrier(_Atomic unsigned int *here)
+{
+	unsigned int backoff = 1;
+	(*here)++;
+	while(*here != processor_count) {
+		for(unsigned int i=0;i<backoff;i++) {
+			arch_processor_relax();
+		}
+		backoff = backoff < 1000 ? backoff+1 : backoff;
+	}
+}
+
 void processor_init_secondaries(void)
 {
 	printk("Initializing secondary processors...\n");
+	processor_count++; /* BSP */
 	for(int i=0;i<PROCESSOR_MAX_CPUS;i++) {
 		struct processor *proc = &processors[i];
 		if(!(proc->flags & PROCESSOR_BSP) && !(proc->flags & PROCESSOR_UP)
 				&& (proc->flags & PROCESSOR_REGISTERED)) {
+			/* TODO: check for failure */
 			arch_processor_boot(proc);
+			processor_count++;
 		}
 	}
 }

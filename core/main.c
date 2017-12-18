@@ -63,15 +63,15 @@ void doo() {
 	instr_start(doo);
 }
 
+static _Atomic unsigned int kernel_main_barrier = 0;
 void kernel_main(struct processor *proc)
 {
 	post_init_calls_execute(!!(proc->flags & PROCESSOR_BSP));
 	printk("processor %d reached resume state %p\n", proc->id, proc);
 
-	/* TODO: SMP_BARRIER *
+	processor_barrier(&kernel_main_barrier);
 	arena_destroy(&post_init_call_arena);
 	post_init_call_head = NULL;
-	*/
 
 	if(proc->flags & PROCESSOR_BSP) {
 		init_thread.id = 1;

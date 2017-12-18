@@ -38,6 +38,7 @@ void processor_secondary_entry(struct processor *proc);
 void processor_attach_thread(struct processor *proc, struct thread *thread);
 void arch_processor_init(struct processor *proc);
 void processor_init_secondaries(void);
+void processor_barrier(_Atomic unsigned int *here);
 struct processor *processor_get_current(void);
 unsigned int arch_processor_current_id(void);
 
