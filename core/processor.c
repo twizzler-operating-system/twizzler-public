@@ -98,6 +98,5 @@ void processor_percpu_regions_init(void)
 			&kernel_data_percpu_load, percpu_length);
 	bsp_percpu_region = (void *)mm_virtual_alloc(percpu_length, PM_TYPE_DRAM, true);
 	memcpy(bsp_percpu_region, &kernel_data_percpu_load, percpu_length);
-	printk("To %p - %p\n", bsp_percpu_region, (char *)bsp_percpu_region + percpu_length);
 }
 
