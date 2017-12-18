@@ -76,8 +76,8 @@ static void x86_64_initrd(void *u)
 	static int __id = 0;
 	printk("%d mods\n", mb->mods_count);
 	if(mb->mods_count == 0) return;
-	struct mboot_module *m = (void *)(mb->mods_addr + PHYSICAL_MAP_START);
-	struct ustar_header *h = (void *)(m->start + PHYSICAL_MAP_START);
+	struct mboot_module *m = mm_ptov(mb->mods_addr);
+	struct ustar_header *h = mm_ptov(m->start);
 	char *start = (char *)h;
 	printk(":: %s\n", h->magic);
 	size_t len = m->end - m->start;
@@ -103,7 +103,7 @@ static void x86_64_initrd(void *u)
 					size_t thislen = 0x1000;
 					if((reclen - s) < thislen)
 						thislen = reclen - s;
-					memcpy((void *)(phys + PHYSICAL_MAP_START), data + s, thislen);
+					memcpy(mm_ptov(phys), data + s, thislen);
 					obj_cache_page(obj, idx, phys);
 				}
 				break;
@@ -128,7 +128,7 @@ void x86_64_init(struct multiboot *mth)
 
 	if(!(mth->flags & MULTIBOOT_FLAG_MEM))
 		panic("don't know how to detect memory!");
-	struct mboot_module *m = mb->mods_count == 0 ? NULL : (void *)(mb->mods_addr + PHYSICAL_MAP_START);
+	struct mboot_module *m = mb->mods_count == 0 ? NULL : mm_ptov(mb->mods_addr);
 	x86_64_top_mem = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
 	x86_64_bot_mem = (m && m->end > PHYS((uintptr_t)&kernel_end)) ? m->end : PHYS((uintptr_t)&kernel_end);
 

@@ -17,7 +17,7 @@ static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
 	}
 }
 
-#define GET_VIRT_TABLE(x) ((uintptr_t *)(((x) & VM_PHYS_MASK) + PHYSICAL_MAP_START))
+#define GET_VIRT_TABLE(x) ((uintptr_t *)mm_ptov(((x) & VM_PHYS_MASK)))
 
 
 bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int level, uint64_t flags)
@@ -104,7 +104,7 @@ static void _x86_64_init_vm(void)
 void arch_mm_context_init(struct vm_context *ctx)
 {
 	ctx->arch.pml4_phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
-	uint64_t *pml4 = (uint64_t *)(ctx->arch.pml4_phys + PHYSICAL_MAP_START);
+	uint64_t *pml4 = (uint64_t *)mm_ptov(ctx->arch.pml4_phys);
 	for(int i=0;i<256;i++) {
 		pml4[i] = 0;
 	}

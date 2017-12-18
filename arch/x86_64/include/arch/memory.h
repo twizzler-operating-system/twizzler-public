@@ -1,5 +1,7 @@
 #pragma once
 
+#include <machine/memory.h>
+
 struct arch_vm_context {
 	uintptr_t pml4_phys;
 };
@@ -25,3 +27,15 @@ __attribute__((const)) static inline size_t mm_page_size(int level)
 }
 
 #define OM_ADDR_SIZE (1ul << 48)
+
+__attribute__((const)) static inline uintptr_t mm_vtop(void *addr)
+{
+	return (uintptr_t)addr - PHYSICAL_MAP_START;
+}
+
+__attribute__((const)) static inline void *mm_ptov(uintptr_t addr)
+{
+	return (void *)(addr + PHYSICAL_MAP_START);
+}
+
+

@@ -133,7 +133,7 @@ __initializer void x86_64_lapic_init_percpu(void)
 	lo |= X86_MSR_APIC_BASE_ENABLE;
 	x86_64_wrmsr(X86_MSR_APIC_BASE, lo, hi);
 
-	lapic_addr = paddr + PHYSICAL_MAP_START;
+	lapic_addr = (uintptr_t)mm_ptov(paddr);
 	lapic_configure(lo & X86_MSR_APIC_BASE_BSP);
 }
 
@@ -207,7 +207,7 @@ __attribute__((no_sanitize_undefined))
 #endif
 static inline void write_bios_reset(uintptr_t addr)
 {
-	*((volatile uint32_t *)(BIOS_RESET_VECTOR + PHYSICAL_MAP_START)) = ((addr & 0xFF000) << 12);
+	*((volatile uint32_t *)mm_ptov(BIOS_RESET_VECTOR)) = ((addr & 0xFF000) << 12);
 }
 
 extern int trampoline_start, trampoline_end, rm_gdt, pmode_enter, rm_gdt_pointer;
@@ -224,14 +224,12 @@ void arch_processor_boot(struct processor *proc)
 	x86_64_cmos_write(CMOS_RESET_CODE, CMOS_RESET_JUMP);
 
 	size_t trampoline_size = (uintptr_t)&trampoline_end - (uintptr_t)&trampoline_start;
-	memcpy((void *)(0x7000 + PHYSICAL_MAP_START), &trampoline_start, trampoline_size);
-	memcpy((void *)(RM_GDT_START + GDT_POINTER_SIZE + PHYSICAL_MAP_START),
-			&rm_gdt, RM_GDT_SIZE);
-	memcpy((void *)(RM_GDT_START + PHYSICAL_MAP_START),
-			&rm_gdt_pointer, GDT_POINTER_SIZE);
-	memcpy((void *)(0x7200 + PHYSICAL_MAP_START), &pmode_enter, 0x100);
+	memcpy(mm_ptov(0x7000), &trampoline_start, trampoline_size);
+	memcpy(mm_ptov(RM_GDT_START + GDT_POINTER_SIZE), &rm_gdt, RM_GDT_SIZE);
+	memcpy(mm_ptov(RM_GDT_START), &rm_gdt_pointer, GDT_POINTER_SIZE);
+	memcpy(mm_ptov(0x7200), &pmode_enter, 0x100);
 
-	*(volatile uintptr_t *)(0x7300 + PHYSICAL_MAP_START) = (uintptr_t)proc->arch.kernel_stack + KERNEL_STACK_SIZE;
+	*((volatile uintptr_t *)mm_ptov(0x7300)) = (uintptr_t)proc->arch.kernel_stack + KERNEL_STACK_SIZE;
 	asm volatile("mfence" ::: "memory");
 	lapic_write(LAPIC_ESR, 0);
 	x86_cpu_send_ipi(LAPIC_ICR_SHORT_DEST, proc->id, LAPIC_ICR_TM_LEVEL | LAPIC_ICR_LEVELASSERT | LAPIC_ICR_DM_INIT);

@@ -46,7 +46,7 @@ static inline uintptr_t mm_physical_region_alloc(struct memregion *r, size_t siz
 {
 	size = __round_up_pow2(size);
 	uintptr_t ret = pmm_buddy_allocate(r, size);
-	if(clear) memset((void *)(ret + PHYSICAL_MAP_START), 0, size);
+	if(clear) memset(mm_ptov(ret), 0, size);
 	return ret;
 }
 
@@ -58,22 +58,22 @@ static inline void mm_physical_region_dealloc(struct memregion *r, uintptr_t add
 static inline uintptr_t mm_virtual_region_alloc(struct memregion *r, size_t size, bool clear)
 {
 	/* TODO: change this manual addition to macros everywhere */
-	return mm_physical_region_alloc(r, size, clear) + PHYSICAL_MAP_START;
+	return (uintptr_t)mm_ptov(mm_physical_region_alloc(r, size, clear));
 }
 
 static inline void mm_virtual_region_dealloc(struct memregion *r, uintptr_t addr)
 {
-	mm_physical_region_dealloc(r, addr - PHYSICAL_MAP_START);
+	mm_physical_region_dealloc(r, mm_vtop((void *)addr));
 }
 
 static inline uintptr_t mm_virtual_alloc(size_t size, int type, bool clear)
 {
-	return mm_physical_alloc(size, type, clear) + PHYSICAL_MAP_START;
+	return (uintptr_t)mm_ptov(mm_physical_alloc(size, type, clear));
 }
 
 static inline void mm_virtual_dealloc(uintptr_t addr)
 {
-	mm_physical_dealloc(addr - PHYSICAL_MAP_START);
+	mm_physical_dealloc(mm_vtop((void *)addr));
 }
 
 

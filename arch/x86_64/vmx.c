@@ -203,7 +203,7 @@ static void x86_64_enable_vmx(void)
 	/* get the revision ID. This is needed for several VM data structures. */
 	x86_64_rdmsr(X86_MSR_VMX_BASIC, &lo, &hi);
 	revision_id = lo & 0x7FFFFFFF;
-	uint32_t *vmxon_revid = (uint32_t *)(vmxon_region + PHYSICAL_MAP_START);
+	uint32_t *vmxon_revid = (uint32_t *)mm_ptov(vmxon_region);
 	*vmxon_revid = revision_id;
 
 	uint8_t error;
@@ -393,7 +393,7 @@ static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
 	}
 }
 
-#define GET_VIRT_TABLE(x) ((uintptr_t *)(((x) & VM_PHYS_MASK) + PHYSICAL_MAP_START))
+#define GET_VIRT_TABLE(x) ((uintptr_t *)mm_ptov(((x) & VM_PHYS_MASK)))
 
 
 bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int level, uint64_t flags)
@@ -575,7 +575,7 @@ void vtx_setup_vcpu(struct processor *proc)
 	//vmcs_writel(VMCS_VMFUNC_CONTROLS, 1 /* enable EPT-switching */);
 	/* TODO: don't waste a whole page on this */
 	//proc->arch.virtexcep_info = mm_virtual_alloc(0x1000, PM_TYPE_DRAM, true);
-	//vmcs_writel(VMCS_VIRT_EXCEPTION_INFO_ADDR, (uintptr_t)proc->arch.virtexcep_info - PHYSICAL_MAP_START);
+	//vmcs_writel(VMCS_VIRT_EXCEPTION_INFO_ADDR, mm_vtop(proc->arch.virtexcep_info));
 
 	vmcs_writel(VMCS_HOST_RIP, (uintptr_t)vmexit_point);
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
@@ -595,7 +595,7 @@ void x86_64_start_vmx(struct processor *proc)
 	proc->arch.vcpu_state_regs[PROC_PTR] = (uintptr_t)proc;
 	proc->arch.vcpu_state_regs[REG_RDI] = (uintptr_t)proc; /* set initial argument to vmx_entry_point */
 	proc->arch.vmcs = mm_physical_alloc(VMCS_SIZE, PM_TYPE_DRAM, true);
-	uint32_t *vmcs_rev = (uint32_t *)(proc->arch.vmcs + PHYSICAL_MAP_START);
+	uint32_t *vmcs_rev = (uint32_t *)mm_ptov(proc->arch.vmcs);
 	*vmcs_rev = revision_id & 0x7FFFFFFF;
 
 	uint8_t error;

@@ -36,7 +36,7 @@ void ioapic_init(struct ioapic_entry *entry)
 	if(entry->apicid >= MAX_IOAPICS)
 		return;
 	ioapics[entry->apicid].id = entry->apicid;
-	ioapics[entry->apicid].vaddr = entry->ioapicaddr + PHYSICAL_MAP_START;
+	ioapics[entry->apicid].vaddr = (uintptr_t)mm_ptov(entry->ioapicaddr);
 	ioapics[entry->apicid].gsib = entry->gsib;
 }
 

@@ -40,14 +40,14 @@ static uintptr_t __do_pmm_buddy_allocate(struct memregion *reg, size_t length)
 	if(list_empty(&reg->freelists[order])) {
 		uintptr_t a = __do_pmm_buddy_allocate(reg, length * 2);
 
-		struct list *elem1 = (void *)(a + PHYSICAL_MAP_START);
-		struct list *elem2 = (void *)(a + length + PHYSICAL_MAP_START);
+		struct list *elem1 = mm_ptov(a);
+		struct list *elem2 = mm_ptov(a + length);
 
 		list_insert(&reg->freelists[order], elem1);
 		list_insert(&reg->freelists[order], elem2);
 	}
 
-	uintptr_t address = ((uintptr_t)list_pop(&reg->freelists[order]) - PHYSICAL_MAP_START);
+	uintptr_t address = mm_vtop(list_pop(&reg->freelists[order]));
 	int bit = address / length;
 	assert(!bitmap_test(reg->bitmaps[order], bit));
 	bitmap_set(reg->bitmaps[order], bit);
@@ -69,11 +69,11 @@ static int deallocate(struct memregion *reg, uintptr_t address, int order)
 		bitmap_reset(reg->bitmaps[order], bit);
 
 		if(!bitmap_test(reg->bitmaps[order], buddy_bit)) {
-			struct list *elem = (void *)(buddy + PHYSICAL_MAP_START);
+			struct list *elem = mm_ptov(buddy);
 			list_remove(elem);
 			deallocate(reg, buddy > address ? address : buddy, order + 1);
 		} else {
-			struct list *elem = (void *)(address + PHYSICAL_MAP_START);
+			struct list *elem = mm_ptov(address);
 			list_insert(&reg->freelists[order], elem);
 		}
 		reg->num_allocated[order]--;
