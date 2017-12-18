@@ -57,23 +57,17 @@ void kernel_init(void)
 struct thread init_thread;
 char us1[0x1000];
 
-#include <instrument.h>
-
-void doo() {
-	instr_start(doo);
-}
-
 static _Atomic unsigned int kernel_main_barrier = 0;
 void kernel_main(struct processor *proc)
 {
-	post_init_calls_execute(!!(proc->flags & PROCESSOR_BSP));
-	printk("processor %d reached resume state %p\n", proc->id, proc);
+	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
 
 	processor_barrier(&kernel_main_barrier);
-	arena_destroy(&post_init_call_arena);
-	post_init_call_head = NULL;
 
 	if(proc->flags & PROCESSOR_BSP) {
+		arena_destroy(&post_init_call_arena);
+		post_init_call_head = NULL;
+
 		init_thread.id = 1;
 		init_thread.ctx = vm_context_create();
 		vm_context_map(init_thread.ctx, 1, 0x7ff000001000 / mm_page_size(MAX_PGLEVEL),
@@ -84,6 +78,7 @@ void kernel_main(struct processor *proc)
 		arch_thread_init(&init_thread, (void *)0x400078, NULL, us1 + 0x1000);
 		processor_attach_thread(proc, &init_thread);
 	}
+	printk("processor %d reached resume state %p\n", proc->id, proc);
 	thread_schedule_resume_proc(proc);
 }
 
