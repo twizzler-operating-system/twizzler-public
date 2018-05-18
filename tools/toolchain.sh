@@ -16,14 +16,14 @@ export PREFIX
 export TARGET
 export PATH="$PREFIX/bin:$PATH"
 
-BINUTILSVER=2.27
-GCCVER=6.3.0
+BINUTILSVER=2.30
+GCCVER=8.1.0
 
-wget ftp://ftp.gnu.org/gnu/binutils/binutils-${BINUTILSVER}.tar.bz2
-wget ftp://ftp.gnu.org/gnu/gcc/gcc-${GCCVER}/gcc-${GCCVER}.tar.bz2
+wget ftp://ftp.gnu.org/gnu/binutils/binutils-${BINUTILSVER}.tar.bz2 -O binutils-${BINUTILSVER}.tar.bz2
+wget ftp://ftp.gnu.org/gnu/gcc/gcc-${GCCVER}/gcc-${GCCVER}.tar.xz -O gcc-${GCCVER}.tar.xz
 
 tar xf binutils-${BINUTILSVER}.tar.bz2
-tar xf gcc-${GCCVER}.tar.bz2
+tar xf gcc-${GCCVER}.tar.xz
 
 mkdir -p build-binutils build-gcc
 cd build-binutils
