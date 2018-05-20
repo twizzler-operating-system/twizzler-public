@@ -17,13 +17,13 @@ BUILDDIR=projects/$(PROJECT)/build
 
 include $(CONFIGFILE)
 export PATH := ${TOOLCHAIN_PATH}/bin:$(PATH)
-DEFINES=$(addprefix -D,$(shell sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d' $(CONFIGFILE)))
+DEFINES=$(addprefix -D,$(shell sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d' -e 's/+=/=/g' $(CONFIGFILE)))
 
 ARCH=$(CONFIG_ARCH)
 MACHINE=$(CONFIG_MACHINE)
 
 INCLUDES=-Iinclude -Imachine/$(MACHINE)/include -Iarch/$(ARCH)/include
-CFLAGS=-ffreestanding -Wall -Wextra -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h $(INCLUDES) -include printk.h $(DEFINES) -include system.h -fno-omit-frame-pointer -g
+CFLAGS=-ffreestanding -Wall -Wextra -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h $(INCLUDES) -include printk.h $(DEFINES) -include system.h -fno-omit-frame-pointer -g -Wno-error=unused-variable -Wno-error=unused-function -Wno-error=unused-parameter
 ASFLAGS=$(INCLUDES) $(DEFINES)
 
 ifeq ($(CONFIG_WERROR),y)
@@ -38,6 +38,11 @@ CFLAGS+=-O$(CONFIG_OPTIMIZE)
 
 C_SOURCES=
 ASM_SOURCES=
+
+ifeq ($(CONFIG_INSTRUMENT),y)
+CFLAGS+=-finstrument-functions '-finstrument-functions-exclude-file-list=lib/vsprintk.c,core/panic.c,core/instrument.c,core/ksymbol.c'
+C_SOURCES+=core/instrument.c
+endif
 
 OBJECTS=$(addprefix $(BUILDDIR)/,$(ASM_SOURCES:.S=.o) $(C_SOURCES:.c=.o))
 
@@ -63,22 +68,22 @@ endif
 
 -include $(addprefix $(BUILDDIR)/,$(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d))
 
-test: $(BUILDDIR)/kernel userspace
-	$(QEMU) $(QEMU_FLAGS) -serial stdio
+test: $(BUILDDIR)/kernel# userspace
+	$(QEMU) $(QEMU_FLAGS) -serial stdio | tee serial.txt
 
 export TOOLCHAIN_PREFIX
 export BUILDDIR
 
-userspace: tools/fotgen
-	$(MAKE) -C us all
+#userspace: tools/fotgen
+#	$(MAKE) -C us all
 
-tools/fotgen: tools/fotgen.c
-	$(CC) -Wall -Wextra -std=gnu11 -Og -g tools/fotgen.c -o tools/fotgen
+#tools/fotgen: tools/fotgen.c
+#	$(CC) -Wall -Wextra -std=gnu11 -Og -g tools/fotgen.c -o tools/fotgen
 
 $(BUILDDIR)/kernel: $(BUILDDIR)/link.ld $(OBJECTS) $(BUILDDIR)/symbols.o
 	@mkdir -p $(BUILDDIR)
 	@echo "[LD]  $@"
-	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(BUILDDIR)/symbols.o $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic
+	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(BUILDDIR)/symbols.o $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
 
 $(BUILDDIR)/symbols.o: $(BUILDDIR)/symbols.c
 	@echo "[CC]  $@"
@@ -100,7 +105,7 @@ $(BUILDDIR)/kernel.sym.c: $(BUILDDIR)/kernel.stage1
 $(BUILDDIR)/kernel.stage1: $(BUILDDIR)/link.ld $(OBJECTS)
 	@echo "[LD]  $@"
 	@mkdir -p $(BUILDDIR)
-	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel.stage1 -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic
+	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel.stage1 -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
 
 $(BUILDDIR)/%.o : %.S $(CONFIGFILE)
 	@echo "[AS]  $@"

@@ -3,6 +3,8 @@
 #include <syscall.h>
 #include <arch/x86_64-msr.h>
 
+void x86_64_signal_eoi(void);
+
 static void x86_64_change_fpusse_allow(bool enable)
 {
 	register uint64_t tmp;
@@ -14,32 +16,62 @@ static void x86_64_change_fpusse_allow(bool enable)
 	asm volatile("mov %0, %%cr4" :: "r"(tmp));
 }
 
+__noinstrument
 void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_userspace)
 {
 	if(was_userspace) {
 		current_thread->arch.was_syscall = false;
-		if((frame->int_no == 6 || frame->int_no == 7) && current_thread && !current_thread->arch.usedfpu) {
-			/* we're emulating FPU instructions / disallowing SSE. Set a flag,
-			 * and allow the thread to do its thing */
-			current_thread->arch.usedfpu = true;
-			x86_64_change_fpusse_allow(true);
-			asm volatile ("finit"); /* also, we may need to clear the FPU state */
-		} else if(frame->int_no == 14) {
-			/* page fault */
-			kernel_fault_entry();
-		} else if(frame->int_no < 32) {
-			/* TODO: userspace exception */
+	}
+	
+	if((frame->int_no == 6 || frame->int_no == 7) && current_thread
+				&& !current_thread->arch.usedfpu) {
+		if(!was_userspace) {
+			panic("floating-point operations used in kernel-space");
 		}
+		/* we're emulating FPU instructions / disallowing SSE. Set a flag,
+		 * and allow the thread to do its thing */
+		current_thread->arch.usedfpu = true;
+		x86_64_change_fpusse_allow(true);
+		asm volatile ("finit"); /* also, we may need to clear the FPU state */
+	}
+	else if(frame->int_no == 14) {
+			/* page fault */
+			uint64_t cr2;
+			asm volatile("mov %%cr2, %0" : "=r"(cr2) :: "memory");
+			int flags = 0;
+			if(frame->err_code & 1) {
+				flags |= FAULT_ERROR_PERM;
+			} else {
+				flags |= FAULT_ERROR_PRES;
+			}
+			if(frame->err_code & (1 << 1)) {
+				flags |= FAULT_WRITE;
+			}
+			if(frame->err_code & (1 << 2)) {
+				flags |= FAULT_USER;
+			}
+			if(frame->err_code & (1 << 4)) {
+				flags |= FAULT_EXEC;
+			}
+			if(!was_userspace) {
+				panic("kernel-mode page fault to address %lx\n"
+						"    from %lx: %s while in %s-mode: %s\n", cr2, frame->rip,
+					flags & FAULT_EXEC ? "ifetch" : (flags & FAULT_WRITE ? "write" : "read"),
+					flags & FAULT_USER ? "user" : "kernel",
+					flags & FAULT_ERROR_PERM ? "present" : "non-present");
+			}
+			kernel_fault_entry(cr2, flags);
 	} else if(frame->int_no < 32) {
-		/* TODO: kernel page-fault? */
-		if(frame->int_no == 3) {
-			printk("[debug]: recv debug interrupt\n");
-			kernel_debug_entry();
+		if(was_userspace) {
+
+		} else {
+			if(frame->int_no == 3) {
+				printk("[debug]: recv debug interrupt\n");
+				kernel_debug_entry();
+			}
 		}
 		panic("kernel exception: %ld, from %lx\n", frame->int_no, frame->rip);
-	}
-
-	if(frame->int_no >= 32) {
+	} else {
 		kernel_interrupt_entry(frame->int_no);
 	}
 
@@ -53,6 +85,7 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 
 extern long (*syscall_table[])();
 extern __int128 (*syscall_table128[])();
+__noinstrument
 void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 {
 	current_thread->arch.was_syscall = true;
@@ -71,6 +104,7 @@ void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 
 extern void x86_64_resume_userspace(void *);
 extern void x86_64_resume_userspace_interrupt(void *);
+__noinstrument
 void arch_thread_resume(struct thread *thread)
 {
 	struct thread *old = current_thread;
@@ -101,6 +135,9 @@ void arch_thread_resume(struct thread *thread)
 		/* restore FPU state */
 		asm volatile ("fxrstor (%0)" 
 				:: "r" (thread->arch.fpu_data) : "memory");
+	}
+	if((!old || old->ctx != thread->ctx) && thread->ctx) {
+		arch_mm_switch_context(thread->ctx);
 	}
 	if(thread->arch.was_syscall)
 		x86_64_resume_userspace(&thread->arch.syscall);

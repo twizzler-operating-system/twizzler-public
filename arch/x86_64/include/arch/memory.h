@@ -1,7 +1,9 @@
 #pragma once
 
+#include <machine/memory.h>
+
 struct arch_vm_context {
-	void *base;
+	uintptr_t pml4_phys;
 };
 
 /* Intel 3A 4.5 */
@@ -15,12 +17,25 @@ struct arch_vm_context {
 #define VM_MAP_EXEC     (1ull << 63) 
 
 #define VM_PHYS_MASK (0x7FFFFFFFFFFFF000)
-
+#define VM_ADDR_SIZE (1ul << 48)
+#define MAX_PGLEVEL 2
 __attribute__((const)) static inline size_t mm_page_size(int level)
 {
-	assert(level <= 3);
+	assert(level < 3);
 	static const size_t __pagesizes[3] = {0x1000, 2*1024*1024, 1024*1024*1024};
 	return __pagesizes[level];
+}
+
+#define OM_ADDR_SIZE (1ul << 48)
+
+__attribute__((const)) static inline uintptr_t mm_vtop(void *addr)
+{
+	return (uintptr_t)addr - PHYSICAL_MAP_START;
+}
+
+__attribute__((const)) static inline void *mm_ptov(uintptr_t addr)
+{
+	return (void *)(addr + PHYSICAL_MAP_START);
 }
 
 

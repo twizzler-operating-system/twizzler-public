@@ -1,8 +1,10 @@
 #include <memory.h>
 #include <arch/x86_64-msr.h>
 #include <processor.h>
+#include <object.h>
 #define VMCS_SIZE 0x1000
 static uint32_t revision_id;
+static uintptr_t ept_root;
 
 enum {
 	VMCS_GUEST_CS_SEL                 = 0x802,
@@ -88,6 +90,8 @@ enum {
 	VMCS_EXIT_CONTROLS                = 0x400c,
 	VMCS_EXIT_REASON                  = 0x4402,
 	VMCS_EXIT_QUALIFICATION           = 0x6400,
+	VMCS_GUEST_LINEAR_ADDR            = 0x640a,
+	VMCS_GUEST_PHYSICAL_ADDR          = 0x2400,
 	VMCS_VMFUNC_CONTROLS              = 0x2018,
 	VMCS_VIRT_EXCEPTION_INFO_ADDR     = 0x202a,
 	VMCS_IA32_SYSENTER_CS             = 0x482a,
@@ -160,10 +164,8 @@ static inline void vmcs_write32_fixed(uint32_t msr, uint32_t vmcs_field, uint32_
 	uint32_t msr_high, msr_low;
 
 	x86_64_rdmsr(msr, &msr_low, &msr_high);
-	printk("fixed: %x %x %x", val, msr_low, msr_high);
 	val &= msr_high;
 	val |= msr_low;
-	printk(" -> %x\n", val);
 	vmcs_writel(vmcs_field, val);
 }
 
@@ -201,7 +203,7 @@ static void x86_64_enable_vmx(void)
 	/* get the revision ID. This is needed for several VM data structures. */
 	x86_64_rdmsr(X86_MSR_VMX_BASIC, &lo, &hi);
 	revision_id = lo & 0x7FFFFFFF;
-	uint32_t *vmxon_revid = (uint32_t *)(vmxon_region + PHYSICAL_MAP_START);
+	uint32_t *vmxon_revid = (uint32_t *)mm_ptov(vmxon_region);
 	*vmxon_revid = revision_id;
 
 	uint8_t error;
@@ -210,35 +212,61 @@ static void x86_64_enable_vmx(void)
 	if(error) {
 		panic("failed to enter VMX operation");
 	}
-	printk("VMX enabled.\n");
 }
 
 
 __attribute__((used)) static void x86_64_vmentry_failed(struct processor *proc)
 {
-	printk("HERE! %s\n", vmcs_read_vminstr_err());
-	for(;;);
+	panic("vmentry failed on processor %d: %s\n", proc->id, vmcs_read_vminstr_err());
 }
 
+bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int level, uint64_t flags);
+void x86_64_vmenter(struct processor *proc);
 void x86_64_vmexit_handler(struct processor *proc)
 {
 	/* so, in theory we now have a valid pointer to a processor struct, and a stack
 	 * to work in (see code below). */
-	register uint64_t rsp asm("rsp");
+	proc->arch.launched = 1; /* we must have launched if we are here */
 	unsigned reason = vmcs_readl(VMCS_EXIT_REASON);
 	unsigned long qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
 	unsigned long grip = vmcs_readl(VMCS_GUEST_RIP);
-	printk("Got VMEXIT (%p) %lx. reason=%d, qual=%lx, rip=%lx\n", proc, rsp, reason, qual, grip);
-	for(;;);
+	unsigned long glin = vmcs_readl(VMCS_GUEST_LINEAR_ADDR);
+	unsigned long gphy = vmcs_readl(VMCS_GUEST_PHYSICAL_ADDR);
+
+	switch(reason) {
+		case 48: /* EPT violation */
+			printk("EPT violation: %lx\n", gphy);
+			if(qual & (1 << 7)) {
+				printk("linear addr valid: %lx\n", glin);
+			}
+			/* TODO: move this to core */
+			struct object *obj = obj_lookup_slot(gphy);
+			if(obj == NULL) {
+				panic("Unhandled EPT violation (no valid object found for %lx)", gphy);
+			}
+			size_t idx = ((gphy - obj->dataoff) % obj->maxsz) / 0x1000;
+			printk(":: %ld\n", idx);
+			struct objpage *page = ihtable_find(obj->pagecache, idx, struct objpage, elem, idx);
+			if(page == NULL) {
+				panic("Don't know how to resolve missing pages (yet)");
+			}
+
+			x86_64_ept_map(ept_root, gphy, page->phys, 0, 7);
+
+			break;
+		default:
+			panic("unhandled vmexit: reason=%d, qual=%lx, at %lx\n", reason, qual, grip);
+	}
+	x86_64_vmenter(proc);
 }
 
+__noinstrument
 void x86_64_vmenter(struct processor *proc)
 {
 	/* VMCS does not deal with CPU registers, so we must save and restore them. */
 
 	/* any time we trap back to the "hypervisor" we need this state reset */
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
-	printk("Trying to launch! (hyper stack = %p, stack = %p, regsstate = %p)\n", proc->arch.hyper_stack, proc->arch.kernel_stack, proc->arch.vcpu_state_regs);
 	asm volatile(
 			"pushf;"
 			"cli;"
@@ -322,10 +350,8 @@ void x86_64_vmenter(struct processor *proc)
 void x86_64_processor_post_vm_init(struct processor *proc);
 void vmx_entry_point(struct processor *proc)
 {
-	register uint64_t rsp asm("rsp");
-	printk("vm entered successfully %p, rsp=%lx\n", proc, rsp);
+	printk("processor %d entered vmx-non-root mode\n", proc->id);
 	x86_64_processor_post_vm_init(proc);
-	for(;;);
 }
 
 static uint64_t read_cr(int n)
@@ -349,34 +375,86 @@ static uint64_t read_efer(void)
 	return ((uint64_t)hi << 32) | lo;
 }
 
-uintptr_t init_ept(void)
+#define PML4_IDX(v) (((v) >> 39) & 0x1FF)
+#define PDPT_IDX(v) (((v) >> 30) & 0x1FF)
+#define PD_IDX(v)   (((v) >> 21) & 0x1FF)
+#define PT_IDX(v)   (((v) >> 12) & 0x1FF)
+#define PAGE_LARGE   (1ull << 7)
+#define EPT_READ 1ull
+#define EPT_WRITE 2ull
+#define EPT_EXEC (4ull | (1ull << 10)) /* TODO: separate exec_user and exec_kernel */
+
+#define RECUR_ATTR_MASK (EPT_READ | EPT_WRITE | EPT_EXEC)
+
+static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
 {
-	/* let's map 1-G pages for the EPT, in a flat and linear fashion for now. */
-	uintptr_t pml4phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
-	uintptr_t *pml4 = (void *)(pml4phys + PHYSICAL_MAP_START);
-	uintptr_t phys = 0;
-	for(int i=0;i<1;i++) {
-		uintptr_t pdptphys = pml4[i] = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
-		pml4[i] |= 7; /* we have all permissions */
-		uintptr_t *pdpt = (void *)(pdptphys + PHYSICAL_MAP_START);
-		for(int j=0;j<8;j++) { /* maps 8-G of memory. TODO: map all of memory */
-			uintptr_t pdphys = pdpt[j] = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
-			pdpt[j] |= 7;
-			uintptr_t *pd = (void *)(pdphys + PHYSICAL_MAP_START);
-			for(int k=0;k<512;k++) {
-				pd[k] = phys | 7 | (1 << 7); /* all permissions + is-page bit */
-				phys += (2ull * 1024ull * 1024ull); /* increment phys by 1-G */
+	if(!*loc) {
+		*loc = (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true) | (attr & RECUR_ATTR_MASK);
+	}
+}
+
+#define GET_VIRT_TABLE(x) ((uintptr_t *)mm_ptov(((x) & VM_PHYS_MASK)))
+
+
+bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int level, uint64_t flags)
+{
+	int pml4_idx = PML4_IDX(virt);
+	int pdpt_idx = PDPT_IDX(virt);
+	int pd_idx   = PD_IDX(virt);
+	int pt_idx   = PT_IDX(virt);
+
+	uintptr_t *pml4 = GET_VIRT_TABLE(ept_phys);
+	test_and_allocate(&pml4[pml4_idx], flags);
+	
+	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
+	if(level == 2) {
+		if(pdpt[pdpt_idx]) {
+			return false;
+		}
+		pdpt[pdpt_idx] = phys | flags | PAGE_LARGE;
+	} else {
+		test_and_allocate(&pdpt[pdpt_idx], flags);
+		uintptr_t *pd = GET_VIRT_TABLE(pdpt[pdpt_idx]);
+
+		if(level == 1) {
+			if(pd[pd_idx]) {
+				return false;
 			}
+			pd[pd_idx] = phys | flags | PAGE_LARGE;
+		} else {
+			test_and_allocate(&pd[pd_idx], flags);
+			uintptr_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
+			if(pt[pt_idx]) {
+				return false;
+			}
+			pt[pt_idx] = phys | flags;
 		}
 	}
+	return true;
+}
+
+
+
+uintptr_t init_ept(void)
+{
+	/* identity map. TODO: map all physical memory */
+	uintptr_t pml4phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+	for(uintptr_t phys = 0; phys < 8*1024*1024*1024ull; phys += 2*1024ul*1024) {
+		x86_64_ept_map(pml4phys, phys, phys, 1, EPT_READ | EPT_WRITE | EPT_EXEC);
+	}
+
 	return pml4phys;
+}
+
+__initializer
+static void __init_ept_root(void) {
+	ept_root = init_ept();
 }
 
 void vmexit_point(void);
 
 void vtx_setup_vcpu(struct processor *proc)
 {
-	uintptr_t ept_root = init_ept();
 
 	/* we have to set-up the vcpu state to "mirror" our physical CPU.
 	 * Strap yourself in, it's gonna be a long ride. */
@@ -452,7 +530,7 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	/* VM control fields. */
 	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PINBASED_CTLS, VMCS_PINBASED_CONTROLS, 0);
-	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1 << 31) | (1 << 28) /* Use MSR bitmaps */);
+	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1ul << 31) | (1 << 28) /* Use MSR bitmaps */);
 	
 	vmcs_write32_fixed(X86_MSR_VMX_PROCBASED_CTLS2, VMCS_PROCBASED_CONTROLS_SECONDARY,
 			/* TODO: APIC */
@@ -497,7 +575,7 @@ void vtx_setup_vcpu(struct processor *proc)
 	//vmcs_writel(VMCS_VMFUNC_CONTROLS, 1 /* enable EPT-switching */);
 	/* TODO: don't waste a whole page on this */
 	//proc->arch.virtexcep_info = mm_virtual_alloc(0x1000, PM_TYPE_DRAM, true);
-	//vmcs_writel(VMCS_VIRT_EXCEPTION_INFO_ADDR, (uintptr_t)proc->arch.virtexcep_info - PHYSICAL_MAP_START);
+	//vmcs_writel(VMCS_VIRT_EXCEPTION_INFO_ADDR, mm_vtop(proc->arch.virtexcep_info));
 
 	vmcs_writel(VMCS_HOST_RIP, (uintptr_t)vmexit_point);
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
@@ -507,17 +585,17 @@ void vtx_setup_vcpu(struct processor *proc)
 
 void x86_64_start_vmx(struct processor *proc)
 {
+
 	x86_64_enable_vmx();
 
 	proc->arch.launched = 0;
 	memset(proc->arch.vcpu_state_regs, 0, sizeof(proc->arch.vcpu_state_regs));
-	proc->arch.hyper_stack = mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_DRAM, true);
+	proc->arch.hyper_stack = (void *)mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_DRAM, true);
 	proc->arch.vcpu_state_regs[HOST_RSP] = (uintptr_t)proc->arch.hyper_stack + KERNEL_STACK_SIZE;
 	proc->arch.vcpu_state_regs[PROC_PTR] = (uintptr_t)proc;
 	proc->arch.vcpu_state_regs[REG_RDI] = (uintptr_t)proc; /* set initial argument to vmx_entry_point */
-	printk("Starting VMX system\n");
 	proc->arch.vmcs = mm_physical_alloc(VMCS_SIZE, PM_TYPE_DRAM, true);
-	uint32_t *vmcs_rev = (uint32_t *)(proc->arch.vmcs + PHYSICAL_MAP_START);
+	uint32_t *vmcs_rev = (uint32_t *)mm_ptov(proc->arch.vmcs);
 	*vmcs_rev = revision_id & 0x7FFFFFFF;
 
 	uint8_t error;
@@ -526,7 +604,6 @@ void x86_64_start_vmx(struct processor *proc)
 		panic("failed to load VMCS region: %s", vmcs_read_vminstr_err());
 	}
 
-	printk("Got here. (stack sz = %x)\n", KERNEL_STACK_SIZE);
 
 
 
@@ -534,7 +611,6 @@ void x86_64_start_vmx(struct processor *proc)
 	vtx_setup_vcpu(proc);
 
 
-	printk("Launching! %p\n", proc);
 
 	x86_64_vmenter(proc);
 

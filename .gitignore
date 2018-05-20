@@ -1,6 +1,6 @@
 projects/*/build
 bx_enh_dbg.ini
 .lvimrc
-.toolchains
+.toolchain
 toolchain
 serial.txt

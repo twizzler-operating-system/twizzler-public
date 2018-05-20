@@ -1,15 +1,21 @@
 #include <processor.h>
 #include <debug.h>
+#include <thread.h>
 
+__noinstrument
 void thread_schedule_resume_proc(struct processor *proc)
 {
 	while(true) {
-		if(current_thread && current_thread->state == THREADSTATE_RUNNING)
-			linkedlist_insert(&proc->runqueue, &current_thread->entry, current_thread);
-		struct thread *next = linkedlist_remove_tail(&proc->runqueue);
-		if(next) {
-			arch_thread_resume(next);
+		spinlock_acquire(&proc->sched_lock);
+		if(current_thread && current_thread->state == THREADSTATE_RUNNING) {
+			list_insert(&proc->runqueue, &current_thread->rq_entry);
+		}
+		struct list *ent = list_dequeue(&proc->runqueue);
+		if(ent) {
+			spinlock_release(&proc->sched_lock, 0);
+			arch_thread_resume(list_entry(ent, struct thread, rq_entry));
 		} else {
+			spinlock_release(&proc->sched_lock, 1);
 			/* we're halting here, but the arch_processor_halt function will return
 			 * after an interrupt is fired. Since we're in kernel-space, any interrupt
 			 * we get will not invoke the scheduler. */
@@ -18,6 +24,7 @@ void thread_schedule_resume_proc(struct processor *proc)
 	}
 }
 
+__noinstrument
 void thread_schedule_resume(void)
 {
 	assert(current_thread != NULL);

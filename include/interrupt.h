@@ -1,11 +1,11 @@
 #pragma once
 
 #include <arch/interrupt.h>
-#include <lib/linkedlist.h>
+#include <lib/list.h>
 
 struct interrupt_handler {
 	void (*fn)(int);
-	struct linkedentry entry;
+	struct list entry;
 };
 
 void kernel_interrupt_entry(int);

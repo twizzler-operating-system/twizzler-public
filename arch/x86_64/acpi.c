@@ -38,14 +38,14 @@ static struct xsdt_desc *get_xsdt_addr(void)
 {
 	assert(rsdp != NULL);
 	assert(rsdp->rsdp.rev >= 1);
-	return (void *)(rsdp->xsdt_addr + PHYSICAL_MAP_START);
+	return mm_ptov(rsdp->xsdt_addr);
 }
 
 static struct rsdt_desc *get_rsdt_addr(void)
 {
 	assert(rsdp != NULL);
 	assert(rsdp->rsdp.rev == 0);
-	return (void *)(rsdp->rsdp.rsdt_addr + PHYSICAL_MAP_START);
+	return mm_ptov(rsdp->rsdp.rsdt_addr);
 }
 
 void *acpi_find_table(const char *sig)
@@ -54,7 +54,7 @@ void *acpi_find_table(const char *sig)
 		struct rsdt_desc *rsdt = get_rsdt_addr();
 		int entries = (rsdt->header.length - sizeof(rsdt->header)) / 4;
 		for(int i=0;i<entries;i++) {
-			struct sdt_header *head = (void *)(rsdt->sdts[i] + PHYSICAL_MAP_START);
+			struct sdt_header *head = mm_ptov(rsdt->sdts[i]);
 			if(!strncmp(head->sig, sig, 4))
 				return head;
 		}
@@ -62,7 +62,7 @@ void *acpi_find_table(const char *sig)
 		struct xsdt_desc *xsdt = get_xsdt_addr();
 		int entries = (xsdt->header.length - sizeof(xsdt->header)) / 8;
 		for(int i=0;i<entries;i++) {
-			struct sdt_header *head = (void *)(xsdt->sdts[i] + PHYSICAL_MAP_START);
+			struct sdt_header *head = mm_ptov(xsdt->sdts[i]);
 			if(!strncmp(head->sig, sig, 4))
 				return head;
 		}
@@ -77,9 +77,9 @@ static void found_rsdp(struct rsdp_desc *ptr)
 
 __orderedinitializer(ACPI_INITIALIZER_ORDER) static void acpi_init(void)
 {
-	uintptr_t ebda = *(uint16_t *)(PHYSICAL_MAP_START + 0x40E) << 4;
+	uintptr_t ebda = *(uint16_t *)mm_ptov(0x40E) << 4;
 	for(uintptr_t search = ebda; search < (ebda + 1024); search += 16) {
-		struct rsdp_desc *desc = (void *)(search + PHYSICAL_MAP_START);
+		struct rsdp_desc *desc = mm_ptov(search);
 		if(!strncmp(desc->sig, RSDP_SIG, 8)) {
 			found_rsdp(desc);
 			return;
@@ -87,7 +87,7 @@ __orderedinitializer(ACPI_INITIALIZER_ORDER) static void acpi_init(void)
 	}
 	/* didn't find it there; we can also try between 0xE0000 -> 0xFFFFF */
 	for(uintptr_t search = 0xE0000; search < 0x100000; search += 16) {
-		struct rsdp_desc *desc = (void *)(search + PHYSICAL_MAP_START);
+		struct rsdp_desc *desc = mm_ptov(search);
 		if(!strncmp(desc->sig, RSDP_SIG, 8)) {
 			found_rsdp(desc);
 			return;

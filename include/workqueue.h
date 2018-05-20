@@ -1,21 +1,24 @@
 #pragma once
 
-#include <lib/linkedlist.h>
+#include <lib/list.h>
 #include <interrupt.h>
+#include <spinlock.h>
 
 struct workqueue {
-	struct linkedlist list;
+	struct list list;
+	struct spinlock lock;
 };
 
 struct task {
 	void (*fn)(void *);
 	void *data;
-	struct linkedentry entry;
+	struct list entry;
 };
 
 static inline void workqueue_create(struct workqueue *wq)
 {
-	linkedlist_create(&wq->list, 0);
+	list_init(&wq->list);
+	wq->lock = SPINLOCK_INIT;
 }
 
 static inline void workqueue_insert(struct workqueue *wq, struct task *task, void (*fn)(void *), void *data)
@@ -23,21 +26,22 @@ static inline void workqueue_insert(struct workqueue *wq, struct task *task, voi
 	task->fn = fn;
 	task->data = data;
 	interrupt_set_scope(false);
-	linkedlist_insert(&wq->list, &task->entry, task);
+	list_insert(&wq->list, &task->entry);
 }
 
 static inline void workqueue_dowork(struct workqueue *wq)
 {
 	bool s = arch_interrupt_set(false);
-	struct task *t = linkedlist_remove_tail(&wq->list);
+	struct list *e = list_dequeue(&wq->list);
 	arch_interrupt_set(s);
-	if(t) {
+	if(e) {
+		struct task *t = list_entry(e, struct task, entry);
 		t->fn(t->data);
 	}
 }
 
 static inline bool workqueue_pending(struct workqueue *wq)
 {
-	return wq->list.count != 0;
+	return !list_empty(&wq->list);
 }
 

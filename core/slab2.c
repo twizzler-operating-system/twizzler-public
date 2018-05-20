@@ -1,23 +1,9 @@
-struct cache;
-struct slab {
-	struct slab *next, *prev;
-	uint64_t alloc;
-	struct cache *cache;
-	_Alignas(sizeof(void *)) char data[];
-};
-
-struct cache {
-	struct slab empty, partial, full;
-	void (*ctor)(void *, void *);
-	void (*dtor)(void *, void *);
-	size_t sz;
-	void *ptr;
-};
-
+#include <slab.h>
 /* TODO: optimization: we could try to fit several slabs in a
  * single page if the object size is small enough (sz*64 < PAGE_SIZE/2)
  */
 
+/* TODO: remove this hard coding */
 #define PAGE_SIZE 0x1000
 
 static inline size_t slab_size(size_t sz)
@@ -36,14 +22,6 @@ static inline size_t slab_size(size_t sz)
 #define num_set(x) __builtin_popcountll(x)
 #define obj_per_slab(sz) ((slab_size(sz) - sizeof(struct slab)) / (sz))
 
-void print_binary(uint64_t x)
-{
-	printf("%llx:0b", x);
-	for(int i=0;i<64;i++) {
-		printf("%c", (x & (1ull << (63-i))) ? '1' : '0');
-	}
-}
-
 static inline void add_to_list(struct slab *list, struct slab *s)
 {
 	s->next = list->next;
@@ -58,18 +36,15 @@ static inline void del_from_list(struct slab *s)
 	s->prev->next = s->next;
 }
 
-#include <errno.h>
-#include <string.h>
-struct slab *new_slab(struct cache *c)
+#include <debug.h>
+#include <memory.h>
+static struct slab *new_slab(struct slabcache *c)
 {
-	struct slab *s = mmap(NULL, slab_size(c->sz), PROT_READ | PROT_WRITE,
-			MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	assert(((uintptr_t)s & 0xFFF) == 0);
-	assert(s != MAP_FAILED);
+	struct slab *s = (void *)mm_virtual_alloc(slab_size(c->sz), PM_TYPE_DRAM, true);
 	s->alloc = 0;
-	s->cache = c;
+	s->slabcache = c;
 
-	for(int i=0;i<obj_per_slab(c->sz);i++) {
+	for(unsigned int i=0;i<obj_per_slab(c->sz);i++) {
 		s->alloc |= (1ull << i);
 		if(c->ctor) {
 			char *obj = s->data + i * c->sz;
@@ -79,84 +54,80 @@ struct slab *new_slab(struct cache *c)
 	return s;
 }
 
-void *alloc_slab(struct slab *s, int new)
+static void *alloc_slab(struct slab *s, int new)
 {
 	assert(s->alloc);
 	int slot = first_set_bit(s->alloc);
 
 	s->alloc &= ~(1ull << slot);
 
-	char *ret = s->data + s->cache->sz * slot;
+	char *ret = s->data + s->slabcache->sz * slot;
 
 	if(num_set(s->alloc) == 0) {
 		del_from_list(s);
-		add_to_list(&s->cache->full, s);
-	} else if(num_set(s->alloc) == obj_per_slab(s->cache->sz) - 1) {
+		add_to_list(&s->slabcache->full, s);
+	} else if(num_set(s->alloc) == obj_per_slab(s->slabcache->sz) - 1) {
 		if(!new) {
 			del_from_list(s);
 		}
-		add_to_list(&s->cache->partial, s);
+		add_to_list(&s->slabcache->partial, s);
 	}
 
 	return ret;
 }
 
-long long mean = 0;
-int count=0;
-
-void *cache_alloc(struct cache *c)
+void *slabcache_alloc(struct slabcache *c)
 {
-	long long st = rdtsc();
 	struct slab *s;
 	int new = 0;
+	bool fl = spinlock_acquire(&c->lock);
 	if(!is_empty(c->partial)) {
 		s = c->partial.next;
 	} else if(!is_empty(c->empty)) {
 		s = c->empty.next;
 	} else {
+		spinlock_release(&c->lock, fl);
 		s = new_slab(c);
+		fl = spinlock_acquire(&c->lock);
 		new = 1;
 	}
 
 	void *ret = alloc_slab(s, new);
-	long long en = rdtsc();
-
-
-	long long d = en - st;
-	mean = (mean * count + d) / (count + 1);
-	count++;
+	spinlock_release(&c->lock, fl);
+	return ret;
 }
 
-void cache_free(void *obj)
+void slabcache_free(void *obj)
 {
 	struct slab *s = (struct slab *)((uintptr_t)obj & (~(PAGE_SIZE - 1)));
-	int slot = ((char *)obj - s->data) / s->cache->sz;
+	int slot = ((char *)obj - s->data) / s->slabcache->sz;
 
+	bool fl = spinlock_acquire(&s->slabcache->lock);
 	s->alloc |= (1ull << slot);
-	if(num_set(s->alloc) == obj_per_slab(s->cache->sz)) {
+	if(num_set(s->alloc) == obj_per_slab(s->slabcache->sz)) {
 		del_from_list(s);
-		add_to_list(&s->cache->empty, s);
+		add_to_list(&s->slabcache->empty, s);
 	} else if(num_set(s->alloc) == 1) {
 		del_from_list(s);
-		add_to_list(&s->cache->partial, s);
+		add_to_list(&s->slabcache->partial, s);
 	}
+	spinlock_release(&s->slabcache->lock, fl);
 }
 
-void destroy_slab(struct slab *s)
+static void destroy_slab(struct slab *s)
 {
-	assert(num_set(s->alloc) == obj_per_slab(s->cache->sz));
-	for(int i=0;i<obj_per_slab(s->cache->sz);i++) {
-		if(s->cache->dtor) {
-			char *obj = s->data + i * s->cache->sz;
-			s->cache->dtor(s->cache->ptr, obj);
+	assert(num_set(s->alloc) == obj_per_slab(s->slabcache->sz));
+	for(unsigned int i=0;i<obj_per_slab(s->slabcache->sz);i++) {
+		if(s->slabcache->dtor) {
+			char *obj = s->data + i * s->slabcache->sz;
+			s->slabcache->dtor(s->slabcache->ptr, obj);
 		}
 	}
 }
 
-void cache_reap(struct cache *c)
+void slabcache_reap(struct slabcache *c)
 {
 	for(struct slab *s = c->empty.next;s != &c->empty; s=s->next) {
-		printf("Reaping slab %p\n", s);
 		destroy_slab(s);
 	}
 }
@@ -167,16 +138,17 @@ static void init_list(struct slab *s)
 	s->prev = s;
 }
 
-void cache_init(struct cache *c, size_t sz,
+void slabcache_init(struct slabcache *c, size_t sz,
 		void (*ctor)(void *, void *), void (*dtor)(void *, void *), void *ptr)
 {
 	c->ptr = ptr;
 	c->sz = sz;
 	c->ctor = ctor;
 	c->dtor = dtor;
+	c->lock = SPINLOCK_INIT;
 
 	init_list(&c->empty);
 	init_list(&c->full);
 	init_list(&c->partial);
-	printf("Creating cache with obj size %d\n", c->sz);
 }
+

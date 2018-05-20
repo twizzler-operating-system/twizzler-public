@@ -2,22 +2,21 @@
 #include <interrupt.h>
 #include <stdatomic.h>
 #include <processor.h>
+#include <instrument.h>
 
-void spinlock_acquire(struct spinlock *lock)
+bool spinlock_acquire(struct spinlock *lock)
 {
-	bool set = arch_interrupt_set(0);
-
-	while(atomic_fetch_or(&lock->data, 1) & 1) {
-		arch_processor_relax();
+	register bool set = arch_interrupt_set(0);
+	while(atomic_fetch_or_explicit(&lock->data, 1, memory_order_acquire) & 1) {
+		while(atomic_load_explicit(&lock->data, memory_order_acquire))
+			arch_processor_relax();
 	}
-	
-	lock->data |= set ? (1 << 1) : 0;
+	return set;
 }
 
-void spinlock_release(struct spinlock *lock)
+void spinlock_release(struct spinlock *lock, bool flags)
 {
-	bool set = !!(lock->data & (1 << 1));
-	atomic_store(&lock->data, 0);
-	arch_interrupt_set(set);
+	atomic_store_explicit(&lock->data, 0, memory_order_release);
+	arch_interrupt_set(flags);
 }
 

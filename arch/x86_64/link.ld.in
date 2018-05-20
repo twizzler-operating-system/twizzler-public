@@ -1,5 +1,13 @@
 ENTRY(_start)
 OUTPUT_FORMAT("elf64-x86-64")
+
+PHDRS {
+	hdrs   PT_PHDR PHDRS;
+	text   PT_LOAD FLAGS(5);          /* R_E */
+	percpu PT_LOAD FLAGS(6);        /* RW_ */
+	data   PT_LOAD FLAGS(6);          /* RW_ */
+}
+
 SECTIONS
 {
 	. = %KERNEL_VIRTUAL_BASE% + %KERNEL_LOAD_OFFSET%;
@@ -9,7 +17,7 @@ SECTIONS
 	{
 		*(.boot)
 		*(.text*)
-	}
+	} :text =0x9090
 
 	.ctors : ALIGN(4) {
     	KEEP (*crtbegin.o(.ctors))
@@ -21,43 +29,65 @@ SECTIONS
     	KEEP (*(EXCLUDE_FILE (*crtend.o *crtend?.o ) .ctors))
     	KEEP (*(SORT(.ctors.*)))
     	KEEP (*(.ctors))
-    }
+    } :text =0x9090
+
   	.dtors : ALIGN(4) {
     	KEEP (*crtbegin.o(.dtors))
     	KEEP (*crtbegin?.o(.dtors))
     	KEEP (*(EXCLUDE_FILE (*crtend.o *crtend?.o ) .dtors))
     	KEEP (*(SORT(.dtors.*)))
     	KEEP (*(.dtors))
-  	}
+  	} :text
 
-	.init : {*(.init)}
-	.fini : {*(.fini)}
+	.init : {
+		*(.init)
+	} :text
 
-	.data : ALIGN(0x1000) {
+	.fini : {
+		*(.fini)
+	} :text
+
+	. = ALIGN(0x1000);
+	kernel_data_percpu_load = .;
+	.data.percpu 0x0 : 
+	AT(kernel_data_percpu_load - %KERNEL_VIRTUAL_BASE% + %KERNEL_PHYSICAL_BASE%) {
+		*(data.percpu*)
+	} :percpu
+	kernel_data_percpu_length = SIZEOF(.data.percpu);
+	. = kernel_data_percpu_load + SIZEOF(.data.percpu);
+
+	. = ALIGN(0x1000);
+
+	kernel_data_load = .;
+	.data :
+		AT(kernel_data_load - %KERNEL_VIRTUAL_BASE% + %KERNEL_PHYSICAL_BASE%) {
 		kernel_data_start = .;
-		*(.data*)
-	}
-	.rodata : ALIGN(0x1000) {
+		*(.data)
+	} :data
+
+	.rodata : {
 		*(.rodata*)
 		*(.ksyms*)
-	}
+	} :data
+	
 	kernel_data_end = .;
-	.bss : ALIGN(0x1000) {
-		kernel_bss_start = .;
-		*(COMMON)
-		*(.bss*)
-	}
-	kernel_bss_end = .;
-
 
 	.extra :
 	{
 	   	*(.gnu.linkonce.t*)
 	   	*(.gnu.linkonce.r*)
-	   	. = ALIGN(4096);
-	}
+	} :data
 
-	. = ALIGN(8);
+	.bss : ALIGN(0x1000) {
+		kernel_bss_start = .;
+		*(COMMON)
+		*(.bss*)
+	} :data
+
+	kernel_bss_end = .;
+
+
+	/*kernel_end = kernel_data_percpu_load + SIZEOF(.data.percpu);*/
 	kernel_end = .;
 
 	/DISCARD/ : { *(.comment .note) }

@@ -4,11 +4,12 @@
 #include <arena.h>
 #include <processor.h>
 #include <time.h>
+#include <thread.h>
 
 static struct arena post_init_call_arena;
 static struct init_call *post_init_call_head = NULL;
 
-void post_init_call_register(void (*fn)(void *), void *data)
+void post_init_call_register(bool ac, void (*fn)(void *), void *data)
 {
 	if(post_init_call_head == NULL) {
 		arena_create(&post_init_call_arena);
@@ -17,45 +18,30 @@ void post_init_call_register(void (*fn)(void *), void *data)
 	struct init_call *ic = arena_allocate(&post_init_call_arena, sizeof(struct init_call));
 	ic->fn = fn;
 	ic->data = data;
+	ic->allcpus = ac;
 	ic->next = post_init_call_head;
 	post_init_call_head = ic;
 }
 
-static void post_init_calls_execute(void)
+static void post_init_calls_execute(bool secondary)
 {
 	for(struct init_call *call = post_init_call_head; call != NULL; call = call->next) {
-		call->fn(call->data);
+		if(!secondary || call->allcpus) {
+			call->fn(call->data);
+		}
 	}
-	arena_destroy(&post_init_call_arena);
-	post_init_call_head = NULL;
 }
 
 /* functions called from here expect virtual memory to be set up. However, functions
  * called from here cannot rely on global contructors having run, as those are allowed
- * to use memory management routines, so they are run after this.
+ * to use memory management routines, so they are run after this. Furthermore,
+ * they cannot use per-cpu data.
  */
 void kernel_early_init(void)
 {
 	mm_init();
+	processor_percpu_regions_init();
 }
-
-#include "../us/include/arch-syscall.h"
-#define make_guid(g, h, l) do { g = h; g <<= 64; g |= l; } while(0)
-
-void user_test(void *arg)
-{
-	unsigned __int128 guid;
-	//make_guid(guid, 0x123456789abcdef, 0x1122334455667788);
-	guid = _syscallrg(8);
-	_syscallg10(1, guid);
-	for(;;);
-}
-
-struct thread t1, t2, t3, t4;
-char us1[0x1000];
-char us2[0x1000];
-char us3[0x1000];
-char us4[0x1000];
 
 /* at this point, memory management, interrupt routines, global constructors, and shared
  * kernel state between nodes have been initialized. Now initialize all application processors
@@ -64,30 +50,35 @@ char us4[0x1000];
 
 void kernel_init(void)
 {
-	post_init_calls_execute();
+	processor_init_secondaries();
 	processor_perproc_init(NULL);
 }
 
+struct thread init_thread;
+char us1[0x1000];
+
+static _Atomic unsigned int kernel_main_barrier = 0;
 void kernel_main(struct processor *proc)
 {
-	printk("processor %ld reached resume state %p\n", proc->id, proc);
-	
-	if(proc->flags & PROCESSOR_BSP) {
-		t1.id = 1;
-		t2.id = 2;
-		t3.id = 3;
-		t4.id = 4;
-		arch_thread_init(&t1, user_test, (void *)1, us1 + 0x1000);
-		arch_thread_init(&t2, user_test, (void *)2, us2 + 0x1000);
-		arch_thread_init(&t3, user_test, (void *)3, us3 + 0x1000);
+	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
 
-		processor_attach_thread(proc, &t1);
-		processor_attach_thread(proc, &t2);
-		processor_attach_thread(proc, &t3);
-	} else {
-		//arch_thread_init(&t4, user_test, (void *)4, us4 + 0x1000);
-		//processor_attach_thread(proc, &t4);
+	processor_barrier(&kernel_main_barrier);
+
+	if(proc->flags & PROCESSOR_BSP) {
+		arena_destroy(&post_init_call_arena);
+		post_init_call_head = NULL;
+
+		init_thread.id = 1;
+		init_thread.ctx = vm_context_create();
+		vm_context_map(init_thread.ctx, 1, 0x7ff000001000 / mm_page_size(MAX_PGLEVEL),
+				VMAP_READ | VMAP_EXEC);
+		vm_context_map(init_thread.ctx, 2, 0x1000 / mm_page_size(MAX_PGLEVEL),
+				VMAP_READ | VMAP_EXEC);
+		//arch_thread_init(&init_thread, (void *)0x7ff000001000, NULL, us1 + 0x1000);
+		arch_thread_init(&init_thread, (void *)0x400078, NULL, us1 + 0x1000);
+		processor_attach_thread(proc, &init_thread);
 	}
+	printk("processor %d reached resume state %p\n", proc->id, proc);
 	thread_schedule_resume_proc(proc);
 }
 

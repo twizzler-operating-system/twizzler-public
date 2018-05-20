@@ -4,10 +4,12 @@
 #include <init.h>
 #include <arch/x86_64-msr.h>
 #include <processor.h>
+#include <string.h>
 void serial_init();
 
 extern void _init();
 uint64_t x86_64_top_mem;
+uint64_t x86_64_bot_mem;
 extern void idt_init(void);
 extern void idt_init_secondary(void);
 
@@ -42,24 +44,93 @@ static void proc_init(void)
 	
 }
 
+struct ustar_header {
+        char name[100];
+        char mode[8];
+        char uid[8];
+        char gid[8];
+        char size[12];
+        char mtime[12];
+        char checksum[8];
+        char typeflag[1];
+        char linkname[100];
+        char magic[6];
+        char version[2];
+        char uname[32];
+        char gname[32];
+        char devmajor[8];
+        char devminor[8];
+        char prefix[155];
+        char pad[12];
+};
+
+#define PHYS_LOAD_ADDRESS (KERNEL_PHYSICAL_BASE + KERNEL_LOAD_OFFSET)
+#define PHYS_ADDR_DELTA (KERNEL_VIRTUAL_BASE + KERNEL_LOAD_OFFSET - PHYS_LOAD_ADDRESS)
+#define PHYS(x) ((x) - PHYS_ADDR_DELTA)
 void x86_64_start_vmx(struct processor *proc);
-static void x86_64_initrd(void)
+extern int kernel_end;
+#include <object.h>
+static void x86_64_initrd(void *u)
 {
+	(void)u;
+	static int __id = 0;
 	printk("%d mods\n", mb->mods_count);
+	if(mb->mods_count == 0) return;
+	struct mboot_module *m = mm_ptov(mb->mods_addr);
+	struct ustar_header *h = mm_ptov(m->start);
+	char *start = (char *)h;
+	printk(":: %s\n", h->magic);
+	size_t len = m->end - m->start;
+	while((char *)h < start + len) {
+		char *name = h->name;
+		if(!*name) break;
+		if(strncmp(h->magic, "ustar", 5)) break;
+		char *data = (char *)h+512;
+		size_t len = strtol(h->size, NULL, 8);
+		size_t reclen = (len + 511) & ~511;
+
+		switch(h->typeflag[0]) {
+			case '0': case '7':
+				printk("Loading object: %s\n", name);
+				int off = 0x400000;
+				if(!strncmp(name, "sys", 3)) off = 0x1000; //HACK
+				obj_create(++__id, reclen, off);
+				struct object *obj = obj_lookup(__id);
+				assert(obj != NULL);
+				size_t idx = 0;
+				for(size_t s = 0;s<reclen;s+=mm_page_size(0),idx++) {
+					uintptr_t phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+					size_t thislen = 0x1000;
+					if((reclen - s) < thislen)
+						thislen = reclen - s;
+					memcpy(mm_ptov(phys), data + s, thislen);
+					obj_cache_page(obj, idx, phys);
+				}
+				break;
+			default:
+				printk("Unknown file type in tar archive: %c %s\n", h->typeflag[0], name);
+		}
+
+		h = (struct ustar_header *)((char *)h + 512 + reclen);
+	}
 }
 POST_INIT(x86_64_initrd);
 
+void kernel_early_init(void);
+void kernel_init(void);
+void x86_64_lapic_init_percpu(void);
 void x86_64_init(struct multiboot *mth)
 {
+	mb = mth;
 	idt_init();
 	serial_init();
 	proc_init();
 
 	if(!(mth->flags & MULTIBOOT_FLAG_MEM))
 		panic("don't know how to detect memory!");
-	printk("%lx\n", mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET);
+	struct mboot_module *m = mb->mods_count == 0 ? NULL : mm_ptov(mb->mods_addr);
 	x86_64_top_mem = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
-	mb = mth;
+	x86_64_bot_mem = (m && m->end > PHYS((uintptr_t)&kernel_end)) ? m->end : PHYS((uintptr_t)&kernel_end);
 
 	kernel_early_init();
 	_init();

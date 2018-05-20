@@ -5,54 +5,82 @@
 #include <init.h>
 #include <guard.h>
 
-struct hash processors;
+void kernel_main(struct processor *);
 
-static void _proc_create(void *o)
+static struct processor processors[PROCESSOR_MAX_CPUS];
+
+__noinstrument
+struct processor *processor_get_current(void)
 {
-	struct processor *proc = o;
-	linkedlist_create(&proc->runqueue, LINKEDLIST_LOCKLESS);
-	proc->sched_lock = SPINLOCK_INIT;
+	return &processors[arch_processor_current_id()];
 }
 
-struct slab_allocator so_processor = SLAB_ALLOCATOR(sizeof(struct processor), 64, _proc_create, NULL, NULL, NULL);
-
 static struct processor *proc_bsp = NULL;
-
+static _Atomic unsigned int processor_count = 0;
 extern int initial_boot_stack;
-void processor_register(bool bsp, unsigned long id)
+extern int kernel_data_percpu_load;
+extern int kernel_data_percpu_length;
+
+static void *bsp_percpu_region = NULL;
+
+void processor_register(bool bsp, unsigned int id)
 {
-	struct processor *proc = slab_alloc(&so_processor);
+	if(id >= PROCESSOR_MAX_CPUS) {
+		printk("[kernel]: not registering cpu %d: increase MAX_CPUS\n", id);
+		return;
+	}
+	struct processor *proc = &processors[id];
 	proc->id = id;
 	if(bsp) {
 		assert(proc_bsp == NULL);
 		proc->flags = PROCESSOR_BSP;
 		proc_bsp = proc;
+		proc->percpu = bsp_percpu_region;
+	} else {
+		size_t percpu_length = (size_t)&kernel_data_percpu_length;
+		proc->percpu = (void *)mm_virtual_alloc(percpu_length, PM_TYPE_DRAM, true);
+		memcpy(proc->percpu, &kernel_data_percpu_load, percpu_length);
 	}
-	hash_insert(&processors, &proc->id, sizeof(proc->id), &proc->elem, proc);
+	proc->flags |= PROCESSOR_REGISTERED;
+	list_init(&proc->runqueue);
+	proc->sched_lock = SPINLOCK_INIT;
 }
 
 __orderedinitializer(PROCESSOR_INITIALIZER_ORDER) static void processor_init(void)
 {
-	hash_create(&processors, 64, 0);
+	for(unsigned int i=0;i<PROCESSOR_MAX_CPUS;i++) {
+		processors[i].id = 0;
+		processors[i].flags = 0;
+	}
 	arch_processor_enumerate();
 }
 
-static void processor_init_secondaries(void *arg)
+void processor_barrier(_Atomic unsigned int *here)
 {
-	(void)arg;
-	printk("Initializing secondary processors...\n");
-	struct hashiter iter;
-	__hash_lock(&processors);
-	for(hash_iter_init(&iter, &processors);
-			!hash_iter_done(&iter);
-			hash_iter_next(&iter)) {
-		struct processor *proc = hash_iter_get(&iter);
-		if(!(proc->flags & PROCESSOR_BSP) && !(proc->flags & PROCESSOR_UP))
-			arch_processor_boot(proc);
+	unsigned int backoff = 1;
+	(*here)++;
+	while(*here != processor_count) {
+		for(unsigned int i=0;i<backoff;i++) {
+			arch_processor_relax();
+		}
+		backoff = backoff < 1000 ? backoff+1 : backoff;
 	}
-	__hash_unlock(&processors);
 }
-POST_INIT(processor_init_secondaries, NULL);
+
+void processor_init_secondaries(void)
+{
+	printk("Initializing secondary processors...\n");
+	processor_count++; /* BSP */
+	for(int i=0;i<PROCESSOR_MAX_CPUS;i++) {
+		struct processor *proc = &processors[i];
+		if(!(proc->flags & PROCESSOR_BSP) && !(proc->flags & PROCESSOR_UP)
+				&& (proc->flags & PROCESSOR_REGISTERED)) {
+			/* TODO: check for failure */
+			arch_processor_boot(proc);
+			processor_count++;
+		}
+	}
+}
 
 void processor_perproc_init(struct processor *proc)
 {
@@ -73,8 +101,18 @@ void processor_secondary_entry(struct processor *proc)
 
 void processor_attach_thread(struct processor *proc, struct thread *thread)
 {
-	spinlock_guard(&proc->sched_lock);
+	bool fl = spinlock_acquire(&proc->sched_lock);
 	thread->processor = proc;
-	linkedlist_insert(&proc->runqueue, &thread->entry, thread);
+	list_insert(&proc->runqueue, &thread->rq_entry);
+	spinlock_release(&proc->sched_lock, fl);
+}
+
+void processor_percpu_regions_init(void)
+{
+	size_t percpu_length = (size_t)&kernel_data_percpu_length;
+	printk("loading percpu data from %p, length %ld bytes\n",
+			&kernel_data_percpu_load, percpu_length);
+	bsp_percpu_region = (void *)mm_virtual_alloc(percpu_length, PM_TYPE_DRAM, true);
+	memcpy(bsp_percpu_region, &kernel_data_percpu_load, percpu_length);
 }
 

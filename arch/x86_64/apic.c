@@ -63,6 +63,7 @@ static inline void lapic_write(int reg, uint32_t data)
     *((volatile uint32_t *)(lapic_addr + reg)) = data;
 }
 
+__noinstrument
 static inline uint32_t lapic_read(int reg)
 {
 	return *(volatile uint32_t *)(lapic_addr + reg);
@@ -73,7 +74,8 @@ void x86_64_signal_eoi(void)
     lapic_write(LAPIC_EOI, 0x0);
 }
 
-int arch_processor_current_id(void)
+__noinstrument
+unsigned int arch_processor_current_id(void)
 {
 	if(!lapic_addr)
 		return 0;
@@ -131,7 +133,7 @@ __initializer void x86_64_lapic_init_percpu(void)
 	lo |= X86_MSR_APIC_BASE_ENABLE;
 	x86_64_wrmsr(X86_MSR_APIC_BASE, lo, hi);
 
-	lapic_addr = paddr + PHYSICAL_MAP_START;
+	lapic_addr = (uintptr_t)mm_ptov(paddr);
 	lapic_configure(lo & X86_MSR_APIC_BASE_BSP);
 }
 
@@ -140,7 +142,7 @@ static void x86_cpu_send_ipi(unsigned char dest_shorthand, unsigned int dst, uns
     assert((v & LAPIC_ICR_DM_INIT) || (v & LAPIC_ICR_LEVELASSERT));
     int send_status;
     int old = arch_interrupt_set(0);
-    spinlock_acquire(&ipi_lock);
+    bool fl = spinlock_acquire(&ipi_lock);
     /* Writing to the lower ICR register causes the interrupt
      * to get sent off (Intel 3A 10.6.1), so do the higher reg first */
     lapic_write(LAPIC_ICR+0x10, (dst << 24));
@@ -152,7 +154,7 @@ static void x86_cpu_send_ipi(unsigned char dest_shorthand, unsigned int dst, uns
         asm("pause");
         send_status = lapic_read(LAPIC_ICR) & LAPIC_ICR_STATUS_PEND;
     } while (send_status);
-    spinlock_release(&ipi_lock);
+    spinlock_release(&ipi_lock, fl);
     arch_interrupt_set(old);
 }
 
@@ -205,14 +207,14 @@ __attribute__((no_sanitize_undefined))
 #endif
 static inline void write_bios_reset(uintptr_t addr)
 {
-	*((volatile uint32_t *)(BIOS_RESET_VECTOR + PHYSICAL_MAP_START)) = ((addr & 0xFF000) << 12);
+	*((volatile uint32_t *)mm_ptov(BIOS_RESET_VECTOR)) = ((addr & 0xFF000) << 12);
 }
 
 extern int trampoline_start, trampoline_end, rm_gdt, pmode_enter, rm_gdt_pointer;
 void arch_processor_boot(struct processor *proc)
 {
 	proc->arch.kernel_stack = (void *)mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_ANY, true);
-	printk("Poking secondary CPU %ld, proc->arch.kernel_stack = %lx (proc=%p)\n", proc->id, proc->arch.kernel_stack, proc);
+	printk("Poking secondary CPU %d, proc->arch.kernel_stack = %p (proc=%p)\n", proc->id, proc->arch.kernel_stack, proc);
 	*(void **)(proc->arch.kernel_stack + KERNEL_STACK_SIZE - sizeof(void *)) = proc;
 
 	uintptr_t bootaddr_phys = 0x7000;
@@ -222,14 +224,12 @@ void arch_processor_boot(struct processor *proc)
 	x86_64_cmos_write(CMOS_RESET_CODE, CMOS_RESET_JUMP);
 
 	size_t trampoline_size = (uintptr_t)&trampoline_end - (uintptr_t)&trampoline_start;
-	memcpy((void *)(0x7000 + PHYSICAL_MAP_START), &trampoline_start, trampoline_size);
-	memcpy((void *)(RM_GDT_START + GDT_POINTER_SIZE + PHYSICAL_MAP_START),
-			&rm_gdt, RM_GDT_SIZE);
-	memcpy((void *)(RM_GDT_START + PHYSICAL_MAP_START),
-			&rm_gdt_pointer, GDT_POINTER_SIZE);
-	memcpy((void *)(0x7200 + PHYSICAL_MAP_START), &pmode_enter, 0x100);
+	memcpy(mm_ptov(0x7000), &trampoline_start, trampoline_size);
+	memcpy(mm_ptov(RM_GDT_START + GDT_POINTER_SIZE), &rm_gdt, RM_GDT_SIZE);
+	memcpy(mm_ptov(RM_GDT_START), &rm_gdt_pointer, GDT_POINTER_SIZE);
+	memcpy(mm_ptov(0x7200), &pmode_enter, 0x100);
 
-	*(volatile uintptr_t *)(0x7300 + PHYSICAL_MAP_START) = proc->arch.kernel_stack + KERNEL_STACK_SIZE;
+	*((volatile uintptr_t *)mm_ptov(0x7300)) = (uintptr_t)proc->arch.kernel_stack + KERNEL_STACK_SIZE;
 	asm volatile("mfence" ::: "memory");
 	lapic_write(LAPIC_ESR, 0);
 	x86_cpu_send_ipi(LAPIC_ICR_SHORT_DEST, proc->id, LAPIC_ICR_TM_LEVEL | LAPIC_ICR_LEVELASSERT | LAPIC_ICR_DM_INIT);

@@ -11,12 +11,22 @@ static inline void bitmap_assign(void *ptr, int bit, int val)
         tmp[index] &= ~(1 << offset);
 }
 
+static inline void bitmap_set(void *ptr, int bit)
+{
+	uint8_t *tmp = ptr;
+	tmp[bit / 8] |= (1 << (bit % 8));
+}
+
+static inline void bitmap_reset(void *ptr, int bit)
+{
+	uint8_t *tmp = ptr;
+	tmp[bit / 8] &= ~(1 << (bit % 8));
+}
+
 static inline int bitmap_test(void *ptr, int bit)
 {
-    int index = bit / 8;
-    int offset = bit % 8;
     uint8_t *tmp = ptr;
-    return (tmp[index] & (1 << offset));
+    return (tmp[bit / 8] & (1 << (bit % 8)));
 }
 
 static inline int bitmap_ffs(void *ptr, int numbits)
@@ -54,7 +64,4 @@ static inline int bitmap_ffr_start(void *ptr, int numbits, int start)
     }
     return -1;
 }
-
-#define bitmap_set(a,b) bitmap_assign(a,b,1)
-#define bitmap_reset(a,b) bitmap_assign(a,b,0)
 
