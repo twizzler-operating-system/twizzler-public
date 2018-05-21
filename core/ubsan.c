@@ -283,4 +283,25 @@ void __ubsan_handle_nonnull_arg(struct non_null_arg_data *data)
 	ubsan_epilogue();
 }
 
+void __ubsan_handle_pointer_overflow(struct pointer_overflow_data *data, unsigned long base,
+		unsigned long result)
+{
+	ubsan_prologue(&data->location);
+	printk("pointer overflow detected (base=%lx, result=%lx)", base, result);
+	ubsan_epilogue();
+}
+
+void __ubsan_handle_type_mismatch_v1(struct type_mismatch_data *data, unsigned long ptr)
+{
+	__ubsan_handle_type_mismatch(data, ptr);
+}
+
+void __ubsan_handle_invalid_builtin(struct invalid_builtin_data *data)
+{
+	ubsan_prologue(&data->location);
+	printk("invalid builtin detected (kind=%d)", data->kind);
+	ubsan_epilogue();
+}
+
 #endif
+

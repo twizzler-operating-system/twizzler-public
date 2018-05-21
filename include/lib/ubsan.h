@@ -78,3 +78,12 @@ struct non_null_arg_data {
 	int arg_idx;
 };
 
+struct pointer_overflow_data {
+	struct source_location location;
+};
+
+struct invalid_builtin_data {
+	struct source_location location;
+	unsigned char kind;
+};
+
