@@ -45,6 +45,7 @@ static inline unsigned long long __round_up_pow2(unsigned int a)
         (type *)( (char *)__mptr - offsetof(type,member) );})
 
 #define __unused __attribute__((unused))
+#define __packed __attribute__((packed))
 
 #define __noinstrument __attribute__((no_instrument_function))
 

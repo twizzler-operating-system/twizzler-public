@@ -77,12 +77,6 @@ test: $(BUILDDIR)/kernel# userspace
 export TOOLCHAIN_PREFIX
 export BUILDDIR
 
-#userspace: tools/fotgen
-#	$(MAKE) -C us all
-
-#tools/fotgen: tools/fotgen.c
-#	$(CC) -Wall -Wextra -std=gnu11 -Og -g tools/fotgen.c -o tools/fotgen
-
 $(BUILDDIR)/kernel: $(BUILDDIR)/link.ld $(OBJECTS) $(BUILDDIR)/symbols.o
 	@mkdir -p $(BUILDDIR)
 	@echo "[LD]  $@"
