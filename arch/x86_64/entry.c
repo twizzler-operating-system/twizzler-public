@@ -84,7 +84,6 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 }
 
 extern long (*syscall_table[])();
-extern __int128 (*syscall_table128[])();
 __noinstrument
 void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 {
@@ -92,11 +91,11 @@ void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 	arch_interrupt_set(true);
 	if(frame->rax < NUM_SYSCALLS) {
 		frame->rax = syscall_table[frame->rax](frame->rdi, frame->rsi, frame->rdx, frame->r8, frame->r9, frame->r10);
-	} else if(frame->rax - NUM_SYSCALLS < NUM_SYSCALLS128) {
-		__int128 ret = syscall_table128[frame->rax - NUM_SYSCALLS](frame->rdi, frame->rsi, frame->rdx, frame->r8, frame->r9, frame->r10);
-		frame->rax = (uint64_t)ret;
-		frame->rdx = (uint64_t)(ret >> 64);
-	} /* TODO: handle error */
+		frame->rdx = 0;
+	} else {
+		frame->rax = -EINVAL;
+		frame->rdx = 0;
+	}
 	
 	arch_interrupt_set(false);
 	thread_schedule_resume();

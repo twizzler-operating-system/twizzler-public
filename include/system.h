@@ -1,10 +1,22 @@
 #pragma once
 
+#include <err.h>
+
 #define likely(x) __builtin_expect(x, 1)
 #define unlikely(x) __builtin_expect(x, 0)
 
 typedef long ssize_t;
 typedef unsigned __int128 uint128_t;
+
+typedef uint128_t objid_t;
+
+#define MKID(hi,lo) \
+	({ (((objid_t)(hi)) << 64) | (objid_t)(lo); })
+
+#define IDFMT "%lx:%lx"
+
+#define IDPR(id) \
+	(uint64_t)((id) >> 64), (uint64_t)(id & 0xFFFFFFFFFFFFFFFF)
 
 static inline unsigned long long __round_up_pow2(unsigned int a)
 {
@@ -37,3 +49,4 @@ static inline unsigned long long __round_up_pow2(unsigned int a)
 #define __noinstrument __attribute__((no_instrument_function))
 
 long strtol(char *str, char **end, int base);
+
