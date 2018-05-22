@@ -46,7 +46,10 @@ endif
 
 OBJECTS=$(addprefix $(BUILDDIR)/,$(ASM_SOURCES:.S=.o) $(C_SOURCES:.c=.o))
 
-all: $(BUILDDIR)/kernel
+.twizzlerutils:
+	$(MAKE) -C twizzler-utils
+
+all: .twizzlerutils $(BUILDDIR)/kernel
 
 include arch/$(ARCH)/include.mk
 include machine/$(MACHINE)/include.mk
