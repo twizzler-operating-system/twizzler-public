@@ -87,3 +87,10 @@ struct invalid_builtin_data {
 	unsigned char kind;
 };
 
+struct type_mismatch_data_v1 {
+	struct source_location location;
+	struct type_descriptor *type;
+	unsigned char log_alignment;
+	unsigned char type_check_kind;
+};
+

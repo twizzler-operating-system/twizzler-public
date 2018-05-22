@@ -291,9 +291,15 @@ void __ubsan_handle_pointer_overflow(struct pointer_overflow_data *data, unsigne
 	ubsan_epilogue();
 }
 
-void __ubsan_handle_type_mismatch_v1(struct type_mismatch_data *data, unsigned long ptr)
+void __ubsan_handle_type_mismatch_v1(struct type_mismatch_data_v1 *data, unsigned long ptr)
 {
-	__ubsan_handle_type_mismatch(data, ptr);
+	struct type_mismatch_data tmdata = {
+		.location = data->location,
+		.type = data->type,
+		.alignment = 1ul << data->log_alignment,
+		.type_check_kind = data->type_check_kind,
+	};
+	__ubsan_handle_type_mismatch(&tmdata, ptr);
 }
 
 void __ubsan_handle_invalid_builtin(struct invalid_builtin_data *data)
