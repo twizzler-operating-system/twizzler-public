@@ -64,15 +64,6 @@ void kernel_main(struct processor *proc)
 
 	processor_barrier(&kernel_main_barrier);
 
-	while(true) {
-		uint64_t start = arch_processor_get_nanoseconds();
-		for(volatile int i=0;i<4000000000;i++) {
-
-		}
-		uint64_t end = arch_processor_get_nanoseconds();
-		printk(":: %ld\n", end - start);
-	}
-
 	if(proc->flags & PROCESSOR_BSP) {
 		arena_destroy(&post_init_call_arena);
 		post_init_call_head = NULL;
