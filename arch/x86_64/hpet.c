@@ -18,6 +18,13 @@ struct __packed hpet_desc {
 	uint8_t page_prot;
 };
 
+#define HPET_CAP 0
+#define HPET_CONFIG 0x10
+#define HPET_INTSTATUS 0x20
+#define HPET_COUNTER 0xF0
+#define HPET_ENABLE_CNF 1
+#define HPET_COUNT_SIZE_64 (1 << 13)
+
 static struct hpet_desc *hpet;
 static uint32_t countperiod;
 
@@ -38,11 +45,19 @@ static void hpet_init(void)
 		panic("HPET not found");
 	}
 
-	uint64_t tmp = hpet_read64(0);
+	uint64_t tmp = hpet_read64(HPET_CAP);
 	countperiod = tmp >> 32;
+	if(!(tmp & HPET_COUNT_SIZE_64)) {
+		panic("HPET is a 32-bit counter");
+	}
 	/* enable */
-	tmp = hpet_read64(0x10);
-	tmp |= 1;
-	hpet_write64(0x10, tmp);
+	tmp = hpet_read64(HPET_CONFIG);
+	tmp |= HPET_ENABLE_CNF;
+	hpet_write64(HPET_CONFIG, tmp);
+}
+
+uint64_t arch_processor_get_nanoseconds(void)
+{
+	return (hpet_read64(HPET_COUNTER) * countperiod) / 1000000;
 }
 
