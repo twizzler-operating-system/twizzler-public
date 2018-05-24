@@ -622,7 +622,7 @@ void vtx_setup_vcpu(struct processor *proc)
 	/* segment selectors */
 	vmcs_writel(VMCS_GUEST_CS_SEL, 0x8);
 	vmcs_writel(VMCS_GUEST_CS_BASE, 0);
-	vmcs_writel(VMCS_GUEST_CS_LIM, 0xffff);
+	vmcs_writel(VMCS_GUEST_CS_LIM, 0xffffffff);
 	vmcs_writel(VMCS_GUEST_CS_ARBYTES, 0xA09B);
 	vmcs_writel(VMCS_GUEST_ES_SEL, 0x10);
 	vmcs_writel(VMCS_GUEST_DS_SEL, 0x10);
