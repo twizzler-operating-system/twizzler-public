@@ -32,7 +32,6 @@ static void proc_init(void)
 	cr0 &= ~(1 << 29); // make sure caching is on
 	asm volatile("mov %0, %%cr0" :: "r"(cr0));
 	
-	
 	asm volatile("mov %%cr4, %0" : "=r"(cr4));
 	//cr4 |= (1 << 7); //enable page global TODO: get this to work
 	cr4 |= (1 << 10); //enable fast fxsave etc, sse

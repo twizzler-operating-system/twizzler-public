@@ -57,12 +57,33 @@ void kernel_init(void)
 struct thread init_thread;
 char us1[0x1000];
 
+static inline uint64_t rdtsc(void)
+{
+    uint32_t eax, edx;
+    asm volatile("rdtsc\n\t": "=a" (eax), "=d" (edx));
+    return (uint64_t)eax | (uint64_t)edx << 32;
+}
+
+static void bench(void)
+{
+	while(true)
+	{
+		uint64_t start = arch_processor_get_nanoseconds();
+		uint64_t sr = rdtsc();
+		uint64_t er = rdtsc();
+		uint64_t end = arch_processor_get_nanoseconds();
+		printk(":: %ld %ld\n", end - start, er - sr);
+	}
+}
+
 static _Atomic unsigned int kernel_main_barrier = 0;
 void kernel_main(struct processor *proc)
 {
 	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
 
 	processor_barrier(&kernel_main_barrier);
+
+	bench();
 
 	if(proc->flags & PROCESSOR_BSP) {
 		arena_destroy(&post_init_call_arena);
