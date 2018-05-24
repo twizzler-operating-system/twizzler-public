@@ -137,3 +137,6 @@ static inline unsigned long long arch_processor_timestamp(void)
     return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );  
 }
 
+struct processor;
+void x86_64_processor_post_vm_init(struct processor *proc);
+

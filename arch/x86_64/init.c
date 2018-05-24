@@ -3,8 +3,12 @@
 #include <debug.h>
 #include <init.h>
 #include <arch/x86_64-msr.h>
+#include <arch/x86_64-vmx.h>
 #include <processor.h>
 #include <string.h>
+
+/* TODO (major): clean up this file */
+
 void serial_init();
 
 extern void _init();
@@ -67,7 +71,6 @@ struct ustar_header {
 #define PHYS_LOAD_ADDRESS (KERNEL_PHYSICAL_BASE + KERNEL_LOAD_OFFSET)
 #define PHYS_ADDR_DELTA (KERNEL_VIRTUAL_BASE + KERNEL_LOAD_OFFSET - PHYS_LOAD_ADDRESS)
 #define PHYS(x) ((x) - PHYS_ADDR_DELTA)
-void x86_64_start_vmx(struct processor *proc);
 extern int kernel_end;
 #include <object.h>
 static void x86_64_initrd(void *u)

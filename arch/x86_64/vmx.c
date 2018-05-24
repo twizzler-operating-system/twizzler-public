@@ -1,123 +1,13 @@
 #include <memory.h>
 #include <arch/x86_64-msr.h>
+#include <arch/x86_64-vmx.h>
 #include <processor.h>
 #include <object.h>
-#define VMCS_SIZE 0x1000
 static uint32_t revision_id;
 static uintptr_t ept_root;
-
-
-bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int level, uint64_t flags);
-
-#define VMX_RC_SWITCHEPT 1
-#define INTR_TYPE_HARD_EXCEPTION  (3 << 8) /* processor exception */
-#define INTR_INFO_VALID_MASK      (0x80000000)
-enum {
-	VMEXIT_REASON_CPUID = 0xa,
-	VMEXIT_REASON_VMCALL = 0x12,
-	VMEXIT_REASON_EPT_VIOLATION = 48,
-	VMEXIT_REASON_INVEPT = 50,
-};
-
 static _Atomic long vmexits_count = 0;
 
-enum {
-	VMCS_GUEST_CS_SEL                 = 0x802,
-	VMCS_GUEST_CS_BASE                = 0x6808,
-	VMCS_GUEST_CS_LIM                 = 0x4802,
-	VMCS_GUEST_CS_ARBYTES             = 0x4816,
-	VMCS_GUEST_DS_SEL                 = 0x806,
-	VMCS_GUEST_DS_BASE                = 0x680c,
-	VMCS_GUEST_DS_LIM                 = 0x4806,
-	VMCS_GUEST_DS_ARBYTES             = 0x481a,
-	VMCS_GUEST_ES_SEL                 = 0x800,
-	VMCS_GUEST_ES_BASE                = 0x6806,
-	VMCS_GUEST_ES_LIM                 = 0x4800,
-	VMCS_GUEST_ES_ARBYTES             = 0x4814,
-	VMCS_GUEST_FS_SEL                 = 0x808,
-	VMCS_GUEST_FS_BASE                = 0x680e,
-	VMCS_GUEST_FS_LIM                 = 0x4808,
-	VMCS_GUEST_FS_ARBYTES             = 0x481c,
-	VMCS_GUEST_GS_SEL                 = 0x80a,
-	VMCS_GUEST_GS_BASE                = 0x6810,
-	VMCS_GUEST_GS_LIM                 = 0x480a,
-	VMCS_GUEST_GS_ARBYTES             = 0x481e,
-	VMCS_GUEST_SS_SEL                 = 0x804,
-	VMCS_GUEST_SS_BASE                = 0x680a,
-	VMCS_GUEST_SS_LIM                 = 0x4804,
-	VMCS_GUEST_SS_ARBYTES             = 0x4818,
-	VMCS_GUEST_TR_SEL                 = 0x80e,
-	VMCS_GUEST_TR_BASE                = 0x6814,
-	VMCS_GUEST_TR_LIM                 = 0x480e,
-	VMCS_GUEST_TR_ARBYTES             = 0x4822,
-	VMCS_GUEST_LDTR_SEL               = 0x80c,
-	VMCS_GUEST_LDTR_BASE              = 0x6812,
-	VMCS_GUEST_LDTR_LIM               = 0x480c,
-	VMCS_GUEST_LDTR_ARBYTES           = 0x4820,
-	VMCS_GUEST_GDTR_BASE              = 0x6816,
-	VMCS_GUEST_GDTR_LIM               = 0x4810,
-	VMCS_GUEST_IDTR_LIM               = 0x4812,
-	VMCS_GUEST_IDTR_BASE              = 0x6818,
-	VMCS_GUEST_RFLAGS                 = 0x6820,
-	VMCS_GUEST_RIP                    = 0x681e,
-	VMCS_GUEST_RSP                    = 0x681c,
-	VMCS_GUEST_CR0                    = 0x6800,
-	VMCS_GUEST_CR3                    = 0x6802,
-	VMCS_GUEST_CR4                    = 0x6804,
-	VMCS_GUEST_EFER                   = 0x2806,
-	VMCS_CR4_READ_SHADOW              = 0x6006,
-	VMCS_CR0_READ_SHADOW              = 0x6004,
-	VMCS_GUEST_ACTIVITY_STATE         = 0x4826,
-	VMCS_GUEST_INTRRUPTIBILITY_INFO   = 0x4824,
-	VMCS_GUEST_PENDING_DBG_EXCEPTIONS = 0x6822,
-	VMCS_GUEST_IA32_DEBUGCTL          = 0x2802,
-	VMCS_IO_BITMAP_B                  = 0x2002,
-	VMCS_IO_BITMAP_A                  = 0x2000,
-	VMCS_LINK_POINTER                 = 0x2800,
-	VMCS_PINBASED_CONTROLS            = 0x4000,
-	VMCS_PROCBASED_CONTROLS           = 0x4002,
-	VMCS_PROCBASED_CONTROLS_SECONDARY = 0x401e,
-	VMCS_EXCEPTION_BITMAP             = 0x4004,
-	VMCS_PF_ERROR_CODE_MASK           = 0x4006,
-	VMCS_PF_ERROR_CODE_MATCH          = 0x4008,
-	VMCS_HOST_CR0                     = 0x6c00,
-	VMCS_HOST_CR3                     = 0x6c02,
-	VMCS_HOST_CR4                     = 0x6c04,
-	VMCS_HOST_EFER                    = 0x2c02,
-	VMCS_HOST_CS_SEL                  = 0xc02,
-	VMCS_HOST_DS_SEL                  = 0xc06,
-	VMCS_HOST_ES_SEL                  = 0xc00,
-	VMCS_HOST_FS_SEL                  = 0xc08,
-	VMCS_HOST_GS_SEL                  = 0xc0a,
-	VMCS_HOST_SS_SEL                  = 0xc04,
-	VMCS_HOST_TR_SEL                  = 0xc0c,
-	VMCS_HOST_GDTR_BASE               = 0x6c0c,
-	VMCS_HOST_IDTR_BASE               = 0x6c0e,
-	VMCS_HOST_TR_BASE                 = 0x6c0a,
-	VMCS_ENTRY_INTR_INFO              = 0x4016,
-	VMCS_APIC_VIRT_ADDR               = 0x2012,
-	VMCS_TPR_THRESHOLD                = 0x401c,
-	VMCS_HOST_RIP                     = 0x6c16,
-	VMCS_HOST_RSP                     = 0x6c14,
-	VMCS_EPT_PTR                      = 0x201a,
-	VMCS_VM_INSTRUCTION_ERROR         = 0x4400,
-	VMCS_VM_INSTRUCTION_LENGTH        = 0x440c,
-	VMCS_VM_INSTRUCTION_INFO          = 0x440e,
-	VMCS_ENTRY_CONTROLS               = 0x4012,
-	VMCS_EXIT_CONTROLS                = 0x400c,
-	VMCS_EXIT_REASON                  = 0x4402,
-	VMCS_EXIT_QUALIFICATION           = 0x6400,
-	VMCS_GUEST_LINEAR_ADDR            = 0x640a,
-	VMCS_GUEST_PHYSICAL_ADDR          = 0x2400,
-	VMCS_VMFUNC_CONTROLS              = 0x2018,
-	VMCS_VIRT_EXCEPTION_INFO_ADDR     = 0x202a,
-	VMCS_IA32_SYSENTER_CS             = 0x482a,
-	VMCS_IA32_HOST_SYSENTER_CS        = 0x4c00,
-	VMCS_MSR_BITMAPS_ADDR             = 0x2004,
-	VMCS_CR0_MASK                     = 0x6000,
-	VMCS_CR4_MASK                     = 0x6002,
-};
-
+static void x86_64_vmenter(struct processor *proc);
 
 static const char *vm_errs[] = {
 	"Success",
@@ -231,65 +121,10 @@ static void x86_64_enable_vmx(void)
 	}
 }
 
-
 __attribute__((used)) static void x86_64_vmentry_failed(struct processor *proc)
 {
 	panic("vmentry failed on processor %d: %s\n", proc->id, vmcs_read_vminstr_err());
 }
-
-static long x86_64_rootcall(long fn, long a0, long a1, long a2)
-{
-	long ret;
-	asm volatile("vmcall" : "=a"(ret) : "D"(fn), "S"(a0), "d"(a1), "c"(a2) : "memory");
-	return ret;
-}
-
-void x86_64_switch_ept(uintptr_t root)
-{
-	/* TODO: use VMFUNC EPT switching if available */
-	x86_64_rootcall(VMX_RC_SWITCHEPT, root, 0, 0);
-}
-
-static void x86_64_vmenter(struct processor *proc);
-#if 0
-void x86_64_vmexit_handler(struct processor *proc)
-{
-	/* so, in theory we now have a valid pointer to a processor struct, and a stack
-	 * to work in (see code below). */
-	proc->arch.launched = 1; /* we must have launched if we are here */
-	unsigned reason = vmcs_readl(VMCS_EXIT_REASON);
-	unsigned long qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
-	unsigned long grip = vmcs_readl(VMCS_GUEST_RIP);
-	unsigned long glin = vmcs_readl(VMCS_GUEST_LINEAR_ADDR);
-	unsigned long gphy = vmcs_readl(VMCS_GUEST_PHYSICAL_ADDR);
-
-	switch(reason) {
-		case 48: /* EPT violation */
-			printk("EPT violation: %lx\n", gphy);
-			if(qual & (1 << 7)) {
-				printk("linear addr valid: %lx\n", glin);
-			}
-			/* TODO: move this to core */
-			struct object *obj = obj_lookup_slot(gphy);
-			if(obj == NULL) {
-				panic("Unhandled EPT violation (no valid object found for %lx)", gphy);
-			}
-			size_t idx = ((gphy - obj->dataoff) % obj->maxsz) / 0x1000;
-			printk(":: %ld\n", idx);
-			struct objpage *page = ihtable_find(obj->pagecache, idx, struct objpage, elem, idx);
-			if(page == NULL) {
-				panic("Don't know how to resolve missing pages (yet)");
-			}
-
-			x86_64_ept_map(ept_root, gphy, page->phys, 0, 7);
-
-			break;
-		default:
-			panic("unhandled vmexit: reason=%d, qual=%lx, at %lx\n", reason, qual, grip);
-	}
-	x86_64_vmenter(proc);
-}
-#endif
 
 static void vmx_queue_exception(unsigned int nr)
 {
@@ -339,21 +174,7 @@ static void vmx_handle_rootcall(struct processor *proc)
 
 static void vmx_handle_ept_violation(struct processor *proc)
 {
-#if 0
-	if(atomic_load_acq_int(&proc->veinfo.lock) != 0) {
-		log(LOG_DEBUG, "VE2: %p %x\n", &proc->veinfo.lock, proc->veinfo.lock);
-		vmx_queue_exception(20); /* #VE */
-		return;
-		panic("virtualization information area lock is not 0");
-	}
-	proc->veinfo.reason = VMEXIT_REASON_EPT_VIOLATION;
-	proc->veinfo.qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
-	proc->veinfo.physical = vmcs_readl(VMCS_GUEST_PHYSICAL_ADDRESS);
-	proc->veinfo.linear = vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS);
-	proc->veinfo.eptidx = 0; //TODO
-	atomic_store_rel_int(&proc->veinfo.lock, 0xFFFFFFFF);
-	vmx_queue_exception(20); /* #VE */
-#endif
+	panic("EPT violation");
 }
 
 void x86_64_vmexit_handler(struct processor *proc)
@@ -366,14 +187,11 @@ void x86_64_vmexit_handler(struct processor *proc)
 	unsigned long grip = vmcs_readl(VMCS_GUEST_RIP);
 	unsigned long iinfo = vmcs_readl(VMCS_VM_INSTRUCTION_INFO);
 
-#if VTX_LOG_EXITS
 	if(reason != VMEXIT_REASON_CPUID
 			&& reason != VMEXIT_REASON_VMCALL
 			&& reason != VMEXIT_REASON_EPT_VIOLATION
-			&& reason != VMEXIT_REASON_INVEPT
-	  )
-		log(LOG_DEBUG, "VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual, iinfo);
-#endif
+			&& reason != VMEXIT_REASON_INVEPT)
+		printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual, iinfo);
 
 	atomic_fetch_add(&vmexits_count, 1);
 	switch(reason) {
@@ -411,8 +229,6 @@ void x86_64_vmexit_handler(struct processor *proc)
 
 	x86_64_vmenter(proc);
 }
-
-
 
 __noinstrument
 static void x86_64_vmenter(struct processor *proc)
@@ -502,8 +318,7 @@ static void x86_64_vmenter(struct processor *proc)
 }
 
 
-void x86_64_processor_post_vm_init(struct processor *proc);
-void vmx_entry_point(struct processor *proc)
+static void vmx_entry_point(struct processor *proc)
 {
 	printk("processor %d entered vmx-non-root mode\n", proc->id);
 	x86_64_processor_post_vm_init(proc);
@@ -530,31 +345,12 @@ static uint64_t read_efer(void)
 	return ((uint64_t)hi << 32) | lo;
 }
 
-#define PML4_IDX(v) (((v) >> 39) & 0x1FF)
-#define PDPT_IDX(v) (((v) >> 30) & 0x1FF)
-#define PD_IDX(v)   (((v) >> 21) & 0x1FF)
-#define PT_IDX(v)   (((v) >> 12) & 0x1FF)
-#define PAGE_LARGE   (1ull << 7)
-#define EPT_READ 1ull
-#define EPT_WRITE 2ull
-#define EPT_EXEC (4ull | (1ull << 10)) /* TODO: separate exec_user and exec_kernel */
-
-#define EPT_MEMTYPE_WB (6 << 3)
-#define EPT_MEMTYPE_UC (0)
-#define EPT_IGNORE_PAT (1 << 6)
-#define EPT_LARGEPAGE  (1 << 7)
-
-#define RECUR_ATTR_MASK (EPT_READ | EPT_WRITE | EPT_EXEC)
-
 static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
 {
 	if(!*loc) {
 		*loc = (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true) | (attr & RECUR_ATTR_MASK);
 	}
 }
-
-#define GET_VIRT_TABLE(x) ((uintptr_t *)mm_ptov(((x) & VM_PHYS_MASK)))
-
 
 bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int level, uint64_t flags)
 {
@@ -593,8 +389,6 @@ bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int leve
 	return true;
 }
 
-
-
 uintptr_t init_ept(void)
 {
 	/* identity map. TODO: map all physical memory */
@@ -615,7 +409,6 @@ void vmexit_point(void);
 
 void vtx_setup_vcpu(struct processor *proc)
 {
-
 	/* we have to set-up the vcpu state to "mirror" our physical CPU.
 	 * Strap yourself in, it's gonna be a long ride. */
 
@@ -690,11 +483,15 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	/* VM control fields. */
 	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PINBASED_CTLS, VMCS_PINBASED_CONTROLS, 0);
-	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1ul << 31) | (1 << 28) /* Use MSR bitmaps */);
+	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1ul << 31) 
+			| (1 << 28) /* Use MSR bitmaps */);
 	
-	vmcs_write32_fixed(X86_MSR_VMX_PROCBASED_CTLS2, VMCS_PROCBASED_CONTROLS_SECONDARY,
+	vmcs_write32_fixed(X86_MSR_VMX_PROCBASED_CTLS2,
+			VMCS_PROCBASED_CONTROLS_SECONDARY, (1 << 1) /* EPT */
 			/* TODO: APIC */
-			(1 << 1) /* EPT */ | (1 << 3) /* allow RDTSCP */ | (1 << 13) /* enable VMFUNC */ | (1 << 18) /* guest handles EPT violations */);
+			| (1 << 3) /* allow RDTSCP */
+			| (1 << 13) /* enable VMFUNC */
+			| (1 << 18) /* guest handles EPT violations */);
 
 	vmcs_writel(VMCS_EXCEPTION_BITMAP, 0);
 	vmcs_writel(VMCS_PF_ERROR_CODE_MASK, 0);
@@ -740,12 +537,12 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_RIP, (uintptr_t)vmexit_point);
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
 
-	vmcs_writel(VMCS_EPT_PTR, (uintptr_t)ept_root | (3 << 3) | 6); /*TODO: these numbers probably do something useful. */
+	/* TODO: these numbers probably do something useful. */
+	vmcs_writel(VMCS_EPT_PTR, (uintptr_t)ept_root | (3 << 3) | 6);
 }
 
 void x86_64_start_vmx(struct processor *proc)
 {
-
 	x86_64_enable_vmx();
 
 	proc->arch.launched = 0;
@@ -753,7 +550,8 @@ void x86_64_start_vmx(struct processor *proc)
 	proc->arch.hyper_stack = (void *)mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_DRAM, true);
 	proc->arch.vcpu_state_regs[HOST_RSP] = (uintptr_t)proc->arch.hyper_stack + KERNEL_STACK_SIZE;
 	proc->arch.vcpu_state_regs[PROC_PTR] = (uintptr_t)proc;
-	proc->arch.vcpu_state_regs[REG_RDI] = (uintptr_t)proc; /* set initial argument to vmx_entry_point */
+	/* set initial argument to vmx_entry_point */
+	proc->arch.vcpu_state_regs[REG_RDI] = (uintptr_t)proc;
 	proc->arch.vmcs = mm_physical_alloc(VMCS_SIZE, PM_TYPE_DRAM, true);
 	uint32_t *vmcs_rev = (uint32_t *)mm_ptov(proc->arch.vmcs);
 	*vmcs_rev = revision_id & 0x7FFFFFFF;
@@ -764,21 +562,21 @@ void x86_64_start_vmx(struct processor *proc)
 		panic("failed to load VMCS region: %s", vmcs_read_vminstr_err());
 	}
 
-
-
-
-
 	vtx_setup_vcpu(proc);
-
-
-
 	x86_64_vmenter(proc);
+	panic("error occurred during vmlaunch");
+}
 
-	for(;;);
-	asm volatile("vmlaunch; setna %0" : "=g"(error) :: "cc");
-	if(error) {
-		panic("error occurred during VMLAUNCH: %s", vmcs_read_vminstr_err());
-	}
-	for(;;);
+static long x86_64_rootcall(long fn, long a0, long a1, long a2)
+{
+	long ret;
+	asm volatile("vmcall" : "=a"(ret) : "D"(fn), "S"(a0), "d"(a1), "c"(a2) : "memory");
+	return ret;
+}
+
+void x86_64_switch_ept(uintptr_t root)
+{
+	/* TODO: use VMFUNC EPT switching if available */
+	x86_64_rootcall(VMX_RC_SWITCHEPT, root, 0, 0);
 }
 
