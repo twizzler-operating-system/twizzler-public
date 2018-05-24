@@ -44,8 +44,6 @@ static void proc_init(void)
 	x86_64_rdmsr(X86_MSR_EFER, &lo, &hi);
 	lo |= X86_MSR_EFER_SYSCALL | X86_MSR_EFER_NX;
 	x86_64_wrmsr(X86_MSR_EFER, lo, hi);
-
-	
 }
 
 struct ustar_header {
