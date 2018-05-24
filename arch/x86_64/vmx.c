@@ -6,6 +6,21 @@
 static uint32_t revision_id;
 static uintptr_t ept_root;
 
+
+bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int level, uint64_t flags);
+
+#define VMX_RC_SWITCHEPT 1
+#define INTR_TYPE_HARD_EXCEPTION  (3 << 8) /* processor exception */
+#define INTR_INFO_VALID_MASK      (0x80000000)
+enum {
+	VMEXIT_REASON_CPUID = 0xa,
+	VMEXIT_REASON_VMCALL = 0x12,
+	VMEXIT_REASON_EPT_VIOLATION = 48,
+	VMEXIT_REASON_INVEPT = 50,
+};
+
+static _Atomic long vmexits_count = 0;
+
 enum {
 	VMCS_GUEST_CS_SEL                 = 0x802,
 	VMCS_GUEST_CS_BASE                = 0x6808,
@@ -86,6 +101,8 @@ enum {
 	VMCS_HOST_RSP                     = 0x6c14,
 	VMCS_EPT_PTR                      = 0x201a,
 	VMCS_VM_INSTRUCTION_ERROR         = 0x4400,
+	VMCS_VM_INSTRUCTION_LENGTH        = 0x440c,
+	VMCS_VM_INSTRUCTION_INFO          = 0x440e,
 	VMCS_ENTRY_CONTROLS               = 0x4012,
 	VMCS_EXIT_CONTROLS                = 0x400c,
 	VMCS_EXIT_REASON                  = 0x4402,
@@ -220,8 +237,21 @@ __attribute__((used)) static void x86_64_vmentry_failed(struct processor *proc)
 	panic("vmentry failed on processor %d: %s\n", proc->id, vmcs_read_vminstr_err());
 }
 
-bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int level, uint64_t flags);
-void x86_64_vmenter(struct processor *proc);
+static long x86_64_rootcall(long fn, long a0, long a1, long a2)
+{
+	long ret;
+	asm volatile("vmcall" : "=a"(ret) : "D"(fn), "S"(a0), "d"(a1), "c"(a2) : "memory");
+	return ret;
+}
+
+void x86_64_switch_ept(uintptr_t root)
+{
+	/* TODO: use VMFUNC EPT switching if available */
+	x86_64_rootcall(VMX_RC_SWITCHEPT, root, 0, 0);
+}
+
+static void x86_64_vmenter(struct processor *proc);
+#if 0
 void x86_64_vmexit_handler(struct processor *proc)
 {
 	/* so, in theory we now have a valid pointer to a processor struct, and a stack
@@ -259,9 +289,133 @@ void x86_64_vmexit_handler(struct processor *proc)
 	}
 	x86_64_vmenter(proc);
 }
+#endif
+
+static void vmx_queue_exception(unsigned int nr)
+{
+	vmcs_writel(VMCS_ENTRY_INTR_INFO,
+			(nr & 0xff) | INTR_TYPE_HARD_EXCEPTION | INTR_INFO_VALID_MASK);
+}
+
+/* Some vmexits leave the RIP pointing to the current instruction,
+ * so we must advance by the instruction length or else that instruction
+ * will just be re-executed. But we don't always want to do this (eg if we
+ * exit due to ept violation) */
+static void vm_instruction_advance(void)
+{
+	unsigned len = vmcs_readl(VMCS_VM_INSTRUCTION_LENGTH);
+	uint64_t grip = vmcs_readl(VMCS_GUEST_RIP);
+	vmcs_writel(VMCS_GUEST_RIP, grip + len);
+}
+
+static void vmx_handle_rootcall(struct processor *proc)
+{
+	long fn = proc->arch.vcpu_state_regs[REG_RDI];
+	long a0 = proc->arch.vcpu_state_regs[REG_RSI];
+	//long a1 = proc->vcpu_state_regs[REG_RDX];
+	//long a2 = proc->vcpu_state_regs[REG_RCX];
+
+	/* Make sure we only accept calls from kernel-mode.
+	 * Linux looks at the AR bytes instead of the selector DPL.
+	 * Why? I don't know. AFAIK there is no reason not to do this
+	 * test with the selector itself. */
+	uint16_t sel = vmcs_readl(VMCS_GUEST_CS_SEL);
+	if(sel & 3) {
+		/* Call from user-mode. Not allowed! */
+		proc->arch.vcpu_state_regs[REG_RAX] = -1;
+		return;
+	}
+
+	/* set the return value, 0 by default */
+	proc->arch.vcpu_state_regs[REG_RAX] = 0;
+	switch(fn) {
+		case VMX_RC_SWITCHEPT:
+			vmcs_writel(VMCS_EPT_PTR, (uintptr_t)a0 | (3 << 3) | 6);
+			break;
+		default:
+			panic("Unknown root call %ld", fn);
+	}
+}
+
+static void vmx_handle_ept_violation(struct processor *proc)
+{
+#if 0
+	if(atomic_load_acq_int(&proc->veinfo.lock) != 0) {
+		log(LOG_DEBUG, "VE2: %p %x\n", &proc->veinfo.lock, proc->veinfo.lock);
+		vmx_queue_exception(20); /* #VE */
+		return;
+		panic("virtualization information area lock is not 0");
+	}
+	proc->veinfo.reason = VMEXIT_REASON_EPT_VIOLATION;
+	proc->veinfo.qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
+	proc->veinfo.physical = vmcs_readl(VMCS_GUEST_PHYSICAL_ADDRESS);
+	proc->veinfo.linear = vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS);
+	proc->veinfo.eptidx = 0; //TODO
+	atomic_store_rel_int(&proc->veinfo.lock, 0xFFFFFFFF);
+	vmx_queue_exception(20); /* #VE */
+#endif
+}
+
+void x86_64_vmexit_handler(struct processor *proc)
+{
+	/* so, in theory we now have a valid pointer to a vstate struct, and a stack
+	 * to work in (see assembly code for vmexit point below).  */
+	proc->arch.launched = 1; /* we must have launched if we are here */
+	unsigned long reason = vmcs_readl(VMCS_EXIT_REASON);
+	unsigned long qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
+	unsigned long grip = vmcs_readl(VMCS_GUEST_RIP);
+	unsigned long iinfo = vmcs_readl(VMCS_VM_INSTRUCTION_INFO);
+
+#if VTX_LOG_EXITS
+	if(reason != VMEXIT_REASON_CPUID
+			&& reason != VMEXIT_REASON_VMCALL
+			&& reason != VMEXIT_REASON_EPT_VIOLATION
+			&& reason != VMEXIT_REASON_INVEPT
+	  )
+		log(LOG_DEBUG, "VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual, iinfo);
+#endif
+
+	atomic_fetch_add(&vmexits_count, 1);
+	switch(reason) {
+		uintptr_t val;
+		case VMEXIT_REASON_CPUID:
+			/* just execute cpuid using the guest's registers */
+			asm volatile("push %%rbx; cpuid; mov %%rbx, %0; pop %%rbx":
+					"=a"(proc->arch.vcpu_state_regs[REG_RAX]),
+					"=g"(proc->arch.vcpu_state_regs[REG_RBX]),
+					"=c"(proc->arch.vcpu_state_regs[REG_RCX]),
+					"=d"(proc->arch.vcpu_state_regs[REG_RDX])
+					:"a"(proc->arch.vcpu_state_regs[REG_RAX])
+					: "memory");
+			vm_instruction_advance();
+			break;
+		case VMEXIT_REASON_VMCALL:
+			vmx_handle_rootcall(proc);
+			vm_instruction_advance();
+			break;
+		case VMEXIT_REASON_EPT_VIOLATION:
+			vmx_handle_ept_violation(proc);
+			/* don't instruction advance, since we want to retry the access. */
+			break;
+		case VMEXIT_REASON_INVEPT:
+			/* TODO: don't invalidate all mappings */
+			val = vmcs_readl(VMCS_EPT_PTR);
+			unsigned __int128 eptp = val;
+			asm volatile("invept %0, %%rax"
+					:: "m"(eptp), "a"(proc->arch.vcpu_state_regs[REG_RAX]) : "memory");
+			vm_instruction_advance();
+			break;
+		default:
+			panic("Unhandled VMEXIT: %ld %lx %lx", reason, qual, grip);
+	}
+
+	x86_64_vmenter(proc);
+}
+
+
 
 __noinstrument
-void x86_64_vmenter(struct processor *proc)
+static void x86_64_vmenter(struct processor *proc)
 {
 	/* VMCS does not deal with CPU registers, so we must save and restore them. */
 
@@ -347,6 +501,7 @@ void x86_64_vmenter(struct processor *proc)
 			[procptr]"i"(PROC_PTR*8));
 }
 
+
 void x86_64_processor_post_vm_init(struct processor *proc);
 void vmx_entry_point(struct processor *proc)
 {
@@ -383,6 +538,11 @@ static uint64_t read_efer(void)
 #define EPT_READ 1ull
 #define EPT_WRITE 2ull
 #define EPT_EXEC (4ull | (1ull << 10)) /* TODO: separate exec_user and exec_kernel */
+
+#define EPT_MEMTYPE_WB (6 << 3)
+#define EPT_MEMTYPE_UC (0)
+#define EPT_IGNORE_PAT (1 << 6)
+#define EPT_LARGEPAGE  (1 << 7)
 
 #define RECUR_ATTR_MASK (EPT_READ | EPT_WRITE | EPT_EXEC)
 
