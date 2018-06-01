@@ -25,6 +25,9 @@ struct __packed hpet_desc {
 #define HPET_ENABLE_CNF 1
 #define HPET_COUNT_SIZE_64 (1 << 13)
 
+#define HPET_TIMERN_CONFIG(n) (0x100 + 0x20 * (n)) 
+#define HPET_TN_CONFIG_ENABLE (1 << 2)
+
 static struct hpet_desc *hpet;
 static uint32_t countperiod;
 
@@ -50,6 +53,21 @@ static void hpet_init(void)
 	if(!(tmp & HPET_COUNT_SIZE_64)) {
 		panic("HPET is a 32-bit counter");
 	}
+	int count = (tmp >> 8) & 0xf;
+	/* disable */
+	tmp = hpet_read64(HPET_CONFIG);
+	tmp &= ~HPET_ENABLE_CNF;
+	hpet_write64(HPET_CONFIG, tmp);
+
+	printk("hpet: found %d counters\n", count);
+	for(int i=0;i<count;i++) {
+		tmp = hpet_read64(HPET_TIMERN_CONFIG(i));
+		tmp &= ~(HPET_TN_CONFIG_ENABLE);
+		hpet_write64(HPET_TIMERN_CONFIG(i), tmp);
+	}
+
+	hpet_write64(HPET_COUNTER, 0);
+
 	/* enable */
 	tmp = hpet_read64(HPET_CONFIG);
 	tmp |= HPET_ENABLE_CNF;
@@ -58,6 +76,9 @@ static void hpet_init(void)
 
 uint64_t arch_processor_get_nanoseconds(void)
 {
+	//return *(volatile uint64_t *)(0xFFFFFF80FED00000 + HPET_COUNTER);
+	//printk("--> %ld\n", hpet_read64(HPET_COUNTER));
+	//printk(":: %p\n", mm_ptov(hpet->address));
 	return (hpet_read64(HPET_COUNTER) * countperiod) / 1000000;
 }
 

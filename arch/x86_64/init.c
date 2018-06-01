@@ -43,6 +43,8 @@ static void proc_init(void)
 	x86_64_rdmsr(X86_MSR_EFER, &lo, &hi);
 	lo |= X86_MSR_EFER_SYSCALL | X86_MSR_EFER_NX;
 	x86_64_wrmsr(X86_MSR_EFER, lo, hi);
+	printk("cr0: %lx, cr4: %lx, efer: %x,%x\n",
+			cr0, cr4, hi, lo);
 }
 
 struct ustar_header {
@@ -230,6 +232,7 @@ void arch_processor_init(struct processor *proc)
 		proc->arch.kernel_stack = &initial_boot_stack;
 	}
 
+	x86_64_processor_post_vm_init(proc);
 	x86_64_start_vmx(proc);
 
 	/* TODO: this code is never reached, but is left here for reference. Delete it soon. */

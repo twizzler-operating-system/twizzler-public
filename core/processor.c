@@ -29,6 +29,8 @@ void processor_register(bool bsp, unsigned int id)
 		printk("[kernel]: not registering cpu %d: increase MAX_CPUS\n", id);
 		return;
 	}
+	/* TODO: remove this */
+	if(!bsp) return;
 	struct processor *proc = &processors[id];
 	proc->id = id;
 	if(bsp) {

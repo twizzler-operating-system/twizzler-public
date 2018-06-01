@@ -186,12 +186,13 @@ void x86_64_vmexit_handler(struct processor *proc)
 	unsigned long qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
 	unsigned long grip = vmcs_readl(VMCS_GUEST_RIP);
 	unsigned long iinfo = vmcs_readl(VMCS_VM_INSTRUCTION_INFO);
-
+/*
 	if(reason != VMEXIT_REASON_CPUID
 			&& reason != VMEXIT_REASON_VMCALL
 			&& reason != VMEXIT_REASON_EPT_VIOLATION
 			&& reason != VMEXIT_REASON_INVEPT)
-		printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual, iinfo);
+			*/
+	printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual, iinfo);
 
 	atomic_fetch_add(&vmexits_count, 1);
 	switch(reason) {

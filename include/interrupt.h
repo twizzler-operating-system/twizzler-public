@@ -11,6 +11,8 @@ struct interrupt_handler {
 void kernel_interrupt_entry(int);
 void interrupt_unregister_handler(int vector, struct interrupt_handler *handler);
 void interrupt_register_handler(int vector, struct interrupt_handler *handler);
+void arch_interrupt_unmask(int v);
+void arch_interrupt_mask(int v);
 static inline void __interrupt_scoped_destruct(bool *set)
 {
 	arch_interrupt_set(*set);

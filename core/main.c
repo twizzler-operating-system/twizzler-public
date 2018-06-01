@@ -60,19 +60,35 @@ char us1[0x1000];
 static inline uint64_t rdtsc(void)
 {
     uint32_t eax, edx;
-    asm volatile("rdtsc\n\t": "=a" (eax), "=d" (edx));
+    asm volatile("rdtsc\n\t": "=a"(eax), "=d"(edx));
     return (uint64_t)eax | (uint64_t)edx << 32;
 }
 
 static void bench(void)
 {
+	printk("Starting benchmark\n");
+	arch_interrupt_set(true);
 	while(true)
 	{
+		//uint64_t sr = rdtsc();
+		//uint64_t start = arch_processor_get_nanoseconds();
+		//uint64_t end = arch_processor_get_nanoseconds();
+		//uint64_t er = rdtsc();
+		//printk(":: %ld %ld\n", end - start, er - sr);
+		//printk(":: %ld\n", er - sr);
+
+		/*
 		uint64_t start = arch_processor_get_nanoseconds();
-		uint64_t sr = rdtsc();
-		uint64_t er = rdtsc();
+		for(volatile int i=0;i<400000;i++)
+			arch_processor_get_nanoseconds();
 		uint64_t end = arch_processor_get_nanoseconds();
-		printk(":: %ld %ld\n", end - start, er - sr);
+		printk("Done: %ld\n", end - start);
+		*/
+		uint64_t start = arch_processor_get_nanoseconds();
+		//for(long i=0;i<800000000l;i++);
+		for(long i=0;i<800000l;i++);
+		uint64_t end = arch_processor_get_nanoseconds();
+		printk("Done: %ld\n", end - start);
 	}
 }
 
@@ -81,11 +97,12 @@ void kernel_main(struct processor *proc)
 {
 	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
 
+	printk("Waiting at kernel_main_barrier\n");
 	processor_barrier(&kernel_main_barrier);
 
-	bench();
 
 	if(proc->flags & PROCESSOR_BSP) {
+		bench();
 		arena_destroy(&post_init_call_arena);
 		post_init_call_head = NULL;
 

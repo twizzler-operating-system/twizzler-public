@@ -35,6 +35,7 @@ void processor_register(bool bsp, unsigned int id);
 void arch_processor_enumerate(void);
 void arch_processor_boot(struct processor *proc);
 void processor_secondary_entry(struct processor *proc);
+void arch_processor_reset(void);
 uint64_t arch_processor_get_nanoseconds(void);
 void processor_attach_thread(struct processor *proc, struct thread *thread);
 void arch_processor_init(struct processor *proc);
