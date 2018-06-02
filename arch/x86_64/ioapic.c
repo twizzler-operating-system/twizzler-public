@@ -1,4 +1,5 @@
 #include <system.h>
+#include <processor.h>
 #include <arch/x86_64-acpi.h>
 #include <arch/x86_64-madt.h>
 #include <memory.h>
@@ -11,7 +12,7 @@ struct ioapic {
 	int gsib;
 };
 
-struct ioapic ioapics[MAX_IOAPICS];
+static struct ioapic ioapics[MAX_IOAPICS];
 
 static void write_ioapic(struct ioapic *chip, const uint8_t offset, const uint32_t val)
 {
@@ -54,7 +55,7 @@ static void write_ioapic_vector(struct ioapic *l, int irq, char masked,
 	/* 16: mask */
 	if(masked) lower |= (1 << 16);
 	/* 56-63: destination. Currently, we just send this to the bootstrap cpu */
-	int bootstrap = 0; //HACK: we're assuming BSP is ID 0
+	int bootstrap = arch_processor_current_id(); /* TODO: irq routing */
 	higher |= (bootstrap << 24) & 0xF;
 	write_ioapic(l, irq*2 + 0x10, 0x10000);
 	write_ioapic(l, irq*2 + 0x10 + 1, higher);
@@ -69,22 +70,26 @@ void arch_interrupt_mask(int v)
 		if(chip->id == -1)
 			continue;
 		if(vector >= chip->gsib && vector < chip->gsib + 24) {
-			/* TODO: this is a hack to distingish which interrupts should be level or edge triggered. There are
+			/* TODO: this is a hack to distingish which interrupts
+			 * should be level or edge triggered. There are
 			 * "correct" ways of doing this. */
-        	write_ioapic_vector(chip, vector, 1, vector+chip->gsib > 4 ? 1 : 0, 0, 0, 32+vector+chip->gsib);
+			write_ioapic_vector(chip, vector, 1, vector+chip->gsib > 4 ? 1 : 0,
+					0, 0, 32+vector+chip->gsib);
 		}
 	}
 }
 
 void arch_interrupt_unmask(int v)
 {
+	assert(v >= 32);
 	int vector = v - 32;
 	for(int i=0;i<MAX_IOAPICS;i++) {
 		struct ioapic *chip = &ioapics[i];
 		if(chip->id == -1)
 			continue;
 		if(vector >= chip->gsib && vector < chip->gsib + 24) {
-        	write_ioapic_vector(chip, vector, 0, vector+chip->gsib > 4 ? 1 : 0, 0, 0, 32+vector+chip->gsib);
+        	write_ioapic_vector(chip, vector, 0, vector+chip->gsib > 4 ? 1 : 0,
+					0, 0, 32+vector+chip->gsib);
 		}
 	}
 }
@@ -120,5 +125,4 @@ static void __ioapic_postinit(void)
 	if(!found)
 		panic("no IOAPIC found, don't know how to map interrupts!");
 }
-
 

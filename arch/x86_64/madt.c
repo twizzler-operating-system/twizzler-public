@@ -13,12 +13,21 @@ struct __attribute__((packed)) madt_desc {
 
 #define LAPIC_ENTRY 0
 #define IOAPIC_ENTRY 1
+#define INTSRC_ENTRY 2
 
 struct __attribute__((packed)) lapic_entry {
 	struct madt_record rec;
 	uint8_t acpiprocid;
 	uint8_t apicid;
 	uint32_t flags;
+};
+
+struct __packed intsrc_entry {
+	struct madt_record rec;
+	uint8_t bus_src;
+	uint8_t irq_src;
+	uint32_t gsi;
+	uint16_t flags;
 };
 
 static struct madt_desc *madt;
@@ -37,14 +46,19 @@ static void madt_init(void)
 			break;
 		switch(rec->type) {
 			struct lapic_entry *lapic;
+			struct intsrc_entry *intsrc;
 			case LAPIC_ENTRY:
 				lapic = (void *)rec;
 				if(lapic->flags & 1) {
-					processor_register(lapic->apicid == 0, lapic->acpiprocid);
+					processor_register(lapic->apicid == 0, lapic->apicid);
 				}
 				break;
 			case IOAPIC_ENTRY:
 				ioapic_init((struct ioapic_entry *)rec);
+				break;
+			case INTSRC_ENTRY:
+				intsrc = (void *)rec;
+				printk(":: INTSRC: %d %d %d %x\n", intsrc->bus_src, intsrc->irq_src, intsrc->gsi, intsrc->flags);
 				break;
 			default:
 				break;

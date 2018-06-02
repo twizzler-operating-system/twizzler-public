@@ -64,10 +64,12 @@ static inline uint64_t rdtsc(void)
     return (uint64_t)eax | (uint64_t)edx << 32;
 }
 
+int serial_received();
 static void bench(void)
 {
 	printk("Starting benchmark\n");
 	arch_interrupt_set(true);
+	int c = 0;
 	while(true)
 	{
 		//uint64_t sr = rdtsc();
@@ -86,9 +88,11 @@ static void bench(void)
 		*/
 		uint64_t start = arch_processor_get_nanoseconds();
 		//for(long i=0;i<800000000l;i++);
-		for(long i=0;i<800000l;i++);
+		for(long i=0;i<800000000l;i++);
 		uint64_t end = arch_processor_get_nanoseconds();
 		printk("Done: %ld\n", end - start);
+		if(c++ == 10 || serial_received())
+			panic("reset");
 	}
 }
 
