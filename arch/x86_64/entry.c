@@ -19,8 +19,6 @@ static void x86_64_change_fpusse_allow(bool enable)
 __noinstrument
 void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_userspace)
 {
-	if(frame->int_no != 32)
-		printk("got interrupt! %ld %d\n", frame->int_no, was_userspace);
 	if(was_userspace) {
 		current_thread->arch.was_syscall = false;
 	}

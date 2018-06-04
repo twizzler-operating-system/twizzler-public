@@ -11,8 +11,6 @@ int serial_getc();
 void kernel_debug_entry(void)
 {
 	//while(!serial_received());
-
-	printk("::PREPANIC %d %d\n", serial_received(), serial_getc());
 	arch_processor_reset();
 }
 
