@@ -131,6 +131,7 @@ static void uart_set_speed(struct uart *u, int speed)
 static void uart_set_fifo(struct uart *u, int fifosz)
 {
 	u->fifo_sz = fifosz;
+	u->fc = 0;
 	if(u->fifo_sz > 1) {
 		u->fc = UART_FCR_ENABLE | UART_FCR_TX_RESET | UART_FCR_RX_RESET;
 		switch(u->fifo_sz) {
@@ -168,7 +169,7 @@ static void uart_program(struct uart *u, bool interrupts)
 	 * them. First, set the speed. */
 	uart_write(u, UART_REG_LCR, UART_LCR_DLAB | u->lc);
 	uart_write(u, UART_REG_DIV_LSB, u->divisor & 0xFF);
-	uart_write(u, UART_REG_DIV_LSB, (u->divisor >> 8) & 0xFF);
+	uart_write(u, UART_REG_DIV_MSB, (u->divisor >> 8) & 0xFF);
 
 	/* Switch off DLAB and program the line config. */
 	uart_write(u, UART_REG_LCR, u->lc);
@@ -293,8 +294,8 @@ static struct interrupt_handler _serial_handler = {
 void serial_init(void)
 {
 	uart_init(&com1, false, UART_PARITY_TYPE_NONE, 1, 8, 38400);
-	printk("Initialized serial debugging (max_baud=%d, fifo_sz=%d)\n",
-			com1.max_baud, com1.fifo_sz);
+	printk("Initialized serial debugging (max_baud=%d, fifo_sz=%d, div=%d)\n",
+			com1.max_baud, com1.fifo_sz, com1.divisor);
 }
 
 void serial_putc(char c)
