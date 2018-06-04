@@ -102,13 +102,14 @@ static void uart_configure_line(struct uart *u, int parity, int stopbits, int wo
 {
 	uint8_t lc = 0;
 	switch(parity) {
-		case UART_PARITY_TYPE_EVEN: lc |= UART_LCR_EVEN_PAR; break;
+		case UART_PARITY_TYPE_EVEN:  lc |= UART_LCR_EVEN_PAR; break;
 		case UART_PARITY_TYPE_SPACE: lc |= UART_LCR_EVEN_PAR; break;
-		case UART_PARITY_TYPE_MARK: lc |= UART_LCR_STICKY_PAR | UART_LCR_EVEN_PAR; break;
+		case UART_PARITY_TYPE_MARK:  lc |= UART_LCR_STICKY_PAR | UART_LCR_EVEN_PAR; break;
 	}
 	if(parity != UART_PARITY_TYPE_NONE) {
 		lc |= UART_LCR_ENABLE_PAR;
 	}
+	/* stop bits can be 1 or 2. */
 	if(stopbits == 2) {
 		lc |= UART_LCR_STOP_BIT;
 	}
@@ -119,6 +120,8 @@ static void uart_configure_line(struct uart *u, int parity, int stopbits, int wo
 
 static void uart_set_speed(struct uart *u, int speed)
 {
+	/* Unfortunately, some chips are not as good as others. We'll detect them
+	 * and set a max baud to deal with buggy chips. */
 	if(speed > u->max_baud) {
 		speed = u->max_baud;
 	}
@@ -131,15 +134,20 @@ static void uart_set_fifo(struct uart *u, int fifosz)
 	if(u->fifo_sz > 1) {
 		u->fc = UART_FCR_ENABLE | UART_FCR_TX_RESET | UART_FCR_RX_RESET;
 		switch(u->fifo_sz) {
-			case 4: u->fc |= (1 << 6); break;
-			case 8: u->fc |= (1 << 7); break;
+			case 4:  u->fc |= (1 << 6); break;
+			case 8:  u->fc |= (1 << 7); break;
 			default: u->fc |= (1 << 6) | (1 << 7); break;
+			/* TODO: some chips support 64-byte FIFOs. We don't, yet. */
 		}
 	}
 }
 
 static void uart_reset(struct uart *u)
 {
+	/* reset by reading all the registers. It's less of a reset and more
+	 * of a "make sure we're in a reasonable state". To fully reset, the UART
+	 * should be fully re-programmed before use (or when updating configuration)
+	 */
 	uart_read(u, UART_REG_IER);
 	uart_read(u, UART_REG_IID);
 	uart_read(u, UART_REG_LCR);
@@ -156,9 +164,13 @@ static void uart_program(struct uart *u, bool interrupts)
 	 * any pending info and interrupts */
 	uart_reset(u);
 
+	/* Take previously set register values and actually program the UART with
+	 * them. First, set the speed. */
 	uart_write(u, UART_REG_LCR, UART_LCR_DLAB | u->lc);
 	uart_write(u, UART_REG_DIV_LSB, u->divisor & 0xFF);
 	uart_write(u, UART_REG_DIV_LSB, (u->divisor >> 8) & 0xFF);
+
+	/* Switch off DLAB and program the line config. */
 	uart_write(u, UART_REG_LCR, u->lc);
 
 	uart_write(u, UART_REG_FIFOCTL, u->fc);
@@ -166,20 +178,22 @@ static void uart_program(struct uart *u, bool interrupts)
 	if(interrupts) {
 		u->ie = UART_IER_RX_FULL | UART_IER_TX_FULL
 			| UART_IER_LINESTATUS | UART_IER_LINEDELTA;
-		//u->ie = UART_IER_RX_FULL
-		//	| UART_IER_LINESTATUS | UART_IER_LINEDELTA;
 	} else {
 		u->ie = 0;
 	}
 	uart_write(u, UART_REG_IER, u->ie);
 	
+	/* The way is open. Mark DTR and RTS to send and recv data */
 	u->mc = UART_MCR_DTR | UART_MCR_RTS;
 	uart_write(u, UART_REG_MCR, u->mc);
 
-	/* ack everything, because funky hardware */
+	/* Ack everything again, because funky hardware */
 	uart_reset(u);
 
 	if(interrupts) {
+		/* If we want interrupts, set OUT1 (often doesn't matter, but sometimes
+		 * is used to enable/disable a port). Also set OUT2, which transfers
+		 * interrupts for us to see. */
 		u->mc |= UART_MCR_OUT1 | UART_MCR_OUT2;
 		uart_write(u, UART_REG_MCR, u->mc);
 	}
@@ -187,6 +201,7 @@ static void uart_program(struct uart *u, bool interrupts)
 
 static void uart_identify(struct uart *u)
 {
+	/* Reset, allowing us to ID the chip */
 	uart_reset(u);
 
 	uint8_t fc = 0;
@@ -196,6 +211,7 @@ static void uart_identify(struct uart *u)
 	fc |= (3 << 6);
 	fc |= UART_FCR_FIFO64;
 	uart_write(u, UART_REG_FIFOCTL, fc);
+
 	fc = uart_read(u, UART_REG_IID);
 	int trigger = (fc >> 6) & 3;
 	int max_baud, fifo_size;
@@ -213,7 +229,7 @@ static void uart_identify(struct uart *u)
 		fifo_size = 1;
 		max_baud = 57600;
 	} else {
-		/* The 16450 preserved the scratch register */
+		/* The 16450 preserves the scratch register */
 		uart_write(u, UART_REG_SCRATCH, 0xAA);
 		if(uart_read(u, UART_REG_SCRATCH) == 0xAA) {
 			max_baud = 38400;
@@ -234,7 +250,8 @@ static void uart_configure(struct uart *u, bool interrupts, int parity,
 	uart_program(u, interrupts);
 }
 
-static void uart_init(struct uart *u, bool interrupts, int parity, int stop, int word, int speed)
+static void uart_init(struct uart *u, bool interrupts, int parity,
+		int stop, int word, int speed)
 {
 	uart_identify(u);
 	uart_configure(u, interrupts, parity, stop, word, speed);
@@ -249,7 +266,7 @@ static void _serial_interrupt(int i)
 {
 	struct uart *u = &com1;
 	(void)i;
-	uint8_t id;
+	uint8_t id, ls;
 	while(((id = uart_read(u, UART_REG_IID)) & 1) == 0) {
 		switch((id >> 1) & 7) {
 			case 0:
@@ -262,7 +279,8 @@ static void _serial_interrupt(int i)
 				uart_read(u, UART_REG_DATA);
 				break;
 			case 3:
-				uart_read(u, UART_REG_LSR);
+				ls = uart_read(u, UART_REG_LSR);
+				printk("[serial]: got line status interrupt: %x\n", ls);
 				break;
 		}
 	}
@@ -299,80 +317,6 @@ __initializer static void __serial_init(void)
 	arch_interrupt_unmask(com1.irq);
 	uart_init(&com1, true, UART_PARITY_TYPE_NONE, 1, 8, 38400);
 }
-
-/*
-void serial_init()
-{
-	for(int i=1;i<8;i++) {
-		x86_64_inb(PORT + i);
-	}
-	x86_64_inb(PORT);
-
-	x86_64_outb(PORT + 1, 0);
-	x86_64_outb(PORT + 3, 0x80); // set up to load divisor latch
-	x86_64_outb(PORT + 0, 3); // lsb
-	x86_64_outb(PORT + 1, 0); // msb
-	x86_64_outb(PORT + 3, 3); // 8N1
-	x86_64_outb(PORT + 1, 0x1);
-	x86_64_outb(PORT + 2, 0x07); // enable FIFO, clear, 1-byte threshold
-	x86_64_outb(PORT + 4, 1);
-	x86_64_outb(PORT + 4, 1 | 2);
-	while((x86_64_inb(PORT + 2) & 1) == 0);
-
-	for(int i=1;i<8;i++) {
-		x86_64_inb(PORT + i);
-	}
-	x86_64_inb(PORT);
-	x86_64_outb(PORT + 4, 1 | 2 | 4 | 8);
-}
-
-static void _serial_interrupt(int i)
-{
-	(void)i;
-	printk("RESET\n");
-	uint32_t isr = x86_64_inb(PORT + 2);
-	printk(":: %d\n", isr);
-	arch_processor_reset();
-}
-
-int serial_getc(void)
-{
-	return x86_64_inb(PORT);
-}
-
-int serial_received(void)
-{
-	uint32_t isr = x86_64_inb(PORT + 2);
-	printk(":: %d\n", isr);
-	return x86_64_inb(PORT + 5) & 1;
-}
-
-static struct interrupt_handler _serial_handler = {
-	.fn = _serial_interrupt,
-};
-
-__initializer static void _init_serial(void)
-{
-	int a = 0x24;
-	interrupt_register_handler(a, &_serial_handler);
-	arch_interrupt_unmask(a);
-	arch_interrupt_unmask(9+32);
-	printk(":: %d %d\n", serial_received(), serial_getc());
-	uint32_t isr = x86_64_inb(PORT + 2);
-	printk(":: %d\n", isr);
-}
-
-static int is_transmit_empty()
-{
-	return x86_64_inb(PORT + 5) & 0x20;
-}
-
-static void serial_putc(unsigned char byte)
-{
-	while (is_transmit_empty() == 0);
-	x86_64_outb(PORT, byte);
-}
-*/
 
 #include <spinlock.h>
 static struct spinlock _lock = SPINLOCK_INIT;
