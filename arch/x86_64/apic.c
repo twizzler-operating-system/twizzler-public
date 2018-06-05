@@ -163,6 +163,7 @@ uint64_t arch_processor_get_nanoseconds(void)
 static void set_lapic_timer(unsigned ns)
 {
 	calib_qual = 1000;
+	int div = 3;
     /* THE ORDER OF THESE IS IMPORTANT!
      * If you write the initial count before you
      * tell it to set periodic mode and set the vector
@@ -170,7 +171,7 @@ static void set_lapic_timer(unsigned ns)
 	int attempts;
 	for(attempts = 0;attempts < 10;attempts++) {
 		lapic_write(LAPIC_LVTT, 32 | 0x20000);
-		lapic_write(LAPIC_TDCR, 3);
+		lapic_write(LAPIC_TDCR, div);
 		lapic_write(LAPIC_TICR, 1000000000);
 
 		uint64_t lts = lapic_read(LAPIC_TCCR);
@@ -188,7 +189,7 @@ static void set_lapic_timer(unsigned ns)
 		uint64_t this_tsc_period_ps   = 1000000000000ul / tc_freq;
 
 		lapic_write(LAPIC_LVTT, 32);
-		lapic_write(LAPIC_TDCR, 3);
+		lapic_write(LAPIC_TDCR, div);
 		lapic_write(LAPIC_TICR, (1000ul * ns) / this_lapic_period_ps);
 
 		rs = rdtsc();
