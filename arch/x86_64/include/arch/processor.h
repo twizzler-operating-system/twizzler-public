@@ -140,3 +140,10 @@ static inline unsigned long long arch_processor_timestamp(void)
 struct processor;
 void x86_64_processor_post_vm_init(struct processor *proc);
 
+static inline uint32_t x86_64_cpuid(uint32_t x, int rnum)
+{
+	uint32_t regs[4];
+	asm volatile("push %%rbx; cpuid; mov %%ebx, %0; pop %%rbx" : "=a"(regs[0]), "=r"(regs[1]), "=c"(regs[2]), "=d"(regs[3]) : "a"(x));
+	return regs[rnum];
+}
+

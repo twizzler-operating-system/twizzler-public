@@ -26,6 +26,7 @@ struct frame {
 void debug_print_backtrace(void);
 bool arch_debug_unwind_frame(struct frame *frame);
 void debug_puts(char *);
+void arch_panic_begin(void);
 
 
 static inline uint64_t rdtsc(void)

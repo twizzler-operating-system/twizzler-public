@@ -82,15 +82,133 @@ unsigned int arch_processor_current_id(void)
 	return lapic_read(LAPIC_ID) >> 24;
 }
 
-static void set_lapic_timer(unsigned tmp)
+
+#define PIT_CHANNEL_BIT     6
+#define PIT_ACCESS_BIT      4
+#define PIT_MODE_BIT        1
+#define PIT_FORMAT_BIT      0
+
+#define PIT_CHANNEL(n)      ((n) << PIT_CHANNEL_BIT)
+#define PIT_READBACK        PIT_CHANNEL(3)
+
+#define PIT_ACCESS(n)       ((n) << PIT_ACCESS_BIT)
+#define PIT_ACCESS_LATCH    PIT_ACCESS(0)
+#define PIT_ACCESS_LO       PIT_ACCESS(1)
+#define PIT_ACCESS_HI       PIT_ACCESS(2)
+#define PIT_ACCESS_BOTH     PIT_ACCESS(3)
+
+#define PIT_MODE(n)         ((n) << PIT_MODE_BIT)
+#define PIT_MODE_IOTC       PIT_MODE(0)
+#define PIT_MODE_ONESHOT    PIT_MODE(1)
+#define PIT_MODE_RATEGEN    PIT_MODE(2)
+#define PIT_MODE_SQUARE     PIT_MODE(3)
+#define PIT_MODE_SOFTSTROBE PIT_MODE(4)
+#define PIT_MODE_HARDSTROBE PIT_MODE(5)
+#define PIT_MODE_RATE2      PIT_MODE(6)
+#define PIT_MODE_SQUARE2    PIT_MODE(7)
+
+#define PIT_FORMAT(n)       ((n) << PIT_FORMAT_BIT)
+#define PIT_FORMAT_BINARY   PIT_FORMAT(0)
+#define PIT_FORMAT_BCD      PIT_FORMAT(1)
+#define PIT_BASE            0x40
+#define PIT_CMD             (PIT_BASE + 3)
+#define PIT_DATA(channel) (PIT_BASE + (channel))
+
+static uint32_t do_wait(int ns)
 {
+	__int128 x = ns * 1193182ul;
+	uint64_t count = x / 1000000000ul;
+	count += 64;
+	if(count > 0xffff) count = 0xffff;
+	//printk(":: %lx\n", count);
+	//uint64_t count = mul_64_64_div_64(nanosec, 1193182, 1000000000);
+	x86_64_outb(PIT_CMD, PIT_CHANNEL(2) | PIT_ACCESS_BOTH |
+			PIT_MODE_ONESHOT | PIT_FORMAT_BINARY);
+	x86_64_outb(PIT_DATA(2), count & 0xFF);
+	x86_64_outb(PIT_DATA(2), (count >> 8) & 0xFF);
+
+	uint32_t readback;
+	do {
+		x86_64_outb(PIT_CMD,
+				PIT_CHANNEL(2) |
+				PIT_ACCESS_LATCH);
+		readback = x86_64_inb(PIT_DATA(2));
+		readback |= x86_64_inb(PIT_DATA(2)) << 8;
+		asm("pause");
+	} while (readback > 64);
+	x = (count - readback) * 1000000000ul;
+	return x / 1193182;
+}
+
+static uint64_t wait_ns(int64_t ns)
+{
+	uint64_t el = 0;
+	while(ns > 100) {
+		uint64_t tmp = do_wait(ns);
+		ns -= tmp;
+		el += tmp;
+	}
+	return el;
+}
+
+static uint64_t lapic_period_ps;
+static uint64_t tsc_period_ps;
+static int calib_qual = 0;
+
+uint64_t arch_processor_get_nanoseconds(void)
+{
+	return (tsc_period_ps * rdtsc()) / 1000;
+}
+
+static void set_lapic_timer(unsigned ns)
+{
+	calib_qual = 1000;
     /* THE ORDER OF THESE IS IMPORTANT!
      * If you write the initial count before you
      * tell it to set periodic mode and set the vector
      * it will not generate an interrupt! */
-    lapic_write(LAPIC_LVTT, 32 | 0x20000);
-    lapic_write(LAPIC_TDCR, 3);
-    lapic_write(LAPIC_TICR, tmp * 2);
+	int attempts;
+	for(attempts = 0;attempts < 10;attempts++) {
+		lapic_write(LAPIC_LVTT, 32 | 0x20000);
+		lapic_write(LAPIC_TDCR, 3);
+		lapic_write(LAPIC_TICR, 1000000000);
+
+		uint64_t lts = lapic_read(LAPIC_TCCR);
+		uint64_t rs = rdtsc();
+
+		uint64_t elap = wait_ns(10000000);
+
+		uint64_t re = rdtsc();
+		uint64_t lte = lapic_read(LAPIC_TCCR);
+
+		uint64_t lt_freq = (-(lte - lts) * 1000000000) / elap;
+		uint64_t tc_freq = ((re - rs) * 1000000000) / elap;
+
+		uint64_t this_lapic_period_ps = 1000000000000ul / lt_freq;
+		uint64_t this_tsc_period_ps   = 1000000000000ul / tc_freq;
+
+		lapic_write(LAPIC_LVTT, 32);
+		lapic_write(LAPIC_TDCR, 3);
+		lapic_write(LAPIC_TICR, (1000ul * ns) / this_lapic_period_ps);
+
+		rs = rdtsc();
+		while(lapic_read(LAPIC_TCCR) > 0);
+		re = rdtsc();
+
+		int quality = 1000 - ((re - rs) * this_tsc_period_ps) / ns;
+		if(quality < 0) quality = -quality;
+
+		if(attempts == 0) quality = 1000; /* throw away first try */
+
+		if(quality < calib_qual) {
+			calib_qual = quality;
+			lapic_period_ps = this_lapic_period_ps;
+			tsc_period_ps = this_tsc_period_ps;
+		}
+
+		if(quality == 0) break;
+	}
+	printk("Calibrated lapic timer (%ld ps) and TSC (%ld ps) after %d attempts (q=%d)\n", lapic_period_ps, tsc_period_ps, attempts, calib_qual);
 }
 
 static void lapic_configure(int bsp)
@@ -120,7 +238,7 @@ static void lapic_configure(int bsp)
     /* finally write to the spurious interrupt register to enable
      * the interrupts */
     lapic_write(LAPIC_SPIV, 0x0100 | 0xFF);
-	set_lapic_timer(0x100000); /* TODO: timer calibrate */
+	set_lapic_timer(1000000);
 }
 
 __initializer void x86_64_lapic_init_percpu(void)
@@ -177,22 +295,6 @@ void arch_panic_begin(void)
 	x86_64_processor_halt_others();
 }
 
-static void wait(int ms)
-{
-	for(int i=0;i<ms;i++) {
-		x86_64_outb(0x43, 0x30);
-		x86_64_outb(0x40, 0xA9);
-		x86_64_outb(0x40, 0x04);
-
-		x86_64_outb(0x43, 0xE2);
-		int status;
-		do {
-			status = x86_64_inb(0x40);
-			asm("pause");
-		} while(!(status & (1 << 7)));
-	}
-}
-
 #define BIOS_RESET_VECTOR 0x467
 #define CMOS_RESET_CODE 0xF
 #define CMOS_RESET_JUMP 0xa
@@ -235,20 +337,20 @@ void arch_processor_boot(struct processor *proc)
 	lapic_write(LAPIC_ESR, 0);
 	x86_cpu_send_ipi(LAPIC_ICR_SHORT_DEST, proc->id, LAPIC_ICR_TM_LEVEL | LAPIC_ICR_LEVELASSERT | LAPIC_ICR_DM_INIT);
 
-	wait(100);
+	wait_ns(100000);
 	x86_cpu_send_ipi(LAPIC_ICR_SHORT_DEST, proc->id, LAPIC_ICR_TM_LEVEL | LAPIC_ICR_DM_INIT);
 
-	wait(100);
+	wait_ns(100000);
 	for(int i=0;i<3;i++) {
 		x86_cpu_send_ipi(LAPIC_ICR_SHORT_DEST, proc->id, LAPIC_ICR_DM_SIPI | ((bootaddr_phys >> 12) & 0xFF));
-		wait(10);
+		wait_ns(10000);
 	}
 
 	int timeout;
 	for(timeout=10000;timeout>0;timeout--) {
 		if(*(volatile _Atomic uintptr_t *)(0x7300) == 0)
 			break;
-		wait(10);
+		wait_ns(10000);
 	}
 
 	if(timeout == 0) {

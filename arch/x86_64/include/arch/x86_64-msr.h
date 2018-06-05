@@ -35,6 +35,8 @@
 #define X86_MSR_MTRR_PHYSBASE(n) (0x200 + 2*(n))
 #define X86_MSR_MTRR_PHYSMASK(n) (0x200 + 2*(n) + 1)
 
+#define X86_MSR_TSC_DEADLINE 0x6E0
+
 static inline void x86_64_rdmsr(uint32_t msr, uint32_t *lo, uint32_t *hi)
 {
 	asm volatile("rdmsr" : "=a"(*lo), "=d"(*hi) : "c"(msr));

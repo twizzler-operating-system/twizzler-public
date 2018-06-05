@@ -76,16 +76,9 @@ static inline void vmcs_write32_fixed(uint32_t msr, uint32_t vmcs_field, uint32_
 	vmcs_writel(vmcs_field, val);
 }
 
-static uint32_t __attribute__((noinline)) cpuid(uint32_t x, int rnum)
-{
-	uint32_t regs[4];
-	asm volatile("push %%rbx; cpuid; mov %%ebx, %0; pop %%rbx" : "=a"(regs[0]), "=r"(regs[1]), "=c"(regs[2]), "=d"(regs[3]) : "a"(x));
-	return regs[rnum];
-}
-
 static void x86_64_enable_vmx(void)
 {
-	uint32_t ecx = cpuid(1, 2);
+	uint32_t ecx = x86_64_cpuid(1, 2);
 	if(!(ecx & (1 << 5))) {
 		panic("VMX extensions not available (not supported");
 	}

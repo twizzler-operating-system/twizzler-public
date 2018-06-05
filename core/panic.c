@@ -5,6 +5,7 @@ _Noreturn void __panic(const char *file, int linenr, int flags, const char *msg,
 {
 	/* TODO (dbittman): stop processors, cli */
 	arch_interrupt_set(false);
+	arch_panic_begin();
 	va_list args;
 	va_start(args, msg);
 	printk("panic [%s:%d] - ", file, linenr);

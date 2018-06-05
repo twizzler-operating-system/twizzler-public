@@ -75,7 +75,7 @@ static void hpet_init(void)
 	printk("HPET: %lx; cp = %d\n", hpet->address, countperiod);
 }
 
-uint64_t arch_processor_get_nanoseconds(void)
+uint64_t arch_processor_get_nanoseconds_hpet(void)
 {
 	//return *(volatile uint64_t *)(0xFFFFFF80FED00000 + HPET_COUNTER);
 	//printk("--> %ld\n", hpet_read64(HPET_COUNTER));

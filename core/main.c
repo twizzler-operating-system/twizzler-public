@@ -75,15 +75,15 @@ static void bench(void)
 		uint64_t start = arch_processor_get_nanoseconds();
 		volatile int i;
 		uint64_t c = 0;
-		for(i=0;i<400000;i++) {
-			uint64_t x = rdtsc();
+		for(i=0;i<40000000;i++) {
+		//	uint64_t x = rdtsc();
 			arch_processor_get_nanoseconds();
-			uint64_t y = rdtsc();
-			c += (y - x);
+		//	uint64_t y = rdtsc();
+		//	c += (y - x);
 		}
 		uint64_t end = arch_processor_get_nanoseconds();
 		printk("Done: %ld (%ld)\n", end - start, (end - start) / i);
-		printk("RD: %ld (%ld)\n", c, c / i);
+		//printk("RD: %ld (%ld)\n", c, c / i);
 #else
 		uint64_t start = arch_processor_get_nanoseconds();
 		//for(long i=0;i<800000000l;i++);
