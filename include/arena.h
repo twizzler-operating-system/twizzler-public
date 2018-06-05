@@ -19,9 +19,9 @@ struct arena_node {
 static inline void arena_create(struct arena *arena)
 {
 	arena->lock = SPINLOCK_INIT;
-	arena->start = (void *)mm_virtual_alloc(arch_mm_page_size(0), PM_TYPE_ANY, true);
+	arena->start = (void *)mm_virtual_alloc(mm_page_size(0), PM_TYPE_ANY, true);
 	struct arena_node *node = arena->start;
-	node->len = arch_mm_page_size(0);
+	node->len = mm_page_size(0);
 	node->used = sizeof(struct arena_node);
 }
 
@@ -42,8 +42,8 @@ static inline void *arena_allocate(struct arena *arena, size_t length)
 	if(!node) {
 		assert(prev != NULL);
 		size_t len = __round_up_pow2(length * 2);
-		if(len < arch_mm_page_size(0))
-			len = arch_mm_page_size(0);
+		if(len < mm_page_size(0))
+			len = mm_page_size(0);
 		node = prev->next = (void *)mm_virtual_alloc(len, PM_TYPE_ANY, true);
 		node->len = len;
 		node->used = sizeof(struct arena_node);

@@ -72,6 +72,7 @@ static void hpet_init(void)
 	tmp = hpet_read64(HPET_CONFIG);
 	tmp |= HPET_ENABLE_CNF;
 	hpet_write64(HPET_CONFIG, tmp);
+	printk("HPET: %lx\n", hpet->address);
 }
 
 uint64_t arch_processor_get_nanoseconds(void)

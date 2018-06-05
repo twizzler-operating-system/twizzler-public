@@ -57,13 +57,6 @@ void kernel_init(void)
 struct thread init_thread;
 char us1[0x1000];
 
-static inline uint64_t rdtsc(void)
-{
-    uint32_t eax, edx;
-    asm volatile("rdtsc\n\t": "=a"(eax), "=d"(edx));
-    return (uint64_t)eax | (uint64_t)edx << 32;
-}
-
 static void bench(void)
 {
 	printk("Starting benchmark\n");
@@ -78,13 +71,20 @@ static void bench(void)
 		//printk(":: %ld %ld\n", end - start, er - sr);
 		//printk(":: %ld\n", er - sr);
 
-		/*
+#if 1
 		uint64_t start = arch_processor_get_nanoseconds();
-		for(volatile int i=0;i<400000;i++)
+		volatile int i;
+		uint64_t c = 0;
+		for(i=0;i<400000;i++) {
+			uint64_t x = rdtsc();
 			arch_processor_get_nanoseconds();
+			uint64_t y = rdtsc();
+			c += (y - x);
+		}
 		uint64_t end = arch_processor_get_nanoseconds();
-		printk("Done: %ld\n", end - start);
-		*/
+		printk("Done: %ld (%ld)\n", end - start, (end - start) / i);
+		printk("RD: %ld (%ld)\n", c, c / i);
+#else
 		uint64_t start = arch_processor_get_nanoseconds();
 		//for(long i=0;i<800000000l;i++);
 		for(long i=0;i<800000000l;i++);
@@ -92,6 +92,7 @@ static void bench(void)
 		printk("Done: %ld\n", end - start);
 		if(c++ == 10)
 			panic("reset");
+#endif
 	}
 }
 

@@ -20,7 +20,7 @@ static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
 #define GET_VIRT_TABLE(x) ((uintptr_t *)mm_ptov(((x) & VM_PHYS_MASK)))
 
 
-bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int level, uint64_t flags)
+static bool __do_vm_map(uintptr_t pml4_phys, uintptr_t virt, uintptr_t phys, int level, uint64_t flags)
 {
 	/* translate flags for NX bit (toggle) */
 	flags ^= VM_MAP_EXEC;
@@ -30,11 +30,7 @@ bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int lev
 	int pd_idx   = PD_IDX(virt);
 	int pt_idx   = PT_IDX(virt);
 
-	if(ctx == NULL) {
-		ctx = current_thread->ctx;
-	}
-
-	uintptr_t *pml4 = GET_VIRT_TABLE(ctx->arch.pml4_phys);
+	uintptr_t *pml4 = GET_VIRT_TABLE(pml4_phys);
 	test_and_allocate(&pml4[pml4_idx], flags);
 	
 	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
@@ -64,6 +60,14 @@ bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int lev
 	return true;
 }
 
+bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int level, uint64_t flags)
+{
+	if(ctx == NULL) {
+		ctx = current_thread->ctx;
+	}
+	return __do_vm_map(ctx->arch.pml4_phys, virt, phys, level, flags);
+}
+
 #include <object.h>
 #define MB (1024ul * 1024ul)
 void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object *obj)
@@ -88,16 +92,40 @@ extern uint64_t boot_pml4;
 void arch_mm_switch_context(struct vm_context *ctx)
 {
 	if(ctx == NULL) {
-		asm volatile("mov %0, %%cr3" :: "r"(PHYS((uintptr_t)&boot_pml4)) : "memory");
+		asm volatile("mov %0, %%cr3" :: "r"(mm_vtop(kernel_pml4)) : "memory");
 	} else {
 		asm volatile("mov %0, %%cr3" :: "r"(ctx->arch.pml4_phys) : "memory");
 	}
 }
 
+extern int kernel_end, kernel_start;
+static void _remap(void)
+{
+	kernel_pml4 = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, true);
+	uintptr_t kpml4_phys = mm_vtop(kernel_pml4);
+
+	uintptr_t end = ((uintptr_t)&kernel_end) & ~(mm_page_size(0)-1);
+	uintptr_t start = ((uintptr_t)&kernel_start) & ~(mm_page_size(0)-1);
+	/* TODO: W^X */
+	for(uintptr_t i = start;i <= end;i += mm_page_size(0)) {
+		__do_vm_map(kpml4_phys, i, PHYS(i), 0, VM_MAP_EXEC | VM_MAP_WRITE | VM_MAP_GLOBAL);
+	}
+
+	start = PHYSICAL_MAP_START;
+	end = PHYSICAL_MAP_END & ~(mm_page_size(2)-1);
+	for(uintptr_t i = start;i < end;i += mm_page_size(2)) {
+		__do_vm_map(kpml4_phys, i, mm_vtop((void *)i), 2, VM_MAP_EXEC | VM_MAP_WRITE | VM_MAP_GLOBAL);
+	}
+
+}
+
 __initializer
 static void _x86_64_init_vm(void)
 {
-	kernel_pml4 = &boot_pml4;
+	_remap();
+	printk("Switching to new page tables\n");
+	asm volatile("mov %0, %%cr3" :: "r"(mm_vtop(kernel_pml4)) : "memory");
+	//kernel_pml4 = &boot_pml4;
 	/* TODO: we should re-map with better flags and stuff */
 }
 

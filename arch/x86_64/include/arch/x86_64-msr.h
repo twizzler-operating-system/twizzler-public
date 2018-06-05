@@ -30,6 +30,11 @@
 #define X86_MSR_VMX_PINBASED_CTLS   0x481
 #define X86_MSR_VMX_TRUE_PINBASED_CTLS 0x48D
 
+#define X86_MSR_MTRRCAP 0xFE
+#define X86_MSR_MTRR_DEF_TYPE 0x2FF
+#define X86_MSR_MTRR_PHYSBASE(n) (0x200 + 2*(n))
+#define X86_MSR_MTRR_PHYSMASK(n) (0x200 + 2*(n) + 1)
+
 static inline void x86_64_rdmsr(uint32_t msr, uint32_t *lo, uint32_t *hi)
 {
 	asm volatile("rdmsr" : "=a"(*lo), "=d"(*hi) : "c"(msr));

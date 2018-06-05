@@ -26,6 +26,16 @@ struct frame {
 void debug_print_backtrace(void);
 bool arch_debug_unwind_frame(struct frame *frame);
 void debug_puts(char *);
+
+
+static inline uint64_t rdtsc(void)
+{
+    uint32_t eax, edx;
+    asm volatile("rdtscp\n\t": "=a"(eax), "=d"(edx));
+    return (uint64_t)eax | (uint64_t)edx << 32;
+}
+
+
 #endif
 
 

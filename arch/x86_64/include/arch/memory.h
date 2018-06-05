@@ -1,6 +1,7 @@
 #pragma once
 
 #include <machine/memory.h>
+#include <debug.h>
 
 struct arch_vm_context {
 	uintptr_t pml4_phys;
