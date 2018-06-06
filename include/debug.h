@@ -32,7 +32,7 @@ void arch_panic_begin(void);
 static inline uint64_t rdtsc(void)
 {
     uint32_t eax, edx;
-    asm volatile("rdtscp\n\t": "=a"(eax), "=d"(edx));
+    asm volatile("rdtscp; mfence\n\t": "=a"(eax), "=d"(edx) :: "memory");
     return (uint64_t)eax | (uint64_t)edx << 32;
 }
 

@@ -142,8 +142,8 @@ static uint32_t do_wait(int ns)
 
 static uint64_t wait_ns(int64_t ns)
 {
-	__int128 x = ns * 1193182ul;
-	int64_t count = x / 1000000000ul;
+	__int128 x = ns; x *= 1193182ul;
+	int64_t count = (int64_t)(x / 1000000000ul);
 
 	x86_64_outb(PIT_CMD, PIT_CHANNEL(2) | PIT_ACCESS_BOTH |
 			PIT_MODE_ONESHOT | PIT_FORMAT_BINARY);
@@ -172,7 +172,7 @@ static uint64_t wait_ns(int64_t ns)
 		ec += (thiscount - readback);
 		count -= (thiscount - readback);
 	}
-	x = ec * 1000000000ul;
+	x = ec; x *= 1000000000ul;
 	return x / 1193182ul;
 }
 
@@ -197,7 +197,7 @@ uint64_t arch_processor_get_nanoseconds(void)
 	return (tsc_period_ps * rdtsc()) / 1000;
 }
 
-static void set_lapic_timer(unsigned ns)
+static void set_lapic_timer(uint64_t ns)
 {
 	calib_qual = 1000;
 	int div = 1;
@@ -219,8 +219,10 @@ static void set_lapic_timer(unsigned ns)
 		uint64_t re = rdtsc();
 		uint64_t lte = lapic_read(LAPIC_TCCR);
 
-		uint64_t lt_freq = (-(lte - lts) * 1000000000) / elap;
-		uint64_t tc_freq = ((re - rs) * 1000000000) / elap;
+		__int128 x = -(lte - lts); x *= 1000000000ul;
+		uint64_t lt_freq = x / elap;
+		x = re - rs; x *= 1000000000ul;
+		uint64_t tc_freq = x / elap;
 
 		uint64_t this_lapic_period_ps = 1000000000000ul / lt_freq;
 		uint64_t this_tsc_period_ps   = 1000000000000ul / tc_freq;
@@ -230,10 +232,11 @@ static void set_lapic_timer(unsigned ns)
 		lapic_write(LAPIC_TICR, (1000ul * ns) / this_lapic_period_ps);
 
 		rs = rdtsc();
-		while(lapic_read(LAPIC_TCCR) > 0);
+		while(lapic_read(LAPIC_TCCR) > 0)
+			asm("pause");
 		re = rdtsc();
 
-		int quality = 1000 - ((re - rs) * this_tsc_period_ps) / ns;
+		int64_t quality = 1000 - ((re - rs) * this_tsc_period_ps) / ns;
 		if(quality < 0) quality = -quality;
 
 		if(attempts == 0) quality = 1000; /* throw away first try */
