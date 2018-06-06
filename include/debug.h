@@ -28,15 +28,5 @@ bool arch_debug_unwind_frame(struct frame *frame);
 void debug_puts(char *);
 void arch_panic_begin(void);
 
-
-static inline uint64_t rdtsc(void)
-{
-    uint32_t eax, edx;
-    asm volatile("rdtscp" : "=a"(eax), "=d"(edx) :: "memory", "rcx");
-    return (uint64_t)eax | (uint64_t)edx << 32;
-}
-
-
 #endif
-
 

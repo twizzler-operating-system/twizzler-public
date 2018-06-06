@@ -59,7 +59,6 @@ static void hpet_init(void)
 	tmp &= ~HPET_ENABLE_CNF;
 	hpet_write64(HPET_CONFIG, tmp);
 
-	printk("hpet: found %d counters\n", count);
 	for(int i=0;i<count;i++) {
 		tmp = hpet_read64(HPET_TIMERN_CONFIG(i));
 		tmp &= ~(HPET_TN_CONFIG_ENABLE);
@@ -72,14 +71,5 @@ static void hpet_init(void)
 	tmp = hpet_read64(HPET_CONFIG);
 	tmp |= HPET_ENABLE_CNF;
 	hpet_write64(HPET_CONFIG, tmp);
-	printk("HPET: %lx; cp = %d\n", hpet->address, countperiod);
-}
-
-uint64_t arch_processor_get_nanoseconds_hpet(void)
-{
-	//return *(volatile uint64_t *)(0xFFFFFF80FED00000 + HPET_COUNTER);
-	//printk("--> %ld\n", hpet_read64(HPET_COUNTER));
-	//printk(":: %p\n", mm_ptov(hpet->address));
-	return (hpet_read64(HPET_COUNTER) * countperiod) / 1000000;
 }
 

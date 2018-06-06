@@ -24,4 +24,5 @@ struct clksrc {
 
 void clksrc_deregister(struct clksrc *cs);
 void clksrc_register(struct clksrc *cs);
+uint64_t clksrc_get_nanoseconds(void);
 

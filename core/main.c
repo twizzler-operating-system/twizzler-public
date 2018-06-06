@@ -1,4 +1,5 @@
 #include <debug.h>
+#include <clksrc.h>
 #include <memory.h>
 #include <init.h>
 #include <arena.h>
@@ -65,30 +66,30 @@ static void bench(void)
 	while(true)
 	{
 		//uint64_t sr = rdtsc();
-		//uint64_t start = arch_processor_get_nanoseconds();
-		//uint64_t end = arch_processor_get_nanoseconds();
+		//uint64_t start = clksrc_get_nanoseconds();
+		//uint64_t end = clksrc_get_nanoseconds();
 		//uint64_t er = rdtsc();
 		//printk(":: %ld %ld\n", end - start, er - sr);
 		//printk(":: %ld\n", er - sr);
 
 #if 1
-		uint64_t start = arch_processor_get_nanoseconds();
+		uint64_t start = clksrc_get_nanoseconds();
 		volatile int i;
 		uint64_t c = 0;
 		for(i=0;i<40000000;i++) {
 		//	uint64_t x = rdtsc();
-			arch_processor_get_nanoseconds();
+			clksrc_get_nanoseconds();
 		//	uint64_t y = rdtsc();
 		//	c += (y - x);
 		}
-		uint64_t end = arch_processor_get_nanoseconds();
+		uint64_t end = clksrc_get_nanoseconds();
 		printk("Done: %ld (%ld)\n", end - start, (end - start) / i);
 		//printk("RD: %ld (%ld)\n", c, c / i);
 #else
-		uint64_t start = arch_processor_get_nanoseconds();
+		uint64_t start = clksrc_get_nanoseconds();
 		//for(long i=0;i<800000000l;i++);
 		for(long i=0;i<800000000l;i++);
-		uint64_t end = arch_processor_get_nanoseconds();
+		uint64_t end = clksrc_get_nanoseconds();
 		printk("Done: %ld\n", end - start);
 		if(c++ == 10)
 			panic("reset");
