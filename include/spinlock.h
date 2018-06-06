@@ -7,6 +7,8 @@ struct spinlock {
 	bool fl;
 };
 
+#define DECLARE_SPINLOCK(name) struct spinlock name = { .data = 0 }
+
 #define SPINLOCK_INIT (struct spinlock) { .data = 0 }
 
 bool spinlock_acquire(struct spinlock *lock);

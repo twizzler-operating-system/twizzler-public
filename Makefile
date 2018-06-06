@@ -113,7 +113,6 @@ $(BUILDDIR)/%.o : %.S $(CONFIGFILE)
 $(BUILDDIR)/%.o : %.c $(CONFIGFILE)
 	@echo "[CC]  $@"
 	@mkdir -p $(@D)
-	#@echo $($(addprefix CFLAGS_,$(subst /,_,$<)))
 	@$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) $($(addprefix CFLAGS_,$(subst /,_,$<))) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
 
 clean:

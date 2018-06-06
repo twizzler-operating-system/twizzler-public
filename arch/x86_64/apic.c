@@ -11,6 +11,7 @@
 #include <debug.h>
 #include <thread-bits.h>
 #include <processor.h>
+#include <clksrc.h>
 #include <arch/x86_64-madt.h>
 #include <interrupt.h>
 #include <arch/x86_64-io.h>
@@ -188,17 +189,27 @@ static uint64_t wait_ns_old(int64_t ns)
 	return el;
 }
 
-static uint64_t lapic_period_ps;
-static uint64_t tsc_period_ps;
-static int calib_qual = 0;
-
 uint64_t arch_processor_get_nanoseconds(void)
 {
-	return (tsc_period_ps * rdtsc()) / 1000;
+	return (238 * rdtsc()) / 1000;
 }
+
+static struct clksrc _clksrc_apic = {
+	.name = "APIC Timer",
+	.flags = CLKSRC_INTERRUPT | CLKSRC_ONESHOT | CLKSRC_PERIODIC,
+};
+
+static struct clksrc _clksrc_tsc = {
+	.name = "TSC",
+	.flags = CLKSRC_MONOTONIC,
+};
 
 static void set_lapic_timer(uint64_t ns)
 {
+	uint64_t lapic_period_ps = 0;
+	uint64_t tsc_period_ps = 0;
+	int calib_qual = 0;
+	arch_interrupt_set(false);
 	calib_qual = 1000;
 	int div = 1;
     /* THE ORDER OF THESE IS IMPORTANT!
@@ -249,7 +260,51 @@ static void set_lapic_timer(uint64_t ns)
 
 		if(quality == 0) break;
 	}
-	printk("Calibrated lapic timer (%ld ps) and TSC (%ld ps) after %d attempts (q=%d)\n", lapic_period_ps, tsc_period_ps, attempts, calib_qual);
+
+	_clksrc_apic.period_ps = lapic_period_ps;
+	_clksrc_tsc.period_ps = tsc_period_ps;
+
+	uint64_t diff = 0;
+	uint64_t i;
+	for(i=0;i<100;i++) {
+		lapic_write(LAPIC_TICR, (1000ul * ns) / lapic_period_ps);
+		uint64_t s = lapic_read(LAPIC_TCCR);
+		uint64_t e = lapic_read(LAPIC_TCCR);
+		diff += -(e - s);
+	}
+	diff /= i; diff *= lapic_period_ps; diff /= 1000;
+	if(diff == 0) diff = 1;
+	_clksrc_apic.precision = diff; /* lapic counts down */
+
+	diff = 0;
+	for(i=0;i<100;i++) {
+		uint64_t s = rdtsc();
+		uint64_t e = rdtsc();
+		diff += e - s;
+	}
+	diff /= i; diff *= lapic_period_ps; diff /= 1000;
+	if(diff == 0) diff = 1;
+	_clksrc_tsc.precision = diff;
+
+	uint64_t s = rdtsc();
+	for(i=0;i<1000;i++) {
+		rdtsc();
+	}
+	uint64_t e = rdtsc();
+	_clksrc_tsc.read_time = ((e - s) * tsc_period_ps) / 1000;
+
+	s = rdtsc();
+	for(i=0;i<1000;i++) {
+		lapic_read(LAPIC_TCCR);
+	}
+	e = rdtsc();
+
+	_clksrc_apic.read_time = ((e - s) * tsc_period_ps) / 1000;
+
+	_clksrc_apic.period_ps = lapic_period_ps;
+	_clksrc_tsc.period_ps = tsc_period_ps;
+	clksrc_register(&_clksrc_apic);
+	clksrc_register(&_clksrc_tsc);
 }
 
 static void lapic_configure(int bsp)
