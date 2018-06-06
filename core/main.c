@@ -76,15 +76,22 @@ static void bench(void)
 		uint64_t start = clksrc_get_nanoseconds();
 		volatile int i;
 		uint64_t c = 0;
-		for(i=0;i<40000000;i++) {
+		for(i=0;i<1000000000;i++) {
+			volatile int x = i ^ (i-1);
 		//	uint64_t x = rdtsc();
-			clksrc_get_nanoseconds();
+			//clksrc_get_nanoseconds();
 		//	uint64_t y = rdtsc();
 		//	c += (y - x);
 		}
 		uint64_t end = clksrc_get_nanoseconds();
 		printk("Done: %ld (%ld)\n", end - start, (end - start) / i);
 		//printk("RD: %ld (%ld)\n", c, c / i);
+		start = clksrc_get_nanoseconds();
+		for(i=0;i<1000000000;i++) {
+			us1[i % 0x1000] = i&0xff;
+		}
+		end = clksrc_get_nanoseconds();
+		printk("MEMD: %ld (%ld)\n", end - start, (end - start) / i);
 #else
 		uint64_t start = clksrc_get_nanoseconds();
 		//for(long i=0;i<800000000l;i++);
