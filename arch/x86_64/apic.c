@@ -142,8 +142,45 @@ static uint32_t do_wait(int ns)
 
 static uint64_t wait_ns(int64_t ns)
 {
+	__int128 x = ns * 1193182ul;
+	int64_t count = x / 1000000000ul;
+
+	x86_64_outb(PIT_CMD, PIT_CHANNEL(2) | PIT_ACCESS_BOTH |
+			PIT_MODE_ONESHOT | PIT_FORMAT_BINARY);
+
+	uint64_t ec = 0;
+	while(count > 64) {
+		uint32_t readback;
+		uint32_t thiscount = 0xFFFF;
+		if(thiscount > count) {
+			thiscount = count + 64;
+			if(thiscount > 0xFFFF) thiscount = 0xFFFF;
+		}
+
+		x86_64_outb(PIT_DATA(2), thiscount & 0xFF);
+		x86_64_outb(PIT_DATA(2), (thiscount >> 8) & 0xFF);
+
+		do {
+			x86_64_outb(PIT_CMD,
+					PIT_CHANNEL(2) |
+					PIT_ACCESS_LATCH);
+			readback = x86_64_inb(PIT_DATA(2));
+			readback |= x86_64_inb(PIT_DATA(2)) << 8;
+			asm("pause");
+		} while(readback > 64);
+
+		ec += (thiscount - readback);
+		count -= (thiscount - readback);
+	}
+	x = ec * 1000000000ul;
+	return x / 1193182ul;
+}
+
+static uint64_t wait_ns_old(int64_t ns)
+{
 	uint64_t el = 0;
-	while(ns > 100) {
+	ns += 10000;
+	while(ns > 10000) {
 		uint64_t tmp = do_wait(ns);
 		ns -= tmp;
 		el += tmp;
@@ -163,13 +200,13 @@ uint64_t arch_processor_get_nanoseconds(void)
 static void set_lapic_timer(unsigned ns)
 {
 	calib_qual = 1000;
-	int div = 3;
+	int div = 1;
     /* THE ORDER OF THESE IS IMPORTANT!
      * If you write the initial count before you
      * tell it to set periodic mode and set the vector
      * it will not generate an interrupt! */
 	int attempts;
-	for(attempts = 0;attempts < 10;attempts++) {
+	for(attempts = 0;attempts < 5;attempts++) {
 		lapic_write(LAPIC_LVTT, 32 | 0x20000);
 		lapic_write(LAPIC_TDCR, div);
 		lapic_write(LAPIC_TICR, 1000000000);

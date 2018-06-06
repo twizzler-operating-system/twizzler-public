@@ -18,6 +18,7 @@ extern void idt_init(void);
 extern void idt_init_secondary(void);
 
 static struct multiboot *mb;
+static struct processor _dummy_proc;
 
 static void proc_init(void)
 {
@@ -54,6 +55,10 @@ static void proc_init(void)
 		x86_64_rdmsr(X86_MSR_MTRR_PHYSBASE(i), &lo, &hi);
 		x86_64_rdmsr(X86_MSR_MTRR_PHYSMASK(i), &lo, &hi);
 	}
+	
+	/* in case we need to field an interrupt before we properly setup gs */
+	uint64_t gs = (uint64_t)&_dummy_proc.arch;
+	x86_64_wrmsr(X86_MSR_GS_BASE, gs & 0xFFFFFFFF, gs >> 32);
 }
 
 struct ustar_header {
@@ -201,7 +206,6 @@ extern void kernel_main(struct processor *proc);
 
 void x86_64_processor_post_vm_init(struct processor *proc)
 {
-	
 	/* save GS kernel base (saved to user, because we swapgs on sysret) */
 	uint64_t gs = (uint64_t)&proc->arch;
 	x86_64_wrmsr(X86_MSR_GS_BASE, gs & 0xFFFFFFFF, gs >> 32);

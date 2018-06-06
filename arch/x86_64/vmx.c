@@ -463,6 +463,7 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	/* TODO: debug registers? */
 
+	/* TODO: set host GS? */
 
 	vmcs_writel(VMCS_GUEST_ACTIVITY_STATE, 0);
 	vmcs_writel(VMCS_GUEST_INTRRUPTIBILITY_INFO, 0);

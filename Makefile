@@ -16,8 +16,9 @@ CONFIGFILE=projects/$(PROJECT)/config.mk
 BUILDDIR=projects/$(PROJECT)/build
 
 include $(CONFIGFILE)
+
 export PATH := ${TOOLCHAIN_PATH}/bin:$(PATH)
-DEFINES=$(addprefix -D,$(shell sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d' -e 's/+=/=/g' $(CONFIGFILE)))
+DEFINES=$(addprefix -D,$(shell grep "CONFIG" $(CONFIGFILE) | sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d' -e 's/+=/=/g'))
 
 ARCH=$(CONFIG_ARCH)
 MACHINE=$(CONFIG_MACHINE)
@@ -107,12 +108,13 @@ $(BUILDDIR)/kernel.stage1: $(BUILDDIR)/link.ld $(OBJECTS)
 $(BUILDDIR)/%.o : %.S $(CONFIGFILE)
 	@echo "[AS]  $@"
 	@mkdir -p $(@D)
-	@$(TOOLCHAIN_PREFIX)gcc $(ASFLAGS) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
+	$(TOOLCHAIN_PREFIX)gcc $(ASFLAGS) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
 
 $(BUILDDIR)/%.o : %.c $(CONFIGFILE)
 	@echo "[CC]  $@"
 	@mkdir -p $(@D)
-	@$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
+	#@echo $($(addprefix CFLAGS_,$(subst /,_,$<)))
+	@$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) $($(addprefix CFLAGS_,$(subst /,_,$<))) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
 
 clean:
 	-rm -rf $(BUILDDIR)
