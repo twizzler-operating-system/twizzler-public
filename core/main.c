@@ -72,7 +72,7 @@ static void bench(void)
 		//printk(":: %ld %ld\n", end - start, er - sr);
 		//printk(":: %ld\n", er - sr);
 
-#if 1
+#if 0
 		uint64_t start = clksrc_get_nanoseconds();
 		volatile int i;
 		uint64_t c = 0;
@@ -93,6 +93,11 @@ static void bench(void)
 		end = clksrc_get_nanoseconds();
 		printk("MEMD: %ld (%ld)\n", end - start, (end - start) / i);
 #else
+		while(true) {
+			uint64_t t = clksrc_get_nanoseconds();
+			if(((t / 1000000) % 1000) == 0)
+				printk("ONE SECOND %ld\n", t);
+		}
 		uint64_t start = clksrc_get_nanoseconds();
 		//for(long i=0;i<800000000l;i++);
 		for(long i=0;i<800000000l;i++);
