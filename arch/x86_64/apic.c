@@ -161,9 +161,16 @@ static uint64_t _apic_read_counter(struct clksrc *c __unused)
 
 static uint64_t _tsc_read_counter(struct clksrc *c __unused)
 {
-    uint32_t eax, edx;
-    asm volatile("rdtscp; lfence" : "=a"(eax), "=d"(edx) :: "memory", "rcx");
-    return (uint64_t)eax | (uint64_t)edx << 32;
+	uint32_t eax, edx;
+	asm volatile("rdtscp; lfence" : "=a"(eax), "=d"(edx) :: "memory", "rcx");
+	return (uint64_t)eax | (uint64_t)edx << 32;
+}
+
+static inline uint64_t rdtsc(void)
+{
+	uint32_t eax, edx;
+	asm volatile("rdtscp" : "=a"(eax), "=d"(edx) :: "rcx");
+	return (uint64_t)eax | (uint64_t)edx << 32;
 }
 
 static struct clksrc _clksrc_apic = {
@@ -197,11 +204,11 @@ static void set_lapic_timer(uint64_t ns)
 		lapic_write(LAPIC_TICR, 1000000000);
 
 		uint64_t lts = lapic_read(LAPIC_TCCR);
-		uint64_t rs = _tsc_read_counter(NULL);
+		uint64_t rs = rdtsc();
 
-		uint64_t elap = wait_ns(1000000);
+		uint64_t elap = wait_ns(20000000);
 
-		uint64_t re = _tsc_read_counter(NULL);
+		uint64_t re = rdtsc();
 		uint64_t lte = lapic_read(LAPIC_TCCR);
 
 		__int128 x = -(lte - lts); x *= 1000000000ul;
@@ -216,10 +223,10 @@ static void set_lapic_timer(uint64_t ns)
 		lapic_write(LAPIC_TDCR, div);
 		lapic_write(LAPIC_TICR, (1000ul * ns) / this_lapic_period_ps);
 
-		rs = _tsc_read_counter(NULL);
+		rs = rdtsc();
 		while(lapic_read(LAPIC_TCCR) > 0)
 			asm("pause");
-		re = _tsc_read_counter(NULL);
+		re = rdtsc();
 
 		int64_t quality = 1000 - ((re - rs) * this_tsc_period_ps) / ns;
 		if(quality < 0) quality = -quality;
@@ -252,27 +259,27 @@ static void set_lapic_timer(uint64_t ns)
 
 	diff = 0;
 	for(i=0;i<100;i++) {
-		uint64_t s = _tsc_read_counter(NULL);
-		uint64_t e = _tsc_read_counter(NULL);
+		uint64_t s = rdtsc();
+		uint64_t e = rdtsc();
 		diff += e - s;
 	}
 	diff /= i; diff *= tsc_period_ps; diff /= 1000;
 	if(diff == 0) diff = 1;
 	_clksrc_tsc.precision = diff;
 
-	uint64_t s = _tsc_read_counter(NULL);
+	uint64_t s = rdtsc();
 	for(i=0;i<1000;i++) {
-		_tsc_read_counter(NULL);
+		rdtsc();
 	}
-	uint64_t e = _tsc_read_counter(NULL);
+	uint64_t e = rdtsc();
 
 	_clksrc_tsc.read_time = ((e - s) * tsc_period_ps) / (1000 * i);
 
-	s = _tsc_read_counter(NULL);
+	s = rdtsc();
 	for(i=0;i<1000;i++) {
 		lapic_read(LAPIC_TCCR);
 	}
-	e = _tsc_read_counter(NULL);
+	e = rdtsc();
 
 	_clksrc_apic.read_time = ((e - s) * tsc_period_ps) / (1000 * i);
 

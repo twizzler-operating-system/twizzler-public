@@ -187,6 +187,10 @@ void x86_64_vmexit_handler(struct processor *proc)
 			*/
 	printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual, iinfo);
 
+	//uint32_t x, y;
+	//x86_64_rdmsr(X86_MSR_GS_BASE, &x, &y);
+	//printk("GS: %x %x\nPROC: %p", y, x, &proc->arch);
+
 	atomic_fetch_add(&vmexits_count, 1);
 	switch(reason) {
 		uintptr_t val;
@@ -219,6 +223,7 @@ void x86_64_vmexit_handler(struct processor *proc)
 			break;
 		default:
 			panic("Unhandled VMEXIT: %ld %lx %lx", reason, qual, grip);
+			break;
 	}
 
 	x86_64_vmenter(proc);
@@ -388,7 +393,13 @@ uintptr_t init_ept(void)
 	/* identity map. TODO: map all physical memory */
 	uintptr_t pml4phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 	for(uintptr_t phys = 0; phys < 8*1024*1024*1024ull; phys += 2*1024ul*1024) {
-		x86_64_ept_map(pml4phys, phys, phys, 1, EPT_READ | EPT_WRITE | EPT_EXEC);
+		uint64_t flags = EPT_READ | EPT_WRITE | EPT_EXEC;
+		if((phys >= 0xC0000000 && phys < 0x100000000)) {
+			flags |= EPT_MEMTYPE_UC;
+		} else {
+			flags |= EPT_MEMTYPE_WB;
+		}
+		x86_64_ept_map(pml4phys, phys, phys, 1, flags);
 	}
 
 	return pml4phys;
@@ -477,6 +488,7 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_LINK_POINTER, ~0ull);
 
 	/* VM control fields. */
+
 	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PINBASED_CTLS, VMCS_PINBASED_CONTROLS, 0);
 	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1ul << 31) 
 			| (1 << 28) /* Use MSR bitmaps */);
@@ -486,6 +498,7 @@ void vtx_setup_vcpu(struct processor *proc)
 			/* TODO: APIC */
 			| (1 << 3) /* allow RDTSCP */
 			| (1 << 13) /* enable VMFUNC */
+			| (1 << 12) /* allow invpcid */
 			| (1 << 18) /* guest handles EPT violations */);
 
 	vmcs_writel(VMCS_EXCEPTION_BITMAP, 0);

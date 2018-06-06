@@ -62,8 +62,12 @@ static void bench(void)
 {
 	printk("Starting benchmark\n");
 	arch_interrupt_set(true);
+
+	//asm volatile("cpuid");
+	//for(;;);
+
 	int c = 0;
-	while(true)
+	for(c=0;c<5;c++)
 	{
 		//uint64_t sr = rdtsc();
 		//uint64_t start = clksrc_get_nanoseconds();
@@ -72,11 +76,12 @@ static void bench(void)
 		//printk(":: %ld %ld\n", end - start, er - sr);
 		//printk(":: %ld\n", er - sr);
 
-#if 0
+#if 1
 		uint64_t start = clksrc_get_nanoseconds();
 		volatile int i;
 		uint64_t c = 0;
-		for(i=0;i<1000000000;i++) {
+		int64_t max = 1000000000;
+		for(i=0;i<max;i++) {
 			volatile int x = i ^ (i-1);
 		//	uint64_t x = rdtsc();
 			//clksrc_get_nanoseconds();
@@ -87,7 +92,7 @@ static void bench(void)
 		printk("Done: %ld (%ld)\n", end - start, (end - start) / i);
 		//printk("RD: %ld (%ld)\n", c, c / i);
 		start = clksrc_get_nanoseconds();
-		for(i=0;i<1000000000;i++) {
+		for(i=0;i<max;i++) {
 			us1[i % 0x1000] = i&0xff;
 		}
 		end = clksrc_get_nanoseconds();
@@ -107,6 +112,7 @@ static void bench(void)
 			panic("reset");
 #endif
 	}
+	for(;;);
 }
 
 static _Atomic unsigned int kernel_main_barrier = 0;
