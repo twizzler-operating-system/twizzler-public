@@ -195,12 +195,11 @@ static void set_lapic_timer(uint64_t ns)
 		lapic_write(LAPIC_LVTT, 32 | 0x20000);
 		lapic_write(LAPIC_TDCR, div);
 		lapic_write(LAPIC_TICR, 1000000000);
-		printk("Calib\n");
 
 		uint64_t lts = lapic_read(LAPIC_TCCR);
 		uint64_t rs = _tsc_read_counter(NULL);
 
-		uint64_t elap = wait_ns(1000000000);
+		uint64_t elap = wait_ns(1000000);
 
 		uint64_t re = _tsc_read_counter(NULL);
 		uint64_t lte = lapic_read(LAPIC_TCCR);
@@ -208,7 +207,6 @@ static void set_lapic_timer(uint64_t ns)
 		__int128 x = -(lte - lts); x *= 1000000000ul;
 		uint64_t lt_freq = x / elap;
 		x = re - rs; x *= 1000000000ul;
-		printk(":: %ld\n", elap);
 		uint64_t tc_freq = x / elap;
 
 		uint64_t this_lapic_period_ps = 1000000000000ul / lt_freq;
