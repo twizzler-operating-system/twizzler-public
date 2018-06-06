@@ -282,7 +282,7 @@ static void set_lapic_timer(uint64_t ns)
 		uint64_t e = rdtsc();
 		diff += e - s;
 	}
-	diff /= i; diff *= lapic_period_ps; diff /= 1000;
+	diff /= i; diff *= tsc_period_ps; diff /= 1000;
 	if(diff == 0) diff = 1;
 	_clksrc_tsc.precision = diff;
 
@@ -291,7 +291,8 @@ static void set_lapic_timer(uint64_t ns)
 		rdtsc();
 	}
 	uint64_t e = rdtsc();
-	_clksrc_tsc.read_time = ((e - s) * tsc_period_ps) / 1000;
+	printk("------- %ld\n", e-s);
+	_clksrc_tsc.read_time = ((e - s) * tsc_period_ps) / (1000 * i);
 
 	s = rdtsc();
 	for(i=0;i<1000;i++) {
@@ -299,7 +300,7 @@ static void set_lapic_timer(uint64_t ns)
 	}
 	e = rdtsc();
 
-	_clksrc_apic.read_time = ((e - s) * tsc_period_ps) / 1000;
+	_clksrc_apic.read_time = ((e - s) * tsc_period_ps) / (1000 * i);
 
 	_clksrc_apic.period_ps = lapic_period_ps;
 	_clksrc_tsc.period_ps = tsc_period_ps;
