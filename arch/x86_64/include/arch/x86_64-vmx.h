@@ -85,6 +85,7 @@ enum {
 	VMCS_HOST_GDTR_BASE               = 0x6c0c,
 	VMCS_HOST_IDTR_BASE               = 0x6c0e,
 	VMCS_HOST_TR_BASE                 = 0x6c0a,
+	VMCS_HOST_GS_BASE                 = 0x6c08,
 	VMCS_ENTRY_INTR_INFO              = 0x4016,
 	VMCS_APIC_VIRT_ADDR               = 0x2012,
 	VMCS_TPR_THRESHOLD                = 0x401c,

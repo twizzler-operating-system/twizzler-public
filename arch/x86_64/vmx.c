@@ -417,6 +417,7 @@ void vtx_setup_vcpu(struct processor *proc)
 	/* we have to set-up the vcpu state to "mirror" our physical CPU.
 	 * Strap yourself in, it's gonna be a long ride. */
 
+
 	/* segment selectors */
 	vmcs_writel(VMCS_GUEST_CS_SEL, 0x8);
 	vmcs_writel(VMCS_GUEST_CS_BASE, 0);
@@ -450,6 +451,11 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_GUEST_LDTR_BASE, 0);
 	vmcs_writel(VMCS_GUEST_LDTR_LIM, 0xffff);
 	vmcs_writel(VMCS_GUEST_LDTR_ARBYTES, 0x0082);
+
+	uint32_t gslo, gshi;
+	x86_64_rdmsr(X86_MSR_GS_BASE, &gslo, &gshi);
+	uint64_t gsbase = (uint64_t)gslo | (uint64_t)gshi << 32;
+	vmcs_writel(VMCS_GUEST_GS_BASE, gsbase);
 
 	/* GDT and IDT */
 	vmcs_writel(VMCS_GUEST_GDTR_BASE, (uintptr_t)&proc->arch.gdt);
@@ -517,6 +523,8 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_GS_SEL, 0x10);
 	vmcs_writel(VMCS_HOST_SS_SEL, 0x10);
 	vmcs_writel(VMCS_HOST_TR_SEL, 0x28);
+
+	vmcs_writel(VMCS_HOST_GS_BASE, gsbase);
 
 	vmcs_writel(VMCS_HOST_GDTR_BASE, (uintptr_t)proc->arch.gdtptr.base); //TODO: base or ptr?
 	vmcs_writel(VMCS_HOST_TR_BASE, (uintptr_t)&proc->arch.tss);

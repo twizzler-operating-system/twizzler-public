@@ -210,11 +210,11 @@ void x86_64_processor_post_vm_init(struct processor *proc)
 	uint64_t gs = (uint64_t)&proc->arch;
 	x86_64_wrmsr(X86_MSR_GS_BASE, gs & 0xFFFFFFFF, gs >> 32);
 
-	/* okay, now set up the registers for fast syscall.
+	/* okay, now set up the registers for fast syscall, which we can do after we
+	 * enter vmx-non-root because only userspace needs these.
 	 * This means storing x86_64_syscall_entry to LSTAR,
 	 * the EFLAGS mask to SFMASK, and the CS kernel segment
 	 * to STAR. */
-
 	
 	/* STAR: bits 32-47 are kernel CS, 48-63 are user CS. */
 	uint32_t lo = 0, hi;
@@ -245,6 +245,10 @@ void arch_processor_init(struct processor *proc)
 		proc->arch.kernel_stack = &initial_boot_stack;
 	}
 
+	/* set GS before we enter the vmx-non-root. Host and guest need to know
+	 * what GS should be. */
+	uint64_t gs = (uint64_t)&proc->arch;
+	x86_64_wrmsr(X86_MSR_GS_BASE, gs & 0xFFFFFFFF, gs >> 32);
 	x86_64_start_vmx(proc);
 }
 
