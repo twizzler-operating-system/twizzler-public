@@ -26,6 +26,7 @@ void clksrc_register(struct clksrc *cs)
 	spinlock_release_restore(&lock);
 }
 
+__noinstrument
 uint64_t clksrc_get_nanoseconds(void)
 {
 	if(best_monotonic == NULL) {

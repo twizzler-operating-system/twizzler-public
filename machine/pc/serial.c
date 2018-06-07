@@ -88,11 +88,13 @@ struct uart {
 	int irq;
 };
 
+__noinstrument
 static void uart_write(struct uart *u, int reg, uint8_t value)
 {
 	x86_64_outb(u->port + reg, value);
 }
 
+__noinstrument
 static uint8_t uart_read(struct uart *u, int reg)
 {
 	return x86_64_inb(u->port + reg);
@@ -177,8 +179,13 @@ static void uart_program(struct uart *u, bool interrupts)
 	uart_write(u, UART_REG_FIFOCTL, u->fc);
 
 	if(interrupts) {
+#if CONFIG_INSTRUMENT
+		u->ie = UART_IER_RX_FULL;
+//			| UART_IER_LINESTATUS | UART_IER_LINEDELTA;
+#else
 		u->ie = UART_IER_RX_FULL | UART_IER_TX_FULL
 			| UART_IER_LINESTATUS | UART_IER_LINEDELTA;
+#endif
 	} else {
 		u->ie = 0;
 	}
@@ -263,7 +270,8 @@ static struct uart com1 = {
 	.irq = COM1_IRQ,
 };
 
-static void _serial_interrupt(int i)
+__noinstrument
+static void _serial_interrupt(int i, struct interrupt_handler *h __unused)
 {
 	struct uart *u = &com1;
 	(void)i;
@@ -293,11 +301,12 @@ static struct interrupt_handler _serial_handler = {
 
 void serial_init(void)
 {
-	uart_init(&com1, false, UART_PARITY_TYPE_NONE, 1, 8, 38400);
+	uart_init(&com1, false, UART_PARITY_TYPE_NONE, 1, 8, 115200);
 	printk("Initialized serial debugging (max_baud=%d, fifo_sz=%d, div=%d)\n",
 			com1.max_baud, com1.fifo_sz, com1.divisor);
 }
 
+__noinstrument
 void serial_putc(char c)
 {
 	while((uart_read(&com1, UART_REG_LSR) & UART_LSR_THR_EMPTY) == 0)
@@ -316,7 +325,7 @@ __initializer static void __serial_init(void)
 {
 	interrupt_register_handler(com1.irq, &_serial_handler);
 	arch_interrupt_unmask(com1.irq);
-	uart_init(&com1, true, UART_PARITY_TYPE_NONE, 1, 8, 38400);
+	uart_init(&com1, true, UART_PARITY_TYPE_NONE, 1, 8, 115200);
 }
 
 #include <spinlock.h>

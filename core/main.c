@@ -63,9 +63,6 @@ static void bench(void)
 	printk("Starting benchmark\n");
 	arch_interrupt_set(true);
 
-	//asm volatile("cpuid");
-	//for(;;);
-
 	int c = 0;
 	for(c=0;c<5;c++)
 	{

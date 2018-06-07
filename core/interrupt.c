@@ -36,7 +36,7 @@ void kernel_interrupt_entry(int vector)
 	spinlock_acquire_save(&locks[vector]);
 	foreach(entry, list, list) {
 		struct interrupt_handler *h = list_entry(entry, struct interrupt_handler, entry);
-		h->fn(vector);
+		h->fn(vector, h);
 	}
 	spinlock_release_restore(&locks[vector]);
 }

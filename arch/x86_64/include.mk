@@ -17,6 +17,7 @@ ASM_SOURCES+=$(addprefix arch/$(ARCH)/,start.S ctx.S trampoline.S interrupt.S ga
 
 # This file mucks with gs, which is used in stack-smashing detection
 CFLAGS_arch_x86_64_init.c=-fno-stack-protector
+CFLAGS_arch_x86_64_vmx.c=-fno-stack-protector
 
 $(BUILDDIR)/link.ld: arch/$(ARCH)/link.ld.in machine/$(MACHINE)/include/machine/memory.h
 	@echo "[GEN] $@"

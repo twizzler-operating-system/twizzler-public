@@ -1,10 +1,12 @@
 #pragma once
 #include <stdint.h>
+__noinstrument
 static inline void x86_64_outb(uint16_t port, uint8_t val)
 {
 	asm volatile ("outb %1, %0" : : "dN" (port), "a" ((unsigned char)val));
 }
 
+__noinstrument
 static inline uint8_t x86_64_inb(uint16_t port)
 {
 	uint8_t ret;

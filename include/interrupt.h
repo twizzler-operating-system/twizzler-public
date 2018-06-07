@@ -4,7 +4,7 @@
 #include <lib/list.h>
 
 struct interrupt_handler {
-	void (*fn)(int);
+	void (*fn)(int, struct interrupt_handler *);
 	struct list entry;
 };
 

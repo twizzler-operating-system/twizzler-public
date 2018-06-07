@@ -159,6 +159,7 @@ static uint64_t _apic_read_counter(struct clksrc *c __unused)
 	return lapic_read(LAPIC_TCCR);
 }
 
+__noinstrument
 static uint64_t _tsc_read_counter(struct clksrc *c __unused)
 {
 	uint32_t eax, edx;
