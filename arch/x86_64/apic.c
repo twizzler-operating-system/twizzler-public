@@ -186,14 +186,13 @@ static struct clksrc _clksrc_tsc = {
 	.read_counter = _tsc_read_counter,
 };
 
-static void set_lapic_timer(uint64_t ns)
+static void calibrate_timers(int div)
 {
 	uint64_t lapic_period_ps = 0;
 	uint64_t tsc_period_ps = 0;
 	int calib_qual = 0;
 	arch_interrupt_set(false);
 	calib_qual = 1000;
-	int div = 1;
 	int attempts;
 	for(attempts = 0;attempts < 5;attempts++) {
 		/* THE ORDER OF THESE IS IMPORTANT!
@@ -222,14 +221,14 @@ static void set_lapic_timer(uint64_t ns)
 
 		lapic_write(LAPIC_LVTT, 32);
 		lapic_write(LAPIC_TDCR, div);
-		lapic_write(LAPIC_TICR, (1000ul * ns) / this_lapic_period_ps);
+		lapic_write(LAPIC_TICR, (1000000000) / this_lapic_period_ps);
 
 		rs = rdtsc();
 		while(lapic_read(LAPIC_TCCR) > 0)
 			asm("pause");
 		re = rdtsc();
 
-		int64_t quality = 1000 - ((re - rs) * this_tsc_period_ps) / ns;
+		int64_t quality = 1000 - ((re - rs) * this_tsc_period_ps) / 1000000;
 		if(quality < 0) quality = -quality;
 
 		if(attempts == 0) quality = 1000; /* throw away first try */
@@ -249,7 +248,7 @@ static void set_lapic_timer(uint64_t ns)
 	uint64_t diff = 0;
 	uint64_t i;
 	for(i=0;i<100;i++) {
-		lapic_write(LAPIC_TICR, (1000ul * ns) / lapic_period_ps);
+		lapic_write(LAPIC_TICR, (1000ul * 1000000ul) / lapic_period_ps);
 		uint64_t s = lapic_read(LAPIC_TCCR);
 		uint64_t e = lapic_read(LAPIC_TCCR);
 		diff += -(e - s);
@@ -286,6 +285,7 @@ static void set_lapic_timer(uint64_t ns)
 
 	clksrc_register(&_clksrc_apic);
 	clksrc_register(&_clksrc_tsc);
+
 }
 
 static void lapic_configure(int bsp)
@@ -315,7 +315,14 @@ static void lapic_configure(int bsp)
     /* finally write to the spurious interrupt register to enable
      * the interrupts */
     lapic_write(LAPIC_SPIV, 0x0100 | 0xFF);
-	set_lapic_timer(1000000);
+	int div = 1;
+	if(bsp)
+		calibrate_timers(div);
+
+	lapic_write(LAPIC_LVTT, 32);
+	lapic_write(LAPIC_TDCR, div);
+	lapic_write(LAPIC_TICR, 0);
+
 }
 
 __initializer void x86_64_lapic_init_percpu(void)
@@ -425,7 +432,7 @@ void arch_processor_boot(struct processor *proc)
 
 	int timeout;
 	for(timeout=10000;timeout>0;timeout--) {
-		if(*(volatile _Atomic uintptr_t *)(0x7300) == 0)
+		if(*((volatile _Atomic uintptr_t *)mm_ptov(0x7300)) == 0)
 			break;
 		wait_ns(10000);
 	}

@@ -19,7 +19,7 @@ void interrupt_register_handler(int vector, struct interrupt_handler *handler)
 	spinlock_release_restore(&locks[vector]);
 }
 
-void interrupt_unregister_handler(int vector __unused, struct interrupt_handler *handler)
+void interrupt_unregister_handler(int vector, struct interrupt_handler *handler)
 {
 	assert(initialized[vector]);
 	spinlock_acquire_save(&locks[vector]);
