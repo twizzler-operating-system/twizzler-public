@@ -301,7 +301,7 @@ static struct interrupt_handler _serial_handler = {
 
 void serial_init(void)
 {
-	uart_init(&com1, false, UART_PARITY_TYPE_NONE, 1, 8, 115200);
+	uart_init(&com1, false, UART_PARITY_TYPE_NONE, CONFIG_SERIAL_DEBUG_STOPBITS, CONFIG_SERIAL_DEBUG_WORDSZ, CONFIG_SERIAL_DEBUG_BAUD);
 	printk("Initialized serial debugging (max_baud=%d, fifo_sz=%d, div=%d)\n",
 			com1.max_baud, com1.fifo_sz, com1.divisor);
 }
@@ -325,7 +325,8 @@ __initializer static void __serial_init(void)
 {
 	interrupt_register_handler(com1.irq, &_serial_handler);
 	arch_interrupt_unmask(com1.irq);
-	uart_init(&com1, true, UART_PARITY_TYPE_NONE, 1, 8, 115200);
+	uart_init(&com1, true, UART_PARITY_TYPE_NONE,
+			CONFIG_SERIAL_DEBUG_STOPBITS, CONFIG_SERIAL_DEBUG_WORDSZ, CONFIG_SERIAL_DEBUG_BAUD);
 }
 
 #include <spinlock.h>
