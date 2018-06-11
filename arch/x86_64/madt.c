@@ -40,18 +40,15 @@ static void madt_init(void)
 
 	uintptr_t table = (uintptr_t)(madt + 1);
 	size_t len = madt->header.length - sizeof(*madt);
-	printk("MADT desc: %ld %x %x\n", len, madt->lca, madt->flags);
 	for(size_t off=0;off<len;) {
 		struct madt_record *rec = (void *)(table + off);
 		if(rec->reclen == 0)
 			break;
-		printk("MADT rec: (%ld) %d %d\n", off, rec->type, rec->reclen);
 		switch(rec->type) {
 			struct lapic_entry *lapic;
 			struct intsrc_entry *intsrc;
 			case LAPIC_ENTRY:
 				lapic = (void *)rec;
-				printk(":: LAPIC: %d %d\n", lapic->apicid, lapic->flags);
 				if(lapic->flags & 1) {
 					processor_register(lapic->apicid == 0, lapic->apicid);
 				}
