@@ -60,6 +60,96 @@ static bool __do_vm_map(uintptr_t pml4_phys, uintptr_t virt, uintptr_t phys, int
 	return true;
 }
 
+bool arch_vm_getmap(struct vm_context *ctx, uintptr_t virt, uintptr_t *phys, int *level, uint64_t *flags)
+{
+	if(ctx == NULL) {
+		ctx = current_thread->ctx;
+	}
+	int pml4_idx = PML4_IDX(virt);
+	int pdpt_idx = PDPT_IDX(virt);
+	int pd_idx   = PD_IDX(virt);
+	int pt_idx   = PT_IDX(virt);
+
+	uintptr_t p, f;
+	int l;
+	uintptr_t *pml4 = GET_VIRT_TABLE(ctx->arch.pml4_phys);
+	if(pml4[pml4_idx] == 0) {
+		return false;
+	}
+
+	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
+	if(pdpt[pdpt_idx] == 0) {
+		return false;
+	} else if(pdpt[pdpt_idx] & PAGE_LARGE) {
+		p = pdpt[pdpt_idx] & VM_PHYS_MASK;
+		f = pdpt[pdpt_idx] & ~VM_PHYS_MASK;
+		l = 2;
+	} else {
+		uintptr_t *pd = GET_VIRT_TABLE(pdpt[pdpt_idx]);
+		if(pd[pd_idx] == 0) {
+			return false;
+		} else if(pd[pd_idx] & PAGE_LARGE) {
+			p = pd[pd_idx] & VM_PHYS_MASK;
+			f = pd[pd_idx] & ~VM_PHYS_MASK;
+			l = 1;
+		} else {
+			uintptr_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
+			if(pt[pt_idx] == 0) {
+				return false;
+			}
+			p = pt[pt_idx] & VM_PHYS_MASK;
+			f = pt[pt_idx] & ~VM_PHYS_MASK;
+			l = 0;
+		}
+	}
+
+	f &= ~PAGE_LARGE;
+	f ^= VM_MAP_EXEC;
+	if(phys) *phys = p;
+	if(flags) *flags = f;
+	if(level) *level = l;
+
+	return true;
+}
+
+bool arch_vm_unmap(struct vm_context *ctx, uintptr_t virt)
+{
+	if(ctx == NULL) {
+		ctx = current_thread->ctx;
+	}
+	int pml4_idx = PML4_IDX(virt);
+	int pdpt_idx = PDPT_IDX(virt);
+	int pd_idx   = PD_IDX(virt);
+	int pt_idx   = PT_IDX(virt);
+
+	uintptr_t *pml4 = GET_VIRT_TABLE(ctx->arch.pml4_phys);
+	if(pml4[pml4_idx] == 0) {
+		return false;
+	}
+
+	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
+	if(pdpt[pdpt_idx] == 0) {
+		return false;
+	} else if(pdpt[pdpt_idx] & PAGE_LARGE) {
+		pdpt[pdpt_idx] = 0;
+	} else {
+		uintptr_t *pd = GET_VIRT_TABLE(pdpt[pdpt_idx]);
+		if(pd[pd_idx] == 0) {
+			return false;
+		} else if(pd[pd_idx] & PAGE_LARGE) {
+			pd[pd_idx] = 0;
+		} else {
+			uintptr_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
+			if(pt[pt_idx] == 0) {
+				return false;
+			}
+			pt[pt_idx] = 0;
+		}
+	}
+
+	return true;
+}
+
 bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int level, uint64_t flags)
 {
 	if(ctx == NULL) {
