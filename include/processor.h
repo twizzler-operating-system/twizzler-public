@@ -7,7 +7,6 @@
 #include <workqueue.h>
 
 #define PROCESSOR_UP     1
-#define PROCESSOR_ACTIVE 2
 #define PROCESSOR_BSP    4
 #define PROCESSOR_REGISTERED 8
 
@@ -48,6 +47,7 @@ unsigned int arch_processor_current_id(void);
 void processor_send_ipi(int destid, int vector, void *arg, int flags);
 void arch_processor_send_ipi(int destid, int vector, int flags);
 void processor_ipi_finish(void);
+void processor_shutdown(void);
 
 #define current_processor \
 	processor_get_current()

@@ -13,7 +13,7 @@ void x86_64_ipi_tlb_shootdown(void)
 
 void x86_64_ipi_halt(void)
 {
-	processor_ipi_finish();
+	processor_shutdown();
 	asm volatile("cli; jmp .;" ::: "memory");
 }
 

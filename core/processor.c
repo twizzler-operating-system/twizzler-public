@@ -89,6 +89,12 @@ void processor_send_ipi(int destid, int vector, void *arg, int flags)
 	__ipi_lock = 0;
 }
 
+void processor_shutdown(void)
+{
+	current_processor->flags &= ~PROCESSOR_UP;
+	processor_count--;
+}
+
 void processor_ipi_finish(void)
 {
 	if(__ipi_flags & PROCESSOR_IPI_BARRIER) {
