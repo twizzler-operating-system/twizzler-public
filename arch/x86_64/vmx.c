@@ -167,7 +167,16 @@ static void vmx_handle_rootcall(struct processor *proc)
 
 static void vmx_handle_ept_violation(struct processor *proc)
 {
-	panic("EPT violation");
+	if(proc->arch.veinfo.lock != 0) {
+		panic("virtualization information area lock is not 0");
+	}
+	proc->arch.veinfo.reason   = VMEXIT_REASON_EPT_VIOLATION;
+	proc->arch.veinfo.qual     = vmcs_readl(VMCS_EXIT_QUALIFICATION);
+	proc->arch.veinfo.physical = vmcs_readl(VMCS_GUEST_PHYSICAL_ADDRESS);
+	proc->arch.veinfo.linear   = vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS);
+	proc->arch.veinfo.eptidx   = 0; //TODO
+	proc->arch.veinfo.lock = 0xFFFFFFFF;
+	vmx_queue_exception(20); /* #VE */
 }
 
 void x86_64_vmexit_handler(struct processor *proc)
@@ -555,6 +564,7 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	/* TODO: these numbers probably do something useful. */
 	vmcs_writel(VMCS_EPT_PTR, (uintptr_t)ept_root | (3 << 3) | 6);
+	proc->arch.veinfo.lock = 0;
 }
 
 void x86_64_start_vmx(struct processor *proc)
@@ -596,3 +606,7 @@ void x86_64_switch_ept(uintptr_t root)
 	x86_64_rootcall(VMX_RC_SWITCHEPT, root, 0, 0);
 }
 
+void x86_64_virtualization_fault(struct processor *proc)
+{
+	proc->arch.veinfo.lock = 0;
+}

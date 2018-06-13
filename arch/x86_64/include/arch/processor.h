@@ -104,6 +104,14 @@ struct arch_processor {
 	struct virtexcep_info *virtexcep_info;
 	int launched;
 	uint32_t revid;
+	struct {
+		uint32_t reason;
+		_Atomic uint32_t lock;
+		uint64_t qual;
+		uint64_t linear;
+		uint64_t physical;
+		uint16_t eptidx;
+	} veinfo;
 };
 
 _Static_assert(offsetof(struct arch_processor, scratch_sp) == 0, "scratch_sp offset must be 0 (or update offsets in gate.S)");

@@ -108,6 +108,8 @@ enum {
 	VMCS_MSR_BITMAPS_ADDR             = 0x2004,
 	VMCS_CR0_MASK                     = 0x6000,
 	VMCS_CR4_MASK                     = 0x6002,
+	VMCS_GUEST_PHYSICAL_ADDRESS       = 0x2400,
+	VMCS_GUEST_LINEAR_ADDRESS         = 0x640a
 };
 
 
