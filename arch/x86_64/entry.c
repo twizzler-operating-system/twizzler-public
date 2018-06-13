@@ -5,6 +5,18 @@
 
 void x86_64_signal_eoi(void);
 
+void x86_64_ipi_tlb_shootdown(void)
+{
+	asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3; mfence;" ::: "memory", "rax");
+	processor_ipi_finish();
+}
+
+void x86_64_ipi_halt(void)
+{
+	processor_ipi_finish();
+	asm volatile("cli; jmp .;" ::: "memory");
+}
+
 static void x86_64_change_fpusse_allow(bool enable)
 {
 	register uint64_t tmp;

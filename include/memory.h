@@ -106,6 +106,8 @@ struct vm_context *vm_context_create(void);
 void vm_context_fault(uintptr_t addr, int flags);
 struct object;
 void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object *obj);
+bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int level, uint64_t flags);
+bool vm_map_contig(struct vm_context *v, uintptr_t virt, uintptr_t phys, size_t len, uintptr_t flags);
 
 #define FAULT_EXEC  0x1
 #define FAULT_WRITE 0x2

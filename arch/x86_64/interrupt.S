@@ -39,22 +39,10 @@ isr_noerrcode \num, isr_common
 isr_noerrcode \num, isr_common
 .endr
 
-# the syscall gate is named special
-.global x86_64_isr_shootdown
-.extern x86_64_signal_eoi
-x86_64_isr_shootdown:
-	pushq $0
-	pushq $0x80
-	pushq %rax
-	/* TODO: do something smarter */
-	movq %cr3, %rax
-	movq %rax, %cr3
-	popq %rax
-	jmp ignore_handler
-
 .global x86_64_isr_halt
 x86_64_isr_halt:
 	cli
+	call x86_64_ipi_halt
 	.halt: hlt
 	jmp .halt
 
@@ -104,6 +92,18 @@ x86_64_isr_ignore:
 	add $16, %rsp # cleanup error code and int number
 .endm
 
+
+.global x86_64_isr_shootdown
+.extern x86_64_ipi_tlb_shootdown
+x86_64_isr_shootdown:
+	pushq $0
+	pushq $0x80
+	PUSH_CONTEXT
+	call x86_64_ipi_tlb_shootdown
+	RESTORE_CONTEXT
+	iretq
+
+.extern x86_64_signal_eoi
 ignore_handler:
 	PUSH_CONTEXT
 	call x86_64_signal_eoi

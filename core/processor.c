@@ -68,6 +68,36 @@ void processor_barrier(_Atomic unsigned int *here)
 	}
 }
 
+static _Atomic int __ipi_lock = 0;
+static _Atomic void *__ipi_arg;
+static _Atomic unsigned int __ipi_barrier;
+static _Atomic int __ipi_flags;
+void processor_send_ipi(int destid, int vector, void *arg, int flags)
+{
+	/* cannot use a normal spinlock here, because if we spin after disabling
+	 * interrupts, there's a race condition */
+	while(atomic_fetch_or(&__ipi_lock, 1)) {
+		arch_processor_relax();
+	}
+
+	__ipi_arg = arg;
+	__ipi_flags = flags;
+	__ipi_barrier = 0;
+	arch_processor_send_ipi(destid, vector, flags);
+
+	processor_barrier(&__ipi_barrier);
+	__ipi_lock = 0;
+}
+
+void processor_ipi_finish(void)
+{
+	if(__ipi_flags & PROCESSOR_IPI_BARRIER) {
+		processor_barrier(&__ipi_barrier);
+	} else {
+		__ipi_barrier++;
+	}
+}
+
 void processor_init_secondaries(void)
 {
 	printk("Initializing secondary processors...\n");

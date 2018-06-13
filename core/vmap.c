@@ -40,6 +40,25 @@ void vm_context_destroy(struct vm_context *v)
 	slabcache_free(v);
 }
 
+bool vm_map_contig(struct vm_context *v, uintptr_t virt, uintptr_t phys, size_t len, uintptr_t flags)
+{
+	for(int level=MAX_PGLEVEL;level >= 0;level--) {
+		/* is this a valid level to map at? */
+		size_t pgsz = mm_page_size(level);
+		if(len % pgsz != 0) {
+			continue;
+		}
+
+		for(size_t off=0;off < len;off += pgsz) {
+			if(!arch_vm_map(v, virt + off, phys + off, level, flags)) {
+				panic("overwriting existing mapping at %lx", virt + off);
+			}
+		}
+		return true;
+	}
+	panic("unable to map region (len=%ld) at any level", len);
+}
+
 int vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t flags)
 {
 	ihtable_lock(v->maps);

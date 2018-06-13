@@ -11,6 +11,8 @@
 #define PROCESSOR_BSP    4
 #define PROCESSOR_REGISTERED 8
 
+#define PROCESSOR_IPI_BARRIER 1
+
 #define PROCESSOR_INITIALIZER_ORDER 0
 
 #ifdef CONFIG_MAX_CPUS
@@ -43,6 +45,9 @@ void processor_init_secondaries(void);
 void processor_barrier(_Atomic unsigned int *here);
 struct processor *processor_get_current(void);
 unsigned int arch_processor_current_id(void);
+void processor_send_ipi(int destid, int vector, void *arg, int flags);
+void arch_processor_send_ipi(int destid, int vector, int flags);
+void processor_ipi_finish(void);
 
 #define current_processor \
 	processor_get_current()

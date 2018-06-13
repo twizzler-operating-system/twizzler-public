@@ -1,7 +1,9 @@
 #pragma once
+
 #define PROCESSOR_IPI_DEST_OTHERS -1
 #define PROCESSOR_IPI_SHOOTDOWN 100
 #define PROCESSOR_IPI_HALT 90
+
 struct x86_64_tss
 {
 	uint32_t prev_tss;

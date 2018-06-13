@@ -16,7 +16,6 @@
 #include <interrupt.h>
 #include <arch/x86_64-io.h>
 static uintptr_t lapic_addr = 0;
-struct spinlock ipi_lock = SPINLOCK_INIT;
 
 #define LAPIC_DISABLE          0x10000
 #define LAPIC_ID                                0x20
@@ -340,12 +339,10 @@ __initializer void x86_64_lapic_init_percpu(void)
 }
 
 /* TODO: need to make this better (locks expensive?) */
-static void x86_cpu_send_ipi(unsigned char dest_shorthand, unsigned int dst, unsigned int v)
+static void x86_64_apic_send_ipi(unsigned char dest_shorthand, unsigned int dst, unsigned int v)
 {
     assert((v & LAPIC_ICR_DM_INIT) || (v & LAPIC_ICR_LEVELASSERT));
     int send_status;
-    int old = arch_interrupt_set(0);
-    bool fl = spinlock_acquire(&ipi_lock);
     /* Writing to the lower ICR register causes the interrupt
      * to get sent off (Intel 3A 10.6.1), so do the higher reg first */
     lapic_write(LAPIC_ICR+0x10, (dst << 24));
@@ -357,26 +354,14 @@ static void x86_cpu_send_ipi(unsigned char dest_shorthand, unsigned int dst, uns
         asm("pause");
         send_status = lapic_read(LAPIC_ICR) & LAPIC_ICR_STATUS_PEND;
     } while (send_status);
-    spinlock_release(&ipi_lock, fl);
-    arch_interrupt_set(old);
 }
 
-void x86_64_processor_send_ipi(long dest, int signal)
+void arch_processor_send_ipi(int destid, int vector, int flags)
 {
-	x86_cpu_send_ipi(dest == PROCESSOR_IPI_DEST_OTHERS
-				? LAPIC_ICR_SHORT_OTHERS : LAPIC_ICR_SHORT_DEST,
-			dest == PROCESSOR_IPI_DEST_OTHERS ? 0 : dest,
-			LAPIC_ICR_LEVELASSERT | LAPIC_ICR_TM_LEVEL | signal);
-}
-
-void x86_64_processor_halt_others(void)
-{
-	x86_64_processor_send_ipi(PROCESSOR_IPI_DEST_OTHERS, PROCESSOR_IPI_HALT);
-}
-
-void arch_panic_begin(void)
-{
-	x86_64_processor_halt_others();
+	x86_64_apic_send_ipi(destid == PROCESSOR_IPI_DEST_OTHERS
+			? LAPIC_ICR_SHORT_OTHERS : LAPIC_ICR_SHORT_DEST,
+			destid == PROCESSOR_IPI_DEST_OTHERS ? 0 : destid,
+			LAPIC_ICR_LEVELASSERT | LAPIC_ICR_TM_LEVEL | vector);
 }
 
 #define BIOS_RESET_VECTOR 0x467
@@ -419,14 +404,14 @@ void arch_processor_boot(struct processor *proc)
 	*((volatile uintptr_t *)mm_ptov(0x7300)) = (uintptr_t)proc->arch.kernel_stack + KERNEL_STACK_SIZE;
 	asm volatile("mfence" ::: "memory");
 	lapic_write(LAPIC_ESR, 0);
-	x86_cpu_send_ipi(LAPIC_ICR_SHORT_DEST, proc->id, LAPIC_ICR_TM_LEVEL | LAPIC_ICR_LEVELASSERT | LAPIC_ICR_DM_INIT);
+	x86_64_apic_send_ipi(LAPIC_ICR_SHORT_DEST, proc->id, LAPIC_ICR_TM_LEVEL | LAPIC_ICR_LEVELASSERT | LAPIC_ICR_DM_INIT);
 
 	wait_ns(100000);
-	x86_cpu_send_ipi(LAPIC_ICR_SHORT_DEST, proc->id, LAPIC_ICR_TM_LEVEL | LAPIC_ICR_DM_INIT);
+	x86_64_apic_send_ipi(LAPIC_ICR_SHORT_DEST, proc->id, LAPIC_ICR_TM_LEVEL | LAPIC_ICR_DM_INIT);
 
 	wait_ns(100000);
 	for(int i=0;i<3;i++) {
-		x86_cpu_send_ipi(LAPIC_ICR_SHORT_DEST, proc->id, LAPIC_ICR_DM_SIPI | ((bootaddr_phys >> 12) & 0xFF));
+		x86_64_apic_send_ipi(LAPIC_ICR_SHORT_DEST, proc->id, LAPIC_ICR_DM_SIPI | ((bootaddr_phys >> 12) & 0xFF));
 		wait_ns(10000);
 	}
 

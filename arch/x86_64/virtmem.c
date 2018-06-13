@@ -19,7 +19,6 @@ static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
 
 #define GET_VIRT_TABLE(x) ((uintptr_t *)mm_ptov(((x) & VM_PHYS_MASK)))
 
-
 static bool __do_vm_map(uintptr_t pml4_phys, uintptr_t virt, uintptr_t phys, int level, uint64_t flags)
 {
 	/* translate flags for NX bit (toggle) */
