@@ -576,15 +576,15 @@ void vtx_setup_vcpu(struct processor *proc)
 
 
 	/* we actually have to use these, and they should be all zero (none owned by host) */
-	vmcs_writel(VMCS_MSR_BITMAPS_ADDR, (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true));
-
-	/* TODO: check if we can do this, and then do it. */
+	vmcs_writel(VMCS_MSR_BITMAPS_ADDR,
+			(uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true));
 
 	if(support_ept_switch_vmfunc) {
 		vmcs_writel(VMCS_VMFUNC_CONTROLS, 1 /* enable EPT-switching */);
 	}
 
 	if(support_virt_exception) {
+		vmcs_writel(VMCS_EPTP_INDEX, 0);
 		vmcs_writel(VMCS_VIRT_EXCEPTION_INFO_ADDR, mm_vtop(&proc->arch.veinfo));
 	}
 
