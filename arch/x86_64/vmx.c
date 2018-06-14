@@ -7,6 +7,9 @@ static uint32_t revision_id;
 static uintptr_t ept_root;
 static _Atomic long vmexits_count = 0;
 
+static bool support_ept_switch_vmfunc = false;
+static bool support_virt_exception = false;
+
 static void x86_64_vmenter(struct processor *proc);
 
 static const char *vm_errs[] = {
@@ -112,6 +115,27 @@ static void x86_64_enable_vmx(void)
 	if(error) {
 		panic("failed to enter VMX operation");
 	}
+
+
+	x86_64_rdmsr(X86_MSR_VMX_PROCBASED_CTLS, &lo, &hi);
+	if(!(hi & (1ul << 31))) {
+		panic("VMX doesn't support secondary controls");
+	}
+
+	x86_64_rdmsr(X86_MSR_VMX_PROCBASED_CTLS2, &lo, &hi);
+
+	if((hi & (1 << 18))) {
+		support_virt_exception = true;
+	}
+
+	if((hi & (1 << 13))) {
+		x86_64_rdmsr(X86_MSR_VMX_VMFUNC, &lo, &hi);
+		if(lo & 1) {
+			support_ept_switch_vmfunc = true;
+		}
+	}
+	
+	printk("processor %d entered vmx-root (VE=%d, VMF=%d)\n", current_processor->id, support_virt_exception, support_ept_switch_vmfunc);
 }
 
 __attribute__((used)) static void x86_64_vmentry_failed(struct processor *proc)
@@ -512,9 +536,10 @@ void vtx_setup_vcpu(struct processor *proc)
 			VMCS_PROCBASED_CONTROLS_SECONDARY, (1 << 1) /* EPT */
 			/* TODO: APIC */
 			| (1 << 3) /* allow RDTSCP */
-			| (1 << 13) /* enable VMFUNC */
+			| (support_ept_switch_vmfunc ? (1 << 13) : 0) /* enable VMFUNC */
 			| (1 << 12) /* allow invpcid */
-			| (1 << 18) /* guest handles EPT violations */);
+			| (support_virt_exception ? (1 << 18) : 0) /* guest handles EPT violations */
+			);
 
 	vmcs_writel(VMCS_EXCEPTION_BITMAP, 0);
 	vmcs_writel(VMCS_PF_ERROR_CODE_MASK, 0);
@@ -554,10 +579,14 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_MSR_BITMAPS_ADDR, (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true));
 
 	/* TODO: check if we can do this, and then do it. */
-	//vmcs_writel(VMCS_VMFUNC_CONTROLS, 1 /* enable EPT-switching */);
-	/* TODO: don't waste a whole page on this */
-	//proc->arch.virtexcep_info = mm_virtual_alloc(0x1000, PM_TYPE_DRAM, true);
-	//vmcs_writel(VMCS_VIRT_EXCEPTION_INFO_ADDR, mm_vtop(proc->arch.virtexcep_info));
+
+	if(support_ept_switch_vmfunc) {
+		vmcs_writel(VMCS_VMFUNC_CONTROLS, 1 /* enable EPT-switching */);
+	}
+
+	if(support_virt_exception) {
+		vmcs_writel(VMCS_VIRT_EXCEPTION_INFO_ADDR, mm_vtop(&proc->arch.veinfo));
+	}
 
 	vmcs_writel(VMCS_HOST_RIP, (uintptr_t)vmexit_point);
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);

@@ -78,15 +78,6 @@ enum {
 	NUM_REGS,
 };
 
-struct virtexcep_info {
-	uint32_t exitreason;
-	uint32_t res1;
-	uint64_t exitqual;
-	uint64_t guest_linear;
-	uint64_t guest_phys;
-	uint16_t eptp_idx;
-} __attribute__((packed));
-
 struct thread;
 struct arch_processor {
 	void *scratch_sp;
@@ -101,10 +92,9 @@ struct arch_processor {
 	} gdtptr;
 	uintptr_t vmcs;
 	uint64_t vcpu_state_regs[NUM_REGS];
-	struct virtexcep_info *virtexcep_info;
 	int launched;
 	uint32_t revid;
-	struct {
+	struct __packed {
 		uint32_t reason;
 		_Atomic uint32_t lock;
 		uint64_t qual;
