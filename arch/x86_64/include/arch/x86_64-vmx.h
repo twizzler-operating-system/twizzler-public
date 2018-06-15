@@ -114,6 +114,12 @@ enum {
 	VMCS_EPTP_LIST                    = 0x2024,
 };
 
+#define VM_FUNCTION_SWITCH_EPTP 0
+
+struct ept {
+	uintptr_t phys;
+	uint64_t *virt;
+};
 
 bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int level, uint64_t flags);
 void x86_64_switch_ept(uintptr_t root);

@@ -638,7 +638,23 @@ static long x86_64_rootcall(long fn, long a0, long a1, long a2)
 void x86_64_switch_ept(uintptr_t root)
 {
 	/* TODO: use VMFUNC EPT switching if available */
-	x86_64_rootcall(VMX_RC_SWITCHEPT, root, 0, 0);
+	if(support_ept_switch_vmfunc) {
+		int index=-1;
+		/* TODO: better than just a loop, man! */
+		for(int i=0;i<512;i++) {
+			if(current_processor->arch.eptp_list[i] == root) {
+				index = i;
+				break;
+			}
+		}
+		if(index != -1) {
+			asm volatile("vmfunc" :: "a"(VM_FUNCTION_SWITCH_EPTP), "c"(index) : "memory");
+		} else {
+			x86_64_rootcall(VMX_RC_SWITCHEPT, root, 0, 0);
+		}
+	} else {
+		x86_64_rootcall(VMX_RC_SWITCHEPT, root, 0, 0);
+	}
 }
 
 void x86_64_virtualization_fault(struct processor *proc)
