@@ -191,15 +191,15 @@ static void vmx_handle_rootcall(struct processor *proc)
 
 static void vmx_handle_ept_violation(struct processor *proc)
 {
-	if(proc->arch.veinfo.lock != 0) {
+	if(proc->arch.veinfo->lock != 0) {
 		panic("virtualization information area lock is not 0");
 	}
-	proc->arch.veinfo.reason   = VMEXIT_REASON_EPT_VIOLATION;
-	proc->arch.veinfo.qual     = vmcs_readl(VMCS_EXIT_QUALIFICATION);
-	proc->arch.veinfo.physical = vmcs_readl(VMCS_GUEST_PHYSICAL_ADDRESS);
-	proc->arch.veinfo.linear   = vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS);
-	proc->arch.veinfo.eptidx   = 0; //TODO
-	proc->arch.veinfo.lock = 0xFFFFFFFF;
+	proc->arch.veinfo->reason   = VMEXIT_REASON_EPT_VIOLATION;
+	proc->arch.veinfo->qual     = vmcs_readl(VMCS_EXIT_QUALIFICATION);
+	proc->arch.veinfo->physical = vmcs_readl(VMCS_GUEST_PHYSICAL_ADDRESS);
+	proc->arch.veinfo->linear   = vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS);
+	proc->arch.veinfo->eptidx   = 0; //TODO
+	proc->arch.veinfo->lock = 0xFFFFFFFF;
 	vmx_queue_exception(20); /* #VE */
 }
 
@@ -529,7 +529,8 @@ void vtx_setup_vcpu(struct processor *proc)
 	/* VM control fields. */
 
 	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PINBASED_CTLS, VMCS_PINBASED_CONTROLS, 0);
-	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS, (1ul << 31) 
+	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS,
+			(1ul << 31) 
 			| (1 << 28) /* Use MSR bitmaps */);
 	
 	vmcs_write32_fixed(X86_MSR_VMX_PROCBASED_CTLS2,
@@ -581,11 +582,16 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	if(support_ept_switch_vmfunc) {
 		vmcs_writel(VMCS_VMFUNC_CONTROLS, 1 /* enable EPT-switching */);
+		proc->arch.eptp_list = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, true);
+		proc->arch.eptp_list[0] = ept_root;
+		vmcs_writel(VMCS_EPTP_LIST, mm_vtop(proc->arch.eptp_list));
 	}
 
+	/* TODO: veinfo needs to be page-aligned, but we're over-allocating here */
+	proc->arch.veinfo = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, true);
 	if(support_virt_exception) {
 		vmcs_writel(VMCS_EPTP_INDEX, 0);
-		vmcs_writel(VMCS_VIRT_EXCEPTION_INFO_ADDR, mm_vtop(&proc->arch.veinfo));
+		vmcs_writel(VMCS_VIRT_EXCEPTION_INFO_ADDR, mm_vtop(proc->arch.veinfo));
 	}
 
 	vmcs_writel(VMCS_HOST_RIP, (uintptr_t)vmexit_point);
@@ -593,7 +599,7 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	/* TODO: these numbers probably do something useful. */
 	vmcs_writel(VMCS_EPT_PTR, (uintptr_t)ept_root | (3 << 3) | 6);
-	proc->arch.veinfo.lock = 0;
+	proc->arch.veinfo->lock = 0;
 }
 
 void x86_64_start_vmx(struct processor *proc)
@@ -637,5 +643,5 @@ void x86_64_switch_ept(uintptr_t root)
 
 void x86_64_virtualization_fault(struct processor *proc)
 {
-	proc->arch.veinfo.lock = 0;
+	proc->arch.veinfo->lock = 0;
 }

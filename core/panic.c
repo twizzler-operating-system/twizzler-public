@@ -5,7 +5,7 @@
 _Noreturn void __panic(const char *file, int linenr, int flags, const char *msg, ...)
 {
 	/* TODO (dbittman): stop processors, cli */
-	processor_send_ipi(PROCESSOR_IPI_DEST_OTHERS, PROCESSOR_IPI_HALT, NULL, 0);
+	//processor_send_ipi(PROCESSOR_IPI_DEST_OTHERS, PROCESSOR_IPI_HALT, NULL, 0);
 	arch_interrupt_set(false);
 	va_list args;
 	va_start(args, msg);

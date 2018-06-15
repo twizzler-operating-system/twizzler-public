@@ -111,6 +111,7 @@ enum {
 	VMCS_GUEST_PHYSICAL_ADDRESS       = 0x2400,
 	VMCS_GUEST_LINEAR_ADDRESS         = 0x640a,
 	VMCS_EPTP_INDEX                   = 0x0004,
+	VMCS_EPTP_LIST                    = 0x2024,
 };
 
 

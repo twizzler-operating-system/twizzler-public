@@ -101,7 +101,8 @@ struct arch_processor {
 		uint64_t linear;
 		uint64_t physical;
 		uint16_t eptidx;
-	} veinfo;
+	} *veinfo;
+	uintptr_t *eptp_list;
 };
 
 _Static_assert(offsetof(struct arch_processor, scratch_sp) == 0, "scratch_sp offset must be 0 (or update offsets in gate.S)");
