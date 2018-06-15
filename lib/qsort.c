@@ -13,7 +13,7 @@ void qsort(void* base, size_t num, size_t size, int (*compar)(const void*,const 
 {
 	if(num <= 1)
 		return;
-	/* TODO */
+	/* TODO (perf) */
 	//int pivot = random_u32() % num;
 	int pivot = 0;
 

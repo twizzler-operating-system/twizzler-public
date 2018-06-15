@@ -128,7 +128,8 @@ void arch_thread_resume(struct thread *thread)
 	x86_64_wrmsr(X86_MSR_FS_BASE, thread->arch.fs & 0xFFFFFFFF, (thread->arch.fs >> 32) & 0xFFFFFFFF);
 	x86_64_wrmsr(X86_MSR_KERNEL_GS_BASE, thread->arch.gs & 0xFFFFFFFF, (thread->arch.gs >> 32) & 0xFFFFFFFF);
 
-	/* TODO: we can be smarter about FPU state:
+	/* TODO (sec): remove lazy FPU switching */
+	/* TODO (perf): we can be smarter about FPU state:
 	 *  - we should allocate a separate (slab-based) structure to hold
 	 *    FPU state, making thread allocations cheaper.
 	 *  - we can store more info than "did thread use FPU",

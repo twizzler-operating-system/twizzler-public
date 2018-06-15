@@ -195,7 +195,7 @@ static void _remap(void)
 
 	uintptr_t end = ((uintptr_t)&kernel_end) & ~(mm_page_size(0)-1);
 	uintptr_t start = ((uintptr_t)&kernel_start) & ~(mm_page_size(0)-1);
-	/* TODO: W^X */
+	/* TODO (sec): W^X */
 	for(uintptr_t i = start;i <= end;i += mm_page_size(0)) {
 		__do_vm_map(kpml4_phys, i, PHYS(i), 0, VM_MAP_EXEC | VM_MAP_WRITE | VM_MAP_GLOBAL);
 	}
@@ -214,8 +214,6 @@ static void _x86_64_init_vm(void)
 	_remap();
 	printk("Switching to new page tables\n");
 	asm volatile("mov %0, %%cr3" :: "r"(mm_vtop(kernel_pml4)) : "memory");
-	//kernel_pml4 = &boot_pml4;
-	/* TODO: we should re-map with better flags and stuff */
 }
 
 void arch_mm_context_init(struct vm_context *ctx)

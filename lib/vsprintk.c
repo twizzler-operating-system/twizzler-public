@@ -193,7 +193,7 @@ done:
 
 int snprintf(char *buf, size_t len, const char *fmt, ...)
 {
-	(void)len; //TODO (minor) [dbittman]: we should actually care about this.
+	(void)len; //TODO (sec): we should actually care about this.
 	va_list args;
 	va_start(args, fmt);
 	vbufprintk(buf, fmt, args);

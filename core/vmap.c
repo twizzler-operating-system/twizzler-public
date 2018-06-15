@@ -36,7 +36,7 @@ struct vm_context *vm_context_create(void)
 
 void vm_context_destroy(struct vm_context *v)
 {
-	/* TODO: unmap things? */
+	/* TODO (major): unmap things? */
 	slabcache_free(v);
 }
 
@@ -81,13 +81,12 @@ void vm_context_fault(uintptr_t addr, int flags)
 {
 	printk("Page Fault: %lx %x\n", addr, flags);
 	if(flags & FAULT_ERROR_PERM) {
-		/* TODO: COW here? */
+		/* TODO (major): COW here? */
 		panic("page fault addr=%lx flags=%x\n", addr, flags);
 	}
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
 	struct vmap *map = ihtable_find(current_thread->ctx->maps, slot, struct vmap, elem, slot);
 	if(!map) {
-		/* KILL TODO */
 		panic("kill process");
 	}
 	printk("mapping virt slot %ld -> obj " PR128FMTd "\n", map->slot, PR128(map->target));

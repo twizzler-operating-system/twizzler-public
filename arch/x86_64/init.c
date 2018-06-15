@@ -34,7 +34,7 @@ static void proc_init(void)
 	asm volatile("mov %0, %%cr0" :: "r"(cr0));
 	
 	asm volatile("mov %%cr4, %0" : "=r"(cr4));
-	cr4 |= (1 << 7); //enable page global TODO: get this to work
+	cr4 |= (1 << 7); //enable page global
 	cr4 |= (1 << 10); //enable fast fxsave etc, sse
 	cr4 &= ~(1 << 9);
 	asm volatile("mov %0, %%cr4" :: "r"(cr4));
@@ -47,7 +47,7 @@ static void proc_init(void)
 	printk("cr0: %lx, cr4: %lx, efer: %x,%x\n",
 			cr0, cr4, hi, lo);
 
-	/* TODO: verify that this setup is "reasonable" */
+	/* TODO (minor): verify that this setup is "reasonable" */
 	x86_64_rdmsr(X86_MSR_MTRRCAP, &lo, &hi);
 	int mtrrcnt = lo & 0xFF;
 	x86_64_rdmsr(X86_MSR_MTRR_DEF_TYPE, &lo, &hi);

@@ -338,7 +338,6 @@ __initializer void x86_64_lapic_init_percpu(void)
 	lapic_configure(lo & X86_MSR_APIC_BASE_BSP);
 }
 
-/* TODO: need to make this better (locks expensive?) */
 static void x86_64_apic_send_ipi(unsigned char dest_shorthand, unsigned int dst, unsigned int v)
 {
     assert((v & LAPIC_ICR_DM_INIT) || (v & LAPIC_ICR_LEVELASSERT));
@@ -356,7 +355,7 @@ static void x86_64_apic_send_ipi(unsigned char dest_shorthand, unsigned int dst,
     } while (send_status);
 }
 
-void arch_processor_send_ipi(int destid, int vector, int flags)
+void arch_processor_send_ipi(int destid, int vector, int flags __unused)
 {
 	x86_64_apic_send_ipi(destid == PROCESSOR_IPI_DEST_OTHERS
 			? LAPIC_ICR_SHORT_OTHERS : LAPIC_ICR_SHORT_DEST,

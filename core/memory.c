@@ -38,7 +38,7 @@ uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 		struct memregion *reg = list_entry(e, struct memregion, entry);
 
 		if((reg->flags & type) == reg->flags && reg->free_memory > 0) {
-			/* TODO: if this fails, keep trying on a different region */
+			/* TODO (major): if this fails, keep trying on a different region */
 			return mm_physical_region_alloc(reg, length, clear);
 		}
 	}

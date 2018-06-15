@@ -1,9 +1,9 @@
 #include <slab.h>
-/* TODO: optimization: we could try to fit several slabs in a
+/* TODO (minor): optimization: we could try to fit several slabs in a
  * single page if the object size is small enough (sz*64 < PAGE_SIZE/2)
  */
 
-/* TODO: remove this hard coding */
+/* TODO (major): remove this hard coding */
 #define PAGE_SIZE 0x1000
 
 static inline size_t slab_size(size_t sz)

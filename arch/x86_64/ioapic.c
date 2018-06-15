@@ -55,7 +55,7 @@ static void write_ioapic_vector(struct ioapic *l, int irq, char masked,
 	/* 16: mask */
 	if(masked) lower |= (1 << 16);
 	/* 56-63: destination. Currently, we just send this to the bootstrap cpu */
-	int bootstrap = arch_processor_current_id(); /* TODO: irq routing */
+	int bootstrap = arch_processor_current_id(); /* TODO (perf): irq routing */
 	higher |= (bootstrap << 24) & 0xF;
 	write_ioapic(l, irq*2 + 0x10, 0x10000);
 	write_ioapic(l, irq*2 + 0x10 + 1, higher);
@@ -70,9 +70,6 @@ void arch_interrupt_mask(int v)
 		if(chip->id == -1)
 			continue;
 		if(vector >= chip->gsib && vector < chip->gsib + 24) {
-			/* TODO: this is a hack to distingish which interrupts
-			 * should be level or edge triggered. There are
-			 * "correct" ways of doing this. */
 			write_ioapic_vector(chip, vector, 1, vector+chip->gsib > 4 ? 1 : 0,
 					0, 0, 32+vector+chip->gsib);
 		}

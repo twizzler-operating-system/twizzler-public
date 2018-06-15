@@ -112,7 +112,7 @@ void processor_init_secondaries(void)
 		struct processor *proc = &processors[i];
 		if(!(proc->flags & PROCESSOR_BSP) && !(proc->flags & PROCESSOR_UP)
 				&& (proc->flags & PROCESSOR_REGISTERED)) {
-			/* TODO: check for failure */
+			/* TODO (major): check for failure */
 			arch_processor_boot(proc);
 			processor_count++;
 		}

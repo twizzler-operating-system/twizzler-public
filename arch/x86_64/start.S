@@ -61,7 +61,6 @@ _start:
 	movl %ebx, PHYS(multiboot_ptr_save)
 
 init_paging:
-	/* TODO: don't map for user */
 	/* 1 - 1 mapping for lower */
 	movl $PHYS(boot_pdpt), %eax
 	orl $7, %eax

@@ -25,7 +25,7 @@ static inline void arena_create(struct arena *arena)
 	node->used = sizeof(struct arena_node);
 }
 
-/* TODO: this could be optimized by saving the last-allocated pointer to start from instead
+/* TODO (perf): this could be optimized by saving the last-allocated pointer to start from instead
  * of starting from the beginning each time. */
 static inline void *arena_allocate(struct arena *arena, size_t length)
 {

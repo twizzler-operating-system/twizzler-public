@@ -3,7 +3,7 @@
 #include <lib/list.h>
 #include <lib/iter.h>
 
-/* TODO (dbittman) [performance,minor]: change timer system to heap */
+/* TODO (perf): change timer system to heap */
 
 static DECLARE_LIST(timers);
 static struct spinlock timers_list_lock = SPINLOCK_INIT;
@@ -49,7 +49,7 @@ dur_nsec kernel_timer_tick(dur_nsec dt)
 {
 	cur_time += dt;
 	check_timers();
-	/* TODO: temp hack */
+	/* TODO (major): temp hack */
 	return 10000000; //1 ms
 }
 

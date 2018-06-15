@@ -108,7 +108,7 @@ $(BUILDDIR)/kernel.stage1: $(BUILDDIR)/link.ld $(OBJECTS)
 $(BUILDDIR)/%.o : %.S $(CONFIGFILE)
 	@echo "[AS]  $@"
 	@mkdir -p $(@D)
-	$(TOOLCHAIN_PREFIX)gcc $(ASFLAGS) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
+	@$(TOOLCHAIN_PREFIX)gcc $(ASFLAGS) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
 
 $(BUILDDIR)/%.o : %.c $(CONFIGFILE)
 	@echo "[CC]  $@"

@@ -198,7 +198,7 @@ static void vmx_handle_ept_violation(struct processor *proc)
 	proc->arch.veinfo->qual     = vmcs_readl(VMCS_EXIT_QUALIFICATION);
 	proc->arch.veinfo->physical = vmcs_readl(VMCS_GUEST_PHYSICAL_ADDRESS);
 	proc->arch.veinfo->linear   = vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS);
-	proc->arch.veinfo->eptidx   = 0; //TODO
+	proc->arch.veinfo->eptidx   = 0; /* TODO (minor) */
 	proc->arch.veinfo->lock = 0xFFFFFFFF;
 	vmx_queue_exception(20); /* #VE */
 }
@@ -247,7 +247,7 @@ void x86_64_vmexit_handler(struct processor *proc)
 			/* don't instruction advance, since we want to retry the access. */
 			break;
 		case VMEXIT_REASON_INVEPT:
-			/* TODO: don't invalidate all mappings */
+			/* TODO (perf): don't invalidate all mappings */
 			val = vmcs_readl(VMCS_EPT_PTR);
 			unsigned __int128 eptp = val;
 			asm volatile("invept %0, %%rax"
@@ -423,7 +423,7 @@ bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int leve
 
 uintptr_t init_ept(void)
 {
-	/* identity map. TODO: map all physical memory */
+	/* identity map. TODO (major): map all physical memory */
 	uintptr_t pml4phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 	for(uintptr_t phys = 0; phys < 8*1024*1024*1024ull; phys += 2*1024ul*1024) {
 		uint64_t flags = EPT_READ | EPT_WRITE | EPT_EXEC;
@@ -511,9 +511,7 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_CR4_MASK, 0);
 	vmcs_writel(VMCS_CR0_MASK, 0);
 
-	/* TODO: debug registers? */
-
-	/* TODO: set host GS? */
+	/* TODO (minor): debug registers? */
 
 	vmcs_writel(VMCS_GUEST_ACTIVITY_STATE, 0);
 	vmcs_writel(VMCS_GUEST_INTRRUPTIBILITY_INFO, 0);
@@ -535,7 +533,6 @@ void vtx_setup_vcpu(struct processor *proc)
 	
 	vmcs_write32_fixed(X86_MSR_VMX_PROCBASED_CTLS2,
 			VMCS_PROCBASED_CONTROLS_SECONDARY, (1 << 1) /* EPT */
-			/* TODO: APIC */
 			| (1 << 3) /* allow RDTSCP */
 			| (support_ept_switch_vmfunc ? (1 << 13) : 0) /* enable VMFUNC */
 			| (1 << 12) /* allow invpcid */
@@ -561,7 +558,7 @@ void vtx_setup_vcpu(struct processor *proc)
 
 	vmcs_writel(VMCS_HOST_GS_BASE, gsbase);
 
-	vmcs_writel(VMCS_HOST_GDTR_BASE, (uintptr_t)proc->arch.gdtptr.base); //TODO: base or ptr?
+	vmcs_writel(VMCS_HOST_GDTR_BASE, (uintptr_t)proc->arch.gdtptr.base);
 	vmcs_writel(VMCS_HOST_TR_BASE, (uintptr_t)&proc->arch.tss);
 	vmcs_writel(VMCS_HOST_IDTR_BASE, (uintptr_t)idt);
 
@@ -587,7 +584,7 @@ void vtx_setup_vcpu(struct processor *proc)
 		vmcs_writel(VMCS_EPTP_LIST, mm_vtop(proc->arch.eptp_list));
 	}
 
-	/* TODO: veinfo needs to be page-aligned, but we're over-allocating here */
+	/* TODO (minor): veinfo needs to be page-aligned, but we're over-allocating here */
 	proc->arch.veinfo = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, true);
 	if(support_virt_exception) {
 		vmcs_writel(VMCS_EPTP_INDEX, 0);
@@ -597,7 +594,7 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_RIP, (uintptr_t)vmexit_point);
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
 
-	/* TODO: these numbers probably do something useful. */
+	/* TODO (minor): these numbers probably do something useful. */
 	vmcs_writel(VMCS_EPT_PTR, (uintptr_t)ept_root | (3 << 3) | 6);
 	proc->arch.veinfo->lock = 0;
 }
@@ -637,10 +634,9 @@ static long x86_64_rootcall(long fn, long a0, long a1, long a2)
 
 void x86_64_switch_ept(uintptr_t root)
 {
-	/* TODO: use VMFUNC EPT switching if available */
 	if(support_ept_switch_vmfunc) {
 		int index=-1;
-		/* TODO: better than just a loop, man! */
+		/* TODO (perf): better than just a loop, man! */
 		for(int i=0;i<512;i++) {
 			if(current_processor->arch.eptp_list[i] == root) {
 				index = i;
