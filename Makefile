@@ -124,6 +124,9 @@ od: $(BUILDDIR)/kernel
 re: $(BUILDDIR)/kernel
 	$(TOOLCHAIN_PREFIX)readelf -a $(BUILDDIR)/kernel
 
+rehw: $(BUILDDIR)/kernel
+	cp projects/x86_64/build/kernel /srv/tftp/kernel
+
 $(BUILDDIR)/hd.img: $(USRPROGS)
 	@-sudo umount $(BUILDDIR)/mnt
 	truncate -s 1GB $(BUILDDIR)/hd.img
