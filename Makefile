@@ -50,7 +50,7 @@ OBJECTS=$(addprefix $(BUILDDIR)/,$(ASM_SOURCES:.S=.o) $(C_SOURCES:.c=.o))
 TWZUTILSDIR=twizzler-utils
 
 .twizzlerutils:
-	$(MAKE) -C $(TWZUTILSDIR)
+	@$(MAKE) -s -C $(TWZUTILSDIR)
 
 all: $(BUILDDIR)/kernel
 
@@ -74,8 +74,8 @@ endif
 
 -include $(addprefix $(BUILDDIR)/,$(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d))
 
-test: $(BUILDDIR)/kernel# userspace
-	$(QEMU) $(QEMU_FLAGS) -serial stdio | tee serial.txt
+test: $(BUILDDIR)/kernel userspace
+	$(QEMU) $(QEMU_FLAGS) -initrd $(BUILDDIR)/us/root.tar -serial stdio | tee serial.txt
 
 export TOOLCHAIN_PREFIX
 export BUILDDIR
