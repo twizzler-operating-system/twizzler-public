@@ -47,10 +47,12 @@ endif
 
 OBJECTS=$(addprefix $(BUILDDIR)/,$(ASM_SOURCES:.S=.o) $(C_SOURCES:.c=.o))
 
-.twizzlerutils:
-	$(MAKE) -C twizzler-utils
+TWZUTILSDIR=twizzler-utils
 
-all: .twizzlerutils $(BUILDDIR)/kernel
+.twizzlerutils:
+	$(MAKE) -C $(TWZUTILSDIR)
+
+all: $(BUILDDIR)/kernel
 
 include arch/$(ARCH)/include.mk
 include machine/$(MACHINE)/include.mk
@@ -142,5 +144,7 @@ AHEADERS=$(foreach file,$(ASM_SOURCES),$(shell cpp -MM -I include -I arch/$(ARCH
 tags: $(C_SOURCES) $(ASM_SOURCES) $(CHEADERS) $(AHEADERS)
 	@ctags $(C_SOURCES) $(ASM_SOURCES) $(CHEADERS) $(AHEADERS)
 
-.PHONY: od re clean all test newproj userspace
+include us/include.mk
+
+.PHONY: od re clean all test newproj userspace .twizzlerutils
 
