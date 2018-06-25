@@ -126,8 +126,9 @@ od: $(BUILDDIR)/kernel
 re: $(BUILDDIR)/kernel
 	$(TOOLCHAIN_PREFIX)readelf -a $(BUILDDIR)/kernel
 
-rehw: $(BUILDDIR)/kernel
+rehw: $(BUILDDIR)/kernel userspace
 	cp projects/x86_64/build/kernel /srv/tftp/kernel
+	cp projects/x86_64/build/us/root.tar /srv/tftp/root.tar
 
 $(BUILDDIR)/hd.img: $(USRPROGS)
 	@-sudo umount $(BUILDDIR)/mnt
