@@ -349,12 +349,23 @@ static void x86_64_vmenter(struct processor *proc)
 			[procptr]"i"(PROC_PTR*8));
 }
 
-
-static void vmx_entry_point(struct processor *proc)
+/* we cannot just specify a C function as an entry point, because
+ * function preludes assume a mis-aligned stack (so they can push rbp). Thus we
+ * need to enter to an assembly stub which calls the C code for correct
+ * alignment. */
+__attribute__((used))
+static void vmx_entry_point_c(struct processor *proc)
 {
 	printk("processor %d entered vmx-non-root mode\n", proc->id);
 	x86_64_processor_post_vm_init(proc);
 }
+
+asm (
+		".global vmx_entry_point\n"
+		".extern vmx_entry_point_c\n"
+		"vmx_entry_point:\n"
+		"call vmx_entry_point_c\n"
+		);
 
 static uint64_t read_cr(int n)
 {
@@ -444,6 +455,7 @@ static void __init_ept_root(void) {
 }
 
 void vmexit_point(void);
+void vmx_entry_point(void);
 
 void vtx_setup_vcpu(struct processor *proc)
 {
