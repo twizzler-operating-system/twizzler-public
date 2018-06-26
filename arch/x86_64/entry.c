@@ -2,6 +2,7 @@
 #include <thread.h>
 #include <syscall.h>
 #include <arch/x86_64-msr.h>
+#include <arch/x86_64-vmx.h>
 
 void x86_64_signal_eoi(void);
 
@@ -45,8 +46,7 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 		current_thread->arch.usedfpu = true;
 		x86_64_change_fpusse_allow(true);
 		asm volatile ("finit"); /* also, we may need to clear the FPU state */
-	}
-	else if(frame->int_no == 14) {
+	} else if(frame->int_no == 14) {
 			/* page fault */
 			uint64_t cr2;
 			asm volatile("mov %%cr2, %0" : "=r"(cr2) :: "memory");
@@ -73,6 +73,9 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 					flags & FAULT_ERROR_PERM ? "present" : "non-present");
 			}
 			kernel_fault_entry(cr2, flags);
+	} else if(frame->int_no == 20) {
+		/* #VE */
+		x86_64_virtualization_fault(current_processor);
 	} else if(frame->int_no < 32) {
 		if(was_userspace) {
 

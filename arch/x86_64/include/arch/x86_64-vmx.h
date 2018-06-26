@@ -125,6 +125,7 @@ bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int leve
 void x86_64_switch_ept(uintptr_t root);
 struct processor;
 void x86_64_start_vmx(struct processor *proc);
+void x86_64_virtualization_fault(struct processor *proc);
 
 #define PML4_IDX(v) (((v) >> 39) & 0x1FF)
 #define PDPT_IDX(v) (((v) >> 30) & 0x1FF)
@@ -142,5 +143,17 @@ void x86_64_start_vmx(struct processor *proc);
 
 #define RECUR_ATTR_MASK (EPT_READ | EPT_WRITE | EPT_EXEC)
 #define GET_VIRT_TABLE(x) ((uintptr_t *)mm_ptov(((x) & VM_PHYS_MASK)))
+
+
+#define EQ_EPTV_READ (1 << 0)
+#define EQ_EPTV_WRITE (1 << 1)
+#define EQ_EPTV_EXEC (1 << 2)
+#define EQ_EPTV_READABLE (1 << 3)
+#define EQ_EPTV_WRITABLE (1 << 4)
+#define EQ_EPTV_EXECUTABLE (1 << 5)
+#define EQ_EPTV_USER_EXECUTABLE (1 << 6)
+#define EQ_EPTV_GLIN (1 << 7)
+#define EQ_EPTV_LINEAR (1 << 8)
+#define EQ_EPTV_NMI_UNBLOCK (1 << 12)
 
 

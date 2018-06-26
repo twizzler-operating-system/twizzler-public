@@ -181,7 +181,10 @@ static void x86_64_initrd(void *u)
 						break;
 					}
 
-					struct object *obj = obj_create(id);
+					struct object *obj = obj_lookup(id);
+					if(obj == NULL) {
+						obj = obj_create(id);
+					}
 					size_t idx = 0;
 					if(meta) {
 						idx = (mm_page_size(MAX_PGLEVEL) - (mm_page_size(0) + len)) / mm_page_size(0);

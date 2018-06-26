@@ -432,6 +432,16 @@ bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int leve
 	return true;
 }
 
+bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags)
+{
+	uint64_t ef = 0;
+	if(flags & OBJSPACE_READ) ef |= EPT_READ;
+	if(flags & OBJSPACE_WRITE) ef |= EPT_WRITE;
+	if(flags & OBJSPACE_EXEC_U) ef |= EPT_EXEC;
+	ef |= EPT_MEMTYPE_WB;
+	return x86_64_ept_map(ept_root, v, p, level, flags);
+}
+
 uintptr_t init_ept(void)
 {
 	/* identity map. TODO (major): map all physical memory */
@@ -667,5 +677,28 @@ void x86_64_switch_ept(uintptr_t root)
 
 void x86_64_virtualization_fault(struct processor *proc)
 {
+	printk("VE: %x %x %lx %lx %lx %x\n",
+			proc->arch.veinfo->reason,
+			proc->arch.veinfo->lock,
+			proc->arch.veinfo->qual,
+			proc->arch.veinfo->linear,
+			proc->arch.veinfo->physical,
+			proc->arch.veinfo->eptidx
+			);
+	
+	uint32_t flags = 0;
+	if(proc->arch.veinfo->qual & EQ_EPTV_READ) {
+		flags |= OBJSPACE_FAULT_READ;
+	}
+	if(proc->arch.veinfo->qual & EQ_EPTV_WRITE) {
+		flags |= OBJSPACE_FAULT_WRITE;
+	}
+	if(proc->arch.veinfo->qual & EQ_EPTV_EXEC) {
+		flags |= OBJSPACE_FAULT_EXEC;
+	}
+
+	kernel_objspace_fault_entry(proc->arch.veinfo->physical, flags);
+
 	proc->arch.veinfo->lock = 0;
 }
+

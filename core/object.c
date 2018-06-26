@@ -99,17 +99,49 @@ void obj_cache_page(struct object *obj, size_t idx, uintptr_t phys)
 	page->phys = phys;
 	ihtable_insert(obj->pagecache, &page->elem, page->idx);
 	spinlock_release(&obj->lock, fl);
+	printk(":: %p -> %ld\n", obj, idx);
+}
+
+struct objpage *obj_get_page(struct object *obj, size_t idx)
+{
+	printk("lup: %p %ld\n", obj, idx);
+	spinlock_acquire_save(&obj->lock);
+	struct objpage *page = ihtable_find(obj->pagecache, idx, struct objpage, elem, idx);
+	spinlock_release_restore(&obj->lock);
+	return page;
 }
 
 struct object *obj_lookup_slot(uintptr_t oaddr)
 {
 	/* TODO: this is allllll bullshit */
 	ssize_t tl = oaddr / mm_page_size(MAX_PGLEVEL);
-	tl -= 8;
-	tl += 4096;
-	tl *= 512;
+	//tl -= 8;
+	//tl += 4096;
+	//tl *= 512;
 	printk(":: %ld\n", tl);
 	struct object *obj = ihtable_find(&objslots, tl, struct object, slotelem, slot);
 	return obj;
+}
+
+bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags);
+void kernel_objspace_fault_entry(uintptr_t addr, uint32_t flags)
+{
+	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
+	size_t idx = (addr % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
+	if(idx == 0) {
+		panic("NULL PAGE");
+	}
+	idx -= 1;
+	printk(":: %ld %ld\n", slot, idx);
+
+	struct object *o = obj_lookup_slot(addr);
+	if(o == NULL) {
+		panic("NO OBJ");
+	}
+
+	struct objpage *p = obj_get_page(o, idx);
+	printk(":: %p\n", p);
+
+	arch_objspace_map(addr & ~(mm_page_size(0) - 1), p->phys, 0, OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U);
 }
 
