@@ -15,7 +15,7 @@ _Noreturn void __panic(const char *file, int linenr, int flags, const char *msg,
 
 	if(flags & PANIC_UNWIND)
 		debug_print_backtrace();
-	kernel_debug_entry();
+	//kernel_debug_entry();
 	for(;;);
 }
 

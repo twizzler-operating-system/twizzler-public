@@ -45,7 +45,7 @@ __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER))
 static void hpet_init(void)
 {
 	if(!(hpet = acpi_find_table("HPET"))) {
-		panic("HPET not found");
+		return;
 	}
 
 	uint64_t tmp = hpet_read64(HPET_CAP);

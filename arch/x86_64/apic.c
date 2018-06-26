@@ -321,7 +321,6 @@ static void lapic_configure(int bsp)
 	lapic_write(LAPIC_LVTT, 32);
 	lapic_write(LAPIC_TDCR, div);
 	lapic_write(LAPIC_TICR, 0);
-
 }
 
 __initializer void x86_64_lapic_init_percpu(void)

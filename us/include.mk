@@ -2,9 +2,11 @@ TWZOBJS=test.0
 
 USFILES=$(addprefix $(BUILDDIR)/us/, $(TWZOBJS) $(addsuffix .meta,$(TWZOBJS)))
 
-$(BUILDDIR)/us/test: us/test.s
+USCFLAGS=-static -Wl,-z,max-page-size=0x1000 -Telf.ld -Wall -Os -g
+
+$(BUILDDIR)/us/test: us/test.s elf.ld
 	@echo "[AS]  $@"
-	@$(TOOLCHAIN_PREFIX)gcc $< -o $@ -nostdlib
+	@$(TOOLCHAIN_PREFIX)gcc $(USCFLAGS) $< -o $@ -nostdlib
 
 $(BUILDDIR)/us/test.0.meta: $(BUILDDIR)/us/test
 $(BUILDDIR)/us/test.0: $(BUILDDIR)/us/test

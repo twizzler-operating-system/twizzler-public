@@ -48,20 +48,19 @@ static int sz_to_pglevel(size_t sz)
 	return MAX_PGLEVEL;
 }
 
-void obj_create(uint128_t id, size_t maxsz, size_t dataoff)
+struct object *obj_create(uint128_t id)
 {
 	struct object *obj = slabcache_alloc(&sc_objs);
 
 	obj->id = id;
-	obj->maxsz = maxsz;
-	obj->pglevel = sz_to_pglevel(maxsz);
-	obj->pglevel = 0; /* TODO */
+	obj->maxsz = mm_page_size(MAX_PGLEVEL);
+	obj->pglevel = MAX_PGLEVEL;
 	obj->slot = -1;
-	obj->dataoff = dataoff;
 
 	ihtable_lock(&objtbl);
 	ihtable_insert(&objtbl, &obj->elem, obj->id);
 	ihtable_unlock(&objtbl);
+	return obj;
 }
 
 struct object *obj_lookup(uint128_t id)
@@ -80,7 +79,7 @@ void obj_alloc_slot(struct object *obj)
 
 	bitmap_set(slot_bitmap, slot);
 	/* TODO: don't hard-code these */
-	int es = slot + 4096;
+	int es = slot + 16;
 	if(obj->pglevel < MAX_PGLEVEL) {
 		es *= 512;
 	}

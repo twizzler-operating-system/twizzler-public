@@ -56,6 +56,7 @@ static bool __do_vm_map(uintptr_t pml4_phys, uintptr_t virt, uintptr_t phys, int
 			pt[pt_idx] = phys | flags | PAGE_PRESENT;
 		}
 	}
+	//printk("Mapped: %lx -> %lx %lx\n", virt, phys, flags);
 	return true;
 }
 
@@ -166,11 +167,19 @@ void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object 
 	}
 	uintptr_t vaddr = map->slot * mm_page_size(MAX_PGLEVEL);
 	uintptr_t oaddr = obj->slot * mm_page_size(obj->pglevel);
+
+	if(arch_vm_map(ctx, vaddr, oaddr, MAX_PGLEVEL, VM_MAP_USER | VM_MAP_EXEC | VM_MAP_WRITE)
+			== false) {
+		panic("map fail");
+	}
+
+#if 0
 	for(int i=0;i<512;i++) {
 		//printk(":: %lx -> %lx\n", vaddr + i*(2*MB), oaddr + i*(2*MB));
 		/* TODO: also, actually allow null pointers to work */
 		if(arch_vm_map(ctx, vaddr + i * (2*MB), oaddr + i * (2*MB), 1, VM_MAP_USER | VM_MAP_EXEC | VM_MAP_WRITE) == false) panic("remap failed"); //TODO: fix flags
 	}
+#endif
 }
 
 uint64_t *kernel_pml4;

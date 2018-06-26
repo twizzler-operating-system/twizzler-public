@@ -138,8 +138,9 @@ void kernel_main(struct processor *proc)
 	//			VMAP_READ | VMAP_EXEC);
 		vm_context_map(init_thread.ctx, kc_init_id, 0x1000 / mm_page_size(MAX_PGLEVEL),
 				VMAP_READ | VMAP_EXEC);
+
 		//arch_thread_init(&init_thread, (void *)0x7ff000001000, NULL, us1 + 0x1000);
-		arch_thread_init(&init_thread, (void *)0x400078, NULL, us1 + 0x1000);
+		arch_thread_init(&init_thread, (void *)0x1120, NULL, us1 + 0x1000);
 		processor_attach_thread(proc, &init_thread);
 	}
 	printk("processor %d reached resume state %p\n", proc->id, proc);

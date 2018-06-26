@@ -171,24 +171,30 @@ static void x86_64_initrd(void *u)
 						break;
 					}
 					bool meta = nl == 38;
+					if(meta && len != 2097152 /* 2 MB */) {
+						printk("Unsupported metadata part length: %ld\n", len);
+						break;
+					}
 					objid_t id;
 					if(!objid_parse(name, &id)) {
 						printk("Malformed object name: %s\n", name);
 						break;
 					}
 
-					printk(":: %d " IDFMT "\n", meta, IDPR(id));
+					struct object *obj = obj_create(id);
+					size_t idx = 0;
+					if(meta) {
+						idx = (mm_page_size(MAX_PGLEVEL) - (mm_page_size(0) + len)) / mm_page_size(0);
+					}
+					for(size_t s = 0;s<len;s+=mm_page_size(0),idx++) {
+						uintptr_t phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+						size_t thislen = 0x1000;
+						if((len - s) < thislen)
+							thislen = len - s;
+						memcpy(mm_ptov(phys), data + s, thislen);
+						obj_cache_page(obj, idx, phys);
+					}
 				}
-				/*
-				for(size_t s = 0;s<reclen;s+=mm_page_size(0),idx++) {
-					uintptr_t phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
-					size_t thislen = 0x1000;
-					if((reclen - s) < thislen)
-						thislen = reclen - s;
-					memcpy(mm_ptov(phys), data + s, thislen);
-					obj_cache_page(obj, idx, phys);
-				}
-				*/
 				break;
 			default: break;
 		}
