@@ -113,6 +113,9 @@ static void bench(void)
 }
 
 static _Atomic unsigned int kernel_main_barrier = 0;
+
+objid_t kc_init_id = 0;
+
 void kernel_main(struct processor *proc)
 {
 	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
@@ -122,15 +125,18 @@ void kernel_main(struct processor *proc)
 
 
 	if(proc->flags & PROCESSOR_BSP) {
-		bench();
 		arena_destroy(&post_init_call_arena);
 		post_init_call_head = NULL;
+		//bench();
+		if(kc_init_id == 0) {
+			panic("No init specified");
+		}
 
 		init_thread.id = 1;
 		init_thread.ctx = vm_context_create();
-		vm_context_map(init_thread.ctx, 1, 0x7ff000001000 / mm_page_size(MAX_PGLEVEL),
-				VMAP_READ | VMAP_EXEC);
-		vm_context_map(init_thread.ctx, 2, 0x1000 / mm_page_size(MAX_PGLEVEL),
+	//	vm_context_map(init_thread.ctx, 1, 0x7ff000001000 / mm_page_size(MAX_PGLEVEL),
+	//			VMAP_READ | VMAP_EXEC);
+		vm_context_map(init_thread.ctx, kc_init_id, 0x1000 / mm_page_size(MAX_PGLEVEL),
 				VMAP_READ | VMAP_EXEC);
 		//arch_thread_init(&init_thread, (void *)0x7ff000001000, NULL, us1 + 0x1000);
 		arch_thread_init(&init_thread, (void *)0x400078, NULL, us1 + 0x1000);

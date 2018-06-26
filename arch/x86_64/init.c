@@ -122,6 +122,7 @@ static bool objid_parse(const char *name, objid_t *id)
 	return i == 33;
 }
 
+extern objid_t kc_init_id;
 static void x86_64_initrd(void *u)
 {
 	(void)u;
@@ -148,6 +149,15 @@ static void x86_64_initrd(void *u)
 				printk("Loading object: %s (%s %ld)\n", name, name+33, nl);
 				if(!strncmp(name, "kc", 2) && nl == 2) {
 					/* load kernel configuration */
+					if(!strncmp(data, "init=", 5)) {
+						objid_t id;
+						if(!objid_parse(data+5, &id)) {
+							printk("Cannot parse initline of kc: %s\n", data);
+							break;
+						}
+						kc_init_id = id;
+					}
+					
 
 				} else {
 					if(nl < 33) {
