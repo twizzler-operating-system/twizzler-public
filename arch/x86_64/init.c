@@ -86,6 +86,42 @@ struct ustar_header {
 #define PHYS(x) ((x) - PHYS_ADDR_DELTA)
 extern int kernel_end;
 #include <object.h>
+
+static bool objid_parse(const char *name, objid_t *id)
+{
+	int i;
+	*id = 0;
+	int shift = 128;
+
+	for(i=0;i<33;i++) {
+		char c = *(name + i);
+		if(c == ':' && i == 16) {
+			continue;
+		}
+		if(!((c >= '0' && c <= '9')
+					|| (c >= 'a' && c <= 'f')
+					|| (c >= 'A' && c <= 'F'))) {
+			printk("Malformed object name: %s\n", name);
+			break;
+		}
+		if(c >= 'A' && c <= 'F') {
+			c += 'a' - 'A';
+		}
+
+		uint128_t this = 0;
+		if(c >= 'a' && c <= 'f') {
+			this = c - 'a' + 0xa;
+		} else {
+			this = c - '0';
+		}
+
+		shift -= 4;
+		*id |= this << shift;
+	}
+	/* finished parsing? */
+	return i == 33;
+}
+
 static void x86_64_initrd(void *u)
 {
 	(void)u;
@@ -106,14 +142,34 @@ static void x86_64_initrd(void *u)
 		size_t reclen = (len + 511) & ~511;
 
 		switch(h->typeflag[0]) {
+			size_t nl;
 			case '0': case '7':
-				printk("Loading object: %s\n", name);
-				int off = 0x400000;
-				if(!strncmp(name, "sys", 3)) off = 0x1000; //HACK
-				obj_create(++__id, reclen, off);
-				struct object *obj = obj_lookup(__id);
-				assert(obj != NULL);
-				size_t idx = 0;
+				nl = strlen(name);
+				printk("Loading object: %s (%s %ld)\n", name, name+33, nl);
+				if(!strncmp(name, "kc", 2) && nl == 2) {
+					/* load kernel configuration */
+
+				} else {
+					if(nl < 33) {
+						printk("Malformed object name: %s\n", name);
+						break;
+					} else if(nl > 33 && nl != 38) {
+						printk("Malformed object name: %s\n", name);
+						break;
+					} else if(nl == 38 && strncmp(name + 33, ".meta", 5)) {
+						printk("Malformed object name: %s\n", name);
+						break;
+					}
+					bool meta = nl == 38;
+					objid_t id;
+					if(!objid_parse(name, &id)) {
+						printk("Malformed object name: %s\n", name);
+						break;
+					}
+
+					printk(":: %d " IDFMT "\n", meta, IDPR(id));
+				}
+				/*
 				for(size_t s = 0;s<reclen;s+=mm_page_size(0),idx++) {
 					uintptr_t phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 					size_t thislen = 0x1000;
@@ -122,9 +178,9 @@ static void x86_64_initrd(void *u)
 					memcpy(mm_ptov(phys), data + s, thislen);
 					obj_cache_page(obj, idx, phys);
 				}
+				*/
 				break;
-			default:
-				printk("Unknown file type in tar archive: %c %s\n", h->typeflag[0], name);
+			default: break;
 		}
 
 		h = (struct ustar_header *)((char *)h + 512 + reclen);

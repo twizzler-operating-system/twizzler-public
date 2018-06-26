@@ -90,6 +90,6 @@ SECTIONS
 	/*kernel_end = kernel_data_percpu_load + SIZEOF(.data.percpu);*/
 	kernel_end = .;
 
-	/DISCARD/ : { *(.comment .note) }
+	/DISCARD/ : { *(.comment .note .debug*) }
 }
 
