@@ -6,6 +6,7 @@
 #include <arch/x86_64-vmx.h>
 #include <processor.h>
 #include <string.h>
+#include <kc.h>
 
 /* TODO (major): clean up this file */
 
@@ -87,41 +88,6 @@ struct ustar_header {
 extern int kernel_end;
 #include <object.h>
 
-static bool objid_parse(const char *name, objid_t *id)
-{
-	int i;
-	*id = 0;
-	int shift = 128;
-
-	for(i=0;i<33;i++) {
-		char c = *(name + i);
-		if(c == ':' && i == 16) {
-			continue;
-		}
-		if(!((c >= '0' && c <= '9')
-					|| (c >= 'a' && c <= 'f')
-					|| (c >= 'A' && c <= 'F'))) {
-			printk("Malformed object name: %s\n", name);
-			break;
-		}
-		if(c >= 'A' && c <= 'F') {
-			c += 'a' - 'A';
-		}
-
-		uint128_t this = 0;
-		if(c >= 'a' && c <= 'f') {
-			this = c - 'a' + 0xa;
-		} else {
-			this = c - '0';
-		}
-
-		shift -= 4;
-		*id |= this << shift;
-	}
-	/* finished parsing? */
-	return i == 33;
-}
-
 extern objid_t kc_init_id;
 static void x86_64_initrd(void *u)
 {
@@ -146,19 +112,9 @@ static void x86_64_initrd(void *u)
 			size_t nl;
 			case '0': case '7':
 				nl = strlen(name);
-				printk("Loading object: %s (%s %ld)\n", name, name+33, nl);
+				printk("Loading object: %s\n", name);
 				if(!strncmp(name, "kc", 2) && nl == 2) {
-					/* load kernel configuration */
-					if(!strncmp(data, "init=", 5)) {
-						objid_t id;
-						if(!objid_parse(data+5, &id)) {
-							printk("Cannot parse initline of kc: %s\n", data);
-							break;
-						}
-						kc_init_id = id;
-					}
-					
-
+					kc_parse(data, len);
 				} else {
 					if(nl < 33) {
 						printk("Malformed object name: %s\n", name);
@@ -183,8 +139,9 @@ static void x86_64_initrd(void *u)
 
 					struct object *obj = obj_lookup(id);
 					if(obj == NULL) {
-						obj = obj_create(id);
+						obj = obj_create(id, KSO_NONE);
 					}
+					obj->flags |= OF_NOTYPECHECK;
 					size_t idx = 0;
 					if(meta) {
 						idx = (mm_page_size(MAX_PGLEVEL) - (mm_page_size(0) + len)) / mm_page_size(0);

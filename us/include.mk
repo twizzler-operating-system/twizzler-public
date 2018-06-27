@@ -16,7 +16,11 @@ $(BUILDDIR)/us/test.0: $(BUILDDIR)/us/test
 $(BUILDDIR)/us:
 	@mkdir -p $@
 
+
 INITNAME=test.0
+
+$(BUILDDIR)/us/bsv: $(BUILDDIR)/us/$(INITNAME)
+
 
 $(BUILDDIR)/us/root.tar: $(BUILDDIR)/us $(USFILES)
 	@echo "[AGG] $(BUILDDIR)/us/root"

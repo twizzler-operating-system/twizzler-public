@@ -59,13 +59,13 @@ bool vm_map_contig(struct vm_context *v, uintptr_t virt, uintptr_t phys, size_t 
 	panic("unable to map region (len=%ld) at any level", len);
 }
 
-int vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t flags)
+struct vmap *vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t flags)
 {
 	ihtable_lock(v->maps);
 	struct vmap *m = ihtable_find(v->maps, slot, struct vmap, elem, slot);
 	if(m) {
 		ihtable_unlock(v->maps);
-		return -1;
+		return NULL;
 	}
 	m = slabcache_alloc(&sc_vmap);
 	m->slot = slot;
@@ -74,7 +74,15 @@ int vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t 
 	m->status = 0;
 	ihtable_insert(v->maps, &m->elem, m->slot);
 	ihtable_unlock(v->maps);
-	return 0;
+	return m;
+}
+
+struct viewentry kso_view_lookup(struct vm_context *ctx, size_t slot)
+{
+	struct viewentry v;
+	obj_read_data(ctx->view->obj, slot * sizeof(struct viewentry),
+			sizeof(struct viewentry), &v);
+	return v;
 }
 
 void vm_context_fault(uintptr_t addr, int flags)
@@ -87,7 +95,20 @@ void vm_context_fault(uintptr_t addr, int flags)
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
 	struct vmap *map = ihtable_find(current_thread->ctx->maps, slot, struct vmap, elem, slot);
 	if(!map) {
-		panic("kill process");
+		switch(slot) {
+			struct viewentry ve;
+			case 0x10000:
+				map = vm_context_map(current_thread->ctx, current_thread->throbj->obj->id,
+						slot, VE_READ | VE_WRITE);
+				break;
+			default:
+				ve = kso_view_lookup(current_thread->ctx, slot);
+				if(ve.res0 != 0 || ve.res1 != 0 || !(ve.flags & VE_VALID)) {
+					panic("raise signal");
+				}
+				map = vm_context_map(current_thread->ctx, ve.id, slot,
+						ve.flags & (VE_READ | VE_WRITE | VE_EXEC)); 
+		}
 	}
 	printk("mapping virt slot %ld -> obj " PR128FMTd "\n", map->slot, PR128(map->target));
 

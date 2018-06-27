@@ -25,6 +25,24 @@ void *memcpy(void *dest, const void *src, size_t len)
 	return dest;
 }
 
+char *strnchr(char *s, int c, size_t n)
+{
+	while(n--) {
+		char *t = s++;
+		if(*t == c) return t;
+		if(*t == 0) return NULL;
+	}
+	return NULL;
+}
+
+char *strncpy(char *d, const char *s, size_t n)
+{
+	char *_d = d;
+	while(n-- && (*d++ = *s++))
+		;
+	return _d;
+}
+
 int memcmp(const void* ptr1, const void* ptr2, size_t num) {
     const unsigned char* vptr1 = (const unsigned char*)ptr1;
     const unsigned char* vptr2 = (const unsigned char*)ptr2;
@@ -45,6 +63,16 @@ int strncmp(const char *s1, const char *s2, size_t n)
 		s1++; s2++; n--;
 	}
 	return 0;
+}
+
+int strcmp(const char *s1, const char *s2)
+{
+	while(true) {
+		if(*s1 > *s2) return 1;
+		else if(*s1 < *s2) return -1;
+		else if(!*s1 && !*s2) return 0;
+		s1++; s2++;
+	}
 }
 
 long strtol(char *str, char **end, int base)

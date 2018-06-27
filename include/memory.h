@@ -75,10 +75,16 @@ static inline void mm_virtual_dealloc(uintptr_t addr)
 	mm_physical_dealloc(mm_vtop((void *)addr));
 }
 
+#include <smapi/view.h>
+
+struct kso_view {
+	struct object *obj;
+};
 
 struct vm_context {
 	struct arch_vm_context arch;
 	struct ihtable *maps;
+	struct kso_view *view;
 };
 
 void arch_mm_switch_context(struct vm_context *vm);
@@ -94,12 +100,8 @@ struct vmap {
 	struct ihelem elem;
 };
 
-#define VMAP_NONE  0
-#define VMAP_READ  1
-#define VMAP_WRITE 2
-#define VMAP_EXEC  4
 
-int vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t flags);
+struct vmap *vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t flags);
 void vm_context_destroy(struct vm_context *v);
 struct vm_context *vm_context_create(void);
 void vm_context_fault(uintptr_t addr, int flags);

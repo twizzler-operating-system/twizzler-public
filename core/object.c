@@ -48,7 +48,12 @@ static int sz_to_pglevel(size_t sz)
 	return MAX_PGLEVEL;
 }
 
-struct object *obj_create(uint128_t id)
+static void obj_kso_init(struct object *obj, enum kso_type ksot)
+{
+	obj->kso_type = ksot;
+}
+
+struct object *obj_create(uint128_t id, enum kso_type ksot)
 {
 	struct object *obj = slabcache_alloc(&sc_objs);
 
@@ -56,6 +61,8 @@ struct object *obj_create(uint128_t id)
 	obj->maxsz = mm_page_size(MAX_PGLEVEL);
 	obj->pglevel = MAX_PGLEVEL;
 	obj->slot = -1;
+
+	obj_kso_init(obj, ksot);
 
 	ihtable_lock(&objtbl);
 	ihtable_insert(&objtbl, &obj->elem, obj->id);
@@ -96,6 +103,9 @@ void obj_cache_page(struct object *obj, size_t idx, uintptr_t phys)
 	/* TODO: duplicates? */
 	struct objpage *page = slabcache_alloc(&sc_objpage);
 	page->idx = idx;
+	if(phys == 0) {
+		phys = mm_physical_alloc(mm_page_size(0), PM_TYPE_DRAM, true);
+	}
 	page->phys = phys;
 	ihtable_insert(obj->pagecache, &page->elem, page->idx);
 	spinlock_release(&obj->lock, fl);
@@ -103,11 +113,36 @@ void obj_cache_page(struct object *obj, size_t idx, uintptr_t phys)
 
 struct objpage *obj_get_page(struct object *obj, size_t idx)
 {
-	printk("lup: %p %ld\n", obj, idx);
 	spinlock_acquire_save(&obj->lock);
 	struct objpage *page = ihtable_find(obj->pagecache, idx, struct objpage, elem, idx);
+	if(page == NULL) {
+		page = slabcache_alloc(&sc_objpage);
+		page->idx = idx;
+		page->phys = mm_physical_alloc(mm_page_size(0), PM_TYPE_DRAM, true);
+		ihtable_insert(obj->pagecache, &page->elem, page->idx);
+	}
 	spinlock_release_restore(&obj->lock);
 	return page;
+}
+
+void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
+{
+	if(start / mm_page_size(0) != (start + len) / mm_page_size(0)) {
+		panic("NI - cross-page KSO read");
+	}
+	struct objpage *p = obj_get_page(obj, start / mm_page_size(0));
+	atomic_thread_fence(memory_order_seq_cst);
+	memcpy(ptr, mm_ptov(p->phys + (start % mm_page_size(0))), len);
+}
+
+void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
+{
+	if(start / mm_page_size(0) != (start + len) / mm_page_size(0)) {
+		panic("NI - cross-page KSO read");
+	}
+	struct objpage *p = obj_get_page(obj, start / mm_page_size(0));
+	memcpy(mm_ptov(p->phys + (start % mm_page_size(0))), ptr, len);
+	atomic_thread_fence(memory_order_seq_cst);
 }
 
 struct object *obj_lookup_slot(uintptr_t oaddr)
@@ -131,7 +166,6 @@ void kernel_objspace_fault_entry(uintptr_t addr, uint32_t flags)
 		panic("NULL PAGE");
 	}
 	idx -= 1;
-	printk(":: %ld %ld\n", slot, idx);
 
 	struct object *o = obj_lookup_slot(addr);
 	if(o == NULL) {
@@ -139,7 +173,6 @@ void kernel_objspace_fault_entry(uintptr_t addr, uint32_t flags)
 	}
 
 	struct objpage *p = obj_get_page(o, idx);
-	printk(":: %p\n", p);
 
 	arch_objspace_map(addr & ~(mm_page_size(0) - 1), p->phys, 0, OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U);
 }

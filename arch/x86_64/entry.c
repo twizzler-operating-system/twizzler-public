@@ -3,6 +3,7 @@
 #include <syscall.h>
 #include <arch/x86_64-msr.h>
 #include <arch/x86_64-vmx.h>
+#include <secctx.h>
 
 void x86_64_signal_eoi(void);
 
@@ -154,6 +155,9 @@ void arch_thread_resume(struct thread *thread)
 	}
 	if((!old || old->ctx != thread->ctx) && thread->ctx) {
 		arch_mm_switch_context(thread->ctx);
+	}
+	if((!old || old->active_sc != thread->active_sc) && thread->active_sc) {
+		x86_64_secctx_switch(thread->active_sc);
 	}
 	if(thread->arch.was_syscall)
 		x86_64_resume_userspace(&thread->arch.syscall);

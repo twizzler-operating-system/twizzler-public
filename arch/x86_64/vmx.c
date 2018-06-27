@@ -3,6 +3,7 @@
 #include <arch/x86_64-vmx.h>
 #include <processor.h>
 #include <object.h>
+#include <secctx.h>
 static uint32_t revision_id;
 static uintptr_t ept_root;
 static _Atomic long vmexits_count = 0;
@@ -444,7 +445,7 @@ bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags)
 	if(flags & OBJSPACE_WRITE) ef |= EPT_WRITE;
 	if(flags & OBJSPACE_EXEC_U) ef |= EPT_EXEC;
 	ef |= EPT_MEMTYPE_WB;
-	return x86_64_ept_map(ept_root, v, p, level, flags);
+	return x86_64_ept_map(current_thread->active_sc->arch.ept_root, v, p, level, flags);
 }
 
 uintptr_t init_ept(void)
@@ -462,6 +463,17 @@ uintptr_t init_ept(void)
 	}
 
 	return pml4phys;
+}
+
+void arch_secctx_init(struct secctx *sc)
+{
+	sc->arch.ept_root = init_ept();
+}
+
+void arch_secctx_destroy(struct secctx *sc)
+{
+	/* TODO (major,mem) */
+	(void)sc;
 }
 
 __initializer
@@ -674,9 +686,19 @@ void x86_64_switch_ept(uintptr_t root)
 			asm volatile("vmfunc" :: "a"(VM_FUNCTION_SWITCH_EPTP), "c"(index) : "memory");
 		} else {
 			x86_64_rootcall(VMX_RC_SWITCHEPT, root, 0, 0);
+			/* TODO (perf): add to trusted list */
 		}
 	} else {
 		x86_64_rootcall(VMX_RC_SWITCHEPT, root, 0, 0);
+	}
+}
+
+void x86_64_secctx_switch(struct secctx *s)
+{
+	if(s) {
+		x86_64_switch_ept(s->arch.ept_root);
+	} else {
+		x86_64_switch_ept(ept_root);
 	}
 }
 

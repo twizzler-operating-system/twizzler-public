@@ -6,6 +6,7 @@
 #include <processor.h>
 #include <time.h>
 #include <thread.h>
+#include <secctx.h>
 
 static struct arena post_init_call_arena;
 static struct init_call *post_init_call_head = NULL;
@@ -114,8 +115,8 @@ static void bench(void)
 
 static _Atomic unsigned int kernel_main_barrier = 0;
 
-objid_t kc_init_id = 0;
 
+#include <kc.h>
 void kernel_main(struct processor *proc)
 {
 	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
@@ -134,10 +135,11 @@ void kernel_main(struct processor *proc)
 
 		init_thread.id = 1;
 		init_thread.ctx = vm_context_create();
+		init_thread.active_sc = secctx_alloc(0);
 	//	vm_context_map(init_thread.ctx, 1, 0x7ff000001000 / mm_page_size(MAX_PGLEVEL),
 	//			VMAP_READ | VMAP_EXEC);
 		vm_context_map(init_thread.ctx, kc_init_id, 0x1000 / mm_page_size(MAX_PGLEVEL),
-				VMAP_READ | VMAP_EXEC);
+				VE_READ | VE_EXEC);
 
 		//arch_thread_init(&init_thread, (void *)0x7ff000001000, NULL, us1 + 0x1000);
 		arch_thread_init(&init_thread, (void *)0x1120, NULL, us1 + 0x1000);

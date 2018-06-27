@@ -14,6 +14,12 @@ enum thread_state {
 	THREADSTATE_BLOCKED,
 };
 
+#define MAX_SC 32
+
+struct kso_throbj {
+	struct object *obj;
+};
+
 struct thread {
 	struct ref ref;
 	struct arch_thread arch;
@@ -23,6 +29,12 @@ struct thread {
 	
 	struct processor *processor;
 	struct vm_context *ctx;
+
+	struct spinlock sc_lock;
+	struct secctx *active_sc;
+	struct secctx *attached_scs[MAX_SC];
+
+	struct kso_throbj *throbj;
 
 	struct list rq_entry;
 };
