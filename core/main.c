@@ -117,6 +117,14 @@ static _Atomic unsigned int kernel_main_barrier = 0;
 
 
 #include <kc.h>
+#include <object.h>
+
+objid_t objid_generate(void)
+{
+	static objid_t _id = 8;
+	return _id++;
+}
+
 void kernel_main(struct processor *proc)
 {
 	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
@@ -136,13 +144,19 @@ void kernel_main(struct processor *proc)
 		init_thread.id = 1;
 		init_thread.ctx = vm_context_create();
 		init_thread.active_sc = secctx_alloc(0);
-	//	vm_context_map(init_thread.ctx, 1, 0x7ff000001000 / mm_page_size(MAX_PGLEVEL),
-	//			VMAP_READ | VMAP_EXEC);
-		vm_context_map(init_thread.ctx, kc_init_id, 0x1000 / mm_page_size(MAX_PGLEVEL),
-				VE_READ | VE_EXEC);
 
-		//arch_thread_init(&init_thread, (void *)0x7ff000001000, NULL, us1 + 0x1000);
-		arch_thread_init(&init_thread, (void *)0x1120, NULL, us1 + 0x1000);
+		struct object *bsv = obj_lookup(kc_bsv_id);
+		if(bsv == NULL) {
+			panic("Could not lookup bsv: " IDFMT "\n", IDPR(kc_bsv_id));
+		}
+		init_thread.ctx->view = &bsv->view;
+		
+		objid_t bthrid = objid_generate();
+		struct object *bthr = obj_create(bthrid, KSO_THREAD);
+		init_thread.throbj = &bthr->thr;
+
+		void *stack_init = (void *)(0x400000000000ull + 0x2000);
+		arch_thread_init(&init_thread, (void *)0x1120, NULL, stack_init);
 		processor_attach_thread(proc, &init_thread);
 	}
 	printk("processor %d reached resume state %p\n", proc->id, proc);

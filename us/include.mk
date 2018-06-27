@@ -1,4 +1,4 @@
-TWZOBJS=test.0
+TWZOBJS=test.0 bsv
 
 USFILES=$(addprefix $(BUILDDIR)/us/, $(TWZOBJS) $(addsuffix .meta,$(TWZOBJS)))
 
@@ -20,6 +20,8 @@ $(BUILDDIR)/us:
 INITNAME=test.0
 
 $(BUILDDIR)/us/bsv: $(BUILDDIR)/us/$(INITNAME)
+	@id=$$($(TWZUTILSDIR)/objbuild/objstat $(BUILDDIR)/us/$(INITNAME) | grep COID | awk '{print $$3}');\
+	$(TWZUTILSDIR)/bootstrap/bsv2 $@ 0,$$id,rx
 
 
 $(BUILDDIR)/us/root.tar: $(BUILDDIR)/us $(USFILES)
@@ -43,6 +45,10 @@ $(BUILDDIR)/us/root.tar: $(BUILDDIR)/us $(USFILES)
 		cp $(BUILDDIR)/us/nameobj $(BUILDDIR)/us/root/$$id ;\
 		cp $(BUILDDIR)/us/nameobj.meta $(BUILDDIR)/us/root/$$id.meta ;\
 		echo "name=$$id" >> $(BUILDDIR)/us/__kc
+	@id=$$($(TWZUTILSDIR)/objbuild/objstat $(BUILDDIR)/us/bsv | grep COID | awk '{print $$3}');\
+		cp $(BUILDDIR)/us/bsv $(BUILDDIR)/us/root/$$id ;\
+		cp $(BUILDDIR)/us/bsv.meta $(BUILDDIR)/us/root/$$id.meta ;\
+		echo "bsv=$$id" >> $(BUILDDIR)/us/__kc
 	@cp $(BUILDDIR)/us/__kc $(BUILDDIR)/us/root/kc
 	@echo "[TAR] $@"
 	@-rm $(BUILDDIR)/us/root.tar 2>/dev/null

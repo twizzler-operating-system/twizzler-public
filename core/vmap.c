@@ -80,7 +80,7 @@ struct vmap *vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, 
 struct viewentry kso_view_lookup(struct vm_context *ctx, size_t slot)
 {
 	struct viewentry v;
-	obj_read_data(ctx->view->obj, slot * sizeof(struct viewentry),
+	obj_read_data(kso_get_obj(ctx->view, view), slot * sizeof(struct viewentry),
 			sizeof(struct viewentry), &v);
 	return v;
 }
@@ -98,7 +98,8 @@ void vm_context_fault(uintptr_t addr, int flags)
 		switch(slot) {
 			struct viewentry ve;
 			case 0x10000:
-				map = vm_context_map(current_thread->ctx, current_thread->throbj->obj->id,
+				map = vm_context_map(current_thread->ctx,
+						kso_get_obj(current_thread->throbj, thr)->id,
 						slot, VE_READ | VE_WRITE);
 				break;
 			default:

@@ -77,10 +77,6 @@ static inline void mm_virtual_dealloc(uintptr_t addr)
 
 #include <smapi/view.h>
 
-struct kso_view {
-	struct object *obj;
-};
-
 struct vm_context {
 	struct arch_vm_context arch;
 	struct ihtable *maps;

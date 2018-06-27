@@ -152,7 +152,6 @@ struct object *obj_lookup_slot(uintptr_t oaddr)
 	//tl -= 8;
 	//tl += 4096;
 	//tl *= 512;
-	printk(":: %ld\n", tl);
 	struct object *obj = ihtable_find(&objslots, tl, struct object, slotelem, slot);
 	return obj;
 }

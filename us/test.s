@@ -2,5 +2,7 @@
 _start:
 	xorq %rax, %rax
 	syscall
+	push %rax
+	syscall
 	jmp .
 

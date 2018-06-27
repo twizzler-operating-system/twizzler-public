@@ -16,10 +16,6 @@ enum thread_state {
 
 #define MAX_SC 32
 
-struct kso_throbj {
-	struct object *obj;
-};
-
 struct thread {
 	struct ref ref;
 	struct arch_thread arch;

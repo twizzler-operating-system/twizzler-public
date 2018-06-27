@@ -1,7 +1,7 @@
 #include <string.h>
 #include <debug.h>
 
-objid_t kc_init_id=0, kc_bsv_id=0;
+objid_t kc_init_id=0, kc_bsv_id=0, kc_inithr_id=0;
 
 bool objid_parse(const char *name, objid_t *id)
 {
@@ -57,6 +57,14 @@ static void _parse_kv(char *name, char *value)
 			printk("Malformed bsv directive: %s=%s\n", name, value);
 		}
 	}
+	if(!strcmp(name, "ithr")) {
+		objid_t id;
+		if(objid_parse(value, &id)) {
+			kc_init_id = id;
+		} else {
+			printk("Malformed ithr directive: %s=%s\n", name, value);
+		}
+	}
 
 }
 
@@ -87,6 +95,7 @@ void kc_parse(char *data, size_t len)
 			_parse_kv(buf, e);
 		}
 
+		tl++;
 		len -= tl;
 		tmp += tl;
 	}

@@ -13,6 +13,17 @@ enum kso_type {
 
 #define OF_NOTYPECHECK 1
 
+struct kso_view {
+
+};
+
+struct kso_throbj {
+
+};
+
+#define kso_get_obj(ptr, type) \
+	container_of(ptr, struct object, type)
+
 struct object {
 	uint128_t id;
 	size_t maxsz;
@@ -22,6 +33,10 @@ struct object {
 	ssize_t slot;
 
 	enum kso_type kso_type;
+	union {
+		struct kso_view view;
+		struct kso_throbj thr;
+	};
 
 	struct spinlock lock;
 	struct ihtable *pagecache;
