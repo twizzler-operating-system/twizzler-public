@@ -16,6 +16,6 @@ CONFIG_SERIAL_DEBUG_ENABLE=y
 
 # set this to your toolchain path
 TOOLCHAIN_PATH=/home/dbittman/code/twizzler-kernel/.tc/
-QEMU_FLAGS+=-cpu host
+QEMU_FLAGS+=-cpu host,migratable=false,host-cache-info=true
 QEMU_FLAGS+="-enable-kvm"
 
