@@ -99,7 +99,6 @@ void obj_cache_page(struct object *obj, size_t idx, uintptr_t phys)
 	page->phys = phys;
 	ihtable_insert(obj->pagecache, &page->elem, page->idx);
 	spinlock_release(&obj->lock, fl);
-	printk(":: %p -> %ld\n", obj, idx);
 }
 
 struct objpage *obj_get_page(struct object *obj, size_t idx)
