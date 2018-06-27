@@ -81,12 +81,12 @@ static inline void vmcs_write32_fixed(uint32_t msr, uint32_t vmcs_field, uint32_
 
 static void x86_64_enable_vmx(void)
 {
-	uint32_t ecx = x86_64_cpuid(1, 2);
+	uint32_t ecx = x86_64_cpuid(1, 0, 2);
 	if(!(ecx & (1 << 5))) {
 		panic("VMX extensions not available (not supported");
 	}
 
-	uint32_t eax = x86_64_cpuid(0x80000008, 0);
+	uint32_t eax = x86_64_cpuid(0x80000008, 0, 0);
 	printk("EAX: %x\n", eax);
 
 	uint32_t lo, hi;
@@ -237,7 +237,8 @@ void x86_64_vmexit_handler(struct processor *proc)
 					"=g"(proc->arch.vcpu_state_regs[REG_RBX]),
 					"=c"(proc->arch.vcpu_state_regs[REG_RCX]),
 					"=d"(proc->arch.vcpu_state_regs[REG_RDX])
-					:"a"(proc->arch.vcpu_state_regs[REG_RAX])
+					:"a"(proc->arch.vcpu_state_regs[REG_RAX]),
+					"c"(proc->arch.vcpu_state_regs[REG_RCX])
 					: "memory");
 			vm_instruction_advance();
 			break;
