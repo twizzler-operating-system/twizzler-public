@@ -86,6 +86,7 @@ static void x86_64_enable_vmx(void)
 		panic("VMX extensions not available (not supported");
 	}
 
+	/* TODO: use this info */
 	uint32_t eax = x86_64_cpuid(0x80000008, 0, 0);
 	printk("EAX: %x\n", eax);
 

@@ -151,7 +151,5 @@ static inline uint64_t x86_64_cpuid(uint32_t x, uint32_t subleaf, int rnum)
 		panic("Invalid CPUID issued");
 	}
 	return regs[rnum];
-	//asm volatile("push %%rbx; cpuid; movq %%rbx, %0; pop %%rbx" : "=a"(regs[0]), "=r"(regs[1]), "=c"(regs[2]), "=d"(regs[3]) : "a"(x), "c"(subleaf));
-	//return regs[rnum];
 }
 
