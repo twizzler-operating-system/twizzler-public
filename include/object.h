@@ -12,6 +12,7 @@ enum kso_type {
 };
 
 #define OF_NOTYPECHECK 1
+#define OF_KERNELGEN   2
 
 struct kso_view {
 

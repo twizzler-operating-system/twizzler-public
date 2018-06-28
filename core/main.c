@@ -153,6 +153,7 @@ void kernel_main(struct processor *proc)
 		
 		objid_t bthrid = objid_generate();
 		struct object *bthr = obj_create(bthrid, KSO_THREAD);
+		bthr->flags |= OF_KERNELGEN;
 		init_thread.throbj = &bthr->thr;
 
 		void *stack_init = (void *)(0x400000000000ull + 0x2000);

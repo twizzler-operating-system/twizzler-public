@@ -1,8 +1,13 @@
 .global _start
+
+
 _start:
-	xorq %rax, %rax
-	syscall
-	push %rax
+	movq $2, %rax
+	movq $message, %rdi
+	movq $12, %rsi
 	syscall
 	jmp .
+
+message:
+	.ascii  "Hello, world"
 
