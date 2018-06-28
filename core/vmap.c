@@ -85,10 +85,32 @@ struct viewentry kso_view_lookup(struct vm_context *ctx, size_t slot)
 	return v;
 }
 
+static bool lookup_by_slot(size_t slot, objid_t *id, uint64_t *flags)
+{
+	switch(slot) {
+		struct viewentry ve;
+		case 0x10000:
+			*id = kso_get_obj(current_thread->throbj, thr)->id;
+			if(flags) *flags = VE_READ | VE_WRITE;
+		break;
+		default:
+			ve = kso_view_lookup(current_thread->ctx, slot);
+			if(ve.res0 != 0 || ve.res1 != 0 || !(ve.flags & VE_VALID)) {
+				return false;
+			}
+			*id = ve.id;
+			if(flags) *flags = ve.flags;
+	}
+	return true;
+}
+
 bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off)
 {
-	
-	return true;
+	size_t slot = (uintptr_t)addr / mm_page_size(MAX_PGLEVEL);
+	uint64_t o = (uintptr_t)addr % mm_page_size(MAX_PGLEVEL);
+
+	*off = o;
+	return lookup_by_slot(slot, id, NULL);
 }
 
 bool vm_setview(struct thread *t, struct object *viewobj)
@@ -111,21 +133,13 @@ void vm_context_fault(uintptr_t addr, int flags)
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
 	struct vmap *map = ihtable_find(current_thread->ctx->maps, slot, struct vmap, elem, slot);
 	if(!map) {
-		switch(slot) {
-			struct viewentry ve;
-			case 0x10000:
-				map = vm_context_map(current_thread->ctx,
-						kso_get_obj(current_thread->throbj, thr)->id,
-						slot, VE_READ | VE_WRITE);
-				break;
-			default:
-				ve = kso_view_lookup(current_thread->ctx, slot);
-				if(ve.res0 != 0 || ve.res1 != 0 || !(ve.flags & VE_VALID)) {
-					panic("raise signal");
-				}
-				map = vm_context_map(current_thread->ctx, ve.id, slot,
-						ve.flags & (VE_READ | VE_WRITE | VE_EXEC)); 
+		objid_t id;
+		uint64_t flags;
+		if(!lookup_by_slot(slot, &id, &flags)) {
+			panic("raise signal");
 		}
+		map = vm_context_map(current_thread->ctx, id, slot,
+				flags & (VE_READ | VE_WRITE | VE_EXEC));
 	}
 	printk("mapping virt slot %ld -> obj " PR128FMTd "\n", map->slot, PR128(map->target));
 
