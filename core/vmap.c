@@ -117,8 +117,10 @@ bool vm_setview(struct thread *t, struct object *viewobj)
 {
 	struct object *old = (t && t->ctx->view) ? 
 		kso_get_obj(t->ctx->view, view) : NULL;
+	struct vm_context *oldctx = t->ctx;
+	t->ctx = vm_context_create();
 	t->ctx->view = &viewobj->view;
-	/* TODO: unmap things (or create a new context) */
+	/* TODO: unmap things (or create a new context), destroy old, etc */
 	/* TODO: check object type */
 	return true;
 }
