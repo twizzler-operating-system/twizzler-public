@@ -15,3 +15,13 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 	return 0;
 }
 
+long syscall_ocreate(uint64_t olo, uint64_t ohi, uint64_t tlo, uint64_t thi, uint64_t flags)
+{
+	return 0;
+}
+
+long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags)
+{
+	return 0;
+}
+

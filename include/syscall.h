@@ -2,7 +2,6 @@
 
 #include <arch/syscall.h>
 
-#define NUM_SYSCALLS 8
 
 long syscall_thread_spawn(__int128 foo);
 
@@ -33,6 +32,9 @@ long syscall_invalidate_kso(struct syscall_kso_invl *invl, size_t count);
 long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t flags);
 long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t flags);
 
+long syscall_ocreate(uint64_t olo, uint64_t ohi, uint64_t tlo, uint64_t thi, uint64_t flags);
+long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags);
+
 #define SYS_NULL        0
 #define SYS_THRD_SPAWN  1
 #define SYS_DEBUG_PRINT 2
@@ -41,5 +43,9 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 #define SYS_DETACH      5
 #define SYS_BECOME      6
 #define SYS_THRD_SYNC   7
+#define SYS_OCREATE     8
+#define SYS_ODELETE     9
 
+
+#define NUM_SYSCALLS 16
 

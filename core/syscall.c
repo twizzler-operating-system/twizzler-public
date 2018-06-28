@@ -27,5 +27,7 @@ long (*syscall_table[NUM_SYSCALLS])() = {
 	[SYS_DETACH]      = syscall_detach,
 	[SYS_BECOME]      = syscall_become,
 	[SYS_THRD_SYNC]   = syscall_thread_sync,
+	[SYS_OCREATE]     = syscall_ocreate,
+	[SYS_ODELETE]     = syscall_odelete,
 };
 
