@@ -37,6 +37,10 @@ struct thread {
 
 void arch_thread_start(struct thread *thread, void *jump, void *arg);
 void arch_thread_initialize(struct thread *idle);
+struct arch_syscall_become_args;
+void arch_thread_become(struct arch_syscall_become_args *ba);
+void thread_sleep(struct thread *t, int flags, int64_t);
+void thread_wake(struct thread *t);
 
 struct thread *thread_lookup(unsigned long id);
 struct thread *thread_create(void *jump, void *arg);

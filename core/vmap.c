@@ -85,6 +85,22 @@ struct viewentry kso_view_lookup(struct vm_context *ctx, size_t slot)
 	return v;
 }
 
+bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off)
+{
+	
+	return true;
+}
+
+bool vm_setview(struct thread *t, struct object *viewobj)
+{
+	struct object *old = (t && t->ctx->view) ? 
+		kso_get_obj(t->ctx->view, view) : NULL;
+	t->ctx->view = &viewobj->view;
+	/* TODO: unmap things (or create a new context) */
+	/* TODO: check object type */
+	return true;
+}
+
 void vm_context_fault(uintptr_t addr, int flags)
 {
 	printk("Page Fault: %lx %x\n", addr, flags);

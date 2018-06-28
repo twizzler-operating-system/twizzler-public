@@ -8,7 +8,7 @@ DECLARE_IHTABLE(objslots, 10);
 
 #define NUM_TL_SLOTS (OM_ADDR_SIZE / mm_page_size(MAX_PGLEVEL) - 1)
 
-struct slabcache sc_objs, sc_pctable, sc_objpage;
+struct slabcache sc_objs, sc_pctable, sc_tstable, sc_objpage;
 
 struct spinlock slotlock = SPINLOCK_INIT;
 
@@ -20,6 +20,7 @@ static void _obj_ctor(void *_u, void *ptr)
 	struct object *obj = ptr;
 	obj->lock = SPINLOCK_INIT;
 	obj->pagecache = slabcache_alloc(&sc_pctable);
+	obj->tstable = slabcache_alloc(&sc_tstable);
 }
 
 static void _obj_dtor(void *_u, void *ptr)
@@ -32,7 +33,9 @@ static void _obj_dtor(void *_u, void *ptr)
 __initializer
 static void _init_objs(void)
 {
+	/* TODO (perf): verify all ihtable sizes */
 	slabcache_init(&sc_pctable, ihtable_size(4), _iht_ctor, NULL, (void *)4ul);
+	slabcache_init(&sc_tstable, ihtable_size(4), _iht_ctor, NULL, (void *)4ul);
 	slabcache_init(&sc_objs, sizeof(struct object), _obj_ctor, _obj_dtor, NULL);
 	slabcache_init(&sc_objpage, sizeof(struct objpage), NULL, NULL, NULL);
 	slot_bitmap = (void *)mm_virtual_alloc(NUM_TL_SLOTS / 8, PM_TYPE_DRAM, true);

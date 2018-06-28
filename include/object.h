@@ -39,8 +39,8 @@ struct object {
 		struct kso_throbj thr;
 	};
 
-	struct spinlock lock;
-	struct ihtable *pagecache;
+	struct spinlock lock, tslock;
+	struct ihtable *pagecache, *tstable;
 
 	struct ihelem elem, slotelem;
 };

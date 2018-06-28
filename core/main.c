@@ -149,7 +149,7 @@ void kernel_main(struct processor *proc)
 		if(bsv == NULL) {
 			panic("Could not lookup bsv: " IDFMT "\n", IDPR(kc_bsv_id));
 		}
-		init_thread.ctx->view = &bsv->view;
+		vm_setview(&init_thread, bsv);
 		
 		objid_t bthrid = objid_generate();
 		struct object *bthr = obj_create(bthrid, KSO_THREAD);

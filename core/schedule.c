@@ -31,3 +31,19 @@ void thread_schedule_resume(void)
 	thread_schedule_resume_proc(current_thread->processor);
 }
 
+void thread_sleep(struct thread *t, int flags, int64_t timeout)
+{
+	/* TODO (major): spec */
+	t->state = THREADSTATE_BLOCKED;
+}
+
+void thread_wake(struct thread *t)
+{
+	t->state = THREADSTATE_RUNNING;
+	if(t != current_thread) {
+		spinlock_acquire_save(&t->processor->sched_lock);
+		list_insert(&t->processor->runqueue, &t->rq_entry);
+		spinlock_release_restore(&t->processor->sched_lock);
+	}
+}
+
