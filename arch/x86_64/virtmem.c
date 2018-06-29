@@ -160,6 +160,8 @@ bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int lev
 
 #include <object.h>
 #define MB (1024ul * 1024ul)
+/* So, these should probably not be arch-specific. Also, we should keep track of
+ * slots, maybe? Refcounts? */
 void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object *obj)
 {
 	if(obj->slot == -1) {
@@ -172,14 +174,19 @@ void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object 
 			== false) {
 		panic("map fail");
 	}
+}
 
-#if 0
-	for(int i=0;i<512;i++) {
-		//printk(":: %lx -> %lx\n", vaddr + i*(2*MB), oaddr + i*(2*MB));
-		/* TODO: also, actually allow null pointers to work */
-		if(arch_vm_map(ctx, vaddr + i * (2*MB), oaddr + i * (2*MB), 1, VM_MAP_USER | VM_MAP_EXEC | VM_MAP_WRITE) == false) panic("remap failed"); //TODO: fix flags
+void arch_vm_unmap_object(struct vm_context *ctx, struct vmap *map, struct object *obj)
+{
+	if(obj->slot == -1) {
+		panic("tried to map an unslotted object");
 	}
-#endif
+	uintptr_t vaddr = map->slot * mm_page_size(MAX_PGLEVEL);
+	uintptr_t oaddr = obj->slot * mm_page_size(obj->pglevel);
+
+	if(arch_vm_unmap(ctx, vaddr) == false) {
+		/* TODO (major): is this a problem? */
+	}
 }
 
 uint64_t *kernel_pml4;
