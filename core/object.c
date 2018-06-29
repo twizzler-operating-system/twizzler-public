@@ -51,9 +51,17 @@ static int sz_to_pglevel(size_t sz)
 	return MAX_PGLEVEL;
 }
 
-static void obj_kso_init(struct object *obj, enum kso_type ksot)
+static struct kso_calls *_kso_calls[KSO_MAX];
+
+void kso_register(int t, struct kso_calls *c)
+{
+	_kso_calls[t] = c;
+}
+
+void obj_kso_init(struct object *obj, enum kso_type ksot)
 {
 	obj->kso_type = ksot;
+	obj->kso_calls = _kso_calls[ksot];
 }
 
 struct object *obj_create(uint128_t id, enum kso_type ksot)

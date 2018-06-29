@@ -113,8 +113,14 @@ bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off)
 	return lookup_by_slot(slot, id, NULL);
 }
 
+static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
+{
+	return true;
+}
+
 bool vm_setview(struct thread *t, struct object *viewobj)
 {
+	obj_kso_init(viewobj, KSO_VIEW); //TODO
 	struct object *old = (t && t->ctx->view) ? 
 		kso_get_obj(t->ctx->view, view) : NULL;
 	struct vm_context *oldctx = t->ctx;
@@ -123,6 +129,19 @@ bool vm_setview(struct thread *t, struct object *viewobj)
 	/* TODO: unmap things (or create a new context), destroy old, etc */
 	/* TODO: check object type */
 	return true;
+}
+
+static struct kso_calls _kso_view = {
+	.ctor   = NULL,
+	.dtor   = NULL,
+	.attach = NULL,
+	.detach = NULL,
+	.invl   = _vm_view_invl,
+};
+
+__initializer static void _init_kso_view(void)
+{
+	kso_register(KSO_VIEW, &_kso_view);
 }
 
 void vm_context_fault(uintptr_t addr, int flags)
