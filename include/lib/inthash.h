@@ -7,7 +7,6 @@ struct ihelem {
 };
 
 struct ihtable {
-	struct spinlock lock;
 	int bits;
 	bool fl;
 	struct ihelem *table[];
@@ -16,16 +15,9 @@ struct ihtable {
 #define ihtable_size(bits) \
 	(sizeof(struct ihtable) + ((1ul << (bits)) + 1) * sizeof(struct ihelem))
 
-#define ihtable_lock(t) \
-	(t)->fl=spinlock_acquire(&(t)->lock)
-
-#define ihtable_unlock(t) \
-		spinlock_release(&(t)->lock, (t)->fl)
-
 #define DECLARE_IHTABLE(name, nbits) \
 	struct ihtable name = { \
 		.table = { [0 ... (1ul << nbits)] = 0 }, \
-		.lock = SPINLOCK_INIT, \
 		.bits = nbits, \
 	}
 
@@ -34,7 +26,6 @@ static inline void ihtable_init(struct ihtable *t, int bits)
 	for(size_t i=0;i<(1ul << bits);i++) {
 		t->table[i] = NULL;
 	}
-	t->lock = SPINLOCK_INIT;
 	t->bits = bits;
 }
 

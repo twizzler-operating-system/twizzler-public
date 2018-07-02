@@ -88,7 +88,7 @@ void arch_mm_context_init(struct vm_context *ctx);
 
 #include <lib/inthash.h>
 struct vmap {
-	uint128_t target;
+	struct object *obj;
 	size_t slot;
 	uint32_t flags;
 	int status;

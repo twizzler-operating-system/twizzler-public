@@ -16,8 +16,11 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 	for(size_t i=0;i<count;i++) {
 		if(invl[i].flags & KSOI_VALID) {
 			struct object *o = obj_lookup(invl[i].id);
-			if(__do_invalidate(o, &invl[i])) {
+			if(o && __do_invalidate(o, &invl[i])) {
 				suc++;
+			}
+			if(o) {
+				obj_put(o);
 			}
 		}
 	}
@@ -31,10 +34,14 @@ long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 	struct object *child = obj_lookup(chid);
 
 	if(!parent || !child) {
+		if(child) obj_put(child);
+		if(parent) obj_put(parent);
 		return -1;
 	}
 
 	if(parent->kso_type == KSO_NONE || child->kso_type == KSO_NONE) {
+		obj_put(child);
+		obj_put(parent);
 		return -1;
 	}
 
@@ -43,6 +50,8 @@ long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 		ret = child->kso_calls->attach(parent, child, flags) ? 0 : -1;
 	}
 
+	obj_put(child);
+	obj_put(parent);
 	return ret;
 }
 
@@ -53,10 +62,14 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 	struct object *child = obj_lookup(chid);
 
 	if(!parent || !child) {
+		if(child) obj_put(child);
+		if(parent) obj_put(parent);
 		return -1;
 	}
 
 	if(parent->kso_type == KSO_NONE || child->kso_type == KSO_NONE) {
+		obj_put(child);
+		obj_put(parent);
 		return -1;
 	}
 
@@ -65,6 +78,8 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 		ret = child->kso_calls->detach(parent, child, flags) ? 0 : -1;
 	}
 
+	obj_put(child);
+	obj_put(parent);
 	return ret;
 }
 

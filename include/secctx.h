@@ -1,10 +1,12 @@
 #pragma once
 
 #include <arch/secctx.h>
+#include <krc.h>
 
 struct secctx {
 	struct arch_secctx arch;
 	objid_t repr;
+	struct krc refs;
 };
 
 

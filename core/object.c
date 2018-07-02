@@ -11,6 +11,7 @@ DECLARE_IHTABLE(objslots, 10);
 struct slabcache sc_objs, sc_pctable, sc_tstable, sc_objpage;
 
 struct spinlock slotlock = SPINLOCK_INIT;
+struct spinlock objlock = SPINLOCK_INIT;
 
 void *slot_bitmap;
 
@@ -27,6 +28,8 @@ static void _obj_dtor(void *_u, void *ptr)
 {
 	(void)_u;
 	struct object *obj = ptr;
+	assert(krc_iszero(&obj->refs));
+	assert(krc_iszero(&obj->pcount));
 	slabcache_free(obj->pagecache);
 }
 
@@ -72,25 +75,33 @@ struct object *obj_create(uint128_t id, enum kso_type ksot)
 	obj->maxsz = mm_page_size(MAX_PGLEVEL);
 	obj->pglevel = MAX_PGLEVEL;
 	obj->slot = -1;
+	krc_init(&obj->refs);
+	krc_init_zero(&obj->pcount);
 
 	obj_kso_init(obj, ksot);
 
-	ihtable_lock(&objtbl);
+	spinlock_acquire_save(&objlock);
 	ihtable_insert(&objtbl, &obj->elem, obj->id);
-	ihtable_unlock(&objtbl);
+	spinlock_release_restore(&objlock);
 	return obj;
 }
 
 struct object *obj_lookup(uint128_t id)
 {
+	spinlock_acquire_save(&objlock);
 	struct object *obj = ihtable_find(&objtbl, id, struct object, elem, id);
+	if(obj) {
+		krc_get(&obj->refs);
+	}
+	spinlock_release_restore(&objlock);
 	return obj;
 }
 
 void obj_alloc_slot(struct object *obj)
 {
 	/* TODO: lock free? */
-	bool fl = spinlock_acquire(&slotlock);
+	krc_get(&obj->refs);
+	spinlock_acquire_save(&slotlock);
 	int slot = bitmap_ffr(slot_bitmap, NUM_TL_SLOTS);
 	if(slot == -1)
 		panic("Out of top-level slots");
@@ -104,22 +115,27 @@ void obj_alloc_slot(struct object *obj)
 	obj->slot = es;
 
 	ihtable_insert(&objslots, &obj->slotelem, obj->slot);
-	spinlock_release(&slotlock, fl);
-	printk("Assigned object " PR128FMT " slot %d (%lx)\n", PR128(obj->id), es, es * mm_page_size(obj->pglevel));
+	spinlock_release_restore(&slotlock);
+	printk("Assigned object " PR128FMT " slot %d (%lx)\n",
+			PR128(obj->id), es, es * mm_page_size(obj->pglevel));
 }
 
 void obj_cache_page(struct object *obj, size_t idx, uintptr_t phys)
 {
-	bool fl = spinlock_acquire(&obj->lock);
-	/* TODO: duplicates? */
-	struct objpage *page = slabcache_alloc(&sc_objpage);
-	page->idx = idx;
-	if(phys == 0) {
-		phys = mm_physical_alloc(mm_page_size(0), PM_TYPE_DRAM, true);
+	spinlock_acquire_save(&obj->lock);
+	struct objpage *page = ihtable_find(obj->pagecache, idx, struct objpage, elem, idx);
+	/* TODO (major): deal with overwrites? */
+	if(page == NULL) {
+		page = slabcache_alloc(&sc_objpage);
+		page->idx = idx;
+		krc_init(&page->refs);
+		if(phys == 0) {
+			phys = mm_physical_alloc(mm_page_size(0), PM_TYPE_DRAM, true);
+		}
 	}
 	page->phys = phys;
 	ihtable_insert(obj->pagecache, &page->elem, page->idx);
-	spinlock_release(&obj->lock, fl);
+	spinlock_release_restore(&obj->lock);
 }
 
 struct objpage *obj_get_page(struct object *obj, size_t idx)
@@ -130,10 +146,33 @@ struct objpage *obj_get_page(struct object *obj, size_t idx)
 		page = slabcache_alloc(&sc_objpage);
 		page->idx = idx;
 		page->phys = mm_physical_alloc(mm_page_size(0), PM_TYPE_DRAM, true);
+		krc_init(&page->refs);
 		ihtable_insert(obj->pagecache, &page->elem, page->idx);
 	}
 	spinlock_release_restore(&obj->lock);
 	return page;
+}
+
+static void _objpage_release(struct krc *k)
+{
+	struct objpage *page = container_of(k, struct objpage, refs);
+	(void)page; /* TODO (major): implement */
+}
+
+static void _obj_release(struct krc *k)
+{
+	struct object *obj = container_of(k, struct object, refs);
+	(void)obj; /* TODO (major): implement */
+}
+
+void obj_put_page(struct objpage *p)
+{
+	krc_put_call(&p->refs, _objpage_release);
+}
+
+void obj_put(struct object *o)
+{
+	krc_put_call(&o->refs, _obj_release);
 }
 
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
@@ -144,6 +183,7 @@ void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 	struct objpage *p = obj_get_page(obj, start / mm_page_size(0));
 	atomic_thread_fence(memory_order_seq_cst);
 	memcpy(ptr, mm_ptov(p->phys + (start % mm_page_size(0))), len);
+	obj_put_page(p);
 }
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
@@ -154,6 +194,7 @@ void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 	struct objpage *p = obj_get_page(obj, start / mm_page_size(0));
 	memcpy(mm_ptov(p->phys + (start % mm_page_size(0))), ptr, len);
 	atomic_thread_fence(memory_order_seq_cst);
+	obj_put_page(p);
 }
 
 struct object *obj_lookup_slot(uintptr_t oaddr)
@@ -163,7 +204,12 @@ struct object *obj_lookup_slot(uintptr_t oaddr)
 	//tl -= 8;
 	//tl += 4096;
 	//tl *= 512;
+	spinlock_acquire_save(&slotlock);
 	struct object *obj = ihtable_find(&objslots, tl, struct object, slotelem, slot);
+	if(obj) {
+		krc_get(&obj->refs);
+	}
+	spinlock_release_restore(&slotlock);
 	return obj;
 }
 
@@ -183,7 +229,9 @@ void kernel_objspace_fault_entry(uintptr_t addr, uint32_t flags)
 	}
 
 	struct objpage *p = obj_get_page(o, idx);
+	obj_put(o);
 
 	arch_objspace_map(addr & ~(mm_page_size(0) - 1), p->phys, 0, OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U);
+	/* TODO (major): deal with mapcounting */
 }
 

@@ -2,6 +2,7 @@
 
 #include <lib/inthash.h>
 #include <spinlock.h>
+#include <krc.h>
 
 enum kso_type {
 	KSO_NONE,
@@ -49,6 +50,8 @@ struct object {
 	uint128_t id;
 	size_t maxsz;
 
+	struct krc refs, pcount;
+
 	int pglevel;
 	int flags;
 	ssize_t slot;
@@ -69,6 +72,7 @@ struct object {
 struct objpage {
 	size_t idx;
 	uintptr_t phys;
+	struct krc refs;
 	struct ihelem elem;
 };
 
@@ -78,6 +82,8 @@ void obj_alloc_slot(struct object *obj);
 struct object *obj_lookup_slot(uintptr_t oaddr);
 void obj_cache_page(struct object *obj, size_t idx, uintptr_t phys);
 void obj_kso_init(struct object *obj, enum kso_type ksot);
+void obj_put_page(struct objpage *p);
+void obj_put(struct object *o);
 
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);

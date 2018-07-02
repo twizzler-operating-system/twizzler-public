@@ -61,19 +61,21 @@ bool vm_map_contig(struct vm_context *v, uintptr_t virt, uintptr_t phys, size_t 
 
 struct vmap *vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t flags)
 {
-	ihtable_lock(v->maps);
 	struct vmap *m = ihtable_find(v->maps, slot, struct vmap, elem, slot);
 	if(m) {
-		ihtable_unlock(v->maps);
+		panic("Map already exists");
+	}
+
+	struct object *obj = obj_lookup(objid);
+	if(!obj) {
 		return NULL;
 	}
 	m = slabcache_alloc(&sc_vmap);
 	m->slot = slot;
-	m->target = objid;
+	m->obj = obj; /* krc: move */
 	m->flags = flags;
 	m->status = 0;
 	ihtable_insert(v->maps, &m->elem, m->slot);
-	ihtable_unlock(v->maps);
 	return m;
 }
 
@@ -133,6 +135,7 @@ bool vm_setview(struct thread *t, struct object *viewobj)
 		kso_get_obj(t->ctx->view, view) : NULL;
 	struct vm_context *oldctx = t->ctx;
 	t->ctx = vm_context_create();
+	krc_get(&viewobj->refs);
 	t->ctx->view = &viewobj->view;
 	/* TODO: unmap things (or create a new context), destroy old, etc */
 	/* TODO: check object type */
@@ -169,16 +172,15 @@ void vm_context_fault(uintptr_t addr, int flags)
 		}
 		map = vm_context_map(current_thread->ctx, id, slot,
 				flags & (VE_READ | VE_WRITE | VE_EXEC));
+		if(!map) {
+			panic("object doesn't exist");
+		}
 	}
-	printk("mapping virt slot %ld -> obj " PR128FMTd "\n", map->slot, PR128(map->target));
+	printk("mapping virt slot %ld -> obj " PR128FMTd "\n", map->slot, PR128(map->obj->id));
 
-	struct object *obj = obj_lookup(map->target);
-	if(obj == NULL) {
-		panic("object " PR128FMTd " not found", PR128(map->target));
+	if(map->obj->slot == -1) {
+		obj_alloc_slot(map->obj);
 	}
-	if(obj->slot == -1) {
-		obj_alloc_slot(obj);
-	}
-	arch_vm_map_object(current_thread->ctx, map, obj);
+	arch_vm_map_object(current_thread->ctx, map, map->obj);
 }
 

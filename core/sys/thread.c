@@ -19,6 +19,7 @@ long syscall_become(uint64_t sclo, uint64_t schi, struct arch_syscall_become_arg
 	}
 	arch_thread_become(ba);
 	vm_setview(current_thread, target_view);
+	obj_put(target_view);
 	/* TODO: detach from scid */
 	return 0;
 }
