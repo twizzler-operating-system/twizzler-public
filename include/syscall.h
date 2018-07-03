@@ -19,7 +19,6 @@ long syscall_thread_sync(int operation, int *addr, int arg, struct timespec *spe
 
 #define KSO_INVL_RES_OK 0
 #define KSO_INVL_RES_ERR -1
-
 #define KSOI_VALID 1
 
 long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count);
@@ -29,6 +28,8 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 
 long syscall_ocreate(uint64_t olo, uint64_t ohi, uint64_t tlo, uint64_t thi, uint64_t flags);
 long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags);
+
+long syscall_thrd_ctl(int op, long arg);
 
 #define SYS_NULL        0
 #define SYS_THRD_SPAWN  1
@@ -40,7 +41,6 @@ long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags);
 #define SYS_THRD_SYNC   7
 #define SYS_OCREATE     8
 #define SYS_ODELETE     9
-
-
-#define NUM_SYSCALLS 16
+#define SYS_THRD_CTL    10
+#define NUM_SYSCALLS 11
 

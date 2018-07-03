@@ -55,7 +55,9 @@ $(BUILDDIR)/us/libtwz.a: $(LIBTWZ_OBJ)
 
 $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_READY)
 	@mkdir -p $(BUILDDIR)/us/libtwz
-	$(TOOLCHAIN_PREFIX)gcc -Og -g -Wall -Wextra -std=gnu11 -I us/include -ffreestanding $(MUSL_INCL) -c -o $@ $<
+	$(TOOLCHAIN_PREFIX)gcc -Og -g -Wall -Wextra -std=gnu11 -I us/include -ffreestanding $(MUSL_INCL) -c -o $@ $< -MD
+
+-include $(LIBTWZ_OBJ:.o=.d)
 
 
 INITNAME=test.0

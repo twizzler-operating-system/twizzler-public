@@ -14,3 +14,5 @@ typedef signed long ssize_t;
 #undef __unused
 #define __unused __attribute__((unused))
 
+#undef __packed
+#define __packed __attribute__((packed))

@@ -1,6 +1,10 @@
 #pragma once
 
+#define THRD_CTL_SET_FS 1
+#define THRD_CTL_SET_GS 2
+
 struct arch_syscall_become_args {
+	objid_t target_view;
 	uint64_t target_rip;
 	uint64_t rax;
 	uint64_t rbx;
@@ -18,6 +22,5 @@ struct arch_syscall_become_args {
 	uint64_t r13;
 	uint64_t r14;
 	uint64_t r15;
-	objid_t target_view;
 };
 

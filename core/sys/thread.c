@@ -10,6 +10,11 @@ long syscall_thread_spawn(__int128 foo)
 	return (uint64_t)(foo);
 }
 
+long syscall_thrd_ctl(int op, long arg)
+{
+	return 0;
+}
+
 long syscall_become(uint64_t sclo, uint64_t schi, struct arch_syscall_become_args *ba)
 {
 	objid_t scid = MKID(schi, sclo);

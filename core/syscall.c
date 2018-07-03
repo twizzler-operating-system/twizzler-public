@@ -29,5 +29,6 @@ long (*syscall_table[NUM_SYSCALLS])() = {
 	[SYS_THRD_SYNC]   = syscall_thread_sync,
 	[SYS_OCREATE]     = syscall_ocreate,
 	[SYS_ODELETE]     = syscall_odelete,
+	[SYS_THRD_CTL]    = syscall_thrd_ctl,
 };
 
