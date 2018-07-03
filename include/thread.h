@@ -1,11 +1,11 @@
 #pragma once
 #include <thread-bits.h>
-#include <ref.h>
 #include <lib/inthash.h>
 #include <arch/thread.h>
 #include <workqueue.h>
 #include <memory.h>
 #include <lib/list.h>
+#include <krc.h>
 
 struct processor;
 
@@ -18,7 +18,6 @@ enum thread_state {
 #define MAX_SC 32
 
 struct thread {
-	struct ref ref;
 	struct arch_thread arch;
 	unsigned long id;
 	_Atomic int flags;

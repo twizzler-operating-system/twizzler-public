@@ -1,5 +1,6 @@
 #include <syscall.h>
 #include <object.h>
+#include <processor.h>
 
 static bool __do_invalidate(struct object *obj, struct kso_invl_args *invl)
 {

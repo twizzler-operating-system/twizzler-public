@@ -2,7 +2,6 @@
 
 #include <debug.h>
 #include <stdatomic.h>
-#include <processor.h>
 
 struct krc {
 	_Atomic int64_t count;
