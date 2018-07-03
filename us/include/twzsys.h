@@ -102,6 +102,7 @@ struct sys_become_args {
 };
 
 struct sys_thrd_spawn_args {
+	objid_t target_view;
     void (*start_func)(void *);  /* thread entry function. */
     void *arg;                   /* argument for entry function. */
     char *stack_base;            /* stack base address. */

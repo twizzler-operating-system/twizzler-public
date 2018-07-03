@@ -19,6 +19,7 @@ DECLARE_SLABCACHE(sc_sc, sizeof(struct secctx), _sc_ctor, _sc_dtor, NULL);
 struct secctx *secctx_alloc(objid_t repr)
 {
 	struct secctx *s = slabcache_alloc(&sc_sc);
+	krc_init(&s->refs);
 	s->repr = repr;
 	return s;
 }
@@ -34,6 +35,7 @@ bool secctx_thread_attach(struct secctx *s, struct thread *t)
 	bool ok = false;
 	for(int i=0;i<MAX_SC;i++) {
 		if(t->attached_scs[i] == NULL) {
+			krc_get(&s->refs);
 			t->attached_scs[i] = s;
 			ok = true;
 			break;

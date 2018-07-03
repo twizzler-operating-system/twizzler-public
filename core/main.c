@@ -56,9 +56,7 @@ void kernel_init(void)
 	processor_perproc_init(NULL);
 }
 
-struct thread init_thread;
-char us1[0x1000];
-
+#if 0
 static void bench(void)
 {
 	printk("Starting benchmark\n");
@@ -112,9 +110,9 @@ static void bench(void)
 	}
 	for(;;);
 }
+#endif
 
 static _Atomic unsigned int kernel_main_barrier = 0;
-
 
 #include <kc.h>
 #include <object.h>
@@ -125,6 +123,7 @@ objid_t objid_generate(void)
 	return _id++;
 }
 
+#include <syscall.h>
 void kernel_main(struct processor *proc)
 {
 	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
@@ -137,29 +136,27 @@ void kernel_main(struct processor *proc)
 		arena_destroy(&post_init_call_arena);
 		post_init_call_head = NULL;
 		//bench();
-		if(kc_init_id == 0) {
+		if(kc_bsv_id == 0) {
 			panic("No init specified");
 		}
 
-		init_thread.id = 1;
-		init_thread.ctx = vm_context_create();
-		init_thread.active_sc = secctx_alloc(0);
 
-		struct object *bsv = obj_lookup(kc_bsv_id);
-		if(bsv == NULL) {
-			panic("Could not lookup bsv: " IDFMT "\n", IDPR(kc_bsv_id));
-		}
-		vm_setview(&init_thread, bsv);
-		obj_put(bsv);
-		
+
+
+		void *stack_init = (void *)(0x400000000000ull);
+		struct sys_thrd_spawn_args tsa = {
+			.start_func = (void *)0x1120,
+			.arg = NULL,
+			.stack_base = (void *)stack_init,
+			.stack_size = 0x2000,
+			.tls_base = stack_init + 0x4000,
+			.target_view = kc_bsv_id,
+		};
 		objid_t bthrid = objid_generate();
 		struct object *bthr = obj_create(bthrid, KSO_THREAD);
 		bthr->flags |= OF_KERNELGEN;
-		init_thread.throbj = &bthr->thr;
-
-		void *stack_init = (void *)(0x400000000000ull + 0x2000);
-		arch_thread_init(&init_thread, (void *)0x1120, NULL, us1, 0x1000, NULL);
-		processor_attach_thread(proc, &init_thread);
+		
+		syscall_thread_spawn(ID_LO(bthrid), ID_HI(bthrid), &tsa, 0);
 	}
 	printk("processor %d reached resume state %p\n", proc->id, proc);
 	thread_schedule_resume_proc(proc);

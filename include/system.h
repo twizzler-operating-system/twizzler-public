@@ -13,6 +13,9 @@ typedef uint128_t objid_t;
 #define MKID(hi,lo) \
 	({ (((objid_t)(hi)) << 64) | (objid_t)(lo); })
 
+#define ID_LO(id) ({ (uint64_t)id; })
+#define ID_HI(id) ({ (uint64_t)(id >> 64); })
+
 #define IDFMT "%lx:%lx"
 
 #define IDPR(id) \
