@@ -1,0 +1,5 @@
+*.o
+libtwz.so
+libtwz.a
+libtwz.so.0
+libtwz.so.1

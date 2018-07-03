@@ -17,6 +17,51 @@ $(BUILDDIR)/us:
 	@mkdir -p $@
 
 
+
+#musl
+MUSL=musl-1.1.16
+
+$(BUILDDIR)/us/musl-config.mk: $(BUILDDIR)/us/$(MUSL)/configure $(BUILDDIR)/us
+	cd $(BUILDDIR)/us/$(MUSL) && ./configure --host=$(CONFIG_TRIPLET) CROSS_COMPILER=$(TOOLCHAIN_PREFIX)
+	mv $(BUILDDIR)/us/$(MUSL)/config.mak $@
+
+MUSL_H_GEN=obj/include/bits/alltypes.h obj/include/bits/syscall.h
+musl-prep:
+	@mkdir -p $(BUILDDIR)/us
+	cp -a us/$(MUSL) $(BUILDDIR)/us
+	$(MAKE) $(BUILDDIR)/us/musl-config.mk
+	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) $(MUSL_H_GEN)
+
+MUSL_SRCS=$(shell find us/$(MUSL))
+
+$(BUILDDIR)/us/$(MUSL)/lib/libc.a: $(MUSL_SRCS) $(BUILDDIR)/us/libtwz.a $(MUSL_READY)
+	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL)
+	@touch $@
+
+foo: $(BUILDDIR)/us/$(MUSL)/lib/libc.a
+
+MUSL_INCL=$(addprefix -I$(BUILDDIR)/us/$(MUSL)/,include obj/include src/internal obj/src/internal arch/generic arch/$(ARCH))
+
+$(BUILDDIR)/us/$(MUSL)/include/string.h:
+	$(MAKE) musl-prep
+
+MUSL_READY=$(BUILDDIR)/us/$(MUSL)/include/string.h
+
+#libtwz
+
+LIBTWZ_SRC=$(addprefix us/libtwz/,notify.c bstream.c mutex.c twzio.c viewcall.c twzlog.c name.c corecall.c debug.c object.c blake2.c secctx.c thread.c)
+LIBTWZ_OBJ=$(addprefix $(BUILDDIR)/,$(LIBTWZ_SRC:.c=.o))
+
+$(BUILDDIR)/us/libtwz.a: $(LIBTWZ_OBJ)
+	ar rcs $(BUILDDIR)/us/libtwz.a $(LIBTWZ_OBJ)
+
+$(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_READY)
+	@mkdir -p $(BUILDDIR)/us/libtwz
+	$(TOOLCHAIN_PREFIX)gcc -Og -g -Wall -Wextra -std=gnu11 -I us/include -ffreestanding $(MUSL_INCL) -c -o $@ $<
+
+bar: $(BUILDDIR)/us/libtwz.a
+
+
 INITNAME=test.0
 
 $(BUILDDIR)/us/bsv: $(BUILDDIR)/us/$(INITNAME)

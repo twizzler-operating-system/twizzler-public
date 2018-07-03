@@ -16,6 +16,7 @@ CONFIGFILE=projects/$(PROJECT)/config.mk
 BUILDDIR=projects/$(PROJECT)/build
 
 include $(CONFIGFILE)
+TOOLCHAIN_PREFIX=$(CONFIG_TRIPLET)-
 
 export PATH := ${TOOLCHAIN_PATH}/bin:$(PATH)
 DEFINES=$(addprefix -D,$(shell grep "CONFIG" $(CONFIGFILE) | sed -e 's/=y/=1/g' -e 's/=n/=0/g' -e 's/\#.*$$//' -e '/^$$/d' -e 's/+=/=/g'))
