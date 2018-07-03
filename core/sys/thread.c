@@ -2,6 +2,7 @@
 #include <syscall.h>
 #include <object.h>
 #include <processor.h>
+#include <limits.h>
 
 long syscall_thread_spawn(uint64_t tidlo, uint64_t tidhi,
 		struct sys_thrd_spawn_args *tsa, int flags)
@@ -16,8 +17,15 @@ long syscall_thrd_ctl(int op, long arg)
 	}
 	int ret;
 	switch(op) {
+		int *eptr;
 		case THRD_CTL_EXIT:
-
+			/* TODO (sec): check eptr */
+			eptr = (int *)arg;
+			if(eptr) {
+				*eptr = 1;
+				syscall_thread_sync(THREAD_SYNC_WAKE, eptr, INT_MAX, NULL);
+			}
+			thread_mark_exit();
 			break;
 		default:
 			ret = -1;

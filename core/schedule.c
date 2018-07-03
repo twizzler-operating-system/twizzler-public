@@ -33,7 +33,7 @@ void thread_schedule_resume(void)
 
 void thread_sleep(struct thread *t, int flags, int64_t timeout)
 {
-	/* TODO (major): spec */
+	/* TODO (major): timeout */
 	t->state = THREADSTATE_BLOCKED;
 }
 
@@ -45,5 +45,11 @@ void thread_wake(struct thread *t)
 		list_insert(&t->processor->runqueue, &t->rq_entry);
 		spinlock_release_restore(&t->processor->sched_lock);
 	}
+}
+
+void thread_mark_exit(void)
+{
+	current_thread->state = THREADSTATE_EXITED;
+	/* TODO (major): cleanup thread resources */
 }
 

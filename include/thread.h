@@ -12,6 +12,7 @@ struct processor;
 enum thread_state {
 	THREADSTATE_RUNNING,
 	THREADSTATE_BLOCKED,
+	THREADSTATE_EXITED,
 };
 
 #define MAX_SC 32
@@ -41,6 +42,7 @@ struct arch_syscall_become_args;
 void arch_thread_become(struct arch_syscall_become_args *ba);
 void thread_sleep(struct thread *t, int flags, int64_t);
 void thread_wake(struct thread *t);
+void thread_mark_exit(void);
 
 struct thread *thread_lookup(unsigned long id);
 struct thread *thread_create(void *jump, void *arg);
