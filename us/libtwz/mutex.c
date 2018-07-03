@@ -1,7 +1,7 @@
 #include <mutex.h>
 void mutex_acquire(struct mutex *m)
 {
-	long v;
+	int v;
 	for(int i=0;i<100;i++) {
 		v = 0;
 		if(atomic_compare_exchange_strong(&m->sleep, &v, 1)) {
@@ -11,7 +11,7 @@ void mutex_acquire(struct mutex *m)
 	}
 	if(v) v = atomic_exchange(&m->sleep, 2);
 	while(v) {
-		fbsd_sys_umtx(&m->sleep, UMTX_OP_WAIT, 2);
+		sys_thread_sync(THREAD_SYNC_SLEEP, &m->sleep, 2, NULL);
 		v = atomic_exchange(&m->sleep, 2);
 	}
 }
@@ -25,13 +25,13 @@ void mutex_release(struct mutex *m)
 	}
 
 	for(int i=0;i<100;i++) {
-		long v = 1;
+		int v = 1;
 		if(atomic_load(&m->sleep)) {
 			if(atomic_compare_exchange_strong(&m->sleep, &v, 2)) return;
 		}
 		asm("pause");
 	}
-	fbsd_sys_umtx(&m->sleep, UMTX_OP_WAKE, 1);
+	sys_thread_sync(THREAD_SYNC_WAKE, &m->sleep, 1, NULL);
 }
 
 

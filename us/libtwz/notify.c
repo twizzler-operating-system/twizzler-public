@@ -21,7 +21,7 @@ int notify_wake(struct object *obj, int n, int count)
 	struct notify_header *hdr = twz_object_findmeta(obj, NOTIFY_HEADER_ID);
 	struct notify_svar *sv = twz_ptr_lea(obj, hdr->vars);
 	if(sv[n].flags & NH_VALID) {
-		fbsd_sys_umtx(twz_ptr_lea(obj, sv[n].var), UMTX_OP_WAKE, count);
+		sys_thread_sync(THREAD_SYNC_WAKE, twz_ptr_lea(obj, sv[n].var), count, NULL);
 	} else {
 		return -TE_NOENTRY;
 	}
@@ -49,7 +49,7 @@ int notify_wake_all(struct object *obj, int count, uint32_t flags)
 			if(!(NTYPE(sv[i].flags) & NTYPE(flags))) continue;
 			_Atomic uint64_t *ptr = (_Atomic uint64_t *)twz_ptr_lea(obj, sv[i].var);
 			if(!(atomic_fetch_or(ptr, 1 << sv[i].id) & (1 << sv[i].id))) {
-				fbsd_sys_umtx(ptr, UMTX_OP_WAKE, INT_MAX);
+				sys_thread_sync(THREAD_SYNC_WAKE, ptr, INT_MAX, NULL);
 				count--;
 			}
 //			uint64_t val = (uint64_t)sv[i].id | ((uint64_t)sv[i].flags) << 32;
@@ -62,7 +62,7 @@ int notify_wake_all(struct object *obj, int count, uint32_t flags)
 	return 0;
 }
 
-int notify_insert(struct object *obj, uint64_t *addr)
+int notify_insert(struct object *obj, uint32_t *addr)
 {
 	struct notify_header *hdr = twz_object_findmeta(obj, NOTIFY_HEADER_ID);
 	struct notify_svar *sv = twz_ptr_lea(obj, hdr->vars);
@@ -76,7 +76,7 @@ int notify_insert(struct object *obj, uint64_t *addr)
 	return -TE_NOSPC;
 }
 
-int notify_register(struct object *obj, _Atomic uint64_t *wait,
+int notify_register(struct object *obj, _Atomic uint32_t *wait,
 		uint32_t id, uint32_t flags)
 {
 	struct notify_header *hdr = twz_object_findmeta(obj, NOTIFY_HEADER_ID);
@@ -95,7 +95,7 @@ int notify_register(struct object *obj, _Atomic uint64_t *wait,
 
 
 
-int notify_wait(struct object *obj, int n, uint64_t val)
+int notify_wait(struct object *obj, int n, uint32_t val)
 {
 	struct notify_header *hdr = twz_object_findmeta(obj, NOTIFY_HEADER_ID);
 	struct notify_svar *sv = twz_ptr_lea(obj, hdr->vars);
@@ -105,7 +105,7 @@ int notify_wait(struct object *obj, int n, uint64_t val)
 	}
 
 	/* TODO: check return value */
-	fbsd_sys_umtx(twz_ptr_lea(obj, sv[n].var), UMTX_OP_WAIT, val);
+	sys_thread_sync(THREAD_SYNC_SLEEP, twz_ptr_lea(obj, sv[n].var), val, NULL);
 	return 0;
 }
 

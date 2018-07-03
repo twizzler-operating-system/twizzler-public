@@ -115,6 +115,7 @@ static inline long sys_become(objid_t sid, struct sys_become_args *ba)
 
 #define THRD_CTL_SET_FS 1
 #define THRD_CTL_SET_GS 2
+#define THRD_CTL_EXIT   0x100
 
 static inline long sys_thrd_ctl(int op, long arg)
 {
