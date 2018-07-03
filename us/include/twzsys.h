@@ -105,6 +105,7 @@ struct sys_thrd_spawn_args {
     void (*start_func)(void *);  /* thread entry function. */
     void *arg;                   /* argument for entry function. */
     char *stack_base;            /* stack base address. */
+	size_t stack_size;
     char *tls_base;              /* tls base address. */
 };
 

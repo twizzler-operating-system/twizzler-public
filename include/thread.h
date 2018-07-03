@@ -13,6 +13,7 @@ enum thread_state {
 	THREADSTATE_RUNNING,
 	THREADSTATE_BLOCKED,
 	THREADSTATE_EXITED,
+	THREADSTATE_INITING,
 };
 
 #define MAX_SC 32
@@ -22,6 +23,7 @@ struct thread {
 	unsigned long id;
 	_Atomic int flags;
 	enum thread_state state;
+	struct krc refs;
 	
 	struct processor *processor;
 	struct vm_context *ctx;
@@ -35,18 +37,16 @@ struct thread {
 	struct list rq_entry;
 };
 
-void arch_thread_start(struct thread *thread, void *jump, void *arg);
-void arch_thread_initialize(struct thread *idle);
 struct arch_syscall_become_args;
 void arch_thread_become(struct arch_syscall_become_args *ba);
 void thread_sleep(struct thread *t, int flags, int64_t);
 void thread_wake(struct thread *t);
-void thread_mark_exit(void);
+void thread_exit(void);
 
 struct thread *thread_lookup(unsigned long id);
-struct thread *thread_create(void *jump, void *arg);
-_Noreturn void thread_exit(void);
-void arch_thread_init(struct thread *thread, void *entry, void *arg, void *stack);
+struct thread *thread_create(void);
+void arch_thread_init(struct thread *thread, void *entry, void *arg,
+		void *stack, size_t stacksz, void *tls);
 
 void thread_initialize_processor(struct processor *proc);
 

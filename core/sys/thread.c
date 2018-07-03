@@ -25,7 +25,7 @@ long syscall_thrd_ctl(int op, long arg)
 				*eptr = 1;
 				syscall_thread_sync(THREAD_SYNC_WAKE, eptr, INT_MAX, NULL);
 			}
-			thread_mark_exit();
+			thread_exit();
 			break;
 		default:
 			ret = -1;

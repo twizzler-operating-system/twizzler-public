@@ -52,6 +52,7 @@ static inline int twz_thread_spawn(struct twzthread *t,
 		.start_func = entry,
 		.arg        = aptr,
 		.stack_base = STACK_BASE,
+		.stack_size = STACK_SIZE,
 		.tls_base   = TLS_BASE,
 	};
 	return sys_thrd_spawn(reprid, &param, 0);

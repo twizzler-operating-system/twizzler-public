@@ -24,6 +24,20 @@ void thread_schedule_resume_proc(struct processor *proc)
 	}
 }
 
+#include <slab.h>
+
+static _Atomic unsigned long _internal_tid_counter = 0;
+
+static void _thread_ctor(void *_u __unused, void *ptr)
+{
+	struct thread *thr = ptr;
+	thr->id = ++_internal_tid_counter;
+	thr->sc_lock = SPINLOCK_INIT;
+	thr->state = THREADSTATE_INITING;
+}
+
+static DECLARE_SLABCACHE(_sc_thread, sizeof(struct thread), _thread_ctor, NULL, NULL);
+
 __noinstrument
 void thread_schedule_resume(void)
 {
@@ -47,9 +61,16 @@ void thread_wake(struct thread *t)
 	}
 }
 
-void thread_mark_exit(void)
+void thread_exit(void)
 {
 	current_thread->state = THREADSTATE_EXITED;
 	/* TODO (major): cleanup thread resources */
+}
+
+struct thread *thread_create(void)
+{
+	struct thread *t = slabcache_alloc(&_sc_thread);
+	krc_init(&t->refs);
+	return t;
 }
 

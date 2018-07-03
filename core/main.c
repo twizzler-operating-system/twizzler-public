@@ -158,7 +158,7 @@ void kernel_main(struct processor *proc)
 		init_thread.throbj = &bthr->thr;
 
 		void *stack_init = (void *)(0x400000000000ull + 0x2000);
-		arch_thread_init(&init_thread, (void *)0x1120, NULL, stack_init);
+		arch_thread_init(&init_thread, (void *)0x1120, NULL, us1, 0x1000, NULL);
 		processor_attach_thread(proc, &init_thread);
 	}
 	printk("processor %d reached resume state %p\n", proc->id, proc);
