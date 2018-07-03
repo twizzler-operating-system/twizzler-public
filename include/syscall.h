@@ -3,7 +3,14 @@
 #include <arch/syscall.h>
 #include <object.h>
 
-long syscall_thread_spawn(__int128 foo);
+struct sys_thrd_spawn_args {
+    void (*start_func)(void *);  /* thread entry function. */
+    void *arg;                   /* argument for entry function. */
+    char *stack_base;            /* stack base address. */
+    char *tls_base;              /* tls base address. */
+};
+
+long syscall_thread_spawn(uint64_t tidlo, uint64_t tidhi, struct sys_thrd_spawn_args *tsa, int flags);
 
 long syscall_become(uint64_t sclo, uint64_t schi, struct arch_syscall_become_args *ba);
 
@@ -29,6 +36,10 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 long syscall_ocreate(uint64_t olo, uint64_t ohi, uint64_t tlo, uint64_t thi, uint64_t flags);
 long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags);
 
+#define THRD_CTL_ARCH_MAX 0xff
+#define THRD_CTL_EXIT   0x100
+
+int arch_syscall_thrd_ctl(int op, long arg);
 long syscall_thrd_ctl(int op, long arg);
 
 #define SYS_NULL        0

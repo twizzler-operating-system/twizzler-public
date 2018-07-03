@@ -45,3 +45,18 @@ void arch_thread_become(struct arch_syscall_become_args *ba)
 	}
 }
 
+int arch_syscall_thrd_ctl(int op, long arg)
+{
+	switch(op) {
+		case THRD_CTL_SET_FS:
+			current_thread->arch.fs = arg;
+			break;
+		case THRD_CTL_SET_GS:
+			current_thread->arch.gs = arg;
+			break;
+		default:
+			return -1;
+	}
+	return 0;
+}
+

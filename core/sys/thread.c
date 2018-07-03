@@ -3,16 +3,26 @@
 #include <object.h>
 #include <processor.h>
 
-long syscall_thread_spawn(__int128 foo)
+long syscall_thread_spawn(uint64_t tidlo, uint64_t tidhi,
+		struct sys_thrd_spawn_args *tsa, int flags)
 {
-	printk(" sys %lx %lx\n", (uint64_t)(foo >> 64), (uint64_t)(foo & 0xFFFFFFFFFFFFFFFF));
-	
-	return (uint64_t)(foo);
+	return 0;
 }
 
 long syscall_thrd_ctl(int op, long arg)
 {
-	return 0;
+	if(op <= THRD_CTL_ARCH_MAX) {
+		return arch_syscall_thrd_ctl(op, arg);
+	}
+	int ret;
+	switch(op) {
+		case THRD_CTL_EXIT:
+
+			break;
+		default:
+			ret = -1;
+	}
+	return ret;
 }
 
 long syscall_become(uint64_t sclo, uint64_t schi, struct arch_syscall_become_args *ba)
