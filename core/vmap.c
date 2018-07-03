@@ -118,7 +118,7 @@ bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off)
 static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 {
 	for(size_t slot = invl->offset / mm_page_size(MAX_PGLEVEL);
-			slot <= (invl->offset + invl->length);
+			slot <= (invl->offset + invl->length) / mm_page_size(MAX_PGLEVEL);
 			slot++) {
 		struct vmap *map = ihtable_find(current_thread->ctx->maps, slot, struct vmap, elem, slot);
 		/* TODO (major): unmap all ctxs that use this view */

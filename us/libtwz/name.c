@@ -5,8 +5,9 @@
 #include <string.h>
 #include <stdio.h>
 
-static int assign_name(objid_t id, const char *name)
+static int assign_name(objid_t id __unused, const char *name __unused)
 {
+#if 0
 	char target[128];
 	char ln[128];
 	snprintf(target, 128, "../id/%16.16lx:%16.16lx",
@@ -15,11 +16,13 @@ static int assign_name(objid_t id, const char *name)
 	if(fbsd_symlink(target, ln) < 0) {
 		return -1;
 	}
+#endif
 	return 0;
 }
 
-static objid_t resolve_name(const char *name)
+static objid_t resolve_name(const char *name __unused)
 {
+#if 0
 	static const int rev[] = {
 		['0'] = 0,
 		['1'] = 1,
@@ -65,6 +68,8 @@ static objid_t resolve_name(const char *name)
 	//printf("Resolved name %s to %16.16lx:%16.16lx\n", name,
 	//		(uint64_t)(ret >> 64), (uint64_t)ret);
 	return ret;
+#endif
+	return 0;
 }
 
 objid_t twz_name_resolve(struct object *o, const char *name, uint64_t resolver)

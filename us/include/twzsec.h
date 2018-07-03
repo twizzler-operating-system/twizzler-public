@@ -42,8 +42,8 @@ struct dlg {
 	char data[];
 } __attribute__((packed));
 
-int twzsec_attach(objid_t sc, objid_t tid, int flags);
-int twzsec_detach(objid_t sc, objid_t tid, void *jmp, int flags);
+int twzsec_attach(objid_t sc, objid_t tid, int flags); /* TODO: cleanup API */
+int twzsec_detach(objid_t sc, objid_t tid, int flags);
 void twzsec_cap_create(struct cap *c, objid_t accessor, objid_t target, uint64_t flags);
 struct object;
 int twzsec_ctx_add(struct object *o, void *data, uint32_t type, uint64_t mask, uint32_t length);

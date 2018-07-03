@@ -4,20 +4,6 @@
 #include <twzview.h>
 #include <twzsys.h>
 
-struct thr_param {
-    void        (*start_func)(void *);  /* thread entry function. */
-    void        *arg;                   /* argument for entry function. */
-    char        *stack_base;            /* stack base address. */
-    size_t      stack_size;             /* stack size. */
-    char        *tls_base;              /* tls base address. */
-    size_t      tls_size;               /* tls size. */
-    long        *child_tid;             /* address to store new TID. */
-    long        *parent_tid;            /* parent accesses the new TID here. */
-    int         flags;                  /* thread flags. */
-    void        *rtp;                   /* Real-time scheduling priority */
-    void        *spare[3];              /* TODO: cpu affinity mask etc. */
-};
-
 struct twzthread {
 	long tid;
 	objid_t repr;
@@ -33,7 +19,7 @@ struct twzthread_repr {
 	unsigned char stack[STACK_SIZE];
 	unsigned char tls[STACK_SIZE];
 	objid_t reprid;
-	unsigned long state;
+	_Atomic int state;
 };
 
 #define TWZTHR_SPAWN_ARGWRITE 1
@@ -44,12 +30,9 @@ static inline int twz_thread_spawn(struct twzthread *t,
 	objid_t reprid = 0;
 	int ret;
 	struct object thrd;
-	if((ret = twz_object_new(&thrd, &reprid, 0, 0, TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE | TWZ_ON_DFL_USE)) != 0) {
-		return ret;
-	}
-
-	if((ret = twz_obj_mutate(reprid, MUT_REPR_THRD)) != 0) {
-		/* TODO: delete */
+	if((ret = twz_object_new(&thrd, &reprid, 0, 0,
+					KSO_TYPE(KSO_THRD)
+					| TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE | TWZ_ON_DFL_USE)) != 0) {
 		return ret;
 	}
 
@@ -65,24 +48,22 @@ static inline int twz_thread_spawn(struct twzthread *t,
 	reprstruct->reprid = reprid;
 	reprstruct->state = 0;
 	
-	struct thr_param param = {
+	struct sys_thrd_spawn_args param = {
 		.start_func = entry,
 		.arg        = aptr,
 		.stack_base = STACK_BASE,
-		.stack_size = STACK_SIZE,
 		.tls_base   = TLS_BASE,
-		.tls_size   = TLS_SIZE,
-		.child_tid  = &t->tid,
-		.parent_tid = NULL,
-		.flags      = 0,
-		.rtp        = NULL,
 	};
-	return fbsd_twistie_thrd_spawn(ID_LO(reprid), ID_HI(reprid), &param, sizeof(param));
+	return sys_thrd_spawn(reprid, &param, 0);
 }
 
-static inline int twz_thread_become(objid_t sid, objid_t vid, uint64_t *jmp, int flags)
+static inline int twz_thread_become(objid_t sid, objid_t vid, void *jmp, int flags __unused)
 {
-	return fbsd_twistie_become(ID_LO(sid), ID_HI(sid), ID_LO(vid), ID_HI(vid), jmp, flags);
+	struct sys_become_args ba = {
+		.target_view = vid,
+		.target_rip = (long)jmp,
+	};
+	return sys_become(sid, &ba);
 }
 
 void twz_thread_exit(void);

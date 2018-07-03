@@ -30,7 +30,7 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t flags)
 {
 	objid_t paid = MKID(pahi, palo), chid = MKID(chhi, chlo);
-	struct object *parent = obj_lookup(paid);
+	struct object *parent = paid == 0 ? kso_get_obj(current_thread->thrdobj) : obj_lookup(paid);
 	struct object *child = obj_lookup(chid);
 
 	if(!parent || !child) {
@@ -58,7 +58,7 @@ long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t flags)
 {
 	objid_t paid = MKID(pahi, palo), chid = MKID(chhi, chlo);
-	struct object *parent = obj_lookup(paid);
+	struct object *parent = paid == 0 ? kso_get_obj(current_thread->thrdobj) : obj_lookup(paid);
 	struct object *child = obj_lookup(chid);
 
 	if(!parent || !child) {

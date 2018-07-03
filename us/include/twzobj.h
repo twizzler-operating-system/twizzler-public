@@ -282,18 +282,16 @@ static inline void *__twz_ptr_local(void *p)
 	return (void *)((uintptr_t)p & (OBJ_SLOTSIZE - 1));
 }
 
-#define MUT_REPR_VIRT 1
-#define MUT_REPR_SCTX 2
-#define MUT_REPR_THRD 3
+/* TODO: arch-dep? */
+#define KSO_VIEW 1
+#define KSO_SCTX 2
+#define KSO_THRD 3
+
+#define KSO_TYPE(x) ({ (x) << 8; })
 
 static inline int twz_obj_create(objid_t id, objid_t src, int flags)
 {
-	return fbsd_sys_twistie_ocreate(ID_LO(id), ID_HI(id), ID_LO(src), ID_HI(src), flags);
-}
-
-static inline int twz_obj_mutate(objid_t id, int flags)
-{
-	return fbsd_sys_twistie_omutate(ID_LO(id), ID_HI(id), flags);
+	return sys_ocreate(id, src, flags);
 }
 
 static inline int twz_object_open(struct object *obj, objid_t id, uint64_t flags)

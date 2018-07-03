@@ -11,12 +11,12 @@ static void __sign(unsigned char *out, const unsigned char *in, size_t len)
 
 int twzsec_attach(objid_t sc, objid_t tid, int flags)
 {
-	return fbsd_twistie_attach(ID_LO(sc), ID_HI(sc), ID_LO(tid), ID_HI(tid), flags);
+	return sys_attach(tid, sc, flags);
 }
 
-int twzsec_detach(objid_t sc, objid_t tid, void *jmp, int flags)
+int twzsec_detach(objid_t sc, objid_t tid, int flags)
 {
-	return fbsd_twistie_detach(ID_LO(sc), ID_HI(sc), ID_LO(tid), ID_HI(tid), (long)jmp, flags);
+	return sys_detach(tid, sc, flags);
 }
 
 void twzsec_cap_create(struct cap *c, objid_t accessor, objid_t target, uint64_t flags)

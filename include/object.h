@@ -32,8 +32,8 @@ struct kso_invl_args {
 	uint16_t result;
 };
 
-#define kso_get_obj(ptr, type) \
-	container_of(ptr, struct object, type)
+#define kso_get_obj(ptr) \
+	container_of(ptr, struct object, kso)
 
 struct object;
 struct kso_calls {
@@ -60,7 +60,7 @@ struct object {
 	union {
 		struct kso_view view;
 		struct kso_throbj thr;
-	};
+	} kso;
 	struct kso_calls *kso_calls;
 
 	struct spinlock lock, tslock;

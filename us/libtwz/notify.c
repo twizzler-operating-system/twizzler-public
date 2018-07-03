@@ -47,9 +47,9 @@ int notify_wake_all(struct object *obj, int count, uint32_t flags)
 	//		uint64_t exp = 0;
 			if(!(sv[i].flags & NH_REG)) continue;
 			if(!(NTYPE(sv[i].flags) & NTYPE(flags))) continue;
-			_Atomic uint64_t *ptr = (_Atomic uint64_t *)twz_ptr_lea(obj, sv[i].var);
+			_Atomic int *ptr = (_Atomic int *)twz_ptr_lea(obj, sv[i].var);
 			if(!(atomic_fetch_or(ptr, 1 << sv[i].id) & (1 << sv[i].id))) {
-				sys_thread_sync(THREAD_SYNC_WAKE, ptr, INT_MAX, NULL);
+				sys_thread_sync(THREAD_SYNC_WAKE, (int *)ptr, INT_MAX, NULL);
 				count--;
 			}
 //			uint64_t val = (uint64_t)sv[i].id | ((uint64_t)sv[i].flags) << 32;
@@ -62,7 +62,7 @@ int notify_wake_all(struct object *obj, int count, uint32_t flags)
 	return 0;
 }
 
-int notify_insert(struct object *obj, uint32_t *addr)
+int notify_insert(struct object *obj, int *addr)
 {
 	struct notify_header *hdr = twz_object_findmeta(obj, NOTIFY_HEADER_ID);
 	struct notify_svar *sv = twz_ptr_lea(obj, hdr->vars);
@@ -76,14 +76,14 @@ int notify_insert(struct object *obj, uint32_t *addr)
 	return -TE_NOSPC;
 }
 
-int notify_register(struct object *obj, _Atomic uint32_t *wait,
+int notify_register(struct object *obj, _Atomic int *wait,
 		uint32_t id, uint32_t flags)
 {
 	struct notify_header *hdr = twz_object_findmeta(obj, NOTIFY_HEADER_ID);
 	struct notify_svar *sv = twz_ptr_lea(obj, hdr->vars);
 	for(int i=0;i<hdr->count;i++) {
 		if(!(atomic_fetch_or(&sv[i].flags, NH_USED) & NH_USED)) {
-			sv[i].var = (uint64_t *)twz_ptr_canon(obj, wait, FE_READ | FE_WRITE);
+			sv[i].var = (int *)twz_ptr_canon(obj, wait, FE_READ | FE_WRITE);
 			sv[i].flags |= (flags & ~NH_VALID) | NH_REG;
 			sv[i].id = id;
 			atomic_fetch_or(&sv[i].flags, NH_VALID);
@@ -95,7 +95,7 @@ int notify_register(struct object *obj, _Atomic uint32_t *wait,
 
 
 
-int notify_wait(struct object *obj, int n, uint32_t val)
+int notify_wait(struct object *obj, int n, int val)
 {
 	struct notify_header *hdr = twz_object_findmeta(obj, NOTIFY_HEADER_ID);
 	struct notify_svar *sv = twz_ptr_lea(obj, hdr->vars);

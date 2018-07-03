@@ -60,8 +60,8 @@ struct sys_invalidate_op {
 	uint16_t result;
 } __packed;
 
-#define KSO_INVL_RES_OK 0
-#define KSO_INVL_RES_ERR -1
+#define KSOI_RES_OK 0
+#define KSOI_RES_ERR -1
 #define KSOI_VALID 1
 
 static inline long sys_invalidate(struct sys_invalidate_op *invl, size_t count)
@@ -101,11 +101,17 @@ struct sys_become_args {
 	uint64_t r15;
 };
 
-static inline long sys_thrd_spawn(objid_t tid, objid_t srcid,
-		struct sys_become_args *ba, int flags)
+struct sys_thrd_spawn_args {
+    void (*start_func)(void *);  /* thread entry function. */
+    void *arg;                   /* argument for entry function. */
+    char *stack_base;            /* stack base address. */
+    char *tls_base;              /* tls base address. */
+};
+
+static inline long sys_thrd_spawn(objid_t tid, struct sys_thrd_spawn_args *tsa, int flags)
 {
 	return __syscall6(SYS_THRD_SPAWN, ID_LO(tid), ID_HI(tid),
-			ID_LO(srcid), ID_HI(srcid), (long)ba, flags);
+			(long)tsa, flags, 0, 0);
 }
 
 static inline long sys_become(objid_t sid, struct sys_become_args *ba)

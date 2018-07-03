@@ -17,8 +17,8 @@ struct bstream_header {
 	uint32_t head;
 	uint32_t tail;
 	uint32_t nbits;
-	uint64_t rwait;
-	uint64_t wwait;
+	int rwait;
+	int wwait;
 	int rwid, wwid;
 };
 

@@ -195,7 +195,7 @@ static int debug_printf(const char *fmt, ...)
 	char buf[1024];
 	for(int i=0;i<1024;i++) buf[i]=0;
 	vbufprintk(buf, fmt, args);
-	fbsd_write(1, buf, strlen(buf));
+	__sys_debug_print(buf, strlen(buf));
 	va_end(args);
 	return 0;
 }
@@ -206,7 +206,7 @@ static int debug_vprintf(const char *fmt, va_list args)
 	char buf[1024];
 	for(int i=0;i<1024;i++) buf[i]=0;
 	vbufprintk(buf, fmt, args);
-	fbsd_write(1, buf, strlen(buf));
+	__sys_debug_print(buf, strlen(buf));
 	return 0;
 }
 

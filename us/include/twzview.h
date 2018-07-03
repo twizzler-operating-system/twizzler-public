@@ -24,11 +24,6 @@ struct virtentry {
 #define twz_current_viewid() twz_view_virt_to_objid(NULL, twz_slot_to_base(TWZSLOT_CVIEW))
 objid_t twz_view_virt_to_objid(struct object *obj, void *p);
 
-static inline int twz_view_invl(objid_t id, size_t start, size_t end, int flags)
-{
-	return fbsd_twistie_invlview(ID_LO(id), ID_HI(id), start, end, flags);
-}
-
 /* TODO: invalidate */
 static inline int twz_view_set(struct object *obj, size_t slot, objid_t target, uint32_t flags)
 {
@@ -42,8 +37,13 @@ static inline int twz_view_set(struct object *obj, size_t slot, objid_t target, 
 	atomic_store(&ves[slot].flags, flags | VE_VALID);
 
 	if(old & VE_VALID) {
-		twz_view_invl(twz_view_virt_to_objid(obj, twz_slot_to_base(TWZSLOT_CVIEW)),
-				slot, slot, 0);
+		struct sys_invalidate_op op = {
+			.id = twz_current_viewid(),
+			.offset = slot * OBJ_SLOTSIZE,
+			.length = 1,
+			.flags = KSOI_VALID,
+		};
+		sys_invalidate(&op, 1);
 	}
 
 	return 0;
@@ -83,7 +83,7 @@ static inline void twz_view_copy(struct object *dest, struct object *src, size_t
 
 static inline int twz_view_switch(objid_t v, int flags)
 {
-	return fbsd_twistie_setview(ID_LO(v), ID_HI(v), flags);
+	return sys_attach(0, v, flags);
 }
 
 int twz_view_blank(struct object *obj);

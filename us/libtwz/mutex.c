@@ -11,7 +11,7 @@ void mutex_acquire(struct mutex *m)
 	}
 	if(v) v = atomic_exchange(&m->sleep, 2);
 	while(v) {
-		sys_thread_sync(THREAD_SYNC_SLEEP, &m->sleep, 2, NULL);
+		sys_thread_sync(THREAD_SYNC_SLEEP, (int *)&m->sleep, 2, NULL);
 		v = atomic_exchange(&m->sleep, 2);
 	}
 }
@@ -31,7 +31,7 @@ void mutex_release(struct mutex *m)
 		}
 		asm("pause");
 	}
-	sys_thread_sync(THREAD_SYNC_WAKE, &m->sleep, 1, NULL);
+	sys_thread_sync(THREAD_SYNC_WAKE, (int *)&m->sleep, 1, NULL);
 }
 
 

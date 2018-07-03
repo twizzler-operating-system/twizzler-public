@@ -341,10 +341,8 @@ int twz_view_blank(struct object *obj)
 	objid_t vid = 0;
 	int ret;
 
-	if((ret = twz_object_new(obj, &vid, 0, 0, TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE | TWZ_ON_DFL_USE)) < 0) {
-		return ret;
-	}
-	if((ret = twz_obj_mutate(vid, MUT_REPR_VIRT)) < 0) {
+	if((ret = twz_object_new(obj, &vid, 0, 0,
+					KSO_TYPE(KSO_VIEW) | TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE | TWZ_ON_DFL_USE)) < 0) {
 		return ret;
 	}
 	struct object vb;
