@@ -38,8 +38,6 @@ $(BUILDDIR)/us/$(MUSL)/lib/libc.a: $(MUSL_SRCS) $(BUILDDIR)/us/libtwz.a $(MUSL_R
 	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL)
 	@touch $@
 
-foo: $(BUILDDIR)/us/$(MUSL)/lib/libc.a
-
 MUSL_INCL=$(addprefix -I$(BUILDDIR)/us/$(MUSL)/,include obj/include src/internal obj/src/internal arch/generic arch/$(ARCH))
 
 $(BUILDDIR)/us/$(MUSL)/include/string.h:
@@ -58,8 +56,6 @@ $(BUILDDIR)/us/libtwz.a: $(LIBTWZ_OBJ)
 $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_READY)
 	@mkdir -p $(BUILDDIR)/us/libtwz
 	$(TOOLCHAIN_PREFIX)gcc -Og -g -Wall -Wextra -std=gnu11 -I us/include -ffreestanding $(MUSL_INCL) -c -o $@ $<
-
-bar: $(BUILDDIR)/us/libtwz.a
 
 
 INITNAME=test.0
