@@ -44,6 +44,10 @@ $(BUILDDIR)/us/$(MUSL)/include/string.h:
 
 MUSL_READY=$(BUILDDIR)/us/$(MUSL)/include/string.h
 
+MUSL_STATIC_LIBC_PRE=$(addprefix $(BUILDDIR)/us/$(MUSL)/lib/,crti.o crt1.o)
+MUSL_STATIC_LIBC=$(BUILDDIR)/us/$(MUSL)/lib/libc.a
+MUSL_STATIC_LIBC_POST=$(BUILDDIR)/us/$(MUSL)/lib/crtn.o
+
 #libtwz
 
 LIBTWZ_SRC=$(addprefix us/libtwz/,notify.c bstream.c mutex.c twzio.c viewcall.c twzlog.c name.c corecall.c debug.c object.c blake2.c secctx.c thread.c)
@@ -62,7 +66,7 @@ $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_READY)
 
 $(BUILDDIR)/us/test2: us/test2.c us/elf.ld $(BUILDDIR)/us/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a
 	@echo "[CC]  $@"
-	@$(TOOLCHAIN_PREFIX)gcc $(USCFLAGS) $< -o $@ -nostdlib $(BUILDDIR)/us/libtwz.a -I us/include $(BUILDDIR)/us/$(MUSL)/lib/libc.a $(MUSL_INCL)
+	$(TOOLCHAIN_PREFIX)gcc $(USCFLAGS) -o $@ -nostdlib $(MUSL_STATIC_LIBC_PRE) $< $(MUSL_STATIC_LIBC) $(BUILDDIR)/us/libtwz.a $(MUSL_STATIC_LIBC_POST) -I us/include $(MUSL_INCL)
 
 $(BUILDDIR)/us/test2.0.meta: $(BUILDDIR)/us/test2
 $(BUILDDIR)/us/test2.0: $(BUILDDIR)/us/test2
