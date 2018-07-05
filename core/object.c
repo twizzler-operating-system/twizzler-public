@@ -146,9 +146,10 @@ struct objpage *obj_get_page(struct object *obj, size_t idx)
 		page = slabcache_alloc(&sc_objpage);
 		page->idx = idx;
 		page->phys = mm_physical_alloc(mm_page_size(0), PM_TYPE_DRAM, true);
-		krc_init(&page->refs);
+		krc_init_zero(&page->refs);
 		ihtable_insert(obj->pagecache, &page->elem, page->idx);
 	}
+	krc_get(&page->refs);
 	spinlock_release_restore(&obj->lock);
 	return page;
 }
