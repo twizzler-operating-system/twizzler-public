@@ -70,6 +70,7 @@ void thread_exit(void)
 struct thread *thread_create(void)
 {
 	struct thread *t = slabcache_alloc(&_sc_thread);
+	memset(&t->faults, 0, sizeof(t->faults));
 	krc_init(&t->refs);
 	return t;
 }

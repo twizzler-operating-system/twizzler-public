@@ -54,10 +54,25 @@ long syscall_thread_spawn(uint64_t tidlo, uint64_t tidhi,
 	return 0;
 }
 
+static long __sys_thread_setfault(int fault, struct sys_thrd_ctl_fault_info *info)
+{
+	if(fault < 0 || fault >= NUM_FAULTS) {
+		return -1;
+	}
+	/* TODO (sec): check ptr */
+	current_thread->faults[fault].addr = info->addr;
+	current_thread->faults[fault].flags = info->flags;
+	current_thread->faults[fault].view = info->view;
+	return 0;
+}
+
 long syscall_thrd_ctl(int op, long arg)
 {
 	if(op <= THRD_CTL_ARCH_MAX) {
 		return arch_syscall_thrd_ctl(op, arg);
+	}
+	if(THRD_CTL_IS_SET_FAULT(op)) {
+		return __sys_thread_setfault(THRD_CTL_GET_FAULT(op), (void *)arg);
 	}
 	int ret;
 	switch(op) {

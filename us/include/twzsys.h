@@ -121,9 +121,11 @@ static inline long sys_become(objid_t sid, struct sys_become_args *ba)
 	return __syscall6(SYS_BECOME, ID_LO(sid), ID_HI(sid), (long)ba, 0, 0, 0);
 }
 
+/* TODO: arch-dep */
 #define THRD_CTL_SET_FS 1
 #define THRD_CTL_SET_GS 2
 #define THRD_CTL_EXIT   0x100
+#define THRD_SET_FAULT(x) ({ 0x200 + (x); })
 
 static inline long sys_thrd_ctl(int op, long arg)
 {

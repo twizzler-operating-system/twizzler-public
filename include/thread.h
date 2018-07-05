@@ -18,6 +18,18 @@ enum thread_state {
 
 #define MAX_SC 32
 
+enum {
+	FAULT_OBJECT,
+	FAULT_NULL,
+	NUM_FAULTS,
+};
+
+struct faultinfo {
+	objid_t view;
+	void *addr;
+	uint64_t flags;
+};
+
 struct thread {
 	struct arch_thread arch;
 	unsigned long id;
@@ -34,6 +46,8 @@ struct thread {
 	struct kso_throbj *throbj;
 
 	struct list rq_entry;
+	
+	struct faultinfo faults[NUM_FAULTS];
 };
 
 struct arch_syscall_become_args;
