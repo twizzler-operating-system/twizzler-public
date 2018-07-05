@@ -4,3 +4,7 @@ bx_enh_dbg.ini
 .toolchain
 toolchain
 serial.txt
+tools/gcc-*
+tools/binutils-*
+tools/build-*
+.tc
