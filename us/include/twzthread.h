@@ -10,12 +10,31 @@ struct twzthread {
 	unsigned int flags;
 };
 
-#define TLS_SIZE 0x200000
+#define TLS_SIZE   0x200000
 #define STACK_SIZE 0x200000
 #define STACK_BASE SLOT_TO_VIRT(TWZSLOT_THRD)
 #define TLS_BASE (SLOT_TO_VIRT(TWZSLOT_THRD) + STACK_SIZE)
 
+enum {
+	FAULT_OBJECT,
+	FAULT_NULL,
+	NUM_FAULTS,
+};
+
+struct faultinfo {
+	objid_t view;
+	void *addr;
+	uint64_t flags;
+} __packed;
+
 struct twzthread_repr {
+	union {
+		struct {
+			struct faultinfo faults[NUM_FAULTS];
+			char pad[256];
+		} thread_kso_data;
+		char _pad[4096];
+	};
 	unsigned char stack[STACK_SIZE];
 	unsigned char tls[STACK_SIZE];
 	objid_t reprid;

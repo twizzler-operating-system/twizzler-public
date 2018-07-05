@@ -174,13 +174,14 @@ void kernel_main(struct processor *proc)
 
 		obj_put(initobj);
 
-		void *stack_init = (void *)(0x400000000000ull);
+#define US_STACK_SIZE 0x200000
+		char *thrd_obj = (void *)(0x400000000000ull);
 		struct sys_thrd_spawn_args tsa = {
 			.start_func = (void *)elf.e_entry,
-			.stack_base = (void *)stack_init,
-			.stack_size = 0x2000,
-			.tls_base = stack_init + 0x4000,
-			.arg = (void *)(stack_init + 0x4000),
+			.stack_base = (void *)thrd_obj + 0x1000 + US_STACK_SIZE,
+			.stack_size = US_STACK_SIZE,
+			.tls_base = thrd_obj + 0x1000 + US_STACK_SIZE,
+			.arg = thrd_obj + 0x1000 + US_STACK_SIZE,
 			.target_view = kc_bsv_id,
 		};
 		objid_t bthrid = objid_generate();

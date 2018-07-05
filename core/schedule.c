@@ -70,8 +70,19 @@ void thread_exit(void)
 struct thread *thread_create(void)
 {
 	struct thread *t = slabcache_alloc(&_sc_thread);
-	memset(&t->faults, 0, sizeof(t->faults));
 	krc_init(&t->refs);
 	return t;
+}
+
+#include <object.h>
+void thread_raise_fault(struct thread *t, int fault, long arg, void *info)
+{
+	struct object *to = kso_get_obj(t->throbj, thr);
+	if(!to) {
+		panic("No repr");
+	}
+	struct faultinfo fi;
+	obj_read_data(to, sizeof(fi) * fault, sizeof(fi), &fi); 
+	printk(":: FAULT: %p\n", fi.addr);
 }
 

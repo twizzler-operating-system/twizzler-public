@@ -28,7 +28,7 @@ struct faultinfo {
 	objid_t view;
 	void *addr;
 	uint64_t flags;
-};
+} __packed;
 
 struct thread {
 	struct arch_thread arch;
@@ -46,8 +46,6 @@ struct thread {
 	struct kso_throbj *throbj;
 
 	struct list rq_entry;
-	
-	struct faultinfo faults[NUM_FAULTS];
 };
 
 struct arch_syscall_become_args;
@@ -55,6 +53,7 @@ void arch_thread_become(struct arch_syscall_become_args *ba);
 void thread_sleep(struct thread *t, int flags, int64_t);
 void thread_wake(struct thread *t);
 void thread_exit(void);
+void thread_raise_fault(struct thread *t, int fault, long arg, void *info);
 
 struct thread *thread_lookup(unsigned long id);
 struct thread *thread_create(void);

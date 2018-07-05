@@ -168,7 +168,8 @@ void vm_context_fault(uintptr_t addr, int flags)
 		objid_t id;
 		uint64_t flags;
 		if(!lookup_by_slot(slot, &id, &flags)) {
-			panic("raise signal");
+			thread_raise_fault(current_thread, FAULT_OBJECT, 0, NULL);
+			return;
 		}
 		map = vm_context_map(current_thread->ctx, id, slot,
 				flags & (VE_READ | VE_WRITE | VE_EXEC));

@@ -41,15 +41,6 @@ long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags);
 
 #define THRD_CTL_ARCH_MAX 0xff
 #define THRD_CTL_EXIT     0x100
-#define THRD_SET_FAULT(x) ({ 0x200 + (x); })
-#define THRD_CTL_IS_SET_FAULT(x) ({ (x) >= 0x200 && (x) < 0x200 + NUM_FAULTS; })
-#define THRD_CTL_GET_FAULT(x) ({ (x) - 0x200; })
-
-struct sys_thrd_ctl_fault_info {
-	objid_t view;
-	void *addr;
-	uint64_t flags;
-};
 
 int arch_syscall_thrd_ctl(int op, long arg);
 long syscall_thrd_ctl(int op, long arg);
