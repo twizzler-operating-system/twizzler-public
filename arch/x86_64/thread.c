@@ -60,3 +60,44 @@ int arch_syscall_thrd_ctl(int op, long arg)
 	return 0;
 }
 
+void arch_thread_raise_call(struct thread *t, void *addr, long a0, long a1, long a2)
+{
+	if(t != current_thread) {
+		panic("NI - raise fault in non-current thread");
+	}
+
+	uint64_t *arg0, *arg1, *jmp, *stack, *rsp;
+
+	if(t->arch.was_syscall) {
+		stack = (uint64_t *)t->arch.syscall.rsp;
+		arg0 = &t->arch.syscall.rdi;
+		arg1 = &t->arch.syscall.rsi;
+		jmp  = &t->arch.syscall.rcx;
+		rsp  = &t->arch.syscall.rsp;
+	} else {
+		stack = (uint64_t *)t->arch.exception.userrsp;
+		arg0 = &t->arch.exception.rdi;
+		arg1 = &t->arch.exception.rsi;
+		jmp  = &t->arch.exception.rip;
+		rsp  = &t->arch.exception.userrsp;
+	}
+
+	printk(":: stack = %p\n", stack);
+	if(((unsigned long)stack & 0xFFFFFFFFFFFFFFF0) != (unsigned long)stack) {
+		/* set up stack alignment correctly
+		 * (mis-aligned going into a function call) */
+		stack--;
+	}
+
+	printk(":: stack = %p\n", stack);
+	*--stack = *jmp;
+	*--stack = *rsp;
+	*--stack = *arg1;
+	*--stack = *arg0;
+	*jmp = (long)addr;
+	*arg0 = a0;
+	*arg1 = a1;
+	*rsp = (long)stack;
+	printk(":: stack = %p\n", stack);
+}
+

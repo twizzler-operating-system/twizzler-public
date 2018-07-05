@@ -54,6 +54,7 @@ void thread_sleep(struct thread *t, int flags, int64_t);
 void thread_wake(struct thread *t);
 void thread_exit(void);
 void thread_raise_fault(struct thread *t, int fault, long arg, void *info);
+void arch_thread_raise_call(struct thread *t, void *addr, long a0, long a1, long a2);
 
 struct thread *thread_lookup(unsigned long id);
 struct thread *thread_create(void);

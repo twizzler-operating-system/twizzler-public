@@ -83,6 +83,12 @@ void thread_raise_fault(struct thread *t, int fault, long arg, void *info)
 	}
 	struct faultinfo fi;
 	obj_read_data(to, sizeof(fi) * fault, sizeof(fi), &fi); 
+	if(fi.view) {
+		panic("NI - different view");
+	}
 	printk(":: FAULT: %p\n", fi.addr);
+	if(fi.addr) {
+		arch_thread_raise_call(t, fi.addr, fault, arg, (long)info);
+	}
 }
 
