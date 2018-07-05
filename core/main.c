@@ -123,6 +123,23 @@ objid_t objid_generate(void)
 	return _id++;
 }
 
+struct elf64_header {
+	uint8_t e_ident[16];
+	uint16_t e_type;
+	uint16_t e_machine;
+	uint32_t e_version;
+	uint64_t e_entry;
+	uint64_t e_phoff;
+	uint64_t e_shoff;
+	uint32_t e_flags;
+	uint16_t e_ehsize;
+	uint16_t e_phentsize;
+	uint16_t e_phnum;
+	uint16_t e_shentsize;
+	uint16_t e_shnum;
+	uint16_t e_shstrndx;
+};
+
 #include <syscall.h>
 void kernel_main(struct processor *proc)
 {
@@ -137,19 +154,33 @@ void kernel_main(struct processor *proc)
 		post_init_call_head = NULL;
 		//bench();
 		if(kc_bsv_id == 0) {
+			panic("No bsv specified");
+		}
+
+		if(kc_init_id == 0) {
 			panic("No init specified");
 		}
 
+		struct object *initobj = obj_lookup(kc_init_id);
+		if(!initobj) {
+			panic("Cannot load init object");
+		}
 
+		struct elf64_header elf;
+		obj_read_data(initobj, 0, sizeof(elf), &elf);
+		if(memcmp("\x7F" "ELF", elf.e_ident, 4)) {
+			panic("Init is not an ELF file");
+		}
 
+		obj_put(initobj);
 
 		void *stack_init = (void *)(0x400000000000ull);
 		struct sys_thrd_spawn_args tsa = {
-			.start_func = (void *)0x1120,
-			.arg = NULL,
+			.start_func = (void *)elf.e_entry,
 			.stack_base = (void *)stack_init,
 			.stack_size = 0x2000,
 			.tls_base = stack_init + 0x4000,
+			.arg = (void *)(stack_init + 0x4000),
 			.target_view = kc_bsv_id,
 		};
 		objid_t bthrid = objid_generate();

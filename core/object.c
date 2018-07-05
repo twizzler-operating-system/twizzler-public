@@ -175,6 +175,7 @@ void obj_put(struct object *o)
 	krc_put_call(&o->refs, _obj_release);
 }
 
+/* TODO (major): these can probably fail */
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 {
 	if(start / mm_page_size(0) != (start + len) / mm_page_size(0)) {

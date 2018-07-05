@@ -1,4 +1,5 @@
-TWZOBJS=test.0 bsv
+TWZOBJS=test.0 bsv test2.0
+MUSL=musl-1.1.16
 
 USFILES=$(addprefix $(BUILDDIR)/us/, $(TWZOBJS) $(addsuffix .meta,$(TWZOBJS)))
 
@@ -17,9 +18,7 @@ $(BUILDDIR)/us:
 	@mkdir -p $@
 
 
-
 #musl
-MUSL=musl-1.1.16
 
 $(BUILDDIR)/us/musl-config.mk: $(BUILDDIR)/us/$(MUSL)/configure $(BUILDDIR)/us
 	cd $(BUILDDIR)/us/$(MUSL) && ./configure --host=$(CONFIG_TRIPLET) CROSS_COMPILER=$(TOOLCHAIN_PREFIX)
@@ -60,7 +59,27 @@ $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_READY)
 -include $(LIBTWZ_OBJ:.o=.d)
 
 
-INITNAME=test.0
+
+$(BUILDDIR)/us/test2: us/test2.c us/elf.ld $(BUILDDIR)/us/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a
+	@echo "[CC]  $@"
+	@$(TOOLCHAIN_PREFIX)gcc $(USCFLAGS) $< -o $@ -nostdlib $(BUILDDIR)/us/libtwz.a -I us/include $(BUILDDIR)/us/$(MUSL)/lib/libc.a $(MUSL_INCL)
+
+$(BUILDDIR)/us/test2.0.meta: $(BUILDDIR)/us/test2
+$(BUILDDIR)/us/test2.0: $(BUILDDIR)/us/test2
+	@echo "[PE]  $@"
+	@$(TWZUTILSDIR)/postelf/postelf $(BUILDDIR)/us/test2
+
+
+
+
+
+
+
+
+
+
+
+INITNAME=test2.0
 
 $(BUILDDIR)/us/bsv: $(BUILDDIR)/us/$(INITNAME)
 	@id=$$($(TWZUTILSDIR)/objbuild/objstat $(BUILDDIR)/us/$(INITNAME) | grep COID | awk '{print $$3}');\
