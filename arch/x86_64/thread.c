@@ -83,14 +83,15 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, long a1, long
 	}
 
 	printk(":: stack = %p\n", stack);
-	if(((unsigned long)stack & 0xFFFFFFFFFFFFFFF0) != (unsigned long)stack) {
+	*--stack = *jmp;
+
+	if(((unsigned long)stack & 0xFFFFFFFFFFFFFFF0) == (unsigned long)stack) {
 		/* set up stack alignment correctly
 		 * (mis-aligned going into a function call) */
 		stack--;
 	}
 
 	printk(":: stack = %p\n", stack);
-	*--stack = *jmp;
 	*--stack = *rsp;
 	*--stack = *arg1;
 	*--stack = *arg0;

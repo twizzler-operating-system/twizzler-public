@@ -2,8 +2,9 @@
 static __attribute__((used)) void __twz_fault_entry_c(void)
 {
 	debug_printf("DEBUG");
-	for(;;);
 }
+
+/* TODO: arch-dep */
 
 /* Stack comes in as aligned (because this isn't really a call),
  * so maintain that alignment until the call below. */
@@ -42,8 +43,13 @@ asm (" \
 			popq %rsi;\
 			popq %rsp;\
 \
+			subq $8, %rsp;\
 			retq;\
 	");
+/* the subq is to move the stack back to where we stored the RIP for return.
+ * We had to store the unmodified rsp from the kernel's frame to reload it
+ * accurately, but the unmodified rsp is 8 above the location where we put the
+ * return address */
 
 #define TWZ_THREAD_REPR
 
