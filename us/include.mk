@@ -66,9 +66,9 @@ $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_READY)
 
 
 
-$(BUILDDIR)/us/test2: us/test2.c us/elf.ld $(BUILDDIR)/us/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a
+$(BUILDDIR)/us/test2: us/test2.c us/elf.ld $(BUILDDIR)/us/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a $(BUILDDIR)/us/twix/libtwix.a
 	@echo "[CC]  $@"
-	@$(TOOLCHAIN_PREFIX)gcc $(USCFLAGS) -o $@ -nostdlib $(MUSL_STATIC_LIBC_PRE) $< $(BUILDDIR)/us/libtwz.a $(MUSL_STATIC_LIBC) $(MUSL_STATIC_LIBC_POST) -I us/include $(MUSL_INCL)
+	@$(TOOLCHAIN_PREFIX)gcc $(USCFLAGS) -o $@ -nostdlib $(MUSL_STATIC_LIBC_PRE) $<  $(BUILDDIR)/us/libtwz.a $(MUSL_STATIC_LIBC) $(BUILDDIR)/us/twix/libtwix.a $(MUSL_STATIC_LIBC_POST) -I us/include $(MUSL_INCL)
 
 $(BUILDDIR)/us/test2.0.meta: $(BUILDDIR)/us/test2
 $(BUILDDIR)/us/test2.0: $(BUILDDIR)/us/test2
@@ -79,6 +79,7 @@ $(BUILDDIR)/us/test2.0: $(BUILDDIR)/us/test2
 
 
 
+include us/twix/include.mk
 
 
 
