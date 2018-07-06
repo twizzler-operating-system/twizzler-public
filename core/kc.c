@@ -65,7 +65,6 @@ static void _parse_kv(char *name, char *value)
 			printk("Malformed ithr directive: %s=%s\n", name, value);
 		}
 	}
-
 }
 
 static size_t readl(char *data, size_t dlen, char *buf, size_t blen)
@@ -80,8 +79,13 @@ static size_t readl(char *data, size_t dlen, char *buf, size_t blen)
 	return len;
 }
 
+char *kc_data;
+size_t kc_len;
+
 void kc_parse(char *data, size_t len)
 {
+	kc_data = data;
+	kc_len = len;
 	char *tmp = data;
 	char buf[128];
 	size_t tl;

@@ -161,6 +161,11 @@ void kernel_main(struct processor *proc)
 			panic("No init specified");
 		}
 
+		objid_t kcid = 1;
+		struct object *kcobj = obj_create(kcid, 0);
+		obj_write_data(kcobj, 0, kc_len, kc_data);
+		obj_put(kcobj);
+
 		struct object *initobj = obj_lookup(kc_init_id);
 		if(!initobj) {
 			panic("Cannot load init object");
@@ -181,7 +186,7 @@ void kernel_main(struct processor *proc)
 			.stack_base = (void *)thrd_obj + 0x1000 + US_STACK_SIZE,
 			.stack_size = US_STACK_SIZE,
 			.tls_base = thrd_obj + 0x1000 + US_STACK_SIZE,
-			.arg = thrd_obj + 0x1000 + US_STACK_SIZE,
+			.arg = NULL,
 			.target_view = kc_bsv_id,
 		};
 		objid_t bthrid = objid_generate();
