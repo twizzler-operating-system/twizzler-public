@@ -2,10 +2,10 @@
 .text
 .global __set_thread_area
 .type __set_thread_area,@function
+.extern __twix_syscall_target
 __set_thread_area:
 	mov %rdi,%rsi           /* shift for syscall */
 	movl $0x1002,%edi       /* SET_FS register */
 	movl $158,%eax          /* set fs segment to */
-	mov $0x3ffec0001400, %rcx
-	call *%rcx
+	call __twix_syscall_target
 	ret

@@ -9,6 +9,7 @@
 .global __syscall_cp_asm
 .hidden __syscall_cp_asm
 .type   __syscall_cp_asm,@function
+.extern __twix_syscall_target
 __syscall_cp_asm:
 
 __cp_begin:
@@ -24,8 +25,7 @@ __cp_begin:
 	mov 8(%rsp),%r8
 	mov 16(%rsp),%r9
 	mov %r11,8(%rsp)
-	mov $0x3ffec0001400, %rcx
-	call *%rcx
+	call __twix_syscall_target
 __cp_end:
 	ret
 __cp_cancel:
