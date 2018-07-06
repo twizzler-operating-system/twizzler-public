@@ -1,7 +1,16 @@
 #include <debug.h>
-static __attribute__((used)) void __twz_fault_entry_c(void)
+
+struct fault_object_info {
+	uint64_t ip;
+	uint64_t addr;
+	uint64_t flags;
+	uint64_t pad;
+};
+
+static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
 {
-	debug_printf("DEBUG");
+	struct fault_object_info *info = _info;
+	debug_printf("FAULT :: %d %lx %lx %lx", fault, info->ip, info->addr, info->flags);
 }
 
 /* TODO: arch-dep */
@@ -50,8 +59,6 @@ asm (" \
  * We had to store the unmodified rsp from the kernel's frame to reload it
  * accurately, but the unmodified rsp is 8 above the location where we put the
  * return address */
-
-#define TWZ_THREAD_REPR
 
 #include <twzobj.h>
 #include <twzslots.h>

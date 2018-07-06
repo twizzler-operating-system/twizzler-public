@@ -155,7 +155,7 @@ __initializer static void _init_kso_view(void)
 	kso_register(KSO_VIEW, &_kso_view);
 }
 
-void vm_context_fault(uintptr_t addr, int flags)
+void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 {
 	printk("Page Fault: %lx %x\n", addr, flags);
 	if(flags & FAULT_ERROR_PERM) {
@@ -164,11 +164,27 @@ void vm_context_fault(uintptr_t addr, int flags)
 	}
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
 	struct vmap *map = ihtable_find(current_thread->ctx->maps, slot, struct vmap, elem, slot);
+	/* TODO: check USER */
 	if(!map) {
 		objid_t id;
 		uint64_t flags;
 		if(!lookup_by_slot(slot, &id, &flags)) {
-			thread_raise_fault(current_thread, FAULT_OBJECT, 0, NULL);
+			struct fault_object_info info = {
+				.ip = ip,
+				.addr = addr,
+			};
+			if(!(flags & FAULT_ERROR_PERM)) {
+				info.flags |= FAULT_OBJECT_NOMAP;
+			}
+			if(flags & FAULT_WRITE) {
+				info.flags |= FAULT_OBJECT_WRITE;
+			} else {
+				info.flags |= FAULT_OBJECT_READ;
+			}
+			if(flags & FAULT_EXEC) {
+				info.flags |= FAULT_OBJECT_EXEC;
+			}
+			thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
 			return;
 		}
 		map = vm_context_map(current_thread->ctx, id, slot,

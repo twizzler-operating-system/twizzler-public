@@ -60,7 +60,8 @@ int arch_syscall_thrd_ctl(int op, long arg)
 	return 0;
 }
 
-void arch_thread_raise_call(struct thread *t, void *addr, long a0, long a1, long a2)
+void arch_thread_raise_call(struct thread *t, void *addr, long a0,
+		void *info, size_t infolen)
 {
 	if(t != current_thread) {
 		panic("NI - raise fault in non-current thread");
@@ -85,6 +86,14 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, long a1, long
 	printk(":: stack = %p\n", stack);
 	*--stack = *jmp;
 
+	if(infolen & 0xf) {
+		panic("infolen must be 16-byte aligned");
+	}
+
+	stack -= infolen / 8;
+	long info_base_user = (long)stack;
+	memcpy(stack, info, infolen);
+
 	if(((unsigned long)stack & 0xFFFFFFFFFFFFFFF0) == (unsigned long)stack) {
 		/* set up stack alignment correctly
 		 * (mis-aligned going into a function call) */
@@ -97,7 +106,7 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, long a1, long
 	*--stack = *arg0;
 	*jmp = (long)addr;
 	*arg0 = a0;
-	*arg1 = a1;
+	*arg1 = info_base_user;
 	*rsp = (long)stack;
 	printk(":: stack = %p\n", stack);
 }

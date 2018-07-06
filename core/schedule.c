@@ -75,7 +75,7 @@ struct thread *thread_create(void)
 }
 
 #include <object.h>
-void thread_raise_fault(struct thread *t, int fault, long arg, void *info)
+void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 {
 	struct object *to = kso_get_obj(t->throbj, thr);
 	if(!to) {
@@ -88,7 +88,7 @@ void thread_raise_fault(struct thread *t, int fault, long arg, void *info)
 	}
 	printk(":: FAULT: %p\n", fi.addr);
 	if(fi.addr) {
-		arch_thread_raise_call(t, fi.addr, fault, arg, (long)info);
+		arch_thread_raise_call(t, fi.addr, fault, info, infolen);
 	}
 }
 

@@ -73,7 +73,7 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 					flags & FAULT_USER ? "user" : "kernel",
 					flags & FAULT_ERROR_PERM ? "present" : "non-present");
 			}
-			kernel_fault_entry(cr2, flags);
+			kernel_fault_entry(frame->rip, cr2, flags);
 	} else if(frame->int_no == 20) {
 		/* #VE */
 		x86_64_virtualization_fault(current_processor);

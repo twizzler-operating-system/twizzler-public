@@ -53,10 +53,10 @@ void mm_physical_dealloc(uintptr_t addr)
 	mm_physical_region_dealloc(reg, addr);
 }
 
-void kernel_fault_entry(uintptr_t addr, int flags)
+void kernel_fault_entry(uintptr_t ip, uintptr_t addr, int flags)
 {
 	if(addr < KERNEL_VIRTUAL_BASE) {
-		vm_context_fault(addr, flags);
+		vm_context_fault(ip, addr, flags);
 	} else {
 		panic("kernel page fault: %lx, %x", addr, flags);
 	}

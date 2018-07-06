@@ -100,7 +100,7 @@ struct vmap {
 struct vmap *vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t flags);
 void vm_context_destroy(struct vm_context *v);
 struct vm_context *vm_context_create(void);
-void vm_context_fault(uintptr_t addr, int flags);
+void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags);
 struct object;
 void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object *obj);
 void arch_vm_unmap_object(struct vm_context *ctx, struct vmap *map, struct object *obj);
@@ -115,5 +115,5 @@ bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off);
 #define FAULT_USER  0x4
 #define FAULT_ERROR_PERM 0x10
 #define FAULT_ERROR_PRES 0x20
-void kernel_fault_entry(uintptr_t addr, int flags);
+void kernel_fault_entry(uintptr_t ip, uintptr_t addr, int flags);
 

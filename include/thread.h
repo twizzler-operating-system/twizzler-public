@@ -30,6 +30,18 @@ struct faultinfo {
 	uint64_t flags;
 } __packed;
 
+#define FAULT_OBJECT_READ  1
+#define FAULT_OBJECT_WRITE 2
+#define FAULT_OBJECT_EXEC  4
+#define FAULT_OBJECT_NOMAP 8
+
+struct fault_object_info {
+	uint64_t ip;
+	uint64_t addr;
+	uint64_t flags;
+	uint64_t pad;
+};
+
 struct thread {
 	struct arch_thread arch;
 	unsigned long id;
@@ -53,8 +65,8 @@ void arch_thread_become(struct arch_syscall_become_args *ba);
 void thread_sleep(struct thread *t, int flags, int64_t);
 void thread_wake(struct thread *t);
 void thread_exit(void);
-void thread_raise_fault(struct thread *t, int fault, long arg, void *info);
-void arch_thread_raise_call(struct thread *t, void *addr, long a0, long a1, long a2);
+void thread_raise_fault(struct thread *t, int fault, void *info, size_t);
+void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *, size_t);
 
 struct thread *thread_lookup(unsigned long id);
 struct thread *thread_create(void);
