@@ -94,7 +94,7 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0,
 	long info_base_user = (long)stack;
 	memcpy(stack, info, infolen);
 
-	if(((unsigned long)stack & 0xFFFFFFFFFFFFFFF0) == (unsigned long)stack) {
+	if(((unsigned long)stack & 0xFFFFFFFFFFFFFFF0) != (unsigned long)stack) {
 		/* set up stack alignment correctly
 		 * (mis-aligned going into a function call) */
 		stack--;

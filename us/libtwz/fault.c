@@ -128,11 +128,12 @@ static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
 	if(twz_handle_fault(info->addr, info->flags, info->ip) == TE_FAILURE) {
 		twz_thread_exit();
 	}
+	debug_printf("Handled");
 }
 
 /* TODO: arch-dep */
 
-/* Stack comes in as aligned (because this isn't really a call),
+/* Stack comes in as mis-aligned (like any function call),
  * so maintain that alignment until the call below. */
 asm (" \
 		.extern __twz_fault_entry_c ;\
@@ -140,6 +141,7 @@ asm (" \
 			pushq %rax;\
 			pushq %rbx;\
 			pushq %rcx;\
+			pushq %rdx;\
 			pushq %rbp;\
 			pushq %r8;\
 			pushq %r9;\
@@ -161,6 +163,7 @@ asm (" \
 			popq %r9;\
 			popq %r8;\
 			popq %rbp;\
+			popq %rdx;\
 			popq %rcx;\
 			popq %rbx;\
 			popq %rax;\
