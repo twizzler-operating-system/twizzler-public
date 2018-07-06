@@ -1,16 +1,133 @@
 #include <debug.h>
 
-struct fault_object_info {
-	uint64_t ip;
-	uint64_t addr;
-	uint64_t flags;
-	uint64_t pad;
-};
+#include <twzfault.h>
 
+
+
+
+
+
+
+
+
+
+#include <stdatomic.h>
+#include <twz.h>
+#include <twzobj.h>
+#include <twzview.h>
+#include <twzsys.h>
+#include <twzerr.h>
+#include <twzname.h>
+
+int twz_map_fot_entry(size_t slot, struct fotentry *fe)
+{
+	objid_t id;
+	if(fe->flags & FE_NAME) {
+		id = twz_name_resolve(NULL, fe->data, NAME_RESOLVER_DEFAULT);
+		if(id == 0) {
+			debug_printf("Name not resolved: %s\n", fe->data);
+			return TE_FAILURE;
+		}
+	} else {
+		id = fe->id;
+	}
+
+	int flags = ((fe->flags & FE_READ) ? VE_READ : 0)
+		| ((fe->flags & FE_WRITE) ? VE_WRITE : 0)
+		| ((fe->flags & FE_EXEC) ? VE_EXEC : 0);
+
+	if(fe->flags & FE_DERIVE) {
+		objid_t nid = 0;
+		if(twz_object_new(NULL, &nid, id, 0 /* TODO: KUID, perms */,
+					TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE) < 0) {
+			debug_printf("Failed to make new derived object\n");
+			return TE_FAILURE;
+		}
+		id = nid;
+	}
+
+	twz_view_set(NULL, slot, id, flags);
+	debug_printf("Mapping slot: %ld :: " IDFMT "\n", slot, IDPR(id));
+	
+	return TE_SUCCESS;
+}
+
+int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source __unused)
+{
+	uint64_t offset = addr % (1024ul * 1024 * 1024);
+	if(offset < 0x1000) {
+		debug_printf("NULL ptr\n");
+		return TE_FAILURE;
+	}
+
+	if(!(cause & FAULT_OBJECT_NOMAP)) {
+		debug_printf("PERM err\n");
+		return TE_FAILURE;
+	}
+
+	/* TODO: check if there is an object 0 */
+
+	struct metainfo *mi = (void *)(1024ul * 1024 * 1024 - 0x1000);
+	if(mi->magic != MI_MAGIC) {
+		debug_printf("No metainfo in object 0\n");
+		return TE_FAILURE;
+	}
+
+	if(!(mi->flags & MIF_FOT)) {
+		debug_printf("Object 0 has no FOT\n");
+		return TE_FAILURE;
+	}
+
+	size_t slot = (addr / (1024ul * 1024 * 1024)) - 1;
+	if(slot >= 0x10000) {
+		struct fotentry _fot_derive_rw = {
+			.id = 0, .flags = FE_READ | FE_WRITE | FE_DERIVE
+		};
+		switch(slot+1) {
+			case TWZSLOT_VCACHE:
+				return twz_map_fot_entry(slot+1, &_fot_derive_rw);
+		}
+		debug_printf("Fault in allocatable object space (%lx)\n", slot+1);
+		return TE_FAILURE;
+	}
+	if(slot >= 94) {
+		debug_printf("TODO: large FOTs (%lx)\n", slot);
+		return TE_FAILURE;
+	}
+
+	struct fotentry *fot = (struct fotentry *)((char *)mi + 1024);
+
+	if(fot[slot].id == 0) {
+		debug_printf("Invalid FOT entry\n");
+		return TE_FAILURE;
+	}
+
+	debug_printf("Slot: %ld - %s\n", slot+1, fot[slot].data);
+
+	return twz_map_fot_entry(slot+1, &fot[slot]);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#include <twzthread.h>
 static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
 {
 	struct fault_object_info *info = _info;
 	debug_printf("FAULT :: %d %lx %lx %lx", fault, info->ip, info->addr, info->flags);
+	if(twz_handle_fault(info->addr, info->flags, info->ip) == TE_FAILURE) {
+		twz_thread_exit();
+	}
 }
 
 /* TODO: arch-dep */
