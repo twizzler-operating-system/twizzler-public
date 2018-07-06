@@ -109,7 +109,6 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 				e != ihtable_bucket_iter_end(src->pagecache);
 				e = ihtable_bucket_iter_next(e)) {
 			struct objpage *pg = container_of(e, struct objpage, elem);
-			printk("Copy page %ld\n", pg->idx);
 			if(pg->phys) {
 				void *np = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, false);
 				/* TODO (perf): copy-on-write */
@@ -262,7 +261,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 {
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
 	size_t idx = (addr % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
-	printk("OSPACE FAULT: %lx %lx %x\n", ip, addr, flags);
+	//printk("OSPACE FAULT: %lx %lx %x\n", ip, addr, flags);
 	if(idx == 0) {
 		panic("NULL PAGE");
 	}
