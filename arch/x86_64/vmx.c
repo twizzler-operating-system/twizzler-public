@@ -223,7 +223,7 @@ void x86_64_vmexit_handler(struct processor *proc)
 			&& reason != VMEXIT_REASON_EPT_VIOLATION
 			&& reason != VMEXIT_REASON_INVEPT)
 			*/
-	printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual, iinfo);
+	//printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual, iinfo);
 
 	//uint32_t x, y;
 	//x86_64_rdmsr(X86_MSR_GS_BASE, &x, &y);
@@ -704,6 +704,7 @@ void x86_64_secctx_switch(struct secctx *s)
 
 void x86_64_virtualization_fault(struct processor *proc)
 {
+#if 0
 	printk("VE: %x %x %lx %lx %lx %x\n",
 			proc->arch.veinfo->reason,
 			proc->arch.veinfo->lock,
@@ -712,7 +713,7 @@ void x86_64_virtualization_fault(struct processor *proc)
 			proc->arch.veinfo->physical,
 			proc->arch.veinfo->eptidx
 			);
-	
+#endif
 	uint32_t flags = 0;
 	if(proc->arch.veinfo->qual & EQ_EPTV_READ) {
 		flags |= OBJSPACE_FAULT_READ;
@@ -724,7 +725,7 @@ void x86_64_virtualization_fault(struct processor *proc)
 		flags |= OBJSPACE_FAULT_EXEC;
 	}
 
-	kernel_objspace_fault_entry(proc->arch.veinfo->physical, flags);
+	kernel_objspace_fault_entry(current_thread->arch.exception.rip, proc->arch.veinfo->physical, flags);
 
 	proc->arch.veinfo->lock = 0;
 }

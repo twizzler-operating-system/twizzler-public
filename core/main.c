@@ -179,20 +179,50 @@ void kernel_main(struct processor *proc)
 
 		obj_put(initobj);
 
-#define US_STACK_SIZE 0x200000
+#define US_STACK_SIZE 0x200000 - 0x1000
 		char *thrd_obj = (void *)(0x400000000000ull);
-		struct sys_thrd_spawn_args tsa = {
-			.start_func = (void *)elf.e_entry,
-			.stack_base = (void *)thrd_obj + 0x1000 + US_STACK_SIZE,
-			.stack_size = US_STACK_SIZE,
-			.tls_base = thrd_obj + 0x1000 + US_STACK_SIZE,
-			.arg = NULL,
-			.target_view = kc_bsv_id,
+		size_t off = US_STACK_SIZE - 0x100, tmp = 0;
+		
+		char *argv[4] = {
+			[0] = NULL,
+			[1] = NULL,
+			[2] = NULL,
+			[3] = NULL,
 		};
+		long vector[4] = {
+			[0] = 1, /* argc */
+			[1] = 0,
+			[2] = 0,
+			[3] = 0,
+			//[1] = (long)thrd_obj + off + sizeof(vector) + 0x1000,
+		};
+
 		objid_t bthrid = objid_generate();
 		struct object *bthr = obj_create(bthrid, KSO_THREAD);
 		bthr->flags |= OF_KERNELGEN;
-		
+
+
+		obj_write_data(bthr, off + tmp, sizeof(long), &vector[0]); tmp += sizeof(long);
+		obj_write_data(bthr, off + tmp, sizeof(long), &vector[1]); tmp += sizeof(long);
+		obj_write_data(bthr, off + tmp, sizeof(long), &vector[2]); tmp += sizeof(long);
+		obj_write_data(bthr, off + tmp, sizeof(long), &vector[3]); tmp += sizeof(long);
+
+		obj_write_data(bthr, off + tmp, sizeof(char *) * 4, argv);
+
+		struct sys_thrd_spawn_args tsa = {
+			.start_func = (void *)elf.e_entry,
+			.stack_base = (void *)thrd_obj + 0x1000,
+			.stack_size = (US_STACK_SIZE - 0x100),
+			.tls_base = thrd_obj + 0x1000 + US_STACK_SIZE,
+			.arg = thrd_obj + off + 0x1000,
+			.target_view = kc_bsv_id,
+		};
+
+#if 0
+		printk("stackbase: %lx, stacktop: %lx\ntlsbase: %lx, arg: %lx\n",
+				(long)tsa.stack_base, (long)tsa.stack_base + tsa.stack_size,
+				(long)tsa.tls_base, (long)tsa.arg);
+#endif	
 		syscall_thread_spawn(ID_LO(bthrid), ID_HI(bthrid), &tsa, 0);
 	}
 	printk("processor %d reached resume state %p\n", proc->id, proc);

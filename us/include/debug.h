@@ -185,7 +185,26 @@ static void vbufprintk(char *buffer, const char *fmt, va_list args)
 done:
 	*b = 0;
 }
-#include <twzsys.h>
+
+static inline long __twz__syscall6(long n, long a1, long a2,
+	long a3, long a4, long a5, long a6)
+{
+	unsigned long ret;
+	register long r8 __asm__("r8") = a4;
+	register long r9 __asm__("r9") = a5;
+	register long r10 __asm__("r10") = a6;
+	__asm__ __volatile__ ("syscall;"
+			: "=a"(ret)
+			: "a"(n), "D"(a1), "S"(a2), "d"(a3), "r"(r8), "r"(r9), "r"(r10)
+			: "r11", "rcx", "memory");
+	return ret;           
+}
+
+#define SYS_DEBUG_PRINT 2
+static inline long __debug_print(const char *str, size_t len)
+{
+	return __twz__syscall6(SYS_DEBUG_PRINT, (long)str, len, 0, 0, 0, 0);
+}
 
 __attribute__((used))
 static int debug_printf(const char *fmt, ...)
@@ -195,7 +214,7 @@ static int debug_printf(const char *fmt, ...)
 	char buf[1024];
 	for(int i=0;i<1024;i++) buf[i]=0;
 	vbufprintk(buf, fmt, args);
-	__sys_debug_print(buf, strlen(buf));
+	__debug_print(buf, strlen(buf));
 	va_end(args);
 	return 0;
 }
@@ -206,7 +225,7 @@ static int debug_vprintf(const char *fmt, va_list args)
 	char buf[1024];
 	for(int i=0;i<1024;i++) buf[i]=0;
 	vbufprintk(buf, fmt, args);
-	__sys_debug_print(buf, strlen(buf));
+	__debug_print(buf, strlen(buf));
 	return 0;
 }
 

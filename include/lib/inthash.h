@@ -8,7 +8,6 @@ struct ihelem {
 
 struct ihtable {
 	int bits;
-	bool fl;
 	struct ihelem *table[];
 };
 
@@ -28,6 +27,14 @@ static inline void ihtable_init(struct ihtable *t, int bits)
 	}
 	t->bits = bits;
 }
+
+#define ihtable_iter_start(t) 0
+#define ihtable_iter_next(i) ({ (i) + 1; })
+#define ihtable_iter_end(t) ({ 1ul << (t)->bits; })
+
+#define ihtable_bucket_iter_start(t, i) ({ (t)->table[(i)]; })
+#define ihtable_bucket_iter_next(b) ({ b->next; })
+#define ihtable_bucket_iter_end(t) ({ NULL; })
 
 __attribute__((used))
 static void _iht_ctor(void *sz, void *obj)

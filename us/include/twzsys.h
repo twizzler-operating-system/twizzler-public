@@ -22,7 +22,7 @@ static inline long __syscall6(long n, long a1, long a2,
 	register long r8 __asm__("r8") = a4;
 	register long r9 __asm__("r9") = a5;
 	register long r10 __asm__("r10") = a6;
-	__asm__ __volatile__ ("syscall; setb %%cl"
+	__asm__ __volatile__ ("syscall;"
 			: "=a"(ret)
 			: "a"(n), "D"(a1), "S"(a2), "d"(a3), "r"(r8), "r"(r9), "r"(r10)
 			: "r11", "rcx", "memory");

@@ -1,4 +1,4 @@
-TWZOBJS=test.0 bsv test2.0
+TWZOBJS=test.0 bsv test2.0 test2.1
 MUSL=musl-1.1.16
 
 USFILES=$(addprefix $(BUILDDIR)/us/, $(TWZOBJS) $(addsuffix .meta,$(TWZOBJS)))

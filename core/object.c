@@ -67,7 +67,7 @@ void obj_kso_init(struct object *obj, enum kso_type ksot)
 	obj->kso_calls = _kso_calls[ksot];
 }
 
-struct object *obj_create(uint128_t id, enum kso_type ksot)
+static inline struct object *__obj_alloc(enum kso_type ksot, objid_t id)
 {
 	struct object *obj = slabcache_alloc(&sc_objs);
 
@@ -77,8 +77,48 @@ struct object *obj_create(uint128_t id, enum kso_type ksot)
 	obj->slot = -1;
 	krc_init(&obj->refs);
 	krc_init_zero(&obj->pcount);
-
 	obj_kso_init(obj, ksot);
+
+	return obj;
+}
+
+struct object *obj_create(uint128_t id, enum kso_type ksot)
+{
+	struct object *obj = __obj_alloc(ksot, id);
+	spinlock_acquire_save(&objlock);
+	/* TODO (major): check for duplicates */
+	ihtable_insert(&objtbl, &obj->elem, obj->id);
+	spinlock_release_restore(&objlock);
+	return obj;
+}
+
+struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
+{
+	struct object *src = obj_lookup(srcid);
+	if(src == NULL) {
+		return NULL;
+	}
+	struct object *obj = __obj_alloc(ksot, id);
+
+	spinlock_acquire_save(&src->lock);
+	for(size_t b = ihtable_iter_start(src->pagecache);
+			b != ihtable_iter_end(src->pagecache);
+			b = ihtable_iter_next(b)) {
+
+		for(struct ihelem *e = ihtable_bucket_iter_start(src->pagecache, b);
+				e != ihtable_bucket_iter_end(src->pagecache);
+				e = ihtable_bucket_iter_next(e)) {
+			struct objpage *pg = container_of(e, struct objpage, elem);
+			printk("Copy page %ld\n", pg->idx);
+			if(pg->phys) {
+				void *np = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, false);
+				/* TODO (perf): copy-on-write */
+				memcpy(np, mm_ptov(pg->phys), 0x1000);
+				obj_cache_page(obj, pg->idx, mm_vtop(np));
+			}
+		}
+	}
+	spinlock_release_restore(&src->lock);
 
 	spinlock_acquire_save(&objlock);
 	ihtable_insert(&objtbl, &obj->elem, obj->id);
@@ -216,10 +256,13 @@ struct object *obj_lookup_slot(uintptr_t oaddr)
 }
 
 bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags);
-void kernel_objspace_fault_entry(uintptr_t addr, uint32_t flags)
+#include <thread.h>
+#include <processor.h>
+void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 {
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
 	size_t idx = (addr % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
+	printk("OSPACE FAULT: %lx %lx %x\n", ip, addr, flags);
 	if(idx == 0) {
 		panic("NULL PAGE");
 	}

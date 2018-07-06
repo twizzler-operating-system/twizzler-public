@@ -77,6 +77,7 @@ struct objpage {
 };
 
 struct object *obj_create(uint128_t id, enum kso_type);
+struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot);
 struct object *obj_lookup(uint128_t id);
 void obj_alloc_slot(struct object *obj);
 struct object *obj_lookup_slot(uintptr_t oaddr);
@@ -98,5 +99,5 @@ void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
 #define OBJSPACE_EXEC_U 4
 #define OBJSPACE_EXEC_S 8
 
-void kernel_objspace_fault_entry(uintptr_t phys, uint32_t flags);
+void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t phys, uint32_t flags);
 

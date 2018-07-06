@@ -22,8 +22,8 @@ weak_alias(dummy1, __init_ssp);
 void __init_libc(char **envp, char *pn)
 {
 	size_t i, *auxv, aux[AUX_CNT] = { 0 };
-	__environ = envp;
 	for (i=0; envp[i]; i++);
+	__environ = envp;
 	libc.auxv = auxv = (void *)(envp+i+1);
 	for (i=0; auxv[i]; i+=2) if (auxv[i]<AUX_CNT) aux[auxv[i]] = auxv[i+1];
 	__hwcap = aux[AT_HWCAP];
@@ -66,7 +66,7 @@ weak_alias(libc_start_init, __libc_start_init);
 int __libc_start_main(int (*main)(int,char **,char **), int argc, char **argv)
 {
 	char **envp = argv+argc+1;
-
+	
 	__init_libc(envp, argv[0]);
 	__libc_start_init();
 

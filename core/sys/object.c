@@ -88,6 +88,22 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 
 long syscall_ocreate(uint64_t olo, uint64_t ohi, uint64_t tlo, uint64_t thi, uint64_t flags)
 {
+	objid_t id = MKID(ohi, olo);
+	objid_t srcid = MKID(thi, tlo);
+	int ksot = (flags >> 8) & 0xF;
+	if(ksot >= KSO_MAX) {
+		return -1;
+	}
+	if(id == 0) {
+		return -1;
+	}
+	struct object *o;
+	if(srcid) {
+		o = obj_create_clone(id, srcid, ksot);
+	} else {
+		o = obj_create(id, ksot);
+	}
+	obj_put(o);
 	return 0;
 }
 
