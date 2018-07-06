@@ -68,12 +68,13 @@ $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_READY)
 
 $(BUILDDIR)/us/test2: us/test2.c us/elf.ld $(BUILDDIR)/us/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a
 	@echo "[CC]  $@"
-	$(TOOLCHAIN_PREFIX)gcc $(USCFLAGS) -o $@ -nostdlib $(MUSL_STATIC_LIBC_PRE) $< $(BUILDDIR)/us/libtwz.a $(MUSL_STATIC_LIBC) $(MUSL_STATIC_LIBC_POST) -I us/include $(MUSL_INCL)
+	@$(TOOLCHAIN_PREFIX)gcc $(USCFLAGS) -o $@ -nostdlib $(MUSL_STATIC_LIBC_PRE) $< $(BUILDDIR)/us/libtwz.a $(MUSL_STATIC_LIBC) $(MUSL_STATIC_LIBC_POST) -I us/include $(MUSL_INCL)
 
 $(BUILDDIR)/us/test2.0.meta: $(BUILDDIR)/us/test2
 $(BUILDDIR)/us/test2.0: $(BUILDDIR)/us/test2
 	@echo "[PE]  $@"
 	@$(TWZUTILSDIR)/postelf/postelf $(BUILDDIR)/us/test2
+	@echo "fot:R:0:1:0" | $(TWZUTILSDIR)/objbuild/objbuild -o $(BUILDDIR)/us/test2.0 -a
 
 
 
