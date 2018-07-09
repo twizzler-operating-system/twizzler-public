@@ -34,8 +34,10 @@ long syscall_thread_spawn(uint64_t tidlo, uint64_t tidhi,
 	if(current_thread) {
 		spinlock_acquire_save(&current_thread->sc_lock);
 		for(int i=0;i<MAX_SC;i++) {
-			krc_get(&current_thread->attached_scs[i]->refs);
-			t->attached_scs[i] = current_thread->attached_scs[i];
+			if(current_thread->attached_scs[i]) {
+				krc_get(&current_thread->attached_scs[i]->refs);
+				t->attached_scs[i] = current_thread->attached_scs[i];
+			}
 		}
 		krc_get(&current_thread->active_sc->refs);
 		t->active_sc = current_thread->active_sc;

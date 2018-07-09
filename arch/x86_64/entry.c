@@ -33,6 +33,8 @@ static void x86_64_change_fpusse_allow(bool enable)
 __noinstrument
 void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_userspace)
 {
+	if(frame->int_no != 36)
+	printk(":: %ld\n", frame->int_no);
 	if(was_userspace) {
 		current_thread->arch.was_syscall = false;
 	}
@@ -79,7 +81,7 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 		x86_64_virtualization_fault(current_processor);
 	} else if(frame->int_no < 32) {
 		if(was_userspace) {
-
+			/* TODO (urgent): signal thread */
 		} else {
 			if(frame->int_no == 3) {
 				printk("[debug]: recv debug interrupt\n");

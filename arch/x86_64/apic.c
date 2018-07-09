@@ -284,7 +284,6 @@ static void calibrate_timers(int div)
 
 	clksrc_register(&_clksrc_apic);
 	clksrc_register(&_clksrc_tsc);
-
 }
 
 static void lapic_configure(int bsp)

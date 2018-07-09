@@ -25,4 +25,7 @@ struct clksrc {
 void clksrc_deregister(struct clksrc *cs);
 void clksrc_register(struct clksrc *cs);
 uint64_t clksrc_get_nanoseconds(void);
+void clksrc_set_active(struct clksrc *cs, bool active);
+bool clksrc_set_timer(struct clksrc *cs, uint64_t ns, bool periodic);
+void clksrc_set_interrupt_countdown(uint64_t ns, bool periodic);
 
