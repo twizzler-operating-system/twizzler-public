@@ -108,12 +108,29 @@ int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source __unused)
 	return twz_map_fot_entry(slot+1, &fot[slot]);
 }
 
-static __attribute__((used)) void __twz_fault_entry_c(int fault __unused, void *_info)
+static void __fault_obj_default(int f __unused, void *_info)
 {
 	struct fault_object_info *info = _info;
 	debug_printf("FAULT :: %d %lx %lx %lx", fault, info->ip, info->addr, info->flags);
 	if(twz_handle_fault(info->addr, info->flags, info->ip) == TE_FAILURE) {
 		twz_thread_exit();
+	}
+}
+
+static struct {
+	void (*fn)(int, void *);
+} _fault_table[NUM_FAULTS] = { 0 };
+
+static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
+{
+	if(fault == FAULT_OBJECT) {
+		__fault_obj_default(fault, _info);
+	}
+	if((fault >= NUM_FAULTS || !_fault_table[fault].fn) && fault != FAULT_OBJECT) {
+		twz_thread_exit();
+	}
+	if(_fault_table[fault].fn) {
+		_fault_table[fault].fn(fault, _info);
 	}
 }
 
@@ -177,5 +194,20 @@ void __twz_fault_init(void)
 	repr->thread_kso_data.faults[FAULT_OBJECT] = (struct faultinfo) {
 		.addr = (void *)__twz_fault_entry,
 	};
+}
+
+void twz_fault_set(int fault, void (*fn)(int, void *))
+{
+	bool needkso = _fault_table[fault].fn == 0;
+	_fault_table[fault].fn = fn;
+
+	if(needkso) {
+		struct object thrd;
+		twz_object_init(&thrd, TWZSLOT_THRD);
+		struct twzthread_repr *repr = thrd.base;
+		repr->thread_kso_data.faults[fault] = (struct faultinfo) {
+			.addr = (void *)__twz_fault_entry,
+		};
+	}
 }
 

@@ -91,7 +91,7 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 	if(fi.view) {
 		panic("NI - different view");
 	}
-	printk(":: FAULT: %p\n", fi.addr);
+	//printk(":: FAULT: %p\n", fi.addr);
 	if(fi.addr) {
 		arch_thread_raise_call(t, fi.addr, fault, info, infolen);
 	}

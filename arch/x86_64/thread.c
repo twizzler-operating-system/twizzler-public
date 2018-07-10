@@ -83,7 +83,6 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0,
 		rsp  = &t->arch.exception.userrsp;
 	}
 
-	printk(":: stack = %p\n", stack);
 	*--stack = *jmp;
 
 	if(infolen & 0xf) {
@@ -100,7 +99,6 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0,
 		stack--;
 	}
 
-	printk(":: stack = %p\n", stack);
 	*--stack = *rsp;
 	*--stack = *arg1;
 	*--stack = *arg0;
@@ -108,6 +106,5 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0,
 	*arg0 = a0;
 	*arg1 = info_base_user;
 	*rsp = (long)stack;
-	printk(":: stack = %p\n", stack);
 }
 

@@ -45,8 +45,6 @@ static void proc_init(void)
 	x86_64_rdmsr(X86_MSR_EFER, &lo, &hi);
 	lo |= X86_MSR_EFER_SYSCALL | X86_MSR_EFER_NX;
 	x86_64_wrmsr(X86_MSR_EFER, lo, hi);
-	printk("cr0: %lx, cr4: %lx, efer: %x,%x\n",
-			cr0, cr4, hi, lo);
 
 	/* TODO (minor): verify that this setup is "reasonable" */
 	x86_64_rdmsr(X86_MSR_MTRRCAP, &lo, &hi);
@@ -93,13 +91,12 @@ static void x86_64_initrd(void *u)
 {
 	(void)u;
 	static int __id = 0;
-	printk("%d mods\n", mb->mods_count);
 	if(mb->mods_count == 0) return;
 	struct mboot_module *m = mm_ptov(mb->mods_addr);
 	struct ustar_header *h = mm_ptov(m->start);
 	char *start = (char *)h;
-	printk(":: %s\n", h->magic);
 	size_t len = m->end - m->start;
+	printk("Loading objects from modules\n");
 	while((char *)h < start + len) {
 		char *name = h->name;
 		if(!*name) break;
@@ -112,7 +109,7 @@ static void x86_64_initrd(void *u)
 			size_t nl;
 			case '0': case '7':
 				nl = strlen(name);
-				printk("Loading object: %s\n", name);
+				//printk("Loading object: %s\n", name);
 				if(!strncmp(name, "kc", 2) && nl == 2) {
 					kc_parse(data, len);
 				} else {
@@ -127,10 +124,6 @@ static void x86_64_initrd(void *u)
 						break;
 					}
 					bool meta = nl == 38;
-					if(meta && len != 2097152 /* 2 MB */) {
-						printk("Unsupported metadata part length: %ld\n", len);
-						break;
-					}
 					objid_t id;
 					if(!objid_parse(name, &id)) {
 						printk("Malformed object name: %s\n", name);

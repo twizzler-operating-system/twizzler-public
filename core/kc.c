@@ -40,7 +40,6 @@ bool objid_parse(const char *name, objid_t *id)
 
 static void _parse_kv(char *name, char *value)
 {
-	printk(":: <%s> = <%s>\n", name, value);
 	if(!strcmp(name, "init")) {
 		objid_t id;
 		if(objid_parse(value, &id)) {

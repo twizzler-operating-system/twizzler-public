@@ -24,7 +24,7 @@ musl-prep:
 
 MUSL_SRCS=$(shell find us/$(MUSL))
 
-$(BUILDDIR)/us/$(MUSL)/lib/libc.a: $(MUSL_SRCS) $(BUILDDIR)/us/libtwz.a $(MUSL_READY)
+$(BUILDDIR)/us/$(MUSL)/lib/libc.a: $(MUSL_SRCS) $(BUILDDIR)/us/libtwz.a $(BUILDDIR)/us/twix/libtwix.a $(MUSL_READY)
 	@mkdir -p $(BUILDDIR)/us
 	cp -a us/$(MUSL) $(BUILDDIR)/us
 	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL)
