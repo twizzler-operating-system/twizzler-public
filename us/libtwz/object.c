@@ -218,7 +218,107 @@ void *__twz_ptr_lea(struct object *obj, void *p)
 	return (void *)((slot * OBJ_SLOTSIZE) | (uintptr_t)__twz_ptr_local(p));
 }
 
-size_t twz_view_lookupslot(objid_t target, uint64_t flags)
+static inline ssize_t __view_lookup_table(objid_t id)
+{
+	struct __view_repr *vr = twz_slot_to_base(TWZSLOT_CVIEW);
+	if(vr->tblsz == 0) {
+		return -1;
+	}
+	size_t start = id % vr->tblsz;
+	size_t b = start;
+	do {
+		if(vr->table[b].slot == 0) {
+			return -1;
+		} else if(vr->table[b].slot != -1 && vr->table[b].id == id) {
+			return vr->table[b].slot;
+		}
+		b = (b + 1) % vr->tblsz;
+	} while(b != start);
+	return -1;
+}
+
+static inline ssize_t __view_alloc_slot(void)
+{
+	struct __view_repr *vr = twz_slot_to_base(TWZSLOT_CVIEW);
+	for(size_t s=0;s<TWZSLOT_ALLOC_NUM;s++) {
+		if(!(vr->obj_bitmap[s / 8] & (1 << (s % 8)))) {
+			vr->obj_bitmap[s / 8] |= (1 << (s % 8));
+			return s+1;
+		}
+	}
+	return -1;
+}
+
+static inline void __view_insert_table(objid_t id, ssize_t sl);
+static inline void __view_expand_table(void)
+{
+	struct __view_repr *vr = twz_slot_to_base(TWZSLOT_CVIEW);
+	if(vr->tblsz == 0) {
+		vr->tblsz = 64;
+		return;
+	}
+	size_t ns = vr->tblsz * 2;
+	size_t os = vr->tblsz;
+	struct __view_repr_tblent old[vr->tblsz];
+	memcpy(old, vr->table, vr->tblsz * sizeof(old[0]));
+	vr->tblsz = ns;
+	memset(vr->table, 0, ns * sizeof(old[0]));
+	for(size_t i=0;i<os;i++) {
+		__view_insert_table(old[i].id, old[i].slot);
+	}
+}
+
+static inline void __view_insert_table(objid_t id, ssize_t sl)
+{
+	struct __view_repr *vr = twz_slot_to_base(TWZSLOT_CVIEW);
+	if(vr->tblsz == 0) {
+		__view_expand_table();
+	}
+	size_t start = id % vr->tblsz;
+	size_t b = start;
+
+	int count = 0;
+	do {
+		if(vr->table[b].slot == 0 || vr->table[b].slot == -1) {
+			vr->table[b].slot = sl;
+			vr->table[b].id = id;
+			return;
+		}
+		b = (b + 1) % vr->tblsz;
+		if(count++ == 8) {
+			break;
+		}
+	} while(b != start);
+	__view_expand_table();
+	__view_insert_table(id, sl);
+}
+
+ssize_t twz_view_lookupslot(objid_t target, uint64_t flags)
+{
+	int off = 0;
+	off += (flags & FE_WRITE) ? 1 : 0;
+	off += (flags & FE_EXEC)  ? 2 : 0;
+	
+	uint32_t tflags = ((flags & FE_READ) ? VE_READ : 0)
+		| ((flags & FE_WRITE) ? VE_WRITE : 0)
+		| ((flags & FE_EXEC) ? VE_EXEC : 0);
+
+	ssize_t sl = __view_lookup_table(target);
+	if(sl < 0) {
+		sl = __view_alloc_slot();
+		if(sl < 0) {
+			return -TE_NOSPC;
+		}
+		__view_insert_table(target, sl);
+	}
+
+	sl = sl * NUM_SLOTS_PER_OBJECT + off + TWZSLOT_ALLOC_START;
+	twz_view_set(NULL, sl, target, tflags);
+	return sl;
+}
+
+#if 0
+ssize_t twz_view_lookupslot(objid_t target, uint64_t flags)
 {
 	uint32_t tflags = ((flags & FE_READ) ? VE_READ : 0)
 		| ((flags & FE_WRITE) ? VE_WRITE : 0)
@@ -247,7 +347,7 @@ size_t twz_view_lookupslot(objid_t target, uint64_t flags)
 	
 	return -TE_NOSPC;
 }
-
+#endif
 void *__twz_ptr_canon(struct object *o, void *p, int prot)
 {
 	if(twz_ptr_isnull(p)) return p;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdint.h>
 
 #define FAULT_OBJECT_READ  1
 #define FAULT_OBJECT_WRITE 2

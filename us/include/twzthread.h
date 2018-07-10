@@ -11,9 +11,9 @@ struct twzthread {
 };
 
 #define TLS_SIZE   0x200000
-#define STACK_SIZE 0x200000
-#define STACK_BASE SLOT_TO_VIRT(TWZSLOT_THRD)
-#define TLS_BASE (SLOT_TO_VIRT(TWZSLOT_THRD) + STACK_SIZE)
+#define STACK_SIZE ( 0x200000 - OBJ_NULLPAGE_SIZE )
+#define STACK_BASE ({ SLOT_TO_VIRT(TWZSLOT_THRD) + OBJ_NULLPAGE_SIZE; })
+#define TLS_BASE ({ STACK_BASE + STACK_SIZE; })
 
 enum {
 	FAULT_OBJECT,
@@ -88,4 +88,6 @@ static inline int twz_thread_become(objid_t sid, objid_t vid, void *jmp, int fla
 
 void twz_thread_exit(void);
 int twz_thread_wait(struct twzthread *th);
+
+extern struct object stdobj_thrd;
 

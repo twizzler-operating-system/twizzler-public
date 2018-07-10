@@ -84,7 +84,7 @@ struct metavar_bucket {
 
 
 nonce_t twz_generate_nonce(void);
-size_t twz_view_lookupslot(objid_t target, uint64_t flags);
+ssize_t twz_view_lookupslot(objid_t target, uint64_t flags);
 
 static inline void *__twz_object_meta_pointer(struct object *o, size_t off)
 {

@@ -5,14 +5,16 @@
 #include <twzslots.h>
 #include <twzobj.h>
 #include <twzsys.h>
+#include <mutex.h>
 
 #define VE_READ 1
 #define VE_WRITE 2
 #define VE_EXEC 4
 #define VE_VALID 0x80000000
 
-#define MAX_SLOT 0x1fff0
 #define OBJ_SLOTSIZE (1024ul * 1024 * 1024)
+
+#define NUM_SLOTS_PER_OBJECT 4
 
 struct virtentry {
 	objid_t id;
@@ -21,12 +23,28 @@ struct virtentry {
 	uint32_t res1;
 }__attribute__((packed));
 
+struct __view_repr_tblent {
+	objid_t id;
+	ssize_t slot;
+};
+
+struct __view_repr {
+	struct virtentry ves[TWZSLOT_MAX_SLOT];
+	struct mutex lock;
+	uint8_t obj_bitmap[TWZSLOT_MAX_SLOT / (8 * NUM_SLOTS_PER_OBJECT)];
+	size_t tblsz;
+	struct __view_repr_tblent table[];
+};
+
 #define twz_current_viewid() twz_view_virt_to_objid(NULL, twz_slot_to_base(TWZSLOT_CVIEW))
 objid_t twz_view_virt_to_objid(struct object *obj, void *p);
 
 /* TODO: invalidate */
 static inline int twz_view_set(struct object *obj, size_t slot, objid_t target, uint32_t flags)
 {
+	if(slot >= TWZSLOT_MAX_SLOT) {
+		return -TE_INVALID;
+	}
 	struct virtentry *ves = obj
 		? (struct virtentry *)twz_ptr_base(obj)
 		: (struct virtentry *)twz_slot_to_base(TWZSLOT_CVIEW);
@@ -51,6 +69,9 @@ static inline int twz_view_set(struct object *obj, size_t slot, objid_t target, 
 
 static inline int twz_view_tryset(struct object *obj, size_t slot, objid_t target, uint32_t flags)
 {
+	if(slot >= TWZSLOT_MAX_SLOT) {
+		return -TE_INVALID;
+	}
 	struct virtentry *ves = obj
 		? (struct virtentry *)twz_ptr_base(obj)
 		: (struct virtentry *)twz_slot_to_base(TWZSLOT_CVIEW);
@@ -65,6 +86,9 @@ static inline int twz_view_tryset(struct object *obj, size_t slot, objid_t targe
 
 static inline int twz_view_get(struct object *obj, size_t slot, objid_t *target, uint32_t *flags)
 {
+	if(slot >= TWZSLOT_MAX_SLOT) {
+		return -TE_INVALID;
+	}
 	struct virtentry *ves = obj
 		? (struct virtentry *)twz_ptr_base(obj)
 		: (struct virtentry *)twz_slot_to_base(TWZSLOT_CVIEW);
