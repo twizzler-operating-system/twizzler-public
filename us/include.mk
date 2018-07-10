@@ -1,18 +1,9 @@
-TWZOBJS=test.0 bsv test2.0 test2.1
+TWZOBJS=bsv
 MUSL=musl-1.1.16
 
 USFILES=$(addprefix $(BUILDDIR)/us/, $(TWZOBJS) $(addsuffix .meta,$(TWZOBJS)))
 
-USCFLAGS=-static -Wl,-z,max-page-size=0x1000 -Tus/elf.ld -Wall -Os -g
-
-$(BUILDDIR)/us/test: us/test.s us/elf.ld
-	@echo "[AS]  $@"
-	@$(TOOLCHAIN_PREFIX)gcc $(USCFLAGS) $< -o $@ -nostdlib
-
-$(BUILDDIR)/us/test.0.meta: $(BUILDDIR)/us/test
-$(BUILDDIR)/us/test.0: $(BUILDDIR)/us/test
-	@echo "[PE]  $@"
-	@$(TWZUTILSDIR)/postelf/postelf $(BUILDDIR)/us/test
+US_LDFLAGS=-static -Wl,-z,max-page-size=0x1000 -Tus/elf.ld -g
 
 $(BUILDDIR)/us:
 	@mkdir -p $@
@@ -67,19 +58,13 @@ $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_READY)
 
 LIBGCC=$(shell env PATH=$(PATH) $(TOOLCHAIN_PREFIX)gcc -print-libgcc-file-name)
 
-
-$(BUILDDIR)/us/test2: us/test2.c us/elf.ld $(BUILDDIR)/us/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a $(BUILDDIR)/us/twix/libtwix.a
-	@echo "[CC]  $@"
-	@$(TOOLCHAIN_PREFIX)gcc $(USCFLAGS) -o $@ -nostdlib $(MUSL_STATIC_LIBC_PRE) $<  $(BUILDDIR)/us/libtwz.a $(MUSL_STATIC_LIBC) $(BUILDDIR)/us/twix/libtwix.a $(LIBGCC) $(MUSL_STATIC_LIBC_POST) -I us/include $(MUSL_INCL)
-
-$(BUILDDIR)/us/test2.0.meta: $(BUILDDIR)/us/test2
-$(BUILDDIR)/us/test2.0: $(BUILDDIR)/us/test2
-	@echo "[PE]  $@"
-	@$(TWZUTILSDIR)/postelf/postelf $(BUILDDIR)/us/test2
-	@echo "fot:R:0:1:0" | $(TWZUTILSDIR)/objbuild/objbuild -o $(BUILDDIR)/us/test2.0 -a
+US_PRELINK=$(MUSL_STATIC_LIBC_PRE)
+US_POSTLINK=$(BUILDDIR)/us/libtwz.a $(MUSL_STATIC_LIBC) $(BUILDDIR)/us/twix/libtwix.a $(LIBGCC) $(MUSL_STATIC_LIBC_POST)
+US_CFLAGS=-Ius/include $(MUSL_INCL) -Wall -Wextra -O$(CONFIG_OPTIMIZE) -g
+US_LIBDEPS=$(BUILDDIR)/us/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a $(BUILDDIR)/us/twix/libtwix.a us/elf.ld
 
 
-
+include us/init/include.mk
 
 include us/twix/include.mk
 
@@ -89,7 +74,7 @@ include us/twix/include.mk
 
 
 
-INITNAME=test2.0
+INITNAME=init/init.0
 
 $(BUILDDIR)/us/bsv: $(BUILDDIR)/us/$(INITNAME)
 	@id=$$($(TWZUTILSDIR)/objbuild/objstat $(BUILDDIR)/us/$(INITNAME) | grep COID | awk '{print $$3}');\
