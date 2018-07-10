@@ -1,11 +1,13 @@
 #include <processor.h>
 #include <debug.h>
 #include <thread.h>
+#include <clksrc.h>
 
 __noinstrument
 void thread_schedule_resume_proc(struct processor *proc)
 {
 	while(true) {
+		/* TODO (major): allow current thread to run again */
 		spinlock_acquire(&proc->sched_lock);
 		if(current_thread && current_thread->state == THREADSTATE_RUNNING) {
 			list_insert(&proc->runqueue, &current_thread->rq_entry);
@@ -13,7 +15,10 @@ void thread_schedule_resume_proc(struct processor *proc)
 		struct list *ent = list_dequeue(&proc->runqueue);
 		if(ent) {
 			spinlock_release(&proc->sched_lock, 0);
-			arch_thread_resume(list_entry(ent, struct thread, rq_entry));
+			struct thread *next = list_entry(ent, struct thread, rq_entry);
+			next->timeslice = 100000; /* 100 us. TODO (major): make this dynamic */
+			clksrc_set_interrupt_countdown(next->timeslice, false);
+			arch_thread_resume(next);
 		} else {
 			spinlock_release(&proc->sched_lock, 1);
 			/* we're halting here, but the arch_processor_halt function will return
@@ -42,7 +47,7 @@ __noinstrument
 void thread_schedule_resume(void)
 {
 	assert(current_thread != NULL);
-	thread_schedule_resume_proc(current_thread->processor);
+	thread_schedule_resume_proc(current_processor);
 }
 
 void thread_sleep(struct thread *t, int flags, int64_t timeout)

@@ -27,7 +27,7 @@ int main() {
 	twz_thread_spawn(&th, _tt, NULL, NULL, 0);
 	twz_thread_spawn(&th2, _tt, NULL, NULL, 0);
 	for(;;) {
-		//for(volatile int i = 0;i<400000000;i++);
+		for(volatile int i = 0;i<400000000;i++);
 		debug_printf("A");
 	}
 }

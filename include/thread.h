@@ -46,6 +46,7 @@ struct thread {
 	struct arch_thread arch;
 	unsigned long id;
 	enum thread_state state;
+	int64_t timeslice;
 	struct krc refs;
 	
 	struct processor *processor;

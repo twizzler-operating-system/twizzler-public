@@ -153,6 +153,15 @@ static uint64_t wait_ns(int64_t ns)
 	return x / 1193182ul;
 }
 
+#define APIC_TIMER_DIV 1
+
+static void _apic_set_counter(struct clksrc *c __unused, uint64_t val, bool per)
+{
+	lapic_write(LAPIC_LVTT, 32 | (per ? (1 << 17) : 0));
+	lapic_write(LAPIC_TDCR, APIC_TIMER_DIV);
+	lapic_write(LAPIC_TICR, val);
+}
+
 static uint64_t _apic_read_counter(struct clksrc *c __unused)
 {
 	return lapic_read(LAPIC_TCCR);
@@ -177,6 +186,7 @@ static struct clksrc _clksrc_apic = {
 	.name = "APIC Timer",
 	.flags = CLKSRC_INTERRUPT | CLKSRC_ONESHOT | CLKSRC_PERIODIC,
 	.read_counter = _apic_read_counter,
+	.set_timer = _apic_set_counter,
 };
 
 static struct clksrc _clksrc_tsc = {
@@ -313,7 +323,7 @@ static void lapic_configure(int bsp)
     /* finally write to the spurious interrupt register to enable
      * the interrupts */
     lapic_write(LAPIC_SPIV, 0x0100 | 0xFF);
-	int div = 1;
+	int div = APIC_TIMER_DIV;
 	if(bsp)
 		calibrate_timers(div);
 

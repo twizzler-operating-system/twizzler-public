@@ -66,7 +66,7 @@ bool clksrc_set_timer(struct clksrc *cs, uint64_t ns, bool periodic)
 	if(!cs->set_timer) {
 		return false;
 	}
-	cs->set_timer(cs, ns, periodic);
+	cs->set_timer(cs, (ns * 1000) / cs->period_ps, periodic);
 	return true;
 }
 
