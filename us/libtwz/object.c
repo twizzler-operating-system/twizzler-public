@@ -317,37 +317,6 @@ ssize_t twz_view_lookupslot(objid_t target, uint64_t flags)
 	return sl;
 }
 
-#if 0
-ssize_t twz_view_lookupslot(objid_t target, uint64_t flags)
-{
-	uint32_t tflags = ((flags & FE_READ) ? VE_READ : 0)
-		| ((flags & FE_WRITE) ? VE_WRITE : 0)
-		| ((flags & FE_EXEC) ? VE_EXEC : 0);
-	//printf("core_lookupslot: " IDFMT " %lx\n", IDPRT(target), tflags);
-	/* TODO: better algorithm */
-	const int limit = 0x1fff0;
-	for(int i=0x10100;i<limit;i++) {
-		objid_t id;
-		uint32_t fl;
-		twz_view_get(NULL, i, &id, &fl);
-		if((fl & VE_VALID) && id == target && (fl & (VE_READ|VE_WRITE|VE_EXEC)) == tflags) {
-	//		printf("core_lookupslot: found! %ld\n", i);
-			return i;
-		}
-		/*TODO: this is PoC benchmarkign code. remove. */
-		//if(!(fl & VE_VALID) && (flags & FE_DERIVE) && i > 0x10110) {
-		//	return i;
-		//}
-	}
-	for(int i=0x10100;i<limit;i++) {
-		if(twz_view_tryset(NULL, i, target, tflags) == 0) {
-			return i;
-		}
-	}
-	
-	return -TE_NOSPC;
-}
-#endif
 void *__twz_ptr_canon(struct object *o, void *p, int prot)
 {
 	if(twz_ptr_isnull(p)) return p;
