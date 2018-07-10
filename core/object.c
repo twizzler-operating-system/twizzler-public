@@ -263,7 +263,12 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 	size_t idx = (addr % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
 	//printk("OSPACE FAULT: %lx %lx %x\n", ip, addr, flags);
 	if(idx == 0) {
-		panic("NULL PAGE");
+		struct fault_null_info info = {
+			.ip = ip,
+			.addr = addr,
+		};
+		thread_raise_fault(current_thread, FAULT_NULL, &info, sizeof(info));
+		return;
 	}
 	idx -= 1;
 

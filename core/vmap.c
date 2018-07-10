@@ -156,46 +156,56 @@ __initializer static void _init_kso_view(void)
 	kso_register(KSO_VIEW, &_kso_view);
 }
 
+static inline void popul_info(struct fault_object_info *info, int flags,
+		uintptr_t ip, uintptr_t addr, objid_t objid)
+{
+	if(!(flags & FAULT_ERROR_PERM)) {
+		info->flags |= FAULT_OBJECT_NOMAP;
+	}
+	if(flags & FAULT_WRITE) {
+		info->flags |= FAULT_OBJECT_WRITE;
+	} else {
+		info->flags |= FAULT_OBJECT_READ;
+	}
+	if(flags & FAULT_EXEC) {
+		info->flags |= FAULT_OBJECT_EXEC;
+	}
+	info->ip = ip;
+	info->addr = addr;
+	info->objid = objid;
+}
+
 void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 {
 	//printk("Page Fault from %lx: %lx %x\n", ip, addr, flags);
 	if(flags & FAULT_ERROR_PERM) {
-		/* TODO (major): COW here? */
-		panic("page fault addr=%lx flags=%x\n", addr, flags);
+		struct fault_object_info info;
+		popul_info(&info, flags, ip, addr, 0);
+		thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
+		return;
 	}
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
-	struct vmap *map = ihtable_find(current_thread->ctx->maps, slot, struct vmap, elem, slot);
-	/* TODO: check USER */
+	struct vmap *map = ihtable_find(current_thread->ctx->maps, slot,
+			struct vmap, elem, slot);
 	if(!map) {
 		objid_t id;
 		uint64_t flags;
 		if(!lookup_by_slot(slot, &id, &flags)) {
-			struct fault_object_info info = {
-				.ip = ip,
-				.addr = addr,
-			};
-			if(!(flags & FAULT_ERROR_PERM)) {
-				info.flags |= FAULT_OBJECT_NOMAP;
-			}
-			if(flags & FAULT_WRITE) {
-				info.flags |= FAULT_OBJECT_WRITE;
-			} else {
-				info.flags |= FAULT_OBJECT_READ;
-			}
-			if(flags & FAULT_EXEC) {
-				info.flags |= FAULT_OBJECT_EXEC;
-			}
+			struct fault_object_info info;
+			popul_info(&info, flags, ip, addr, 0);
 			thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
 			return;
 		}
 		map = vm_context_map(current_thread->ctx, id, slot,
 				flags & (VE_READ | VE_WRITE | VE_EXEC));
 		if(!map) {
-			panic("object doesn't exist");
+			struct fault_object_info info;
+			popul_info(&info, flags, ip, addr, id);
+			info.flags |= FAULT_OBJECT_EXIST;
+			thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
+			return;
 		}
 	}
-	//printk("mapping virt slot %ld -> obj " PR128FMTd "\n", map->slot, PR128(map->obj->id));
-
 	if(map->obj->slot == -1) {
 		obj_alloc_slot(map->obj);
 	}

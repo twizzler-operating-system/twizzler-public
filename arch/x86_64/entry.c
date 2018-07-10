@@ -79,7 +79,12 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 		x86_64_virtualization_fault(current_processor);
 	} else if(frame->int_no < 32) {
 		if(was_userspace) {
-			/* TODO (urgent): signal thread */
+			struct fault_exception_info info = {
+				.ip = frame->rip,
+				.code = frame->int_no,
+				.arg0 = frame->err_code,
+			};
+			thread_raise_fault(current_thread, FAULT_EXCEPTION, &info, sizeof(info));
 		} else {
 			if(frame->int_no == 3) {
 				printk("[debug]: recv debug interrupt\n");

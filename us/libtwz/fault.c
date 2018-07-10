@@ -127,6 +127,7 @@ static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
 		__fault_obj_default(fault, _info);
 	}
 	if((fault >= NUM_FAULTS || !_fault_table[fault].fn) && fault != FAULT_OBJECT) {
+		debug_printf("Unhandled exception: %d", fault);
 		twz_thread_exit();
 	}
 	if(_fault_table[fault].fn) {

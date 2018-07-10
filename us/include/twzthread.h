@@ -18,6 +18,7 @@ struct twzthread {
 enum {
 	FAULT_OBJECT,
 	FAULT_NULL,
+	FAULT_EXCEPTION,
 	NUM_FAULTS,
 };
 
