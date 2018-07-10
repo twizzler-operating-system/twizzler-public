@@ -6,7 +6,6 @@
 #define TWZSLOT_THRD       0x10000ul
 
 #define TWZSLOT_CVIEW      0x1fff0ul
-#define TWZSLOT_VCACHE     0x1fff1ul
 #define TWZSLOT_FILES_BASE 0x1f000ul
 #define TWZSLOT_STDIN      0x1f000ul
 #define TWZSLOT_STDOUT     0x1f001ul

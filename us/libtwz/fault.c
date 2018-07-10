@@ -84,13 +84,6 @@ int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source __unused)
 
 	size_t slot = (addr / OBJ_SLOTSIZE) - 1;
 	if(slot >= TWZSLOT_ALLOC_START) {
-		struct fotentry _fot_derive_rw = {
-			.id = 0, .flags = FE_READ | FE_WRITE | FE_DERIVE
-		};
-		switch(slot+1) {
-			case TWZSLOT_VCACHE:
-				return twz_map_fot_entry(slot+1, &_fot_derive_rw);
-		}
 		debug_printf("Fault in allocatable object space (%lx)\n", slot+1);
 		return TE_FAILURE;
 	}
