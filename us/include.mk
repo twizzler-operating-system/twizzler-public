@@ -66,12 +66,11 @@ US_LIBDEPS=$(BUILDDIR)/us/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a $(BUILDDIR)
 
 include us/init/include.mk
 
+include us/term/include.mk
+
+include us/shell/include.mk
+
 include us/twix/include.mk
-
-
-
-
-
 
 
 INITNAME=init/init.0
