@@ -63,6 +63,11 @@ int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source __unused)
 		return TE_FAILURE;
 	}
 
+	if(cause & FAULT_OBJECT_EXIST) {
+		debug_printf("object no exist\n");
+		return TE_FAILURE;
+	}
+
 	uint32_t obj0flags;
 	objid_t obj0id;
 	twz_view_get(NULL, 0, &obj0id, &obj0flags);
@@ -108,13 +113,11 @@ int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source __unused)
 	return twz_map_fot_entry(slot+1, &fot[slot]);
 }
 
-static void __fault_obj_default(int f __unused, void *_info)
+static int __fault_obj_default(int f __unused, void *_info)
 {
 	struct fault_object_info *info = _info;
 	debug_printf("FAULT :: %d %lx %lx %lx", fault, info->ip, info->addr, info->flags);
-	if(twz_handle_fault(info->addr, info->flags, info->ip) == TE_FAILURE) {
-		twz_thread_exit();
-	}
+	return twz_handle_fault(info->addr, info->flags, info->ip);
 }
 
 static struct {
@@ -124,7 +127,9 @@ static struct {
 static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
 {
 	if(fault == FAULT_OBJECT) {
-		__fault_obj_default(fault, _info);
+		if(__fault_obj_default(fault, _info) == TE_FAILURE && !_fault_table[fault].fn) {
+			twz_thread_exit();
+		}
 	}
 	if((fault >= NUM_FAULTS || !_fault_table[fault].fn) && fault != FAULT_OBJECT) {
 		debug_printf("Unhandled exception: %d", fault);
