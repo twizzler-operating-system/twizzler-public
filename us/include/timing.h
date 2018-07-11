@@ -1,3 +1,6 @@
+#pragma once
+
+#if 0
 struct timespec {
 	uint64_t tv_sec;		/* seconds */
 	long	 tv_nsec;	/* and nanoseconds */
@@ -20,4 +23,6 @@ static inline int fbsd_clock_gettime(long id, struct timespec *p)
 {
 	return __syscall6(SYS_clock_gettime, id, (long)p, 0, 0, 0, 0);
 }
+#endif
 
+#error "TODO: implement this header"

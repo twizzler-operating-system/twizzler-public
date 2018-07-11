@@ -43,7 +43,7 @@ MUSL_STATIC_LIBC_POST=$(BUILDDIR)/us/$(MUSL)/lib/crtn.o
 
 #libtwz
 
-LIBTWZ_SRC=$(addprefix us/libtwz/,notify.c bstream.c mutex.c twzio.c viewcall.c twzlog.c name.c corecall.c debug.c object.c blake2.c secctx.c thread.c fault.c)
+LIBTWZ_SRC=$(addprefix us/libtwz/,notify.c bstream.c mutex.c twzio.c viewcall.c twzlog.c name.c corecall.c debug.c object.c blake2.c secctx.c thread.c fault.c kv.c)
 LIBTWZ_OBJ=$(addprefix $(BUILDDIR)/,$(LIBTWZ_SRC:.c=.o))
 
 $(BUILDDIR)/us/libtwz.a: $(LIBTWZ_OBJ)
