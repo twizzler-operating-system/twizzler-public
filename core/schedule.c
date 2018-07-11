@@ -94,6 +94,10 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 	//printk(":: FAULT: %p\n", fi.addr);
 	if(fi.addr) {
 		arch_thread_raise_call(t, fi.addr, fault, info, infolen);
+	} else {
+		printk("unhandled fault\n");
+		/* TODO (major): raise unhandled fault exception? */
+		thread_exit();
 	}
 }
 
