@@ -17,14 +17,7 @@
 #define fprintf(x, ...) \
 	debug_printf(__VA_ARGS__)
 
-
-#define DATAOBJ_SLOT 4
-#define INDEXOBJ_SLOT 3
-
 #include <twzkv.h>
-
-struct object dataobj = TWZ_OBJECT_INIT(DATAOBJ_SLOT);
-struct object indexobj = TWZ_OBJECT_INIT(INDEXOBJ_SLOT);
 
 static const size_t g_a_sizes[] =
 {
@@ -62,10 +55,6 @@ static const size_t g_a_sizes[] =
 
 #define NUMSLOTS 8
 
-#define SWIZ 1
-#define WARMUP 1
-#define BIG 1
-
 struct slot {
 	struct twzkv_item key[NUMSLOTS];
 	struct twzkv_item value[NUMSLOTS];
@@ -91,60 +80,49 @@ static size_t __hash(struct twzkv_item *key, struct indexheader *ih)
 		hash *= 1099511628211ull;
 		hash ^= *str++;
 	}
-	//fprintf(stderr, ":: %d -> %ld\n", *(int *)key->data, hash % g_a_sizes[ih->szidx]);
 	return hash % g_a_sizes[ih->szidx];
 }
 
-static bool compare(struct twzkv_item *k1, struct twzkv_item *k2, bool sk1, bool sk2)
+static bool compare(struct object *index, struct twzkv_item *k1,
+		struct twzkv_item *k2, bool sk1, bool sk2)
 {
 	void *d1 = k1->data;
 	void *d2 = k2->data;
-	if(sk1) d1 = twz_ptr_lea(&indexobj, d1);
-	if(sk2) d2 = twz_ptr_lea(&indexobj, d2);
+	if(sk1) d1 = twz_ptr_lea(index, d1);
+	if(sk2) d2 = twz_ptr_lea(index, d2);
 	return k1->length == k2->length && !memcmp(d1, d2, k1->length);
 }
 
-#define INDEX_TO_DATA 1
-
-void twzkv_init_database(void)
+int twzkv_create_index(struct object *index)
 {
-	twz_object_new(&dataobj, NULL, 0, 0, TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE);
-	twz_object_new(&indexobj, NULL, 0, 0, TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE);
-
-	struct indexheader *ih = twz_ptr_base(&indexobj);
-#if BIG
-	ih->szidx = 18;
-#else
+	int ret = twz_object_new(index, NULL, 0, 0, TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE);
+	if(ret) return ret;
+	struct indexheader *ih = twz_ptr_base(index);
 	ih->szidx = 2;
-#endif
 	ih->slots = (void *)twz_ptr_local(ih+1);
-	struct dataheader *dh = twz_ptr_base(&dataobj);
-	dh->end = twz_ptr_local(dh+1);
-	size_t fe = INDEX_TO_DATA;
-	twz_object_fot_add_object(&indexobj, &dataobj, &fe, FE_READ | FE_WRITE);
-	
-#if WARMUP
-	struct slot *table = twz_ptr_lea(&indexobj, ih->slots);
-	memset(table, 0, g_a_sizes[ih->szidx] * sizeof(struct slot));
-	void *data = twz_ptr_lea(&dataobj, dh->end);
-	memset(data, 0, 0x100000);
-#endif
+	return 0;
 }
 
-static int _ht_lookup(struct indexheader *ih, struct twzkv_item *key, struct twzkv_item *value)
+int twzkv_create_data(struct object *data)
+{
+	int ret = twz_object_new(data, NULL, 0, 0, TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE);
+	if(ret) return ret;
+	struct dataheader *dh = twz_ptr_base(data);
+	dh->end = twz_ptr_local(dh+1);
+	return 0;
+}
+
+static int _ht_lookup(struct object *index, struct indexheader *ih,
+		struct twzkv_item *key, struct twzkv_item *value)
 {
 	size_t b = __hash(key, ih);
-	struct slot *table = twz_ptr_lea(&indexobj, ih->slots);
+	struct slot *table = twz_ptr_lea(index, ih->slots);
 	for(int i=0;i<NUMSLOTS;i++) {
 		if(table[b].key[i].data) {
-			if(compare(key, &table[b].key[i], false, !!SWIZ)) {
+			if(compare(index, key, &table[b].key[i], false, true)) {
 				if(value) {
-#if SWIZ
 					value->length = table[b].value[i].length;
-					value->data = twz_ptr_rebase(VIRT_TO_SLOT(dataobj.base), table[b].value[i].data);
-#else
-					*value = table[b].value[i];
-#endif
+					value->data = twz_ptr_lea(index, table[b].value[i].data);
 				}
 				return 0;
 			}
@@ -153,11 +131,12 @@ static int _ht_lookup(struct indexheader *ih, struct twzkv_item *key, struct twz
 	return -1;
 }
 
-static int _ht_insert(struct indexheader *ih, struct twzkv_item *key, struct twzkv_item *value);
-static void _ht_rehash(struct indexheader *ih)
+static int _ht_insert(struct object *index, ssize_t, struct indexheader *ih,
+		struct twzkv_item *key, struct twzkv_item *value);
+static void _ht_rehash(struct object *index, struct indexheader *ih, ssize_t idx_to_data)
 {
-	fprintf(stderr, "REHASH %2.2f -> %ld\n", (float)ih->count / (g_a_sizes[ih->szidx] * NUMSLOTS), g_a_sizes[ih->szidx+1]);
-	struct slot *table = twz_ptr_lea(&indexobj, ih->slots);
+	/* TODO (perf): this is slow */
+	struct slot *table = twz_ptr_lea(index, ih->slots);
 	struct slot *backup = calloc(g_a_sizes[ih->szidx], sizeof(struct slot));
 	memcpy(backup, table, g_a_sizes[ih->szidx] * sizeof(struct slot));
 
@@ -167,62 +146,64 @@ static void _ht_rehash(struct indexheader *ih)
 	uint64_t count = ih->count;
 	for(size_t b=0;b<g_a_sizes[oldsi];b++) {
 		for(int i=0;i<NUMSLOTS;i++) {
-			_ht_insert(ih, &backup[b].key[i], &backup[b].value[i]);
+			_ht_insert(index, idx_to_data, ih, &backup[b].key[i], &backup[b].value[i]);
 		}
 	}
 	ih->count = count;
 }
 
-
-static int _ht_insert(struct indexheader *ih, struct twzkv_item *key, struct twzkv_item *value)
+static int _ht_insert(struct object *index, ssize_t idx_to_data, struct indexheader *ih,
+		struct twzkv_item *key, struct twzkv_item *value)
 {
 	size_t b = __hash(key, ih);
-	struct slot *table = twz_ptr_lea(&indexobj, ih->slots);
+	struct slot *table = twz_ptr_lea(index, ih->slots);
 	for(int i=0;i<NUMSLOTS;i++) {
 		if(table[b].key[i].data == NULL) {
-#if SWIZ
 			table[b].key[i].length = key->length;
-			table[b].key[i].data = twz_ptr_rebase(INDEX_TO_DATA, key->data);
 			table[b].value[i].length = value->length;
-			table[b].value[i].data = twz_ptr_rebase(INDEX_TO_DATA, value->data);
-#else
-			table[b].key[i] = *key;
-			table[b].value[i] = *value;
-#endif
+			if(idx_to_data > 0) {
+				table[b].key[i].data = twz_ptr_rebase(idx_to_data, key->data);
+				table[b].value[i].data = twz_ptr_rebase(idx_to_data, value->data);
+			} else {
+				table[b].key[i].data = twz_ptr_canon(index, key->data, FE_READ);
+				table[b].value[i].data = twz_ptr_canon(index, value->data, FE_READ);
+			}
+
 			ih->count++;
 			return 0;
 		}
 	}
-	_ht_rehash(ih);
-	return _ht_insert(ih, key, value);
+	_ht_rehash(index, ih, idx_to_data);
+	return _ht_insert(index, idx_to_data, ih, key, value);
 }
 
-static void copyin(struct twzkv_item *item, struct twzkv_item *ret)
+static void copyin(struct object *dataobj, struct twzkv_item *item, struct twzkv_item *ret)
 {
-	struct dataheader *dh = twz_ptr_base(&dataobj);
+	struct dataheader *dh = twz_ptr_base(dataobj);
 	void *data = dh->end;
 	dh->end = (void *)((uintptr_t)dh->end + item->length);
-	void *__data = twz_ptr_lea(&dataobj, data);
+	void *__data = twz_ptr_lea(dataobj, data);
 	memcpy(__data, item->data, item->length);
-	ret->data = twz_make_canon_ptr(VIRT_TO_SLOT(dataobj.base), (uintptr_t)data);
+	ret->data = twz_make_canon_ptr(VIRT_TO_SLOT(dataobj->base), (uintptr_t)data);
 	ret->length = item->length;
 }
 
-int twzkv_put(struct twzkv_item *key, struct twzkv_item *value)
+int twzkv_put(struct object *index, struct object *data,
+		struct twzkv_item *key, struct twzkv_item *value)
 {
-	if(twzkv_get(key, NULL) == 0) return -1;
+	if(twzkv_get(index, key, NULL) == 0) return -1;
 	
-	struct indexheader *ih = twz_ptr_base(&indexobj);
+	struct indexheader *ih = twz_ptr_base(index);
 	struct twzkv_item ik, iv;
-	copyin(key, &ik);
-	copyin(value, &iv);
+	copyin(data, key, &ik);
+	copyin(data, value, &iv);
 
-	return _ht_insert(ih, &ik, &iv);
+	return _ht_insert(index, 0, ih, &ik, &iv);
 }
 
-int twzkv_get(struct twzkv_item *key, struct twzkv_item *value)
+int twzkv_get(struct object *index, struct twzkv_item *key, struct twzkv_item *value)
 {
-	struct indexheader *ih = twz_ptr_base(&indexobj);
-	return _ht_lookup(ih, key, value);
+	struct indexheader *ih = twz_ptr_base(index);
+	return _ht_lookup(index, ih, key, value);
 }
 

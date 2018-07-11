@@ -5,7 +5,10 @@ struct twzkv_item {
 	size_t length;
 };
 
-int twzkv_get(struct twzkv_item *key, struct twzkv_item *value);
-int twzkv_put(struct twzkv_item *key, struct twzkv_item *value);
-void twzkv_init_database(void);
+struct object;
+int twzkv_get(struct object *index, struct twzkv_item *key, struct twzkv_item *value);
+int twzkv_put(struct object *index, struct object *data,
+		struct twzkv_item *key, struct twzkv_item *value);
+int twzkv_create_index(struct object *index);
+int twzkv_create_data(struct object *data);
 
