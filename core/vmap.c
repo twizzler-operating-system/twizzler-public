@@ -159,6 +159,7 @@ __initializer static void _init_kso_view(void)
 static inline void popul_info(struct fault_object_info *info, int flags,
 		uintptr_t ip, uintptr_t addr, objid_t objid)
 {
+	memset(info, 0, sizeof(*info));
 	if(!(flags & FAULT_ERROR_PERM)) {
 		info->flags |= FAULT_OBJECT_NOMAP;
 	}

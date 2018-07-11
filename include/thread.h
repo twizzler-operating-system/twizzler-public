@@ -43,18 +43,18 @@ struct fault_object_info {
 	uint64_t addr;
 	uint64_t flags;
 	uint64_t pad;
-};
+} __packed;
 
 struct fault_null_info {
 	uint64_t ip;
 	uint64_t addr;
-};
+} __packed;
 
 struct fault_exception_info {
 	uint64_t ip;
 	uint64_t code;
 	uint64_t arg0;
-};
+} __packed;
 
 struct thread {
 	struct arch_thread arch;
