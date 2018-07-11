@@ -5,78 +5,49 @@
 #include <string.h>
 #include <stdio.h>
 
-static int assign_name(objid_t id __unused, const char *name __unused)
+#include <twzkv.h>
+
+static struct object name_index, name_data;
+
+#include <debug.h>
+static __attribute__((constructor)) void __init_name(void)
 {
-#if 0
-	char target[128];
-	char ln[128];
-	snprintf(target, 128, "../id/%16.16lx:%16.16lx",
-			(uint64_t)(id >> 64), (uint64_t)id);
-	snprintf(ln, 128, "name/%s", name);
-	if(fbsd_symlink(target, ln) < 0) {
-		return -1;
-	}
-#endif
-	return 0;
 }
 
-static objid_t resolve_name(const char *name __unused)
+static int assign_name(struct object *index, struct object *data,
+		objid_t id, const char *name)
 {
-#if 0
-	static const int rev[] = {
-		['0'] = 0,
-		['1'] = 1,
-		['2'] = 2,
-		['3'] = 3,
-		['4'] = 4,
-		['5'] = 5,
-		['6'] = 6,
-		['7'] = 7,
-		['8'] = 8,
-		['9'] = 9,
-		['a'] = 0xa,
-		['b'] = 0xb,
-		['c'] = 0xc,
-		['d'] = 0xd,
-		['e'] = 0xe,
-		['f'] = 0xf,
+	struct twzkv_item key = {
+		.data = (char *)name,
+		.length = strlen(name),
 	};
-	char tmp[128];
-	memset(tmp, 0, 128);
-	char path[128];
-	snprintf(path, 128, "name/%s", name);
-	if(fbsd_readlink(path, tmp, sizeof(tmp)) < 0) {
-		//printf("Name %s cannot be resolved\n", name);
+	struct twzkv_item value = {
+		.data = &id,
+		.length = sizeof(id),
+	};
+
+	return twzkv_put(index, data, &key, &value);
+}
+
+static objid_t resolve_name(struct object *index, const char *name)
+{
+	struct twzkv_item key = {
+		.data = (char *)name,
+		.length = strlen(name),
+	};
+	struct twzkv_item value;
+
+	if(twzkv_get(index, &key, &value)) {
 		return 0;
 	}
-	char *ptr = tmp + 6;
-	int shift = 128;
-	objid_t ret = 0;
-	while(*ptr) {
-		if((*ptr >= '0' && *ptr <= '9')
-				|| (*ptr >= 'a' && *ptr <= 'f')) {
-			unsigned __int128 val = rev[(int)*ptr];
-			shift -= 4;
-			ret |= val << shift;
-		}
-		ptr++;
-	}
-	if(shift) {
-		//printf("Resolving name %s has invalid target (%d)\n", name, shift);
-		return 0;
-	}
-	//printf("Resolved name %s to %16.16lx:%16.16lx\n", name,
-	//		(uint64_t)(ret >> 64), (uint64_t)ret);
-	return ret;
-#endif
-	return 0;
+	return *(objid_t *)value.data;
 }
 
 objid_t twz_name_resolve(struct object *o, const char *name, uint64_t resolver)
 {
 	if(resolver != NAME_RESOLVER_DEFAULT)
 		return 0;
-	objid_t id = resolve_name(name);
+	objid_t id = resolve_name(&name_index, name);
 	if(id == 0) {
 		return 0;
 	}
@@ -90,6 +61,6 @@ int twz_name_assign(objid_t id, const char *name, uint64_t resolver)
 {
 	if(resolver != NAME_RESOLVER_DEFAULT)
 		return -TE_NOTSUP;
-	return assign_name(id, name);
+	return assign_name(&name_index, &name_data, id, name);
 }
 

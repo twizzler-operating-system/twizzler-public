@@ -116,7 +116,7 @@ int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source __unused)
 static int __fault_obj_default(int f __unused, void *_info)
 {
 	struct fault_object_info *info = _info;
-	debug_printf("FAULT :: %d %lx %lx %lx", fault, info->ip, info->addr, info->flags);
+	debug_printf("FAULT :: %lx %lx %lx " IDFMT, info->ip, info->addr, info->flags, IDPR(info->objid));
 	return twz_handle_fault(info->addr, info->flags, info->ip);
 }
 
