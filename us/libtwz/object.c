@@ -426,3 +426,37 @@ int twz_view_blank(struct object *obj)
 	return 0;
 }
 
+bool twz_objid_parse(const char *name, objid_t *id)
+{
+	int i;
+	*id = 0;
+	int shift = 128;
+
+	for(i=0;i<33;i++) {
+		char c = *(name + i);
+		if(c == ':' && i == 16) {
+			continue;
+		}
+		if(!((c >= '0' && c <= '9')
+					|| (c >= 'a' && c <= 'f')
+					|| (c >= 'A' && c <= 'F'))) {
+			break;
+		}
+		if(c >= 'A' && c <= 'F') {
+			c += 'a' - 'A';
+		}
+
+		objid_t this = 0;
+		if(c >= 'a' && c <= 'f') {
+			this = c - 'a' + 0xa;
+		} else {
+			this = c - '0';
+		}
+
+		shift -= 4;
+		*id |= this << shift;
+	}
+	/* finished parsing? */
+	return i == 33;
+}
+

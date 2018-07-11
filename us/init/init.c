@@ -2,6 +2,8 @@
 
 #include <twzkv.h>
 #include <twzobj.h>
+#include <twzthread.h>
+#include <twzname.h>
 
 static __inline__ unsigned long long rdtsc(void)
 {
@@ -10,10 +12,79 @@ static __inline__ unsigned long long rdtsc(void)
   return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
 }
 
+static size_t readl(char *data, size_t dlen, char *buf, size_t blen)
+{
+	if(dlen == 0 || blen == 0) return 0;
+	char *nl = strchr(data, '\n');
+	if(!nl) nl = data + dlen;
+	size_t len = nl - data;
+	if(len > blen) len = blen;
+	strncpy(buf, data, len);
+
+	return len;
+}
+
+void name_prepare(void)
+{
+	struct object kc;
+	if(twz_object_open(&kc, 1, FE_READ) < 0) {
+		return;
+	}
+
+	char *kcdata = twz_ptr_base(&kc);
+	char *r = strstr(kcdata, "name=");
+	if(!r) {
+		return;
+	}
+
+	char *idstr = r + 5;
+	objid_t id = 0;
+	if(!twz_objid_parse(idstr, &id)) {
+		return;
+	}
+
+	struct object name_index;
+	twz_object_open(&name_index, id, FE_READ | FE_WRITE);
+	char *_namedata = twz_ptr_base(&name_index);
+	char namedata[strlen(_namedata)+1];
+	memcpy(namedata, _namedata, sizeof(namedata));
+	memset(_namedata, 0, sizeof(namedata));
+
+	twzkv_init_index(&name_index);
+
+	size_t len = strlen(namedata);
+	char *tmp = namedata;
+	char buf[128];
+	size_t tl;
+	while((tl=readl(tmp, len, buf, sizeof(buf))) > 0) {
+		if(tl == sizeof(buf)) {
+			debug_printf("Increase buffer size");
+			twz_thread_exit();
+		}
+		char *e = strchr(buf, '=');
+		if(e) {
+			*e++ = 0;
+			objid_t id;
+			if(twz_objid_parse(e, &id)) {
+				debug_printf("Found name %s -> " IDFMT, buf, IDPR(id));
+				twz_name_assign(id, buf, NAME_RESOLVER_DEFAULT);
+			}
+		}
+
+		tl++;
+		len -= tl;
+		tmp += tl;
+	}
+
+}
+
 int main()
 {
 	debug_printf("init - starting\n");
+	name_prepare();
 
+	objid_t sid = twz_name_resolve(NULL, "shell/shell.0", NAME_RESOLVER_DEFAULT);
+	debug_printf("SHELL: " IDFMT, IDPR(sid));
 	struct twzkv_item k = {
 		.data = "foo",
 		.length = 3,

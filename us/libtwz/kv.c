@@ -93,13 +93,24 @@ static bool compare(struct object *index, struct twzkv_item *k1,
 	return k1->length == k2->length && !memcmp(d1, d2, k1->length);
 }
 
+void twzkv_init_index(struct object *index)
+{
+	struct indexheader *ih = twz_ptr_base(index);
+	ih->szidx = 2;
+	ih->slots = (void *)twz_ptr_local(ih+1);
+}
+
+void twzkv_init_data(struct object *data)
+{
+	struct dataheader *dh = twz_ptr_base(data);
+	dh->end = twz_ptr_local(dh+1);
+}
+
 int twzkv_create_index(struct object *index)
 {
 	int ret = twz_object_new(index, NULL, 0, 0, TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE);
 	if(ret) return ret;
-	struct indexheader *ih = twz_ptr_base(index);
-	ih->szidx = 2;
-	ih->slots = (void *)twz_ptr_local(ih+1);
+	twzkv_init_index(index);
 	return 0;
 }
 
@@ -107,10 +118,10 @@ int twzkv_create_data(struct object *data)
 {
 	int ret = twz_object_new(data, NULL, 0, 0, TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE);
 	if(ret) return ret;
-	struct dataheader *dh = twz_ptr_base(data);
-	dh->end = twz_ptr_local(dh+1);
+	twzkv_init_data(data);
 	return 0;
 }
+
 
 static int _ht_lookup(struct object *index, struct indexheader *ih,
 		struct twzkv_item *key, struct twzkv_item *value)

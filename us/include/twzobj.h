@@ -360,3 +360,5 @@ int twz_object_fot_add_object(struct object *obj, struct object *target, size_t 
 
 objid_t twz_object_getid(struct object *o);
 
+
+bool twz_objid_parse(const char *name, objid_t *id);
