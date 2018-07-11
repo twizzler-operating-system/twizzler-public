@@ -37,7 +37,8 @@ $(BUILDDIR)/us/$(MUSL)/include/string.h:
 
 MUSL_READY=$(BUILDDIR)/us/$(MUSL)/include/string.h
 
-MUSL_STATIC_LIBC_PRE=$(addprefix $(BUILDDIR)/us/$(MUSL)/lib/,crti.o crt1.o)
+MUSL_STATIC_LIBC_PRE_i=$(BUILDDIR)/us/$(MUSL)/lib/crti.o
+MUSL_STATIC_LIBC_PRE_1=$(BUILDDIR)/us/$(MUSL)/lib/crt1.o
 MUSL_STATIC_LIBC=$(BUILDDIR)/us/$(MUSL)/lib/libc.a
 MUSL_STATIC_LIBC_POST=$(BUILDDIR)/us/$(MUSL)/lib/crtn.o
 
@@ -57,9 +58,11 @@ $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_READY)
 
 
 LIBGCC=$(shell env PATH=$(PATH) $(TOOLCHAIN_PREFIX)gcc -print-libgcc-file-name)
+CRTEND=$(shell env PATH=$(PATH) $(TOOLCHAIN_PREFIX)gcc -print-file-name=crtend.o)
+CRTBEGIN=$(shell env PATH=$(PATH) $(TOOLCHAIN_PREFIX)gcc -print-file-name=crtbegin.o)
 
-US_PRELINK=$(MUSL_STATIC_LIBC_PRE)
-US_POSTLINK=$(BUILDDIR)/us/libtwz.a $(MUSL_STATIC_LIBC) $(BUILDDIR)/us/twix/libtwix.a $(LIBGCC) $(MUSL_STATIC_LIBC_POST)
+US_PRELINK=$(MUSL_STATIC_LIBC_PRE_i) $(CRTBEGIN) $(MUSL_STATIC_LIBC_PRE_1)
+US_POSTLINK=$(BUILDDIR)/us/libtwz.a $(MUSL_STATIC_LIBC) $(BUILDDIR)/us/twix/libtwix.a $(LIBGCC) $(CRTEND) $(MUSL_STATIC_LIBC_POST)
 US_CFLAGS=-Ius/include $(MUSL_INCL) -Wall -Wextra -O$(CONFIG_OPTIMIZE) -g
 US_LIBDEPS=$(BUILDDIR)/us/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a $(BUILDDIR)/us/twix/libtwix.a us/elf.ld
 
