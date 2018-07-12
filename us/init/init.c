@@ -79,6 +79,8 @@ void name_prepare(void)
 }
 
 #include <stdio.h>
+
+#include <unistd.h>
 int main()
 {
 	debug_printf("init - starting\n");
@@ -87,6 +89,15 @@ int main()
 	objid_t sid = twz_name_resolve(NULL, "shell/shell.0", NAME_RESOLVER_DEFAULT);
 	debug_printf("SHELL: " IDFMT, IDPR(sid));
 
+	objid_t oid;
+	twz_object_new(NULL, &oid, 0, 0, 0);
+	twz_view_set(NULL, TWZSLOT_FILES_BASE + 1, oid, VE_READ | VE_WRITE);
+
+	ssize_t r = pwrite(1, "Hello!", 6, 0);
+	debug_printf("pwrite -> %ld\n", r);
+	char buf[8] = {0};
+	r = pread(1, buf, 6, 0);
+	debug_printf("pread -> %ld: %s\n", r, buf);
 
 	printf("Hello, World (using printf)!\n");
 
@@ -116,7 +127,7 @@ int main()
 		return 1;
 	}
 
-	int r = twzkv_put(&index, &data, &k, &v);
+	r = twzkv_put(&index, &data, &k, &v);
 	debug_printf("put: %d\n", r);
 	uint64_t start = rdtsc();
 	int i;

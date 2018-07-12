@@ -28,6 +28,10 @@ struct twix_register_frame {
 #include <twzview.h>
 #include <twzio.h>
 
+#define LINUX_SYS_read              0
+#define LINUX_SYS_write             1
+#define LINUX_SYS_pread            17
+#define LINUX_SYS_pwrite           18
 #define LINUX_SYS_readv            19
 #define LINUX_SYS_writev           20
 
@@ -195,6 +199,30 @@ long linux_sys_writev(int fd, const struct iovec *iov, int iovcnt)
 	return linux_sys_pwritev2(fd, iov, iovcnt, -1, 0);
 }
 
+long linux_sys_pread(int fd, void *buf, size_t count, size_t off)
+{
+	struct iovec v = { .base = buf, .len = count };
+	return linux_sys_preadv(fd, &v, 1, off);
+}
+
+long linux_sys_pwrite(int fd, const void *buf, size_t count, size_t off)
+{
+	struct iovec v = { .base = (void *)buf, .len = count };
+	return linux_sys_pwritev(fd, &v, 1, off);
+}
+
+long linux_sys_read(int fd, void *buf, size_t count)
+{
+	struct iovec v = { .base = buf, .len = count };
+	return linux_sys_preadv(fd, &v, 1, -1);
+}
+
+long linux_sys_write(int fd, void *buf, size_t count)
+{
+	struct iovec v = { .base = (void *)buf, .len = count };
+	return linux_sys_pwritev(fd, &v, 1, -1);
+}
+
 long linux_sys_set_tid_address()
 {
 	/* TODO: NI */
@@ -210,6 +238,10 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_preadv2] = linux_sys_preadv2,
 	[LINUX_SYS_preadv] = linux_sys_preadv,
 	[LINUX_SYS_readv] = linux_sys_readv,
+	[LINUX_SYS_pread] = linux_sys_pread,
+	[LINUX_SYS_pwrite] = linux_sys_pwrite,
+	[LINUX_SYS_read] = linux_sys_read,
+	[LINUX_SYS_write] = linux_sys_write,
 };
 
 static size_t stlen = sizeof(syscall_table) / sizeof(syscall_table[0]);
