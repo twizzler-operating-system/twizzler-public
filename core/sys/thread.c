@@ -95,6 +95,7 @@ long syscall_become(uint64_t sclo, uint64_t schi, struct arch_syscall_become_arg
 			return -1;
 		}
 		vm_setview(current_thread, target_view);
+		arch_mm_switch_context(current_thread->ctx);
 		obj_put(target_view);
 	}
 	arch_thread_become(&ba);

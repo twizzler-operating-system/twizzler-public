@@ -6,6 +6,7 @@
 
 static void _input_thrd(void *arg)
 {
+	debug_printf("term input - starting");
 	for(;;) {
 
 	}
@@ -19,6 +20,8 @@ int main()
 		debug_printf("Failed to spawn input thread");
 		return 1;
 	}
+
+	twz_thread_ready();
 	for(;;);
 }
 

@@ -9,21 +9,22 @@ struct twzthread {
 	objid_t repr;
 	unsigned int flags;
 };
+
 enum {
 	FAULT_OBJECT,
 	FAULT_NULL,
 	FAULT_EXCEPTION,
 	NUM_FAULTS,
 };
+
 struct faultinfo {
 	objid_t view;
 	void *addr;
 	uint64_t flags;
 } __packed;
 
-
-
 #define STACK_SIZE ( 0x200000 - OBJ_NULLPAGE_SIZE )
+
 struct twzthread_repr {
 	union {
 		struct {
@@ -35,7 +36,7 @@ struct twzthread_repr {
 	};
 	unsigned char stack[STACK_SIZE];
 	unsigned char tls[STACK_SIZE];
-	_Atomic int state;
+	_Atomic int state, ready;
 };
 
 #define TLS_SIZE   0x200000
@@ -70,6 +71,7 @@ static inline int twz_thread_spawn(struct twzthread *t,
 	struct twzthread_repr *reprstruct = thrd.base;
 	struct twzthread_repr *my_reprstruct = stdobj_thrd.base;
 	reprstruct->state = 0;
+	reprstruct->ready = 0;
 
 	memcpy(reprstruct->thread_kso_data.faults, my_reprstruct->thread_kso_data.faults,
 			sizeof(struct faultinfo) * NUM_FAULTS);

@@ -83,14 +83,24 @@ void name_prepare(void)
 static void _thrd_exec(void *arg)
 {
 	objid_t *ei = __twz_ptr_lea(&stdobj_thrd, arg);
-	debug_printf("Got here");
-
 	twz_exec(*ei, 0);
 }
 
 #include <stdio.h>
 
 #include <unistd.h>
+
+
+void map_io(const char *name, size_t slot)
+{
+	objid_t id = twz_name_resolve(NULL, name, NAME_RESOLVER_DEFAULT);
+	if(id == 0) {
+		debug_printf("Failed to map %s", name);
+		return;
+	}
+	twz_view_set(NULL, slot, id, VE_READ | VE_WRITE);
+}
+
 int main()
 {
 	debug_printf("init - starting\n");
@@ -119,15 +129,30 @@ int main()
 			debug_printf("Failed to spawn term thread");
 			return 1;
 		}
+		debug_printf("WAITING FOR READY");
+		twz_thread_wait_ready(&termthrd);
+		debug_printf("WAITING FOR READY: ok");
 	} else {
 		debug_printf("Failed to spawn term");
+		return 1;
 	}
 
 
+	map_io("keyboard", TWZSLOT_STDIN);
+	map_io("screen",   TWZSLOT_STDOUT);
+	map_io("screen",   TWZSLOT_STDERR);
 
-
-
-	//printf("Hello, World (using printf)!\n");
+	objid_t shellid = twz_name_resolve(NULL, "shell/shell.0", NAME_RESOLVER_DEFAULT);
+	if(termid) {
+		struct twzthread shellthrd;
+		if(twz_thread_spawn(&shellthrd, _thrd_exec, NULL, &shellid, 0) < 0) {
+			debug_printf("Failed to spawn shell thread");
+			return 1;
+		}
+	} else {
+		debug_printf("Failed to spawn shell");
+		return 1;
+	}
 
 
 

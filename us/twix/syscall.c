@@ -268,12 +268,12 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 
 long __twix_syscall_target_c(long num, struct twix_register_frame *frame)
 {
-	debug_printf("TWIX entry: %ld, %p %lx\n", num, frame, frame->rsp);
+	//debug_printf("TWIX entry: %ld, %p %lx\n", num, frame, frame->rsp);
 	long ret = twix_syscall(num, frame->rdi, frame->rsi, frame->rdx, frame->r10, frame->r8, frame->r9);
 	if(ret == -ENOSYS) {
 		debug_printf("Unimplemented UNIX system call: %ld", num);
 	} else {
-		debug_printf("TWIX exit : %ld -> %ld\n", num, ret);
+		//debug_printf("TWIX exit : %ld -> %ld\n", num, ret);
 	}
 	return ret;
 }
