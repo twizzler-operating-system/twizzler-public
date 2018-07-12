@@ -29,9 +29,9 @@ struct __view_repr_tblent {
 };
 
 struct __view_repr {
-	struct virtentry ves[TWZSLOT_MAX_SLOT];
+	struct virtentry ves[TWZSLOT_MAX_SLOT+1];
 	struct mutex lock;
-	uint8_t obj_bitmap[TWZSLOT_MAX_SLOT / (8 * NUM_SLOTS_PER_OBJECT)];
+	uint8_t obj_bitmap[TWZSLOT_MAX_SLOT / (8 * NUM_SLOTS_PER_OBJECT) + 1];
 	size_t tblsz;
 	struct __view_repr_tblent table[];
 };
@@ -39,10 +39,9 @@ struct __view_repr {
 #define twz_current_viewid() twz_view_virt_to_objid(NULL, twz_slot_to_base(TWZSLOT_CVIEW))
 objid_t twz_view_virt_to_objid(struct object *obj, void *p);
 
-/* TODO: invalidate */
 static inline int twz_view_set(struct object *obj, size_t slot, objid_t target, uint32_t flags)
 {
-	if(slot >= TWZSLOT_MAX_SLOT) {
+	if(slot > TWZSLOT_MAX_SLOT) {
 		return -TE_INVALID;
 	}
 	struct virtentry *ves = obj
@@ -69,7 +68,7 @@ static inline int twz_view_set(struct object *obj, size_t slot, objid_t target, 
 
 static inline int twz_view_tryset(struct object *obj, size_t slot, objid_t target, uint32_t flags)
 {
-	if(slot >= TWZSLOT_MAX_SLOT) {
+	if(slot > TWZSLOT_MAX_SLOT) {
 		return -TE_INVALID;
 	}
 	struct virtentry *ves = obj
@@ -86,7 +85,7 @@ static inline int twz_view_tryset(struct object *obj, size_t slot, objid_t targe
 
 static inline int twz_view_get(struct object *obj, size_t slot, objid_t *target, uint32_t *flags)
 {
-	if(slot >= TWZSLOT_MAX_SLOT) {
+	if(slot > TWZSLOT_MAX_SLOT) {
 		return -TE_INVALID;
 	}
 	struct virtentry *ves = obj

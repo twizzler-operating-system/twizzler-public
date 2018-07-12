@@ -2,7 +2,9 @@
 $(BUILDDIR)/us/init/init: us/init/init.c $(US_LIBDEPS)
 	@mkdir -p $(BUILDDIR)/us/init
 	@echo "[CC]  $@"
-	@$(TOOLCHAIN_PREFIX)gcc $(US_LDFLAGS) $(US_CFLAGS) -o $@ -nostdlib $(US_PRELINK) $< $(US_POSTLINK)
+	@$(TOOLCHAIN_PREFIX)gcc $(US_LDFLAGS) $(US_CFLAGS) -o $@ -nostdlib $(US_PRELINK) $< $(US_POSTLINK) -MD
+
+-include $(BUILDDIR)/us/init/init.d
 
 $(BUILDDIR)/us/init/init.0.meta: $(BUILDDIR)/us/init/init
 $(BUILDDIR)/us/init/init.0: $(BUILDDIR)/us/init/init

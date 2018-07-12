@@ -35,9 +35,13 @@ struct twix_register_frame {
 #define LINUX_SYS_readv            19
 #define LINUX_SYS_writev           20
 
+#define LINUX_SYS_exit             60
+
 #define LINUX_SYS_arch_prctl      158
 
 #define LINUX_SYS_set_tid_address 218
+
+#define LINUX_SYS_exit_group      231
 
 #define LINUX_SYS_preadv          295
 #define LINUX_SYS_pwritev         296
@@ -223,6 +227,12 @@ long linux_sys_write(int fd, void *buf, size_t count)
 	return linux_sys_pwritev(fd, &v, 1, -1);
 }
 
+long linux_sys_exit(int code)
+{
+	/* TODO: code */
+	sys_thrd_ctl(THRD_CTL_EXIT, 0);
+}
+
 long linux_sys_set_tid_address()
 {
 	/* TODO: NI */
@@ -242,6 +252,8 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_pwrite] = linux_sys_pwrite,
 	[LINUX_SYS_read] = linux_sys_read,
 	[LINUX_SYS_write] = linux_sys_write,
+	[LINUX_SYS_exit] = linux_sys_exit,
+	[LINUX_SYS_exit_group] = linux_sys_exit,
 };
 
 static size_t stlen = sizeof(syscall_table) / sizeof(syscall_table[0]);

@@ -123,8 +123,10 @@ static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 			slot++) {
 		struct vmap *map = ihtable_find(current_thread->ctx->maps, slot, struct vmap, elem, slot);
 		/* TODO (major): unmap all ctxs that use this view */
-		arch_vm_unmap_object(current_thread->ctx, map, obj);
-		ihtable_remove(current_thread->ctx->maps, &map->elem, map->slot);
+		if(map) {
+			arch_vm_unmap_object(current_thread->ctx, map, obj);
+			ihtable_remove(current_thread->ctx->maps, &map->elem, map->slot);
+		}
 	}
 	return true;
 }
@@ -179,6 +181,7 @@ static inline void popul_info(struct fault_object_info *info, int flags,
 void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 {
 	//printk("Page Fault from %lx: %lx %x\n", ip, addr, flags);
+	
 	if(flags & FAULT_ERROR_PERM) {
 		struct fault_object_info info;
 		popul_info(&info, flags, ip, addr, 0);

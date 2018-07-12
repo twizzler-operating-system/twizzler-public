@@ -387,7 +387,7 @@ objid_t twz_view_virt_to_objid(struct object *obj, void *p)
 	size_t slot = (uintptr_t)p / OBJ_SLOTSIZE;
 	if(slot == TWZSLOT_THRD) {
 		struct twzthread_repr *repr = twz_slot_to_base(TWZSLOT_THRD);
-		return repr->reprid;
+		return repr->thread_kso_data.reprid;
 	}
 	struct virtentry *ves = obj
 		? (struct virtentry *)twz_ptr_base(obj)

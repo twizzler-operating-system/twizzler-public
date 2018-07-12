@@ -4,6 +4,7 @@
 #include <processor.h>
 #include <limits.h>
 #include <secctx.h>
+#include <throbj.h>
 
 /* TODO (major): verify all incoming pointers from syscalls */
 
@@ -25,6 +26,9 @@ long syscall_thread_spawn(uint64_t tidlo, uint64_t tidhi,
 			return -1;
 		}
 	}
+
+	obj_write_data(repr, offsetof(struct twzthread_repr, thread_kso_data.reprid),
+			sizeof(objid_t), &tid);
 
 	struct thread *t = thread_create();
 	t->throbj = &repr->thr; /* krc: move */
@@ -53,6 +57,7 @@ long syscall_thread_spawn(uint64_t tidlo, uint64_t tidhi,
 
 	t->state = THREADSTATE_RUNNING;
 	processor_attach_thread(current_processor, t);
+
 	return 0;
 }
 
@@ -79,18 +84,20 @@ long syscall_thrd_ctl(int op, long arg)
 	return ret;
 }
 
-long syscall_become(uint64_t sclo, uint64_t schi, struct arch_syscall_become_args *ba)
+long syscall_become(uint64_t sclo, uint64_t schi, struct arch_syscall_become_args *_ba)
 {
 	objid_t scid = MKID(schi, sclo);
-	if(ba->target_view) {
-		struct object *target_view = obj_lookup(ba->target_view);
+	struct arch_syscall_become_args ba;
+	memcpy(&ba, _ba, sizeof(ba));
+	if(ba.target_view) {
+		struct object *target_view = obj_lookup(ba.target_view);
 		if(!target_view) {
 			return -1;
 		}
 		vm_setview(current_thread, target_view);
 		obj_put(target_view);
 	}
-	arch_thread_become(ba);
+	arch_thread_become(&ba);
 	syscall_detach(0, 0, sclo, schi, 0);
 	return 0;
 }

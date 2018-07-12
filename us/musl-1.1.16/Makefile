@@ -174,7 +174,7 @@ obj/%.lo: $(srcdir)/%.c $(GENH) $(IMPH)
 
 lib/libc.so: $(LOBJS) $(LDSO_OBJS) elf_x86_64.xs
 	$(CC) $(CFLAGS_ALL) $(LDFLAGS_ALL) -nostdlib -shared \
-	-T elf_x86_64.xs -Wl,-e,_dlstart -Wl,-z,max-page-size=0x1000 -o $@ $(LOBJS) $(LDSO_OBJS) $(TWZKROOT)/$(TWZKBUILDDIR)/us/libtwz.a $(TWZKROOT)/$(TWZKBUILDDIR)/us/twix/libtwix.a $(LIBCC)
+	-T elf_x86_64.xs -Wl,-e,_dlstart -Wl,-z,max-page-size=0x1000 -o $@ $(LOBJS) $(LDSO_OBJS) $(TWZKROOT)/$(TWZKBUILDDIR)/us/twix/libtwix.a  $(TWZKROOT)/$(TWZKBUILDDIR)/us/libtwz.a  $(LIBCC)
 
 lib/libc.a: $(AOBJS)
 	rm -f $@

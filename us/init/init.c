@@ -78,12 +78,23 @@ void name_prepare(void)
 
 }
 
+#include <twzexec.h>
+
+static void _thrd_exec(void *arg)
+{
+	objid_t *ei = __twz_ptr_lea(&stdobj_thrd, arg);
+	debug_printf("Got here");
+
+	twz_exec(*ei, 0);
+}
+
 #include <stdio.h>
 
 #include <unistd.h>
 int main()
 {
 	debug_printf("init - starting\n");
+
 	name_prepare();
 
 	objid_t sid = twz_name_resolve(NULL, "shell/shell.0", NAME_RESOLVER_DEFAULT);
@@ -99,7 +110,24 @@ int main()
 	r = pread(1, buf, 6, 0);
 	debug_printf("pread -> %ld: %s\n", r, buf);
 
-	printf("Hello, World (using printf)!\n");
+
+
+	objid_t termid = twz_name_resolve(NULL, "term/term.0", NAME_RESOLVER_DEFAULT);
+	if(termid) {
+		struct twzthread termthrd;
+		if(twz_thread_spawn(&termthrd, _thrd_exec, NULL, &termid, 0) < 0) {
+			debug_printf("Failed to spawn term thread");
+			return 1;
+		}
+	} else {
+		debug_printf("Failed to spawn term");
+	}
+
+
+
+
+
+	//printf("Hello, World (using printf)!\n");
 
 
 

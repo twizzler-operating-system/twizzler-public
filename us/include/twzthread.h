@@ -9,41 +9,44 @@ struct twzthread {
 	objid_t repr;
 	unsigned int flags;
 };
-
-#define TLS_SIZE   0x200000
-#define STACK_SIZE ( 0x200000 - OBJ_NULLPAGE_SIZE )
-#define STACK_BASE ({ SLOT_TO_VIRT(TWZSLOT_THRD) + OBJ_NULLPAGE_SIZE; })
-#define TLS_BASE ({ STACK_BASE + STACK_SIZE; })
-
 enum {
 	FAULT_OBJECT,
 	FAULT_NULL,
 	FAULT_EXCEPTION,
 	NUM_FAULTS,
 };
-
 struct faultinfo {
 	objid_t view;
 	void *addr;
 	uint64_t flags;
 } __packed;
 
+
+
+#define STACK_SIZE ( 0x200000 - OBJ_NULLPAGE_SIZE )
 struct twzthread_repr {
 	union {
 		struct {
 			struct faultinfo faults[NUM_FAULTS];
+			objid_t reprid;
 			char pad[256];
 		} thread_kso_data;
 		char _pad[4096];
 	};
 	unsigned char stack[STACK_SIZE];
 	unsigned char tls[STACK_SIZE];
-	objid_t reprid;
 	_Atomic int state;
 };
 
+#define TLS_SIZE   0x200000
+#define STACK_BASE ({ SLOT_TO_VIRT(TWZSLOT_THRD) + OBJ_NULLPAGE_SIZE + offsetof(struct twzthread_repr, stack); })
+#define TLS_BASE ({ STACK_BASE + STACK_SIZE; })
+
+extern struct object stdobj_thrd;
+
 #define TWZTHR_SPAWN_ARGWRITE 1
 
+#include <debug.h>
 static inline int twz_thread_spawn(struct twzthread *t,
 		void (*entry)(void *), struct object *obj, void *arg, int flags)
 {
@@ -65,9 +68,12 @@ static inline int twz_thread_spawn(struct twzthread *t,
 	t->repr = reprid;
 	t->flags = flags;
 	struct twzthread_repr *reprstruct = thrd.base;
-	reprstruct->reprid = reprid;
+	struct twzthread_repr *my_reprstruct = stdobj_thrd.base;
 	reprstruct->state = 0;
-	
+
+	memcpy(reprstruct->thread_kso_data.faults, my_reprstruct->thread_kso_data.faults,
+			sizeof(struct faultinfo) * NUM_FAULTS);
+
 	struct sys_thrd_spawn_args param = {
 		.start_func = entry,
 		.arg        = aptr,
@@ -78,17 +84,6 @@ static inline int twz_thread_spawn(struct twzthread *t,
 	return sys_thrd_spawn(reprid, &param, 0);
 }
 
-static inline int twz_thread_become(objid_t sid, objid_t vid, void *jmp, int flags __unused)
-{
-	struct sys_become_args ba = {
-		.target_view = vid,
-		.target_rip = (long)jmp,
-	};
-	return sys_become(sid, &ba);
-}
-
 void twz_thread_exit(void);
 int twz_thread_wait(struct twzthread *th);
-
-extern struct object stdobj_thrd;
 

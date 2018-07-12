@@ -2,7 +2,9 @@
 $(BUILDDIR)/us/shell/shell: us/shell/shell.c $(US_LIBDEPS)
 	@mkdir -p $(BUILDDIR)/us/shell
 	@echo "[CC]  $@"
-	@$(TOOLCHAIN_PREFIX)gcc $(US_LDFLAGS) $(US_CFLAGS) -o $@ -nostdlib $(US_PRELINK) $< $(US_POSTLINK)
+	@$(TOOLCHAIN_PREFIX)gcc $(US_LDFLAGS) $(US_CFLAGS) -o $@ -nostdlib $(US_PRELINK) $< $(US_POSTLINK) -MD
+
+-include $(BUILDDIR)/us/shell/shell.d
 
 $(BUILDDIR)/us/shell/shell.0.meta: $(BUILDDIR)/us/shell/shell
 $(BUILDDIR)/us/shell/shell.0: $(BUILDDIR)/us/shell/shell

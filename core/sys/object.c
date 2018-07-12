@@ -15,9 +15,11 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 {
 	size_t suc = 0;
 	for(size_t i=0;i<count;i++) {
-		if(invl[i].flags & KSOI_VALID) {
-			struct object *o = obj_lookup(invl[i].id);
-			if(o && __do_invalidate(o, &invl[i])) {
+		struct kso_invl_args ko;
+		memcpy(&ko, &invl[i], sizeof(ko));
+		if(ko.flags & KSOI_VALID) {
+			struct object *o = obj_lookup(ko.id);
+			if(o && __do_invalidate(o, &ko)) {
 				suc++;
 			}
 			if(o) {

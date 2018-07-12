@@ -91,11 +91,10 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 	if(fi.view) {
 		panic("NI - different view");
 	}
-	//printk(":: FAULT: %p\n", fi.addr);
 	if(fi.addr) {
 		arch_thread_raise_call(t, fi.addr, fault, info, infolen);
 	} else {
-		printk("unhandled fault\n");
+		printk("unhandled fault: %ld: %d\n", t->id, fault);
 		/* TODO (major): raise unhandled fault exception? */
 		thread_exit();
 	}

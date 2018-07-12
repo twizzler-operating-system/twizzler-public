@@ -116,7 +116,7 @@ int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source __unused)
 static int __fault_obj_default(int f __unused, void *_info)
 {
 	struct fault_object_info *info = _info;
-	debug_printf("FAULT :: %lx %lx %lx " IDFMT, info->ip, info->addr, info->flags, IDPR(info->objid));
+	debug_printf("FAULT :: %lx %lx (%lx) %lx " IDFMT, info->ip, info->addr, VIRT_TO_SLOT(info->addr), info->flags, IDPR(info->objid));
 	return twz_handle_fault(info->addr, info->flags, info->ip);
 }
 
@@ -194,12 +194,14 @@ void __twz_fault_init(void)
 {
 	/* have to do this manually, because fault handling during init
 	 * may not use any global data (since the data object may not be mapped) */
+
 	struct object thrd;
 	twz_object_init(&thrd, TWZSLOT_THRD);
 	struct twzthread_repr *repr = thrd.base;
 	repr->thread_kso_data.faults[FAULT_OBJECT] = (struct faultinfo) {
 		.addr = (void *)__twz_fault_entry,
 	};
+
 }
 
 void twz_fault_set(int fault, void (*fn)(int, void *))
