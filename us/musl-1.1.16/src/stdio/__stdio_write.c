@@ -1,7 +1,6 @@
 #include "stdio_impl.h"
 #include <sys/uio.h>
 
-#if 0
 size_t __stdio_write(FILE *f, const unsigned char *buf, size_t len)
 {
 	struct iovec iovs[2] = {
@@ -33,5 +32,4 @@ size_t __stdio_write(FILE *f, const unsigned char *buf, size_t len)
 		iov[0].iov_len -= cnt;
 	}
 }
-#endif
 

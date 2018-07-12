@@ -78,6 +78,7 @@ void name_prepare(void)
 
 }
 
+#include <stdio.h>
 int main()
 {
 	debug_printf("init - starting\n");
@@ -85,6 +86,13 @@ int main()
 
 	objid_t sid = twz_name_resolve(NULL, "shell/shell.0", NAME_RESOLVER_DEFAULT);
 	debug_printf("SHELL: " IDFMT, IDPR(sid));
+
+
+	printf("Hello, World (using printf)!\n");
+
+
+
+	for(;;);
 	struct twzkv_item k = {
 		.data = "foo",
 		.length = 3,

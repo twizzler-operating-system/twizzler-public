@@ -92,8 +92,8 @@ static inline int twz_view_get(struct object *obj, size_t slot, objid_t *target,
 	struct virtentry *ves = obj
 		? (struct virtentry *)twz_ptr_base(obj)
 		: (struct virtentry *)twz_slot_to_base(TWZSLOT_CVIEW);
-	*flags = atomic_load(&ves[slot].flags);
-	*target = ves[slot].id;
+	if(flags)  *flags = atomic_load(&ves[slot].flags);
+	if(target) *target = ves[slot].id;
 	return 0;
 }
 
