@@ -84,6 +84,7 @@ ssize_t bstream_write(struct object *obj, const unsigned char *buf,
 	return len;
 }
 
+#include <debug.h>
 int bstream_init(struct object *obj, int nbits)
 {
 	struct bstream_header *bh = twz_object_addmeta(obj, BSTREAM_METAHEADER);
@@ -107,13 +108,13 @@ int bstream_init(struct object *obj, int nbits)
 	}
 	uintptr_t r, w, n;
 	if(!twz_obj_get_metavar_strname(&lt, "sym:bstream_read", &r)) {
-		return -TE_FAILURE;
+		//return -TE_FAILURE;
 	}
 	if(!twz_obj_get_metavar_strname(&lt, "sym:bstream_write", &w)) {
-		return -TE_FAILURE;
+		//return -TE_FAILURE;
 	}
 	if(!twz_obj_get_metavar_strname(&lt, "sym:bstream_notify_prepare", &n)) {
-		return -TE_FAILURE;
+		//return -TE_FAILURE;
 	}
 	struct twzio_header tioh = {
 		.read  = twz_make_canon_ptr(fe+1, r),
@@ -130,5 +131,4 @@ int bstream_init(struct object *obj, int nbits)
 	bh->wwid = notify_insert(obj, &bh->wwait);
 	return 0;
 }
-
 

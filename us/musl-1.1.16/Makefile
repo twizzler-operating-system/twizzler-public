@@ -48,9 +48,9 @@ CFLAGS_C99FSE = -std=c99 -ffreestanding -nostdinc
 CFLAGS_ALL = $(CFLAGS_C99FSE)
 CFLAGS_ALL += -D_XOPEN_SOURCE=700 -I$(srcdir)/arch/$(ARCH) -I$(srcdir)/arch/generic -Iobj/src/internal -I$(srcdir)/src/internal -Iobj/include -I$(srcdir)/include -I../../include
 
-CFLAGS_ALL += $(CPPFLAGS) $(CFLAGS_AUTO) $(CFLAGS)
+CFLAGS_ALL += $(CPPFLAGS) $(CFLAGS_AUTO) $(CFLAGS) -fpic -fPIC
 
-LDFLAGS_ALL = $(LDFLAGS_AUTO) $(LDFLAGS) #-Wl,--unresolved-symbols=ignore-all -Wl,--allow-shlib-undefined
+LDFLAGS_ALL = $(LDFLAGS_AUTO) $(LDFLAGS) #-Wl,--unresolved-symbols=ignore-all -Wl,--allow-shlib-undefined 
 
 AR      = $(CROSS_COMPILE)ar
 RANLIB  = $(CROSS_COMPILE)ranlib
@@ -174,7 +174,7 @@ obj/%.lo: $(srcdir)/%.c $(GENH) $(IMPH)
 
 lib/libc.so: $(LOBJS) $(LDSO_OBJS) elf_x86_64.xs
 	$(CC) $(CFLAGS_ALL) $(LDFLAGS_ALL) -nostdlib -shared \
-	-T elf_x86_64.xs -Wl,-e,_dlstart -Wl,-z,max-page-size=0x1000 -o $@ $(LOBJS) $(LDSO_OBJS) $(TWZKROOT)/$(TWZKBUILDDIR)/us/twix/libtwix.a  $(TWZKROOT)/$(TWZKBUILDDIR)/us/libtwz.a  $(LIBCC)
+	-T elf_x86_64.xs -Wl,-e,_dlstart -Wl,-z,max-page-size=0x1000 -o $@ $(LOBJS) $(LDSO_OBJS) $(TWZKROOT)/$(TWZKBUILDDIR)/us/twix/libtwix.a $(TWZKROOT)/$(TWZKBUILDDIR)/us/libtwz.a -fpic $(LIBCC)
 
 lib/libc.a: $(AOBJS)
 	rm -f $@

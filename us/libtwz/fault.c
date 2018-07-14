@@ -11,7 +11,7 @@
 
 #include <debug.h>
 
-#define _FAULT_DEBUG 0
+#define _FAULT_DEBUG 1
 
 #if !_FAULT_DEBUG
 	#define debug_printf(...)

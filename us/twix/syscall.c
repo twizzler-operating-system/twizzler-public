@@ -301,7 +301,9 @@ asm (
 
 	"movq %rsp, %rsi;"
 	"movq %rax, %rdi;"
-	"call __twix_syscall_target_c;"
+	
+	"movabs $__twix_syscall_target_c, %rcx;"
+	"call *%rcx;"
 
 	"popq %r15;"
 	"popq %r14;"
@@ -319,5 +321,4 @@ asm (
 	"popq %rsp;"
 	"ret;"
 );
-
 

@@ -1,9 +1,10 @@
-TWZOBJS=bsv
+TWZOBJS=bsv libtwz.so.0 libtwz.so.1
 MUSL=musl-1.1.16
 
 USFILES=$(addprefix $(BUILDDIR)/us/, $(TWZOBJS) $(addsuffix .meta,$(TWZOBJS)))
 
 US_LDFLAGS=-static -Wl,-z,max-page-size=0x1000 -Tus/elf.ld -g
+US_LDFLAGS_SHARED=-shared -Wl,-z,max-page-size=0x1000 -Tus/elf.ld -g
 
 $(BUILDDIR)/us:
 	@mkdir -p $@
@@ -40,6 +41,7 @@ MUSL_READY=$(BUILDDIR)/us/$(MUSL)/include/string.h
 MUSL_STATIC_LIBC_PRE_i=$(BUILDDIR)/us/$(MUSL)/lib/crti.o
 MUSL_STATIC_LIBC_PRE_1=$(BUILDDIR)/us/$(MUSL)/lib/crt1.o
 MUSL_STATIC_LIBC=$(BUILDDIR)/us/$(MUSL)/lib/libc.a
+MUSL_SHARED_LIBC=$(BUILDDIR)/us/$(MUSL)/lib/libc.so
 MUSL_STATIC_LIBC_POST=$(BUILDDIR)/us/$(MUSL)/lib/crtn.o
 
 #libtwz
@@ -48,11 +50,23 @@ LIBTWZ_SRC=$(addprefix us/libtwz/,notify.c bstream.c mutex.c twzio.c viewcall.c 
 LIBTWZ_OBJ=$(addprefix $(BUILDDIR)/,$(LIBTWZ_SRC:.c=.o))
 
 $(BUILDDIR)/us/libtwz.a: $(LIBTWZ_OBJ)
-	ar rcs $(BUILDDIR)/us/libtwz.a $(LIBTWZ_OBJ)
+	@echo "[AR]  $@"
+	@ar rcs $(BUILDDIR)/us/libtwz.a $(LIBTWZ_OBJ)
+
+$(BUILDDIR)/us/libtwz.so: $(LIBTWZ_OBJ)
+	@echo "[LD]  $@"
+	#@$(TOOLCHAIN_PREFIX)gcc $(MUSL_INCL) -Ius/include -fpic -ffreestanding $(LIBTWZ_SRC) $(MUSL_STATIC_LIBC) $(BUILDDIR)/us/twix/libtwix.a -o $@ -shared -Tus/elf.ld
+	@$(TOOLCHAIN_PREFIX)ld -zmax-page-size=0x1000 -shared -o $(BUILDDIR)/us/libtwz.so $(LIBTWZ_OBJ) $(MUSL_STATIC_LIBC) $(BUILDDIR)/us/twix/libtwix.a -nostdlib $(LIBGCC) -Tus/elf.ld
+
+$(BUILDDIR)/us/libtwz.so.0.meta: $(BUILDDIR)/us/libtwz.so
+$(BUILDDIR)/us/libtwz.so.0: $(BUILDDIR)/us/libtwz.so
+	@echo "[PE]  $@"
+	@$(TWZUTILSDIR)/postelf/postelf $(BUILDDIR)/us/libtwz.so -S bstream_write -S bstream_read -S bstream_notify_prepare
 
 $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_READY)
 	@mkdir -p $(BUILDDIR)/us/libtwz
-	$(TOOLCHAIN_PREFIX)gcc -Og -g -Wall -Wextra -std=gnu11 -I us/include -ffreestanding $(MUSL_INCL) -c -o $@ $< -MD -Werror
+	@echo "[CC]  $@"
+	@$(TOOLCHAIN_PREFIX)gcc -Og -g -Wall -Wextra -std=gnu11 -I us/include -ffreestanding $(MUSL_INCL) -c -o $@ $< -MD -Werror -fpic # -mcmodel=large -fpic #-fno-plt
 
 -include $(LIBTWZ_OBJ:.o=.d)
 
@@ -81,7 +95,6 @@ INITNAME=init/init.0
 $(BUILDDIR)/us/bsv: $(BUILDDIR)/us/$(INITNAME)
 	@id=$$($(TWZUTILSDIR)/objbuild/objstat $(BUILDDIR)/us/$(INITNAME) | grep COID | awk '{print $$3}');\
 	$(TWZUTILSDIR)/bootstrap/bsv2 $@ 0,$$id,rx
-
 
 $(BUILDDIR)/us/root.tar: $(BUILDDIR)/us $(USFILES)
 	@echo "[AGG] $(BUILDDIR)/us/root"

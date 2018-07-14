@@ -142,6 +142,10 @@ int main()
 	map_io("screen",   TWZSLOT_STDOUT);
 	map_io("screen",   TWZSLOT_STDERR);
 
+	printf("Testing!\n");
+	debug_printf("EOL");
+
+	for(;;);
 	objid_t shellid = twz_name_resolve(NULL, "shell/shell.0", NAME_RESOLVER_DEFAULT);
 	if(termid) {
 		struct twzthread shellthrd;
@@ -153,7 +157,6 @@ int main()
 		debug_printf("Failed to spawn shell");
 		return 1;
 	}
-
 
 
 	for(;;);

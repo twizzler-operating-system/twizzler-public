@@ -65,6 +65,11 @@ SECTIONS
 		KEEP (*(.fini_array))
 		PROVIDE_HIDDEN (__fini_array_end = .);
 	} :text
+	.got : 
+	{
+		KEEP(*(.got*))
+		KEEP(*(.got.plt*))
+	} :text
 	
 	/* read-write sections, merged into data segment.
 	 * Move up by 1 object slot size, and give us space

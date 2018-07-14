@@ -313,6 +313,7 @@ ssize_t twz_view_lookupslot(objid_t target, uint64_t flags)
 	}
 
 	sl = sl * NUM_SLOTS_PER_OBJECT + off + TWZSLOT_ALLOC_START;
+	debug_printf("-> %lx\n", sl);
 	twz_view_set(NULL, sl, target, tflags);
 	return sl;
 }
