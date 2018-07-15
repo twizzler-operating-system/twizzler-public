@@ -261,7 +261,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 {
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
 	size_t idx = (addr % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
-	printk("OSPACE FAULT: %lx %lx %x\n", ip, addr, flags);
+	//printk("OSPACE FAULT: %lx %lx %x\n", ip, addr, flags);
 	if(idx == 0) {
 		struct fault_null_info info = {
 			.ip = ip,

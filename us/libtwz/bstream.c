@@ -44,6 +44,7 @@ try_again:
 	return r;
 }
 
+#include <debug.h>
 int bstream_putb(struct object *obj, unsigned char c, unsigned fl)
 {
 	struct bstream_header *bh = twz_object_findmeta(obj, BSTREAM_HEADER_ID);
@@ -88,6 +89,7 @@ ssize_t bstream_write(struct object *obj, const unsigned char *buf,
 int bstream_init(struct object *obj, int nbits)
 {
 	struct bstream_header *bh = twz_object_addmeta(obj, BSTREAM_METAHEADER);
+	debug_printf("DO WRITE: %p\n", bh);
 	if(!bh) {
 		return -TE_NOSPC;
 	}

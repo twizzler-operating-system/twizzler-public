@@ -41,6 +41,11 @@ int main()
 	}
 
 	twz_thread_ready();
-	for(;;);
+	for(;;) {
+		char buf[128];
+		memset(buf, 0, sizeof(buf));
+		bstream_read(&so, buf, 127, 0);
+		debug_printf("SOREAD: %s\n", buf);
+	}
 }
 

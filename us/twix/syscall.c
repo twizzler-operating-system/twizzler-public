@@ -86,9 +86,11 @@ struct file {
 static struct file fds[MAX_FD];
 
 #define DW_NONBLOCK 1
+#include <debug.h>
 static ssize_t __do_write(struct object *o, ssize_t off, void *base, size_t len, int flags)
 {
-	ssize_t r = twzio_write(o, base, len, (flags & DW_NONBLOCK) ? TWZIO_NONBLOCK : 0);
+	//ssize_t r = twzio_write(o, base, len, (flags & DW_NONBLOCK) ? TWZIO_NONBLOCK : 0);
+	ssize_t r = bstream_write(o, base, len, 0);
 	if(r == -TE_NOTSUP) {
 		/* TODO: bounds check */
 		memcpy((char *)twz_ptr_base(o) + off + OBJ_NULLPAGE_SIZE, base, len);

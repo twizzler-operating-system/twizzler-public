@@ -110,6 +110,8 @@ int main()
 	objid_t sid = twz_name_resolve(NULL, "shell/shell.0", NAME_RESOLVER_DEFAULT);
 	debug_printf("SHELL: " IDFMT, IDPR(sid));
 
+	ssize_t r;
+	/*
 	objid_t oid;
 	twz_object_new(NULL, &oid, 0, 0, 0);
 	twz_view_set(NULL, TWZSLOT_FILES_BASE + 1, oid, VE_READ | VE_WRITE);
@@ -120,6 +122,7 @@ int main()
 	r = pread(1, buf, 6, 0);
 	debug_printf("pread -> %ld: %s\n", r, buf);
 
+	*/
 
 
 	objid_t termid = twz_name_resolve(NULL, "term/term.0", NAME_RESOLVER_DEFAULT);
@@ -142,6 +145,7 @@ int main()
 	map_io("screen",   TWZSLOT_STDOUT);
 	map_io("screen",   TWZSLOT_STDERR);
 
+	debug_printf("Sending test string");
 	printf("Testing!\n");
 	debug_printf("EOL");
 
