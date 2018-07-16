@@ -193,15 +193,15 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 			struct vmap, elem, slot);
 	if(!map) {
 		objid_t id;
-		uint64_t flags;
-		if(!lookup_by_slot(slot, &id, &flags)) {
+		uint64_t fl;
+		if(!lookup_by_slot(slot, &id, &fl)) {
 			struct fault_object_info info;
 			popul_info(&info, flags, ip, addr, 0);
 			thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
 			return;
 		}
 		map = vm_context_map(current_thread->ctx, id, slot,
-				flags & (VE_READ | VE_WRITE | VE_EXEC));
+				fl & (VE_READ | VE_WRITE | VE_EXEC));
 		if(!map) {
 			struct fault_object_info info;
 			popul_info(&info, flags, ip, addr, id);

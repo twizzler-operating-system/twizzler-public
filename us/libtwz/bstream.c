@@ -90,7 +90,7 @@ ssize_t bstream_write(struct object *obj, const unsigned char *buf,
 {
 	for(size_t i=0;i<len;i++) {
 		if(bstream_putb(obj, buf[i], 0) == -TE_NOTSUP) {
-			return -TE_NOTSUP:
+			return -TE_NOTSUP;
 		}
 	}
 	return len;
