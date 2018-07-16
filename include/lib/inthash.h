@@ -95,9 +95,9 @@ static inline void __ihtable_remove(struct ihtable *t, int bucket, struct ihelem
 		int bucket = sizeof(key) > 8 ? hash128_sz((key), (t)->bits) \
 		                             : hash64_sz((key), (t)->bits); \
 		for(struct ihelem *e = (t)->table[bucket];e;e=e->next) { \
-			type *obj = container_of(e, type, memb); \
-			if(obj->keymemb == (key)) { \
-				ret = obj; \
+			type *__obj = container_of(e, type, memb); \
+			if(__obj->keymemb == (key)) { \
+				ret = __obj; \
 				break; \
 			} \
 		}; \

@@ -95,9 +95,9 @@ static void x86_64_initrd(void *u)
 	struct mboot_module *m = mm_ptov(mb->mods_addr);
 	struct ustar_header *h = mm_ptov(m->start);
 	char *start = (char *)h;
-	size_t len = m->end - m->start;
+	size_t modlen = m->end - m->start;
 	printk("Loading objects from modules\n");
-	while((char *)h < start + len) {
+	while((char *)h < start + modlen) {
 		char *name = h->name;
 		if(!*name) break;
 		if(strncmp(h->magic, "ustar", 5)) break;
