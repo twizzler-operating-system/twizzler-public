@@ -135,7 +135,10 @@ long linux_sys_preadv2(int fd, const struct iovec *iov, int iovcnt, ssize_t off,
 		const struct iovec *v = &iov[i];
 		ssize_t r = __do_read(&fds[fd].obj, (off < 0) ? fds[fd].pos : (size_t)off,
 				v->base, v->len, (count == 0) ? 0 : DW_NONBLOCK);
-		if(r > 0) {
+		if(r >= 0) {
+			if(r == 0 && count) {
+				break;
+			}
 			if(off == -1) {
 				fds[i].pos += r;
 			} else {
@@ -183,7 +186,10 @@ long linux_sys_pwritev2(int fd, const struct iovec *iov, int iovcnt, ssize_t off
 		const struct iovec *v = &iov[i];
 		ssize_t r = __do_write(&fds[fd].obj, (off < 0) ? fds[fd].pos : (size_t)off,
 				v->base, v->len, (count == 0) ? 0 : DW_NONBLOCK);
-		if(r > 0) {
+		if(r >= 0) {
+			if(r == 0 && count) {
+				break;
+			}
 			if(off == -1) {
 				fds[i].pos += r;
 			} else {

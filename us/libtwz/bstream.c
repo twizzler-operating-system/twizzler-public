@@ -68,15 +68,21 @@ try_again:
 	return 0;
 }
 
+#include <debug.h>
 ssize_t bstream_read(struct object *obj, unsigned char *buf,
 		size_t len, unsigned fl __unused)
 {
-	for(size_t i=0;i<len;i++) {
-		int c = bstream_getb(obj, 0);
+	/* TODO: implement this and write using real handling of flags, etc.
+	 * Also standardize twzio interface */
+	for(ssize_t i=0;i<(ssize_t)len;i++) {
+		int c = bstream_getb(obj, i ? TWZIO_NONBLOCK : 0);
 		switch(c) {
 			case -TE_NOTSUP:
 				return -TE_NOTSUP;
-			case '\n':
+			case -TE_NREADY:
+				return i ? i : -TE_NREADY;
+			case '\n': case '\r': /* TODO: and figure out this shit too */
+				buf[i] = '\n';
 				return i+1;
 			default:
 				buf[i] = c;
@@ -96,7 +102,6 @@ ssize_t bstream_write(struct object *obj, const unsigned char *buf,
 	return len;
 }
 
-#include <debug.h>
 int bstream_init(struct object *obj, int nbits)
 {
 	struct bstream_header *bh = twz_object_addmeta(obj, BSTREAM_METAHEADER);
