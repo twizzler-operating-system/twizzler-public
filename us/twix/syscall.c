@@ -89,6 +89,7 @@ static struct file fds[MAX_FD];
 #include <debug.h>
 static ssize_t __do_write(struct object *o, ssize_t off, void *base, size_t len, int flags)
 {
+	/* TODO: more general cases */
 	//ssize_t r = twzio_write(o, base, len, (flags & DW_NONBLOCK) ? TWZIO_NONBLOCK : 0);
 	ssize_t r = bstream_write(o, base, len, 0);
 	if(r == -TE_NOTSUP) {
@@ -101,7 +102,8 @@ static ssize_t __do_write(struct object *o, ssize_t off, void *base, size_t len,
 
 static ssize_t __do_read(struct object *o, ssize_t off, void *base, size_t len, int flags)
 {
-	ssize_t r = twzio_read(o, base, len, (flags & DW_NONBLOCK) ? TWZIO_NONBLOCK : 0);
+	//ssize_t r = twzio_read(o, base, len, (flags & DW_NONBLOCK) ? TWZIO_NONBLOCK : 0);
+	ssize_t r = bstream_read(o, base, len, 0);
 	if(r == -TE_NOTSUP) {
 		/* TODO: bounds check */
 		memcpy(base, (char *)twz_ptr_base(o) + off + OBJ_NULLPAGE_SIZE, len);

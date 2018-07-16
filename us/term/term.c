@@ -8,8 +8,9 @@
 static void _input_thrd(void *arg)
 {
 	debug_printf("term input - starting");
+	//sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
 	for(;;) {
-
+	
 	}
 }
 

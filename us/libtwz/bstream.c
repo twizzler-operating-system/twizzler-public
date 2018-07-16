@@ -72,8 +72,15 @@ ssize_t bstream_read(struct object *obj, unsigned char *buf,
 		size_t len, unsigned fl __unused)
 {
 	for(size_t i=0;i<len;i++) {
-		if((buf[i] = bstream_getb(obj, 0)) == '\n')
-			return i+1;
+		int c = bstream_getb(obj, 0);
+		switch(c) {
+			case -TE_NOTSUP:
+				return -TE_NOTSUP;
+			case '\n':
+				return i+1;
+			default:
+				buf[i] = c;
+		}
 	}
 	return len;
 }
@@ -81,7 +88,11 @@ ssize_t bstream_read(struct object *obj, unsigned char *buf,
 ssize_t bstream_write(struct object *obj, const unsigned char *buf,
 		size_t len, unsigned fl __unused)
 {
-	for(size_t i=0;i<len;i++) bstream_putb(obj, buf[i], 0);
+	for(size_t i=0;i<len;i++) {
+		if(bstream_putb(obj, buf[i], 0) == -TE_NOTSUP) {
+			return -TE_NOTSUP:
+		}
+	}
 	return len;
 }
 

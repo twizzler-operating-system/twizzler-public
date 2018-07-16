@@ -54,6 +54,10 @@ int arch_syscall_thrd_ctl(int op, long arg)
 		case THRD_CTL_SET_GS:
 			current_thread->arch.gs = arg;
 			break;
+		case THRD_CTL_SET_IOPL:
+			/* TODO (sec): permission check */
+			current_thread->arch.syscall.r11 |= ((arg & 3) << 12);
+			break;
 		default:
 			return -1;
 	}

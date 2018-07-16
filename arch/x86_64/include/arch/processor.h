@@ -33,6 +33,7 @@ struct x86_64_tss
 	uint32_t ldt;        // Unused...
 	uint16_t trap;
 	uint16_t iomap_base;
+	//unsigned char io_bitmap[NUM_IO_PORTS / 8];
 } __attribute__((packed));
 
 struct x86_64_gdt_entry

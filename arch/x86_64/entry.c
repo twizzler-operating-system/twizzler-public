@@ -169,9 +169,9 @@ void arch_thread_resume(struct thread *thread)
 	if((!old || old->active_sc != thread->active_sc) && thread->active_sc) {
 		x86_64_secctx_switch(thread->active_sc);
 	}
-	if(thread->arch.was_syscall)
+	if(thread->arch.was_syscall) {
 		x86_64_resume_userspace(&thread->arch.syscall);
-	else {
+	} else {
 		x86_64_resume_userspace_interrupt(&thread->arch.exception);
 	}
 }

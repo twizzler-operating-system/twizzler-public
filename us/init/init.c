@@ -149,7 +149,6 @@ int main()
 	printf("Testing!\n");
 	debug_printf("EOL");
 
-	for(;;);
 	objid_t shellid = twz_name_resolve(NULL, "shell/shell.0", NAME_RESOLVER_DEFAULT);
 	if(termid) {
 		struct twzthread shellthrd;

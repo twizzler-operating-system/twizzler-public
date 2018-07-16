@@ -1,7 +1,8 @@
 #pragma once
 
-#define THRD_CTL_SET_FS 1
-#define THRD_CTL_SET_GS 2
+#define THRD_CTL_SET_FS   1
+#define THRD_CTL_SET_GS   2
+#define THRD_CTL_SET_IOPL 3
 
 struct arch_syscall_become_args {
 	objid_t target_view;
