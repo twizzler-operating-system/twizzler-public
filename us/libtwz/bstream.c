@@ -92,6 +92,8 @@ ssize_t abstream_read(struct object *obj, unsigned char *buf,
 	return len;
 }
 
+/* TODO (perf): can we reduce the number of syscalls (calls to notify)? */
+
 ssize_t bstream_read(struct object *obj, unsigned char *buf,
 		size_t len, unsigned fl)
 {

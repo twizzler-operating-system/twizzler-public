@@ -162,6 +162,7 @@ int main()
 	}
 
 
+	twz_thread_exit();
 	for(;;);
 	struct twzkv_item k = {
 		.data = "foo",

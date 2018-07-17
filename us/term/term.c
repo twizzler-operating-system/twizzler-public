@@ -141,7 +141,9 @@ static void _input_thrd(void *arg)
 	for(;;) {
 		int x = serial_getc();
 		serial_putc(x);
-		if(x == '\r') serial_putc('\n');
+		if(x == '\r') {
+			serial_putc('\n');
+		}
 		bstream_putb(&ko, x, 0);
 	}
 }
