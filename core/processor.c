@@ -80,12 +80,18 @@ void processor_send_ipi(int destid, int vector, void *arg, int flags)
 		arch_processor_relax();
 	}
 
-	__ipi_arg = arg;
-	__ipi_flags = flags;
-	__ipi_barrier = 0;
+	if(!(flags & PROCESSOR_IPI_NOWAIT)) {
+		__ipi_arg = arg;
+		__ipi_flags = flags;
+		__ipi_barrier = 0;
+	}
 	arch_processor_send_ipi(destid, vector, flags);
 
-	processor_barrier(&__ipi_barrier);
+	if(destid == PROCESSOR_IPI_DEST_OTHERS) {
+		if(!(flags & PROCESSOR_IPI_NOWAIT)) {
+			processor_barrier(&__ipi_barrier);
+		}
+	}
 	__ipi_lock = 0;
 }
 
@@ -136,13 +142,32 @@ void processor_secondary_entry(struct processor *proc)
 	processor_perproc_init(proc);
 }
 
-void processor_attach_thread(struct processor *proc, struct thread *thread)
+static void __do_processor_attach_thread(struct processor *proc, struct thread *thread)
 {
+	printk("Attach %ld to %d\n", thread->id, proc->id);
 	bool fl = spinlock_acquire(&proc->sched_lock);
 	thread->processor = proc;
 	list_insert(&proc->runqueue, &thread->rq_entry);
 	spinlock_release(&proc->sched_lock, fl);
+	proc->load++;
+	if(proc != current_processor) {
+		processor_send_ipi(proc->id, PROCESSOR_IPI_RESUME, NULL, PROCESSOR_IPI_NOWAIT);
+	}
 }
+
+void processor_attach_thread(struct processor *proc, struct thread *thread)
+{
+	if(proc == NULL) {
+		proc = current_processor;
+		for(int i=0;i<PROCESSOR_MAX_CPUS;i++) {
+			if((processors[i].flags & PROCESSOR_UP) && processors[i].load < proc->load) {
+				proc = &processors[i];
+			}
+		}
+	}
+	__do_processor_attach_thread(proc, thread);
+}
+
 
 void processor_percpu_regions_init(void)
 {

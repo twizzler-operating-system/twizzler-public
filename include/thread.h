@@ -61,6 +61,7 @@ struct thread {
 	unsigned long id;
 	enum thread_state state;
 	int64_t timeslice;
+	int priority;
 	struct krc refs;
 	
 	struct processor *processor;

@@ -56,7 +56,7 @@ long syscall_thread_spawn(uint64_t tidlo, uint64_t tidhi,
 			tsa->stack_size, tsa->tls_base);
 
 	t->state = THREADSTATE_RUNNING;
-	processor_attach_thread(current_processor, t);
+	processor_attach_thread(NULL, t);
 
 	return 0;
 }

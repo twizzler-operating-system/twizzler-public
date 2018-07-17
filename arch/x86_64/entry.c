@@ -11,6 +11,13 @@ void x86_64_ipi_tlb_shootdown(void)
 {
 	asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3; mfence;" ::: "memory", "rax");
 	processor_ipi_finish();
+	x86_64_signal_eoi();
+}
+
+void x86_64_ipi_resume(void)
+{
+	printk("%d: RESUME\n", current_processor->id);
+	x86_64_signal_eoi();
 }
 
 void x86_64_ipi_halt(void)

@@ -357,10 +357,8 @@ static void x86_64_apic_send_ipi(unsigned char dest_shorthand, unsigned int dst,
     /* gotta have assert for all except init */
     lapic_write(LAPIC_ICR, lower);
     /* Wait for send to finish */
-    do {
-        asm("pause");
-        send_status = lapic_read(LAPIC_ICR) & LAPIC_ICR_STATUS_PEND;
-    } while (send_status);
+	while((send_status = lapic_read(LAPIC_ICR)) & LAPIC_ICR_STATUS_PEND)
+		asm("pause");
 }
 
 void arch_processor_send_ipi(int destid, int vector, int flags __unused)

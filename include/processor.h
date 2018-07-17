@@ -11,6 +11,7 @@
 #define PROCESSOR_REGISTERED 8
 
 #define PROCESSOR_IPI_BARRIER 1
+#define PROCESSOR_IPI_NOWAIT  2
 
 #define PROCESSOR_INITIALIZER_ORDER 0
 
@@ -26,6 +27,7 @@ struct processor {
 	struct spinlock sched_lock;
 	_Atomic int flags;
 	unsigned int id;
+	unsigned long load;
 	void *percpu;
 };
 

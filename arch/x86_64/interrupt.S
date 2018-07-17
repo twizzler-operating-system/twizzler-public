@@ -103,6 +103,16 @@ x86_64_isr_shootdown:
 	RESTORE_CONTEXT
 	iretq
 
+.global x86_64_isr_resume
+.extern x86_64_ipi_resume
+x86_64_isr_resume:
+	pushq $0
+	pushq $0x80
+	PUSH_CONTEXT
+	call x86_64_ipi_resume
+	RESTORE_CONTEXT
+	iretq
+
 .extern x86_64_signal_eoi
 ignore_handler:
 	PUSH_CONTEXT

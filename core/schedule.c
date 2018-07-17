@@ -3,6 +3,7 @@
 #include <thread.h>
 #include <clksrc.h>
 
+static long last = -1;
 __noinstrument
 void thread_schedule_resume_proc(struct processor *proc)
 {
@@ -14,10 +15,14 @@ void thread_schedule_resume_proc(struct processor *proc)
 		}
 		struct list *ent = list_dequeue(&proc->runqueue);
 		if(ent) {
+			bool empty = list_empty(&proc->runqueue);
 			spinlock_release(&proc->sched_lock, 0);
 			struct thread *next = list_entry(ent, struct thread, rq_entry);
-			next->timeslice = 100000; /* 100 us. TODO (major): make this dynamic */
-			clksrc_set_interrupt_countdown(next->timeslice, false);
+			next->timeslice = 100000 + next->priority * 100000;
+			if(!empty) {
+				clksrc_set_interrupt_countdown(next->timeslice, false);
+				if(next->priority > 1) next->priority--;
+			}
 			arch_thread_resume(next);
 		} else {
 			spinlock_release(&proc->sched_lock, 1);
@@ -53,14 +58,26 @@ void thread_schedule_resume(void)
 void thread_sleep(struct thread *t, int flags, int64_t timeout)
 {
 	/* TODO (major): timeout */
+	t->priority *= 20;
+	if(t->priority > 1000) {
+		t->priority = 1000;
+	}
 	t->state = THREADSTATE_BLOCKED;
 }
 
 void thread_wake(struct thread *t)
 {
+	printk("WAKE %ld\n", t->id);
+	assert(t->state == THREADSTATE_BLOCKED);
 	t->state = THREADSTATE_RUNNING;
 	if(t != current_thread) {
 		spinlock_acquire_save(&t->processor->sched_lock);
+		if(list_empty(&t->processor->runqueue)) {
+			if(t->processor != current_processor) {
+				processor_send_ipi(t->processor->id, PROCESSOR_IPI_RESUME,
+						NULL, PROCESSOR_IPI_NOWAIT);
+			}
+		}
 		list_insert(&t->processor->runqueue, &t->rq_entry);
 		spinlock_release_restore(&t->processor->sched_lock);
 	}
@@ -69,6 +86,8 @@ void thread_wake(struct thread *t)
 void thread_exit(void)
 {
 	current_thread->state = THREADSTATE_EXITED;
+	assert(current_processor->load > 0);
+	current_processor->load--;
 	/* TODO (major): cleanup thread resources */
 }
 
@@ -76,6 +95,7 @@ struct thread *thread_create(void)
 {
 	struct thread *t = slabcache_alloc(&_sc_thread);
 	krc_init(&t->refs);
+	t->priority = 10;
 	return t;
 }
 

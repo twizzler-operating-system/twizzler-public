@@ -107,6 +107,7 @@ extern void (*x86_64_isr80)(void);
 extern void (*x86_64_isr_ignore)(void);
 extern void (*x86_64_isr_shootdown)(void);
 extern void (*x86_64_isr_halt)(void);
+extern void (*x86_64_isr_resume)(void);
 void idt_init(void)
 {
 	memset(idt, 0, sizeof(idt));
@@ -194,6 +195,7 @@ void idt_init(void)
 	
 	idt_set_gate(PROCESSOR_IPI_SHOOTDOWN, (uintptr_t)&x86_64_isr_shootdown, TYPE_INT_KERNEL);
 	idt_set_gate(PROCESSOR_IPI_HALT, (uintptr_t)&x86_64_isr_halt, TYPE_INT_KERNEL);
+	idt_set_gate(PROCESSOR_IPI_RESUME, (uintptr_t)&x86_64_isr_resume, TYPE_INT_KERNEL);
 
 	idt_ptr.base = (uintptr_t)idt;
 	idt_ptr.limit = 256 * sizeof(struct idt_entry) - 1;
