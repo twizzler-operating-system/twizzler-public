@@ -281,7 +281,7 @@ void arch_thread_init(struct thread *thread, void *entry, void *arg, void *stack
 {
 	memset(&thread->arch.syscall, 0, sizeof(thread->arch.syscall));
 	thread->arch.syscall.rcx = (uint64_t)entry;
-	thread->arch.syscall.rsp = (uint64_t)stack + stacksz;
+	thread->arch.syscall.rsp = (uint64_t)stack + stacksz - 8;
 	thread->arch.syscall.rdi = (uint64_t)arg;
 	thread->arch.was_syscall = 1;
 	thread->arch.usedfpu = false;

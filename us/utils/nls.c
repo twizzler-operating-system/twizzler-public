@@ -34,7 +34,9 @@ static void __name_init(void)
 
 int main()
 {
+	for(int i=0;i<20;i++)
 	printf("Hello, World from a utility!\n");
+	return 0;
 	__name_init();
 	twzkv_foreach(&name_index, _cb);
 }

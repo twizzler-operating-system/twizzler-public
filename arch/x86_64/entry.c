@@ -93,8 +93,8 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 				printk("[debug]: recv debug interrupt\n");
 				kernel_debug_entry();
 			}
+			panic("kernel exception: %ld, from %lx\n", frame->int_no, frame->rip);
 		}
-		panic("kernel exception: %ld, from %lx\n", frame->int_no, frame->rip);
 	} else {
 		kernel_interrupt_entry(frame->int_no);
 	}

@@ -66,7 +66,7 @@ $(BUILDDIR)/us/libtwz.so.0: $(BUILDDIR)/us/libtwz.so
 $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_READY)
 	@mkdir -p $(BUILDDIR)/us/libtwz
 	@echo "[CC]  $@"
-	@$(TOOLCHAIN_PREFIX)gcc -Og -g -Wall -Wextra -std=gnu11 -I us/include -ffreestanding $(MUSL_INCL) -c -o $@ $< -MD -Werror -fpic # -mcmodel=large -fpic #-fno-plt
+	@$(TOOLCHAIN_PREFIX)gcc -O$(CONFIG_OPTIMIZE) -g -Wall -Wextra -std=gnu11 -I us/include -ffreestanding $(MUSL_INCL) -c -o $@ $< -MD -Werror -fpic # -mcmodel=large -fpic #-fno-plt
 
 -include $(LIBTWZ_OBJ:.o=.d)
 

@@ -152,13 +152,13 @@ int main()
 
 	objid_t koid;
 	twz_object_new(&ko, &koid, 0, 0, 0);
-	if(bstream_init(&ko, 8)) {
+	if(bstream_init(&ko, 12)) {
 		debug_printf("Failed to create ko");
 	}
 
 	objid_t soid;
 	twz_object_new(&so, &soid, 0, 0, 0);
-	if(bstream_init(&so, 8)) {
+	if(bstream_init(&so, 12)) {
 		debug_printf("Failed to create so");
 	}
 
@@ -182,7 +182,7 @@ int main()
 				serial_putc(buf[i]);
 			}
 		}
-		debug_printf("SOREAD: %ld\n", r);
+	//	debug_printf("SOREAD: %ld <%s>\n", r, buf);
 		
 	}
 }

@@ -100,6 +100,7 @@ ssize_t bstream_read(struct object *obj, unsigned char *buf,
 
 	struct bstream_header *bh = twz_object_findmeta(obj, BSTREAM_HEADER_ID);
 	if(!bh) return -TE_NOTSUP;
+	if(len == 0) return 0;
 	unsigned char *buffer = obj->base;
 	ssize_t i=0;
 try_again:
@@ -138,6 +139,7 @@ ssize_t bstream_write(struct object *obj, const unsigned char *buf,
 {
 	struct bstream_header *bh = twz_object_findmeta(obj, BSTREAM_HEADER_ID);
 	if(!bh) return -TE_NOTSUP;
+	if(len == 0) return 0;
 	char *buffer = obj->base;
 	size_t i = 0;
 try_again:
@@ -147,7 +149,7 @@ try_again:
 			bh->rwait = bh->tail;
 			mutex_release(&bh->writelock);
 
-			if(i) break;
+	//		if(i) break;
 			if(fl & TWZIO_NONBLOCK) {
 				return -TE_NREADY;
 			}
@@ -167,7 +169,6 @@ try_again:
 int bstream_init(struct object *obj, int nbits)
 {
 	struct bstream_header *bh = twz_object_addmeta(obj, BSTREAM_METAHEADER);
-	debug_printf("DO WRITE: %p\n", bh);
 	if(!bh) {
 		return -TE_NOSPC;
 	}
