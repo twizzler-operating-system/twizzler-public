@@ -113,8 +113,10 @@ void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 {
 	current_thread->arch.was_syscall = true;
 	arch_interrupt_set(true);
+#if CONFIG_PRINT_SYSCALLS
 	if(frame->rax != SYS_DEBUG_PRINT)
-		printk("%ld: SYSCALL %ld\n", current_thread->id, frame->rax);
+		printk("%ld: SYSCALL %ld (%lx)\n", current_thread->id, frame->rax, frame->rcx);
+#endif
 	if(frame->rax < NUM_SYSCALLS) {
 		frame->rax = syscall_table[frame->rax](frame->rdi, frame->rsi, frame->rdx, frame->r8, frame->r9, frame->r10);
 		frame->rdx = 0;

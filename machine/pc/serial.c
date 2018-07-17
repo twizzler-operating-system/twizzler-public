@@ -284,7 +284,6 @@ static void _serial_interrupt(int i, struct interrupt_handler *h __unused)
 			case 1:
 				break;
 			case 2: case 6:
-				panic("DEBUG RESET");
 				uart_read(u, UART_REG_DATA);
 				break;
 			case 3:

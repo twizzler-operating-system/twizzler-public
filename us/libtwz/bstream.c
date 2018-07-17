@@ -69,7 +69,8 @@ try_again:
 }
 
 #include <debug.h>
-ssize_t bstream_read(struct object *obj, unsigned char *buf,
+
+ssize_t abstream_read(struct object *obj, unsigned char *buf,
 		size_t len, unsigned fl __unused)
 {
 	/* TODO: implement this and write using real handling of flags, etc.
@@ -91,15 +92,76 @@ ssize_t bstream_read(struct object *obj, unsigned char *buf,
 	return len;
 }
 
-ssize_t bstream_write(struct object *obj, const unsigned char *buf,
-		size_t len, unsigned fl __unused)
+ssize_t bstream_read(struct object *obj, unsigned char *buf,
+		size_t len, unsigned fl)
 {
-	for(size_t i=0;i<len;i++) {
-		if(bstream_putb(obj, buf[i], 0) == -TE_NOTSUP) {
-			return -TE_NOTSUP;
+	/* TODO: implement this and write using real handling of flags, etc.
+	 * Also standardize twzio interface */
+
+	struct bstream_header *bh = twz_object_findmeta(obj, BSTREAM_HEADER_ID);
+	if(!bh) return -TE_NOTSUP;
+	unsigned char *buffer = obj->base;
+	ssize_t i=0;
+try_again:
+	mutex_acquire(&bh->readlock);
+	for(;i<(ssize_t)len;i++) {
+		if(bh->head == bh->tail) {
+			bh->rwait = bh->head;
+			mutex_release(&bh->readlock);
+			if(i) {
+				break;
+			}
+			if(fl & TWZIO_NONBLOCK) {
+				return -TE_NREADY;
+			}
+			notify_wait(obj, bh->rwid, bh->head);
+			goto try_again;
 		}
+
+		int c = buffer[bh->tail & ((1ul << bh->nbits)-1)];
+		bh->tail++;
+		if(c == '\n' || c == '\r') {
+			buf[i++] = '\n';
+			break;
+		}
+		buf[i] = c;
 	}
-	return len;
+
+	notify_wake(obj, bh->wwid, INT_MAX);
+	notify_wake_all(obj, INT_MAX, NTYPE_WRITE);
+	mutex_release(&bh->readlock);
+	return i;
+}
+
+ssize_t bstream_write(struct object *obj, const unsigned char *buf,
+		size_t len, unsigned fl)
+{
+	struct bstream_header *bh = twz_object_findmeta(obj, BSTREAM_HEADER_ID);
+	if(!bh) return -TE_NOTSUP;
+	char *buffer = obj->base;
+	size_t i = 0;
+try_again:
+	mutex_acquire(&bh->writelock);
+	for(;i<len;i++) {
+		if(bh->tail == bh->head - (1ul << bh->nbits)) {
+			bh->rwait = bh->tail;
+			mutex_release(&bh->writelock);
+
+			if(i) break;
+			if(fl & TWZIO_NONBLOCK) {
+				return -TE_NREADY;
+			}
+			notify_wait(obj, bh->wwid, bh->tail);
+			goto try_again;
+		}
+
+		buffer[bh->head & ((1ul << bh->nbits)-1)] = buf[i];
+		bh->head++;
+	}
+	notify_wake(obj, bh->rwid, INT_MAX);
+	notify_wake_all(obj, INT_MAX, NTYPE_READ);
+	mutex_release(&bh->writelock);
+	return i;
 }
 
 int bstream_init(struct object *obj, int nbits)

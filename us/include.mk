@@ -87,6 +87,8 @@ include us/term/include.mk
 
 include us/shell/include.mk
 
+include us/utils/include.mk
+
 include us/twix/include.mk
 
 

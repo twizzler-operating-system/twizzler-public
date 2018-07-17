@@ -30,6 +30,7 @@ struct twix_register_frame {
 
 #define LINUX_SYS_read              0
 #define LINUX_SYS_write             1
+#define LINUX_SYS_ioctl            16
 #define LINUX_SYS_pread            17
 #define LINUX_SYS_pwrite           18
 #define LINUX_SYS_readv            19
@@ -237,10 +238,19 @@ long linux_sys_write(int fd, void *buf, size_t count)
 	return linux_sys_pwritev(fd, &v, 1, -1);
 }
 
+long linux_sys_ioctl(int fd, unsigned long request, unsigned long arg)
+{
+	debug_printf("IOCTL: %d %ld %ld\n", fd, request, arg);
+	return 0;
+}
+
+#include <twzthread.h>
 long linux_sys_exit(int code)
 {
 	/* TODO: code */
-	sys_thrd_ctl(THRD_CTL_EXIT, 0);
+	struct twzthread_repr *repr = twz_ptr_base(&stdobj_thrd);
+	sys_thrd_ctl(THRD_CTL_EXIT, &repr->state);
+	return 0;
 }
 
 long linux_sys_set_tid_address()
@@ -262,6 +272,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_pwrite] = linux_sys_pwrite,
 	[LINUX_SYS_read] = linux_sys_read,
 	[LINUX_SYS_write] = linux_sys_write,
+	[LINUX_SYS_ioctl] = linux_sys_ioctl,
 	[LINUX_SYS_exit] = linux_sys_exit,
 	[LINUX_SYS_exit_group] = linux_sys_exit,
 };
@@ -270,7 +281,9 @@ static size_t stlen = sizeof(syscall_table) / sizeof(syscall_table[0]);
 
 long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5)
 {
+	//debug_printf("TWIX entry: %ld\n", num);
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
+		debug_printf("Unimplemented UNIX system call: %ld", num);
 		return -ENOSYS;
 	}
 	return syscall_table[num](a0, a1, a2, a3, a4, a5);
@@ -278,13 +291,7 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 
 long __twix_syscall_target_c(long num, struct twix_register_frame *frame)
 {
-	//debug_printf("TWIX entry: %ld, %p %lx\n", num, frame, frame->rsp);
 	long ret = twix_syscall(num, frame->rdi, frame->rsi, frame->rdx, frame->r10, frame->r8, frame->r9);
-	if(ret == -ENOSYS) {
-		debug_printf("Unimplemented UNIX system call: %ld", num);
-	} else {
-		//debug_printf("TWIX exit : %ld -> %ld\n", num, ret);
-	}
 	return ret;
 }
 

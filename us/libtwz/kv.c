@@ -142,6 +142,25 @@ static int _ht_lookup(struct object *index, struct indexheader *ih,
 	return -1;
 }
 
+int twzkv_foreach(struct object *index, void (*fn)(struct twzkv_item *k, struct twzkv_item *v))
+{
+	struct indexheader *ih = twz_ptr_base(index);
+	struct slot *table = twz_ptr_lea(index, ih->slots);
+	for(size_t b = 0;b<g_a_sizes[ih->szidx];b++) {
+		for(int i=0;i<NUMSLOTS;i++) {
+			if(table[b].key[i].data) {
+				struct twzkv_item key, value;
+				key.length = table[b].key[i].length;
+				key.data = twz_ptr_lea(index, table[b].key[i].data);
+				value.length = table[b].value[i].length;
+				value.data = twz_ptr_lea(index, table[b].value[i].data);
+				fn(&key, &value);
+			}
+		}
+	}
+	return 0;
+}
+
 static int _ht_insert(struct object *index, ssize_t, struct indexheader *ih,
 		struct twzkv_item *key, struct twzkv_item *value);
 static void _ht_rehash(struct object *index, struct indexheader *ih, ssize_t idx_to_data)
@@ -217,4 +236,5 @@ int twzkv_get(struct object *index, struct twzkv_item *key, struct twzkv_item *v
 	struct indexheader *ih = twz_ptr_base(index);
 	return _ht_lookup(index, ih, key, value);
 }
+
 

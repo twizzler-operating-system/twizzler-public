@@ -140,6 +140,8 @@ static void _input_thrd(void *arg)
 	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
 	for(;;) {
 		int x = serial_getc();
+		serial_putc(x);
+		if(x == '\r') serial_putc('\n');
 		bstream_putb(&ko, x, 0);
 	}
 }
@@ -176,10 +178,11 @@ int main()
 		ssize_t r = bstream_read(&so, buf, 127, 0);
 		if(r > 0) {
 			for(ssize_t i = 0;i<r;i++) {
+				if(buf[i] == '\n') serial_putc('\r');
 				serial_putc(buf[i]);
 			}
 		}
-	//	debug_printf("SOREAD: %s\n", buf);
+		debug_printf("SOREAD: %ld\n", r);
 		
 	}
 }
