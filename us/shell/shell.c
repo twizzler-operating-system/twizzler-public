@@ -10,9 +10,7 @@ struct exinfo {
 	char **argv;
 };
 
-char *argv[] = {
-	"foo", "__kc", NULL,
-};
+static char *argv[128] = {0};
 
 static void _thrd_exec(void *arg)
 {
@@ -21,11 +19,25 @@ static void _thrd_exec(void *arg)
 	twz_execv(ei->eid, 0, ei->argv);
 }
 
-static void runcmd(char *cmd, bool utils)
+static void runcmd(char *cmd)
 {
+	char *prog = strtok(cmd, " ");
+	argv[0] = strdup(prog);
+	for(int i=1;i<120;i++) {
+		char *arg = argv[i] = strtok(NULL, " ");
+		if(!arg) {
+			break;
+		}
+		argv[i] = strdup(arg);
+	}
+
 	char exec[256];
-	snprintf(exec, 256, "%s%s.0", utils ? "utils/" : "", cmd);
+	snprintf(exec, 256, "%s.0", prog);
 	objid_t eid = twz_name_resolve(NULL, exec, NAME_RESOLVER_DEFAULT);
+	if(!eid) {
+		snprintf(exec, 256, "utils/%s.0", prog);
+		eid = twz_name_resolve(NULL, exec, NAME_RESOLVER_DEFAULT);
+	}
 	if(eid) {
 		struct twzthread thrd;
 		struct exinfo ei = {
@@ -38,11 +50,13 @@ static void runcmd(char *cmd, bool utils)
 		}
 		twz_thread_wait(&thrd);
 	} else {
-		if(!utils) {
-			runcmd(cmd, true);
-			return;
-		}
 		fprintf(stderr, "No command '%s'\n", cmd);
+	}
+
+	for(int i=0;i<120;i++) {
+		if(argv[i]) {
+			free(argv[i]);
+		}
 	}
 }
 
@@ -56,8 +70,8 @@ int main()
 			char *nl = strchr(buf, '\n');
 			if(nl) *nl = 0;
 			if(nl == buf) continue;
-			fprintf(stderr, "-> %s\n", buf);
-			runcmd(buf, false);
+			//fprintf(stderr, "-> %s\n", buf);
+			runcmd(buf);
 		}
 	}
 	for(;;);

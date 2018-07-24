@@ -70,6 +70,8 @@ static inline int twz_execv(objid_t id, objid_t sc, char *const argv[])
 		argbase += (len + 1);
 	}
 	cpy[argc+1] = 0;
+	argbase += sizeof(long);
+	argbase = (char *)((uintptr_t)argbase & ~(sizeof(long) - 1));
 	memcpy(argbase, cpy, sizeof(cpy[0]) * (argc + 2));
 
 	struct sys_become_args ba = {
