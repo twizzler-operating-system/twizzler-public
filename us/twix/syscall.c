@@ -264,7 +264,7 @@ long linux_sys_pwritev2(int fd, const struct iovec *iov, int iovcnt, ssize_t off
 				break;
 			}
 			if(off == -1) {
-				fds[i].pos += r;
+				fds[fd].pos += r;
 			} else {
 				off += r;
 			}
