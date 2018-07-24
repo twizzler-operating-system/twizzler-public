@@ -144,7 +144,6 @@ void processor_secondary_entry(struct processor *proc)
 
 static void __do_processor_attach_thread(struct processor *proc, struct thread *thread)
 {
-	printk("Attach %ld to %d\n", thread->id, proc->id);
 	bool fl = spinlock_acquire(&proc->sched_lock);
 	thread->processor = proc;
 	list_insert(&proc->runqueue, &thread->rq_entry);

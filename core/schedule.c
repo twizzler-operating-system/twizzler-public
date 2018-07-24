@@ -67,7 +67,6 @@ void thread_sleep(struct thread *t, int flags, int64_t timeout)
 
 void thread_wake(struct thread *t)
 {
-	printk("WAKE %ld\n", t->id);
 	assert(t->state == THREADSTATE_BLOCKED);
 	t->state = THREADSTATE_RUNNING;
 	if(t != current_thread) {

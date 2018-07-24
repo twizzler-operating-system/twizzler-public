@@ -1,4 +1,4 @@
-PROGS=nls
+PROGS=nls cat
 
 $(BUILDDIR)/us/utils/%: us/utils/%.c $(US_LIBDEPS)
 	@mkdir -p $(BUILDDIR)/us/utils

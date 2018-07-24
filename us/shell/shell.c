@@ -5,10 +5,21 @@
 #include <twzexec.h>
 #include <twzthread.h>
 
+struct exinfo {
+	objid_t eid;
+	char **argv;
+};
+
+char *argv[] = {
+	"foo", "bar", NULL,
+};
+
 static void _thrd_exec(void *arg)
 {
-	objid_t *ei = __twz_ptr_lea(&stdobj_thrd, arg);
-	twz_exec(*ei, 0);
+	struct exinfo *ei = __twz_ptr_lea(&stdobj_thrd, arg);
+	//twz_exec(*ei, 0);
+	printf("::: %p\n", ei->argv);
+	twz_execv(ei->eid, 0, ei->argv);
 }
 
 static void runcmd(char *cmd, bool utils)
@@ -18,7 +29,11 @@ static void runcmd(char *cmd, bool utils)
 	objid_t eid = twz_name_resolve(NULL, exec, NAME_RESOLVER_DEFAULT);
 	if(eid) {
 		struct twzthread thrd;
-		if(twz_thread_spawn(&thrd, _thrd_exec, NULL, &eid, 0) < 0) {
+		struct exinfo ei = {
+			.eid = eid,
+			.argv = argv,
+		};
+		if(twz_thread_spawn(&thrd, _thrd_exec, NULL, &ei, 0) < 0) {
 			fprintf(stderr, "Failed to spawn child thread");
 			return 1;
 		}

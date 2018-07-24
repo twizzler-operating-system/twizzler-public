@@ -24,6 +24,7 @@ struct faultinfo {
 } __packed;
 
 #define STACK_SIZE ( 0x200000 - OBJ_NULLPAGE_SIZE )
+#define TLS_SIZE   0x200000
 
 struct twzthread_repr {
 	union {
@@ -35,11 +36,11 @@ struct twzthread_repr {
 		char _pad[4096];
 	};
 	unsigned char stack[STACK_SIZE];
-	unsigned char tls[STACK_SIZE];
+	unsigned char tls[TLS_SIZE];
+	unsigned char exec_data[4096];
 	_Atomic int state, ready;
 };
 
-#define TLS_SIZE   0x200000
 #define STACK_BASE ({ SLOT_TO_VIRT(TWZSLOT_THRD) + OBJ_NULLPAGE_SIZE + offsetof(struct twzthread_repr, stack); })
 #define TLS_BASE ({ STACK_BASE + STACK_SIZE; })
 
