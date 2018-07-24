@@ -1,9 +1,12 @@
 #pragma once
 
+
 #define PROCESSOR_IPI_DEST_OTHERS -1
 #define PROCESSOR_IPI_SHOOTDOWN 100
 #define PROCESSOR_IPI_HALT 90
 #define PROCESSOR_IPI_RESUME 89
+
+#ifndef ASSEMBLY
 
 struct x86_64_tss
 {
@@ -154,4 +157,5 @@ static inline uint64_t x86_64_cpuid(uint32_t x, uint32_t subleaf, int rnum)
 	}
 	return regs[rnum];
 }
+#endif
 

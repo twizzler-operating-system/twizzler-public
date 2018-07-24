@@ -196,12 +196,15 @@ static void vmx_handle_rootcall(struct processor *proc)
 static void vmx_handle_ept_violation(struct processor *proc)
 {
 	if(proc->arch.veinfo->lock != 0) {
-		panic("virtualization information area lock is not 0: %lx %lx %lx at %ld:%lx",
+		panic("virtualization information area lock is not 0:\n(%lx %lx %lx) -> (%lx %lx %lx) at %ld:%lx",
 				proc->arch.veinfo->qual,
 				proc->arch.veinfo->physical,
 				proc->arch.veinfo->linear,
+				vmcs_readl(VMCS_EXIT_QUALIFICATION),
+				vmcs_readl(VMCS_GUEST_PHYSICAL_ADDRESS),
+				vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS),
 				current_thread->id,
-				current_thread->arch.exception.rip
+				vmcs_readl(VMCS_GUEST_RIP)
 				);
 	}
 	proc->arch.veinfo->reason   = VMEXIT_REASON_EPT_VIOLATION;
@@ -340,6 +343,7 @@ static void x86_64_vmenter(struct processor *proc)
 			::
 			"r"(proc->arch.launched),
 			"c"(proc->arch.vcpu_state_regs),
+			[guest_cs_sel]"i"(VMCS_GUEST_CS_SEL),
 			[rax]"i"(REG_RAX*8),
 			[rbx]"i"(REG_RBX*8),
 			[rcx]"i"(REG_RCX*8),
@@ -709,16 +713,6 @@ void x86_64_secctx_switch(struct secctx *s)
 
 void x86_64_virtualization_fault(struct processor *proc)
 {
-#if 0
-	printk("VE: %x %x %lx %lx %lx %x\n",
-			proc->arch.veinfo->reason,
-			proc->arch.veinfo->lock,
-			proc->arch.veinfo->qual,
-			proc->arch.veinfo->linear,
-			proc->arch.veinfo->physical,
-			proc->arch.veinfo->eptidx
-			);
-#endif
 	uint32_t flags = 0;
 	if(proc->arch.veinfo->qual & EQ_EPTV_READ) {
 		flags |= OBJSPACE_FAULT_READ;

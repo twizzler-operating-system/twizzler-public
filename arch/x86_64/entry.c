@@ -11,13 +11,11 @@ void x86_64_ipi_tlb_shootdown(void)
 {
 	asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3; mfence;" ::: "memory", "rax");
 	processor_ipi_finish();
-	x86_64_signal_eoi();
 }
 
 void x86_64_ipi_resume(void)
 {
 	printk("%d: RESUME\n", current_processor->id);
-	x86_64_signal_eoi();
 }
 
 void x86_64_ipi_halt(void)
@@ -38,26 +36,27 @@ static void x86_64_change_fpusse_allow(bool enable)
 }
 
 __noinstrument
-void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_userspace)
+void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_userspace, bool ignored)
 {
 	//if(frame->int_no != 36 && frame->int_no != 32) {
 	//	printk(":: %ld\n", frame->int_no);
 	//}
-	if(was_userspace) {
-		current_thread->arch.was_syscall = false;
-	}
-	
-	if((frame->int_no == 6 || frame->int_no == 7) && current_thread
-				&& !current_thread->arch.usedfpu) {
-		if(!was_userspace) {
-			panic("floating-point operations used in kernel-space");
+	if(!ignored) {
+		if(was_userspace) {
+			current_thread->arch.was_syscall = false;
 		}
-		/* we're emulating FPU instructions / disallowing SSE. Set a flag,
-		 * and allow the thread to do its thing */
-		current_thread->arch.usedfpu = true;
-		x86_64_change_fpusse_allow(true);
-		asm volatile ("finit"); /* also, we may need to clear the FPU state */
-	} else if(frame->int_no == 14) {
+
+		if((frame->int_no == 6 || frame->int_no == 7) && current_thread
+				&& !current_thread->arch.usedfpu) {
+			if(!was_userspace) {
+				panic("floating-point operations used in kernel-space");
+			}
+			/* we're emulating FPU instructions / disallowing SSE. Set a flag,
+			 * and allow the thread to do its thing */
+			current_thread->arch.usedfpu = true;
+			x86_64_change_fpusse_allow(true);
+			asm volatile ("finit"); /* also, we may need to clear the FPU state */
+		} else if(frame->int_no == 14) {
 			/* page fault */
 			uint64_t cr2;
 			asm volatile("mov %%cr2, %0" : "=r"(cr2) :: "memory");
@@ -79,31 +78,38 @@ void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_users
 			if(!was_userspace) {
 				panic("kernel-mode page fault to address %lx\n"
 						"    from %lx: %s while in %s-mode: %s\n", cr2, frame->rip,
-					flags & FAULT_EXEC ? "ifetch" : (flags & FAULT_WRITE ? "write" : "read"),
-					flags & FAULT_USER ? "user" : "kernel",
-					flags & FAULT_ERROR_PERM ? "present" : "non-present");
+						flags & FAULT_EXEC ? "ifetch" : (flags & FAULT_WRITE ? "write" : "read"),
+						flags & FAULT_USER ? "user" : "kernel",
+						flags & FAULT_ERROR_PERM ? "present" : "non-present");
 			}
 			kernel_fault_entry(frame->rip, cr2, flags);
-	} else if(frame->int_no == 20) {
-		/* #VE */
-		x86_64_virtualization_fault(current_processor);
-	} else if(frame->int_no < 32) {
-		if(was_userspace) {
-			struct fault_exception_info info = {
-				.ip = frame->rip,
-				.code = frame->int_no,
-				.arg0 = frame->err_code,
-			};
-			thread_raise_fault(current_thread, FAULT_EXCEPTION, &info, sizeof(info));
-		} else {
-			if(frame->int_no == 3) {
-				printk("[debug]: recv debug interrupt\n");
-				kernel_debug_entry();
+		} else if(frame->int_no == 20) {
+			/* #VE */
+			x86_64_virtualization_fault(current_processor);
+		} else if(frame->int_no < 32) {
+			if(was_userspace) {
+				struct fault_exception_info info = {
+					.ip = frame->rip,
+					.code = frame->int_no,
+					.arg0 = frame->err_code,
+				};
+				thread_raise_fault(current_thread, FAULT_EXCEPTION, &info, sizeof(info));
+			} else {
+				if(frame->int_no == 3) {
+					printk("[debug]: recv debug interrupt\n");
+					kernel_debug_entry();
+				}
+				panic("kernel exception: %ld, from %lx\n", frame->int_no, frame->rip);
 			}
-			panic("kernel exception: %ld, from %lx\n", frame->int_no, frame->rip);
+		} else if(frame->int_no == PROCESSOR_IPI_HALT) {
+			x86_64_ipi_halt();
+		} else if(frame->int_no == PROCESSOR_IPI_SHOOTDOWN) {
+			x86_64_ipi_tlb_shootdown();
+		} else if(frame->int_no == PROCESSOR_IPI_RESUME) {
+			x86_64_ipi_resume();
+		} else {
+			kernel_interrupt_entry(frame->int_no);
 		}
-	} else {
-		kernel_interrupt_entry(frame->int_no);
 	}
 
 	x86_64_signal_eoi();

@@ -5,6 +5,8 @@
 # the same for both types.
 
 #include <thread-bits.h>
+#define ASSEMBLY
+#include <arch/processor.h>
 .macro isr_errcode num, handler
 .global x86_64_isr\num
 .align 8
@@ -97,37 +99,32 @@ x86_64_isr_ignore:
 .extern x86_64_ipi_tlb_shootdown
 x86_64_isr_shootdown:
 	pushq $0
-	pushq $0x80
-	PUSH_CONTEXT
-	call x86_64_ipi_tlb_shootdown
-	RESTORE_CONTEXT
-	iretq
+	pushq $PROCESSOR_IPI_SHOOTDOWN
+	jmp isr_common
 
 .global x86_64_isr_resume
 .extern x86_64_ipi_resume
 x86_64_isr_resume:
 	pushq $0
-	pushq $0x80
-	PUSH_CONTEXT
-	call x86_64_ipi_resume
-	RESTORE_CONTEXT
-	iretq
+	pushq $PROCESSOR_IPI_RESUME
+	jmp isr_common
 
 .extern x86_64_signal_eoi
 ignore_handler:
+	cld
 	PUSH_CONTEXT
-	call x86_64_signal_eoi
-	RESTORE_CONTEXT
-	iretq
-
+	mov $1, %rdx
+	jmp isr_common_test
 
 .extern x86_64_exception_entry
 isr_common:
 	cld
 	PUSH_CONTEXT
+	xorq %rdx, %rdx /* default: not ignored */
+	isr_common_test:
 	movq %rsp, %rdi
 	testl $3, 144(%rsp) #test CPL for pushed CS desc
-	je kernel_exception
+	jz kernel_exception
 
 	swapgs
 	movq $1, %rsi
