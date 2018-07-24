@@ -174,6 +174,12 @@ static ssize_t __do_write(struct object *o, ssize_t off, void *base, size_t len,
 		/* TODO: bounds check */
 		memcpy((char *)twz_ptr_base(o) + off, base, len);
 		r = len;
+		/* TODO: append */
+		if(o->mi->flags & o->mi->sz) {
+			if(off + len > o->mi->sz) {
+				o->mi->sz = off + len;
+			}
+		}
 	}
 	return r;
 }
@@ -190,6 +196,8 @@ static ssize_t __do_read(struct object *o, ssize_t off, void *base, size_t len, 
 			if(off + len > o->mi->sz) {
 				len = o->mi->sz - off;
 			}
+		} else {
+			return -EIO;
 		}
 		memcpy(base, (char *)twz_ptr_base(o) + off, len);
 		r = len;
@@ -225,7 +233,7 @@ long linux_sys_preadv2(int fd, const struct iovec *iov, int iovcnt, ssize_t off,
 			}
 			count += r;
 		} else {
-			break;
+			return count ? count : r;
 		}
 	}
 	return count;
