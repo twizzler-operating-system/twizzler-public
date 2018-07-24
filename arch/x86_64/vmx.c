@@ -380,7 +380,7 @@ asm (
 
 static uint64_t read_cr(int n)
 {
-	uint64_t v;
+	uint64_t v = 0;
 	switch(n) {
 		case 0: asm volatile("mov %%cr0, %%rax" : "=a"(v)); break;
 		/* cr1 is not accessible */

@@ -2,8 +2,12 @@
 #include <debug.h>
 #include <interrupt.h>
 #include <processor.h>
-_Noreturn void __panic(const char *file, int linenr, int flags, const char *msg, ...)
+
+static struct spinlock panic_lock = SPINLOCK_INIT;
+
+void __panic(const char *file, int linenr, int flags, const char *msg, ...)
 {
+	spinlock_acquire(&panic_lock);
 	/* TODO (minor): stop processors, cli */
 	//processor_send_ipi(PROCESSOR_IPI_DEST_OTHERS, PROCESSOR_IPI_HALT, NULL, 0);
 	arch_interrupt_set(false);
@@ -16,6 +20,7 @@ _Noreturn void __panic(const char *file, int linenr, int flags, const char *msg,
 	if(flags & PANIC_UNWIND)
 		debug_print_backtrace();
 	//kernel_debug_entry();
-	for(;;);
+	if(!(flags & PANIC_CONTINUE))
+		for(;;);
 }
 

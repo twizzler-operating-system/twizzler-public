@@ -16,6 +16,7 @@ uintptr_t __stack_chk_guard = STACK_CHK_GUARD;
 _Noreturn void __stack_chk_fail(void)
 {
 	panic("Stack smashing detected");
+	for(;;);
 }
 
 static struct spinlock lock = SPINLOCK_INIT;
@@ -51,15 +52,15 @@ static void print_source_location(const char *prefix,
 static void ubsan_prologue(struct source_location *location)
 {
 	spinlock_acquire(&lock);
-	printk("----------------------\n");
-	print_source_location("UBSAN: Undefined behaviour in", location);
+	panic_continue("Undefined Behavior Detected");
+	print_source_location("Undefined behaviour in", location);
 }
 
 noreturn static void ubsan_epilogue(void)
 {
 	printk("----------------------\n");
 	spinlock_release(&lock, 0);
-	panic("ubsan handled - panic");
+	for(;;);
 }
 
 noreturn void
