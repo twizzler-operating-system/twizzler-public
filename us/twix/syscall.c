@@ -27,9 +27,15 @@ struct twix_register_frame {
 #include <twzslots.h>
 #include <twzview.h>
 #include <twzio.h>
+#include <twzname.h>
 
 #define LINUX_SYS_read              0
 #define LINUX_SYS_write             1
+#define LINUX_SYS_open              2
+#define LINUX_SYS_close             3
+
+#define LINUX_SYS_mmap              9
+
 #define LINUX_SYS_ioctl            16
 #define LINUX_SYS_pread            17
 #define LINUX_SYS_pwrite           18
@@ -55,6 +61,7 @@ struct twix_register_frame {
 #define ARCH_GET_FS 0x1003
 #define ARCH_GET_GS 0x1004
 
+
 long linux_sys_arch_prctl(int code, unsigned long addr)
 {
 	switch(code) {
@@ -79,6 +86,7 @@ struct file {
 	int fd;
 	uint32_t fl;
 	bool valid;
+	bool taken;
 	size_t pos;
 	struct object obj;
 };
@@ -88,6 +96,75 @@ static struct file fds[MAX_FD];
 
 #define DW_NONBLOCK 1
 #include <debug.h>
+
+#include <fcntl.h>
+
+static void __fd_sys_init(void)
+{
+	static bool fds_init = false;
+	if(fds_init) {
+		return;
+	}
+	fds_init = true;
+}
+
+static int __check_fd_valid(int fd)
+{
+	if(!fds[fd].valid) {
+		twz_view_get(NULL, TWZSLOT_FILES_BASE + fd, NULL, &fds[fd].fl);
+		fds[fd].valid = true;
+		if(!(fds[fd].fl & VE_VALID)) {
+			return -EBADF;
+		}
+		twz_object_init(&fds[fd].obj, TWZSLOT_FILES_BASE + fd);
+		fds[fd].taken = true;
+	} else if(!fds[fd].taken) {
+		return -EBADF;
+	}
+	return 0;
+}
+
+static int __alloc_fd(void)
+{
+	for(int i=0;i<MAX_FD;i++) {
+		int test = __check_fd_valid(i);
+		if(test < 0) return i;
+	}
+	return -EMFILE;
+}
+
+long linux_sys_open(const char *path, int flags, int mode)
+{
+	objid_t id = twz_name_resolve(NULL, path, NAME_RESOLVER_DEFAULT);
+	if(id == 0) {
+		return -ENOENT;
+	}
+	int fd = __alloc_fd();
+	if(fd < 0) {
+		return fd;
+	}
+	struct file *file = &fds[fd];
+	file->fl = (flags == O_RDONLY) ? VE_READ : 0
+		| (flags == O_WRONLY) ? VE_WRITE : 0
+		| (flags == O_RDWR) ? VE_WRITE | VE_READ : 0;
+
+	file->taken = true;
+	twz_view_set(NULL, TWZSLOT_FILES_BASE + fd, id, &file->fl);
+	twz_object_init(&file->obj, TWZSLOT_FILES_BASE + fd);
+
+	return fd;
+}
+
+long linux_sys_close(int fd)
+{
+	int test = __check_fd_valid(fd);
+	if(test < 0) {
+		return test;
+	}
+	fds[fd].taken = false;
+	return 0;
+}
+
 static ssize_t __do_write(struct object *o, ssize_t off, void *base, size_t len, int flags)
 {
 	/* TODO: more general cases */
@@ -95,7 +172,7 @@ static ssize_t __do_write(struct object *o, ssize_t off, void *base, size_t len,
 	ssize_t r = bstream_write(o, base, len, 0);
 	if(r == -TE_NOTSUP) {
 		/* TODO: bounds check */
-		memcpy((char *)twz_ptr_base(o) + off + OBJ_NULLPAGE_SIZE, base, len);
+		memcpy((char *)twz_ptr_base(o) + off, base, len);
 		r = len;
 	}
 	return r;
@@ -106,8 +183,15 @@ static ssize_t __do_read(struct object *o, ssize_t off, void *base, size_t len, 
 	//ssize_t r = twzio_read(o, base, len, (flags & DW_NONBLOCK) ? TWZIO_NONBLOCK : 0);
 	ssize_t r = bstream_read(o, base, len, 0);
 	if(r == -TE_NOTSUP) {
-		/* TODO: bounds check */
-		memcpy(base, (char *)twz_ptr_base(o) + off + OBJ_NULLPAGE_SIZE, len);
+		if(o->mi->flags & MIF_SZ) {
+			if(off >= o->mi->sz) {
+				return 0;
+			}
+			if(off + len > o->mi->sz) {
+				len = o->mi->sz - off;
+			}
+		}
+		memcpy(base, (char *)twz_ptr_base(o) + off, len);
 		r = len;
 	}
 	return r;
@@ -119,14 +203,8 @@ long linux_sys_preadv2(int fd, const struct iovec *iov, int iovcnt, ssize_t off,
 	if(fd < 0 || fd >= MAX_FD) {
 		return -EINVAL;
 	}
-	if(!fds[fd].valid) {
-		twz_view_get(NULL, TWZSLOT_FILES_BASE + fd, NULL, &fds[fd].fl);
-		if(!(fds[fd].fl & VE_VALID)) {
-			return -EBADF;
-		}
-		twz_object_init(&fds[fd].obj, TWZSLOT_FILES_BASE + fd);
-		fds[fd].valid = true;
-	}
+	int test = __check_fd_valid(fd);
+	if(test < 0) return test;
 
 	if(!(fds[fd].fl & VE_READ)) {
 		return -EACCES;
@@ -141,7 +219,7 @@ long linux_sys_preadv2(int fd, const struct iovec *iov, int iovcnt, ssize_t off,
 				break;
 			}
 			if(off == -1) {
-				fds[i].pos += r;
+				fds[fd].pos += r;
 			} else {
 				off += r;
 			}
@@ -151,7 +229,6 @@ long linux_sys_preadv2(int fd, const struct iovec *iov, int iovcnt, ssize_t off,
 		}
 	}
 	return count;
-
 }
 
 long linux_sys_preadv(int fd, const struct iovec *iov, int iovcnt, size_t off)
@@ -170,14 +247,9 @@ long linux_sys_pwritev2(int fd, const struct iovec *iov, int iovcnt, ssize_t off
 	if(fd < 0 || fd >= MAX_FD) {
 		return -EINVAL;
 	}
-	if(!fds[fd].valid) {
-		twz_view_get(NULL, TWZSLOT_FILES_BASE + fd, NULL, &fds[fd].fl);
-		if(!(fds[fd].fl & VE_VALID)) {
-			return -EBADF;
-		}
-		twz_object_init(&fds[fd].obj, TWZSLOT_FILES_BASE + fd);
-		fds[fd].valid = true;
-	}
+
+	int test = __check_fd_valid(fd);
+	if(test < 0) return test;
 
 	if(!(fds[fd].fl & VE_WRITE)) {
 		return -EACCES;
@@ -244,6 +316,42 @@ long linux_sys_ioctl(int fd, unsigned long request, unsigned long arg)
 	return 0;
 }
 
+#include <sys/mman.h>
+long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t off)
+{
+	if(addr != NULL && (flags & MAP_FIXED)) {
+		return -ENOTSUP;
+	}
+	if(fd >= 0) {
+		return -ENOTSUP;
+	}
+	if(!(flags & MAP_ANON)) {
+		return -ENOTSUP;
+	}
+	
+	/* TODO: fix all this up so its better */
+	size_t slot = 0x10006ul;
+	objid_t o;
+	uint32_t fl;
+	twz_view_get(NULL, slot, &o, &fl);
+	if(!(fl & VE_VALID)) {
+		objid_t nid = 0;
+		twz_object_new(NULL, &nid, 0, 0, TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE);
+		twz_view_set(NULL, slot, nid, VE_READ | VE_WRITE);
+	}
+
+	void *base = (void *)(slot * 1024 * 1024 * 1024 + 0x1000);
+	struct metainfo *mi = (void *)((slot + 1) * 1024 * 1024 * 1024 - 0x1000);
+	uint32_t *next = (uint32_t *)mi->data;
+	if(*next + len > (1024 * 1024 * 1024 - 0x2000)) {
+		return -1; //TODO allocate a new object
+	}
+
+	long ret = (long)(base + *next);
+	*next += len;
+	return ret;
+}
+
 #include <twzthread.h>
 long linux_sys_exit(int code)
 {
@@ -275,6 +383,9 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_ioctl] = linux_sys_ioctl,
 	[LINUX_SYS_exit] = linux_sys_exit,
 	[LINUX_SYS_exit_group] = linux_sys_exit,
+	[LINUX_SYS_open] = linux_sys_open,
+	[LINUX_SYS_close] = linux_sys_close,
+	[LINUX_SYS_mmap] = linux_sys_mmap,
 };
 
 static size_t stlen = sizeof(syscall_table) / sizeof(syscall_table[0]);
@@ -282,6 +393,7 @@ static size_t stlen = sizeof(syscall_table) / sizeof(syscall_table[0]);
 long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5)
 {
 	//debug_printf("TWIX entry: %ld\n", num);
+	__fd_sys_init();
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
 		debug_printf("Unimplemented UNIX system call: %ld", num);
 		return -ENOSYS;

@@ -11,14 +11,13 @@ struct exinfo {
 };
 
 char *argv[] = {
-	"foo", "bar", NULL,
+	"foo", "__kc", NULL,
 };
 
 static void _thrd_exec(void *arg)
 {
 	struct exinfo *ei = __twz_ptr_lea(&stdobj_thrd, arg);
 	//twz_exec(*ei, 0);
-	printf("::: %p\n", ei->argv);
 	twz_execv(ei->eid, 0, ei->argv);
 }
 

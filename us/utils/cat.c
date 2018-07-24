@@ -34,10 +34,6 @@ static void cat(const char *name)
 
 int main(int argc, char **argv)
 {
-	printf(":: %d args: %p\n", argc, argv);
-	for(int i=0;i<argc;i++) {
-		printf(":: ARG: %s\n", argv[i]);
-	}
 	program = argv[0];
 	if(argc == 1) {
 		cat("-");

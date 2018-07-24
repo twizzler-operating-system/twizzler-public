@@ -32,6 +32,9 @@ void name_prepare(void)
 	}
 
 	char *kcdata = twz_ptr_base(&kc);
+	size_t kclen = strlen(kcdata);
+	kc.mi->flags |= MIF_SZ;
+	kc.mi->sz = kclen;
 	char *r = strstr(kcdata, "name=");
 	if(!r) {
 		return;
@@ -75,6 +78,7 @@ void name_prepare(void)
 		len -= tl;
 		tmp += tl;
 	}
+	twz_name_assign(1, "__kc", NAME_RESOLVER_DEFAULT);
 
 }
 
