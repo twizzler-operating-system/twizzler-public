@@ -15,7 +15,7 @@ void x86_64_ipi_tlb_shootdown(void)
 
 void x86_64_ipi_resume(void)
 {
-	printk("%d: RESUME\n", current_processor->id);
+	/* don't need to do anything, just handle the interrupt */
 }
 
 void x86_64_ipi_halt(void)

@@ -12,7 +12,6 @@ struct processor;
 enum thread_state {
 	THREADSTATE_RUNNING,
 	THREADSTATE_BLOCKED,
-	THREADSTATE_BLOCKING,
 	THREADSTATE_EXITED,
 	THREADSTATE_INITING,
 };
@@ -74,7 +73,7 @@ struct thread {
 
 	struct kso_throbj *throbj;
 
-	struct list rq_entry;
+	struct list rq_entry, bl_entry;
 };
 
 struct arch_syscall_become_args;

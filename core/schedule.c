@@ -9,16 +9,18 @@ void thread_schedule_resume_proc(struct processor *proc)
 	while(true) {
 		/* TODO (major): allow current thread to run again */
 		spinlock_acquire(&proc->sched_lock);
-		if(current_thread && current_thread->state == THREADSTATE_RUNNING) {
-			list_insert(&proc->runqueue, &current_thread->rq_entry);
-		} else if(current_thread && current_thread->state == THREADSTATE_BLOCKING) {
-			current_thread->state = THREADSTATE_BLOCKED;
-		}
+	//	if(current_thread && current_thread->state == THREADSTATE_RUNNING) {
+	//		list_insert(&proc->runqueue, &current_thread->rq_entry);
+	//	} else if(current_thread && current_thread->state == THREADSTATE_BLOCKING) {
+	//		current_thread->state = THREADSTATE_BLOCKED;
+	//	}
 		struct list *ent = list_dequeue(&proc->runqueue);
 		if(ent) {
 			bool empty = list_empty(&proc->runqueue);
-			spinlock_release(&proc->sched_lock, 0);
 			struct thread *next = list_entry(ent, struct thread, rq_entry);
+			list_insert(&proc->runqueue, &next->rq_entry);
+			spinlock_release(&proc->sched_lock, 0);
+
 			next->timeslice = 100000 + next->priority * 100000;
 			if(!empty) {
 				clksrc_set_interrupt_countdown(next->timeslice, false);
@@ -32,7 +34,6 @@ void thread_schedule_resume_proc(struct processor *proc)
 			/* we're halting here, but the arch_processor_halt function will return
 			 * after an interrupt is fired. Since we're in kernel-space, any interrupt
 			 * we get will not invoke the scheduler. */
-			printk("%d: HALTING\n", proc->id);
 			arch_processor_halt();
 		}
 	}
@@ -66,18 +67,15 @@ void thread_sleep(struct thread *t, int flags, int64_t timeout)
 	if(t->priority > 1000) {
 		t->priority = 1000;
 	}
-	t->state = THREADSTATE_BLOCKING;
-	printk("SLEE %ld\n", t->id);
+	bool in = arch_interrupt_set(false);
+	t->state = THREADSTATE_BLOCKED;
+	list_remove(&t->rq_entry);
+	arch_interrupt_set(in);
 }
 
 void thread_wake(struct thread *t)
 {
-	printk("WAKE %ld\n", t->id);
-	if(t == current_thread) {
-		t->state = THREADSTATE_RUNNING;
-		return;
-	}
-	//assert(t->state == THREADSTATE_BLOCKED);
+	assert(t->state == THREADSTATE_BLOCKED);
 	
 	spinlock_acquire_save(&t->processor->sched_lock);
 	int old = atomic_exchange(&t->state, THREADSTATE_RUNNING);
@@ -93,6 +91,7 @@ void thread_wake(struct thread *t)
 
 void thread_exit(void)
 {
+	list_remove(&current_thread->rq_entry);
 	current_thread->state = THREADSTATE_EXITED;
 	assert(current_processor->load > 0);
 	current_processor->load--;
