@@ -55,13 +55,13 @@ static void _sp_release(struct krc *k)
 static int sp_sleep(struct syncpoint *sp, int *addr, int val, struct timespec *spec)
 {
 	int64_t ns = spec ? (spec->tv_nsec + spec->tv_sec * 1000000000ul) : -1ul;
-	thread_sleep(current_thread, 0, ns);
 	spinlock_acquire_save(&sp->lock);
+	thread_sleep(current_thread, 0, ns);
 	list_insert(&sp->waiters, &current_thread->rq_entry);
 	if(atomic_load(addr) != val) {
 		list_remove(&current_thread->rq_entry);
-		spinlock_release_restore(&sp->lock);
 		thread_wake(current_thread);
+		spinlock_release_restore(&sp->lock);
 		krc_put_call(&sp->refs, _sp_release);
 	} else {
 		spinlock_release_restore(&sp->lock);

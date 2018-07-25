@@ -9,7 +9,7 @@ __attribute__ ((format (printf, 4, 5))) void __panic(const char *file, int linen
 #if CONFIG_DEBUG
 
 #define assert(cond) do { if(!__builtin_expect(cond, 0)) panic("assertion failure: %s", #cond); } while(0)
-#define assertmsg(cond, msg, ...) do { if(!__builtin_expect(cond, 0)) panic(0, "assertion failure: %s -- " msg, #cond, ##__VA_ARGS__); } while(0)
+#define assertmsg(cond, msg, ...) do { if(!__builtin_expect(cond, 0)) panic("assertion failure: %s -- " msg, #cond, ##__VA_ARGS__); } while(0)
 
 #else
 

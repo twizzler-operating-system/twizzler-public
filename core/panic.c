@@ -13,7 +13,7 @@ void __panic(const char *file, int linenr, int flags, const char *msg, ...)
 	arch_interrupt_set(false);
 	va_list args;
 	va_start(args, msg);
-	printk("panic [%s:%d] - ", file, linenr);
+	printk("panic cpu %d [%s:%d] - ", current_processor ? current_processor->id : 0, file, linenr);
 	vprintk(msg, args);
 	printk("\n");
 

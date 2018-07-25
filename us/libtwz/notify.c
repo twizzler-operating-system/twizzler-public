@@ -94,7 +94,7 @@ int notify_register(struct object *obj, _Atomic int *wait,
 }
 
 
-
+#include <debug.h>
 int notify_wait(struct object *obj, int n, int val)
 {
 	struct notify_header *hdr = twz_object_findmeta(obj, NOTIFY_HEADER_ID);

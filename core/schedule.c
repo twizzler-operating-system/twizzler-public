@@ -3,7 +3,6 @@
 #include <thread.h>
 #include <clksrc.h>
 
-static long last = -1;
 __noinstrument
 void thread_schedule_resume_proc(struct processor *proc)
 {
@@ -12,6 +11,8 @@ void thread_schedule_resume_proc(struct processor *proc)
 		spinlock_acquire(&proc->sched_lock);
 		if(current_thread && current_thread->state == THREADSTATE_RUNNING) {
 			list_insert(&proc->runqueue, &current_thread->rq_entry);
+		} else if(current_thread && current_thread->state == THREADSTATE_BLOCKING) {
+			current_thread->state = THREADSTATE_BLOCKED;
 		}
 		struct list *ent = list_dequeue(&proc->runqueue);
 		if(ent) {
@@ -23,12 +24,15 @@ void thread_schedule_resume_proc(struct processor *proc)
 				clksrc_set_interrupt_countdown(next->timeslice, false);
 				if(next->priority > 1) next->priority--;
 			}
+			assertmsg(next->state == THREADSTATE_RUNNING,
+					"%ld threadstate is %d (%d)", next->id, next->state, empty);
 			arch_thread_resume(next);
 		} else {
 			spinlock_release(&proc->sched_lock, 1);
 			/* we're halting here, but the arch_processor_halt function will return
 			 * after an interrupt is fired. Since we're in kernel-space, any interrupt
 			 * we get will not invoke the scheduler. */
+			printk("%d: HALTING\n", proc->id);
 			arch_processor_halt();
 		}
 	}
@@ -62,24 +66,29 @@ void thread_sleep(struct thread *t, int flags, int64_t timeout)
 	if(t->priority > 1000) {
 		t->priority = 1000;
 	}
-	t->state = THREADSTATE_BLOCKED;
+	t->state = THREADSTATE_BLOCKING;
+	printk("SLEE %ld\n", t->id);
 }
 
 void thread_wake(struct thread *t)
 {
-	assert(t->state == THREADSTATE_BLOCKED);
-	t->state = THREADSTATE_RUNNING;
-	if(t != current_thread) {
-		spinlock_acquire_save(&t->processor->sched_lock);
-		if(list_empty(&t->processor->runqueue)) {
-			if(t->processor != current_processor) {
-				processor_send_ipi(t->processor->id, PROCESSOR_IPI_RESUME,
-						NULL, PROCESSOR_IPI_NOWAIT);
-			}
-		}
-		list_insert(&t->processor->runqueue, &t->rq_entry);
-		spinlock_release_restore(&t->processor->sched_lock);
+	printk("WAKE %ld\n", t->id);
+	if(t == current_thread) {
+		t->state = THREADSTATE_RUNNING;
+		return;
 	}
+	//assert(t->state == THREADSTATE_BLOCKED);
+	
+	spinlock_acquire_save(&t->processor->sched_lock);
+	int old = atomic_exchange(&t->state, THREADSTATE_RUNNING);
+	if(old == THREADSTATE_BLOCKED) {
+		list_insert(&t->processor->runqueue, &t->rq_entry);
+		if(t->processor != current_processor) {
+			processor_send_ipi(t->processor->id, PROCESSOR_IPI_RESUME,
+					NULL, PROCESSOR_IPI_NOWAIT);
+		}
+	}
+	spinlock_release_restore(&t->processor->sched_lock);
 }
 
 void thread_exit(void)

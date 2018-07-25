@@ -144,10 +144,11 @@ void processor_secondary_entry(struct processor *proc)
 
 static void __do_processor_attach_thread(struct processor *proc, struct thread *thread)
 {
-	bool fl = spinlock_acquire(&proc->sched_lock);
+	printk("Attach %ld -> %d\n", thread->id, proc->id);
+	spinlock_acquire_save(&proc->sched_lock);
 	thread->processor = proc;
 	list_insert(&proc->runqueue, &thread->rq_entry);
-	spinlock_release(&proc->sched_lock, fl);
+	spinlock_release_restore(&proc->sched_lock);
 	proc->load++;
 	if(proc != current_processor) {
 		processor_send_ipi(proc->id, PROCESSOR_IPI_RESUME, NULL, PROCESSOR_IPI_NOWAIT);
