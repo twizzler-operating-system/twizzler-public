@@ -20,6 +20,7 @@ struct bstream_header {
 	int rwait;
 	int wwait;
 	int rwid, wwid;
+	bool eof;
 };
 
 #define BSTREAM_HEADER_ID 1
@@ -32,5 +33,5 @@ ssize_t bstream_read(struct object *obj, unsigned char *buf,
 		size_t len, unsigned fl);
 ssize_t bstream_write(struct object *obj, const unsigned char *buf,
 		size_t len, unsigned fl);
-
+int bstream_mark_eof(struct object *obj);
 

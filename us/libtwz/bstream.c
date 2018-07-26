@@ -1,6 +1,7 @@
 #include <bstream.h>
 #include <notify.h>
 #include <twzname.h>
+#include <stdio.h>
 
 #define BSTREAM_METAHEADER (struct metaheader){ .id = BSTREAM_HEADER_ID, .len = sizeof(struct bstream_header) }
 
@@ -25,6 +26,11 @@ int bstream_getb(struct object *obj, unsigned fl)
 	struct bstream_header *bh = twz_object_findmeta(obj, BSTREAM_HEADER_ID);
 try_again:
 	mutex_acquire(&bh->readlock);
+
+	if(bh->eof) {
+		mutex_release(&bh->readlock);
+		return EOF;
+	}
 
 	if(bh->head == bh->tail) {
 		bh->rwait = bh->head;
@@ -70,28 +76,6 @@ try_again:
 
 #include <debug.h>
 
-ssize_t abstream_read(struct object *obj, unsigned char *buf,
-		size_t len, unsigned fl __unused)
-{
-	/* TODO: implement this and write using real handling of flags, etc.
-	 * Also standardize twzio interface */
-	for(ssize_t i=0;i<(ssize_t)len;i++) {
-		int c = bstream_getb(obj, i ? TWZIO_NONBLOCK : 0);
-		switch(c) {
-			case -TE_NOTSUP:
-				return -TE_NOTSUP;
-			case -TE_NREADY:
-				return i ? i : -TE_NREADY;
-			case '\n': case '\r': /* TODO: and figure out this shit too */
-				buf[i] = '\n';
-				return i+1;
-			default:
-				buf[i] = c;
-		}
-	}
-	return len;
-}
-
 /* TODO (perf): can we reduce the number of syscalls (calls to notify)? */
 
 ssize_t bstream_read(struct object *obj, unsigned char *buf,
@@ -108,6 +92,10 @@ ssize_t bstream_read(struct object *obj, unsigned char *buf,
 try_again:
 	mutex_acquire(&bh->readlock);
 	for(;i<(ssize_t)len;i++) {
+		if(bh->eof) {
+			mutex_release(&bh->readlock);
+			return i;
+		}
 		if(bh->head == bh->tail) {
 			bh->rwait = bh->head;
 			mutex_release(&bh->readlock);
@@ -121,6 +109,7 @@ try_again:
 			goto try_again;
 		}
 
+		/* TODO (perf): replace with memcpy */
 		int c = buffer[bh->tail & ((1ul << bh->nbits)-1)];
 		bh->tail++;
 		if(c == '\n' || c == '\r') {
@@ -168,6 +157,16 @@ try_again:
 	return i;
 }
 
+int bstream_mark_eof(struct object *obj)
+{
+	struct bstream_header *bh = twz_object_findmeta(obj, BSTREAM_HEADER_ID);
+	if(!bh) return -TE_NOTSUP;
+	bh->eof = true;
+	notify_wake(obj, bh->rwid, INT_MAX);
+	notify_wake_all(obj, INT_MAX, NTYPE_READ);
+	return 0;
+}
+
 int bstream_init(struct object *obj, int nbits)
 {
 	struct bstream_header *bh = twz_object_addmeta(obj, BSTREAM_METAHEADER);
@@ -178,6 +177,7 @@ int bstream_init(struct object *obj, int nbits)
 	mutex_init(&bh->readlock);
 	mutex_init(&bh->writelock);
 	bh->nbits = nbits;
+	bh->eof = false;
 	objid_t oid;
 	oid = twz_name_resolve(NULL, "libtwz.so.0", NAME_RESOLVER_DEFAULT);
 	if(oid == 0) {

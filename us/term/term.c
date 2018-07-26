@@ -140,9 +140,15 @@ static void _input_thrd(void *arg)
 	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
 	for(;;) {
 		int x = serial_getc();
-		serial_putc(x);
-		if(x == '\r') {
-			serial_putc('\n');
+		switch(x) {
+			case 0x4:
+				bstream_mark_eof(&ko);
+				break;
+			case '\r':
+				serial_putc('\n'); /* fall through */
+			default:
+				serial_putc(x);
+
 		}
 		bstream_putb(&ko, x, 0);
 	}
