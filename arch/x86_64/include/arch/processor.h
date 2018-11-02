@@ -6,38 +6,24 @@
 #define PROCESSOR_IPI_HALT 90
 #define PROCESSOR_IPI_RESUME 89
 
+#define X86_DOUBLE_FAULT_IST_IDX 0
+
 #ifndef ASSEMBLY
 
 struct x86_64_tss
 {
-	uint32_t prev_tss;
-	uint64_t esp0;       // The stack pointer to load when we change to kernel mode.
-	uint32_t ss0;        // The stack segment to load when we change to kernel mode.
-	uint64_t esp1;       // Unused...
-	uint32_t ss1;
-	uint64_t esp2;
-	uint32_t ss2;
-	uint64_t cr3;
-	uint64_t rip;
-	uint64_t rflags;
-	uint64_t rax;
-	uint64_t rcx;
-	uint64_t rdx;
-	uint64_t rbx;
-	uint64_t rsp;
-	uint64_t rbp;
-	uint64_t rsi;
-	uint64_t rdi;
-	uint32_t es;         // The value to load into ES when we change to kernel mode.
-	uint32_t cs;         // The value to load into CS when we change to kernel mode.
-	uint32_t ss;         // The value to load into SS when we change to kernel mode.
-	uint32_t ds;         // The value to load into DS when we change to kernel mode.
-	uint32_t fs;         // The value to load into FS when we change to kernel mode.
-	uint32_t gs;         // The value to load into GS when we change to kernel mode.
-	uint32_t ldt;        // Unused...
-	uint16_t trap;
-	uint16_t iomap_base;
-	//unsigned char io_bitmap[NUM_IO_PORTS / 8];
+	uint32_t __res0;
+	uint64_t rsp0;
+	uint64_t rsp1;
+	uint64_t rsp2;
+
+	uint64_t __res1;
+
+	uint64_t ist[7];
+
+	uint64_t __res2;
+	uint16_t _res3;
+	uint16_t iomap_offset;
 } __attribute__((packed));
 
 struct x86_64_gdt_entry
@@ -53,7 +39,7 @@ struct x86_64_gdt_entry
 struct idt_entry {
 	uint16_t offset_low;
 	uint16_t selector;
-	uint8_t __pad0;
+	uint8_t ist;
 	uint8_t type;
 	uint16_t offset_mid;
 	uint32_t offset_high;

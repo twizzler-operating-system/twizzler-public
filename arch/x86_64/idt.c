@@ -1,9 +1,9 @@
-#include <stdint.h>
-#include <string.h>
 #include <memory.h>
 #include <processor.h>
+#include <stdint.h>
+#include <string.h>
 #define TYPE_INT_KERNEL 0x8E
-#define TYPE_INT_USER   0xEE
+#define TYPE_INT_USER 0xEE
 
 _Alignas(16) struct idt_entry idt[256];
 
@@ -17,10 +17,10 @@ static void idt_set_gate(int vector, uintptr_t base, uint8_t flags)
 	idt[vector].offset_low  = base & 0xFFFF;
 	idt[vector].offset_mid  = (base >> 16) & 0xFFFF;
 	idt[vector].offset_high = (base >> 32) & 0xFFFFFFFF;
-	idt[vector].selector = 0x08;
-	idt[vector].type = flags;
-	idt[vector].__pad0 = 0;
-	idt[vector].__pad1 = 0;
+	idt[vector].selector    = 0x08;
+	idt[vector].type        = flags;
+	idt[vector].ist         = 0;
+	idt[vector].__pad1      = 0;
 }
 
 extern void (*x86_64_isr0)(void);
@@ -192,19 +192,20 @@ void idt_init(void)
 	idt_set_gate(78, (uintptr_t)&x86_64_isr78, TYPE_INT_KERNEL);
 	idt_set_gate(79, (uintptr_t)&x86_64_isr79, TYPE_INT_KERNEL);
 	idt_set_gate(80, (uintptr_t)&x86_64_isr80, TYPE_INT_KERNEL);
-	
+
+	idt[8].ist = X86_DOUBLE_FAULT_IST_IDX + 1; /* double fault */
+
 	idt_set_gate(PROCESSOR_IPI_SHOOTDOWN, (uintptr_t)&x86_64_isr_shootdown, TYPE_INT_KERNEL);
 	idt_set_gate(PROCESSOR_IPI_HALT, (uintptr_t)&x86_64_isr_halt, TYPE_INT_KERNEL);
 	idt_set_gate(PROCESSOR_IPI_RESUME, (uintptr_t)&x86_64_isr_resume, TYPE_INT_KERNEL);
 
-	idt_ptr.base = (uintptr_t)idt;
+	idt_ptr.base  = (uintptr_t)idt;
 	idt_ptr.limit = 256 * sizeof(struct idt_entry) - 1;
 
-	asm volatile("lidt (%0)"::"r"(&idt_ptr) : "memory");
+	asm volatile("lidt (%0)" ::"r"(&idt_ptr) : "memory");
 }
 
 void idt_init_secondary(void)
 {
-	asm volatile("lidt (%0)"::"r"(&idt_ptr) : "memory");
+	asm volatile("lidt (%0)" ::"r"(&idt_ptr) : "memory");
 }
-

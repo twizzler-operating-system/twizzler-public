@@ -1,12 +1,12 @@
-#include <machine/pc-multiboot.h>
-#include <machine/memory.h>
-#include <debug.h>
-#include <init.h>
 #include <arch/x86_64-msr.h>
 #include <arch/x86_64-vmx.h>
+#include <debug.h>
+#include <init.h>
+#include <kc.h>
+#include <machine/memory.h>
+#include <machine/pc-multiboot.h>
 #include <processor.h>
 #include <string.h>
-#include <kc.h>
 
 /* TODO (major): clean up this file */
 
@@ -32,13 +32,13 @@ static void proc_init(void)
 	cr0 |= (1 << 16);
 	cr0 &= ~(1 << 30); // make sure caching is on
 	cr0 &= ~(1 << 29); // make sure caching is on
-	asm volatile("mov %0, %%cr0" :: "r"(cr0));
-	
+	asm volatile("mov %0, %%cr0" ::"r"(cr0));
+
 	asm volatile("mov %%cr4, %0" : "=r"(cr4));
-	cr4 |= (1 << 7); //enable page global
-	cr4 |= (1 << 10); //enable fast fxsave etc, sse
+	cr4 |= (1 << 7);  // enable page global
+	cr4 |= (1 << 10); // enable fast fxsave etc, sse
 	cr4 &= ~(1 << 9);
-	asm volatile("mov %0, %%cr4" :: "r"(cr4));
+	asm volatile("mov %0, %%cr4" ::"r"(cr4));
 
 	/* enable fast syscall extension */
 	uint32_t lo, hi;
@@ -50,39 +50,39 @@ static void proc_init(void)
 	x86_64_rdmsr(X86_MSR_MTRRCAP, &lo, &hi);
 	int mtrrcnt = lo & 0xFF;
 	x86_64_rdmsr(X86_MSR_MTRR_DEF_TYPE, &lo, &hi);
-	for(int i=0;i<mtrrcnt;i++) {
+	for(int i = 0; i < mtrrcnt; i++) {
 		x86_64_rdmsr(X86_MSR_MTRR_PHYSBASE(i), &lo, &hi);
 		x86_64_rdmsr(X86_MSR_MTRR_PHYSMASK(i), &lo, &hi);
 	}
-	
+
 	/* in case we need to field an interrupt before we properly setup gs */
 	uint64_t gs = (uint64_t)&_dummy_proc.arch;
 	x86_64_wrmsr(X86_MSR_GS_BASE, gs & 0xFFFFFFFF, gs >> 32);
 }
 
 struct ustar_header {
-        char name[100];
-        char mode[8];
-        char uid[8];
-        char gid[8];
-        char size[12];
-        char mtime[12];
-        char checksum[8];
-        char typeflag[1];
-        char linkname[100];
-        char magic[6];
-        char version[2];
-        char uname[32];
-        char gname[32];
-        char devmajor[8];
-        char devminor[8];
-        char prefix[155];
-        char pad[12];
+	char name[100];
+	char mode[8];
+	char uid[8];
+	char gid[8];
+	char size[12];
+	char mtime[12];
+	char checksum[8];
+	char typeflag[1];
+	char linkname[100];
+	char magic[6];
+	char version[2];
+	char uname[32];
+	char gname[32];
+	char devmajor[8];
+	char devminor[8];
+	char prefix[155];
+	char pad[12];
 };
 
 #define PHYS_LOAD_ADDRESS (KERNEL_PHYSICAL_BASE + KERNEL_LOAD_OFFSET)
 #define PHYS_ADDR_DELTA (KERNEL_VIRTUAL_BASE + KERNEL_LOAD_OFFSET - PHYS_LOAD_ADDRESS)
-#define PHYS(x) ((x) - PHYS_ADDR_DELTA)
+#define PHYS(x) ((x)-PHYS_ADDR_DELTA)
 extern int kernel_end;
 #include <object.h>
 
@@ -91,25 +91,29 @@ static void x86_64_initrd(void *u)
 {
 	(void)u;
 	static int __id = 0;
-	if(mb->mods_count == 0) return;
+	if(mb->mods_count == 0)
+		return;
 	struct mboot_module *m = mm_ptov(mb->mods_addr);
 	struct ustar_header *h = mm_ptov(m->start);
-	char *start = (char *)h;
-	size_t modlen = m->end - m->start;
+	char *start            = (char *)h;
+	size_t modlen          = m->end - m->start;
 	printk("Loading objects from modules\n");
 	while((char *)h < start + modlen) {
 		char *name = h->name;
-		if(!*name) break;
-		if(strncmp(h->magic, "ustar", 5)) break;
-		char *data = (char *)h+512;
-		size_t len = strtol(h->size, NULL, 8);
+		if(!*name)
+			break;
+		if(strncmp(h->magic, "ustar", 5))
+			break;
+		char *data    = (char *)h + 512;
+		size_t len    = strtol(h->size, NULL, 8);
 		size_t reclen = (len + 511) & ~511;
 
 		switch(h->typeflag[0]) {
 			size_t nl;
-			case '0': case '7':
+			case '0':
+			case '7':
 				nl = strlen(name);
-				//printk("Loading object: %s\n", name);
+				// printk("Loading object: %s\n", name);
 				if(!strncmp(name, "kc", 2) && nl == 2) {
 					kc_parse(data, len);
 				} else {
@@ -137,9 +141,10 @@ static void x86_64_initrd(void *u)
 					obj->flags |= OF_NOTYPECHECK;
 					size_t idx = 0;
 					if(meta) {
-						idx = (mm_page_size(MAX_PGLEVEL) - (mm_page_size(0) + len)) / mm_page_size(0);
+						idx =
+						  (mm_page_size(MAX_PGLEVEL) - (mm_page_size(0) + len)) / mm_page_size(0);
 					}
-					for(size_t s = 0;s<len;s+=mm_page_size(0),idx++) {
+					for(size_t s = 0; s < len; s += mm_page_size(0), idx++) {
 						uintptr_t phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 						size_t thislen = 0x1000;
 						if((len - s) < thislen)
@@ -149,7 +154,8 @@ static void x86_64_initrd(void *u)
 					}
 				}
 				break;
-			default: break;
+			default:
+				break;
 		}
 
 		h = (struct ustar_header *)((char *)h + 512 + reclen);
@@ -170,8 +176,9 @@ void x86_64_init(struct multiboot *mth)
 	if(!(mth->flags & MULTIBOOT_FLAG_MEM))
 		panic("don't know how to detect memory!");
 	struct mboot_module *m = mb->mods_count == 0 ? NULL : mm_ptov(mb->mods_addr);
-	x86_64_top_mem = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
-	x86_64_bot_mem = (m && m->end > PHYS((uintptr_t)&kernel_end)) ? m->end : PHYS((uintptr_t)&kernel_end);
+	x86_64_top_mem         = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
+	x86_64_bot_mem =
+	  (m && m->end > PHYS((uintptr_t)&kernel_end)) ? m->end : PHYS((uintptr_t)&kernel_end);
 
 	kernel_early_init();
 	_init();
@@ -187,28 +194,28 @@ void x86_64_cpu_secondary_entry(struct processor *proc)
 	processor_secondary_entry(proc);
 }
 
-
-void x86_64_write_gdt_entry(struct x86_64_gdt_entry *entry, uint32_t base, uint32_t limit,
-		uint8_t access, uint8_t gran)
+void x86_64_write_gdt_entry(struct x86_64_gdt_entry *entry,
+  uint32_t base,
+  uint32_t limit,
+  uint8_t access,
+  uint8_t gran)
 {
-	entry->base_low = base & 0xFFFF;
+	entry->base_low    = base & 0xFFFF;
 	entry->base_middle = (base >> 16) & 0xFF;
-	entry->base_high = (base >> 24) & 0xFF;
-	entry->limit_low = limit & 0xFFFF;
+	entry->base_high   = (base >> 24) & 0xFF;
+	entry->limit_low   = limit & 0xFFFF;
 	entry->granularity = ((limit >> 16) & 0x0F) | ((gran & 0x0F) << 4);
-	entry->access = access;
+	entry->access      = access;
 }
 
 void x86_64_tss_init(struct processor *proc)
 {
 	struct x86_64_tss *tss = &proc->arch.tss;
 	memset(tss, 0, sizeof(*tss));
-	tss->ss0 = 0x10;
-	tss->esp0 = 0;
-	tss->cs = 0x0b;
-	tss->ss = tss->ds = tss->es = 0x13;
+	tss->ist[X86_DOUBLE_FAULT_IST_IDX] = (uintptr_t)proc->arch.kernel_stack + KERNEL_STACK_SIZE;
 	x86_64_write_gdt_entry(&proc->arch.gdt[5], (uint32_t)(uintptr_t)tss, sizeof(*tss), 0xE9, 0);
-	x86_64_write_gdt_entry(&proc->arch.gdt[6], ((uintptr_t)tss >> 48) & 0xFFFF, ((uintptr_t)tss >> 32) & 0xFFFF, 0, 0);
+	x86_64_write_gdt_entry(
+	  &proc->arch.gdt[6], ((uintptr_t)tss >> 48) & 0xFFFF, ((uintptr_t)tss >> 32) & 0xFFFF, 0, 0);
 	asm volatile("movw $0x2B, %%ax; ltr %%ax" ::: "rax", "memory");
 }
 
@@ -221,8 +228,8 @@ void x86_64_gdt_init(struct processor *proc)
 	x86_64_write_gdt_entry(&proc->arch.gdt[3], 0, 0xFFFFF, 0xF2, 0xA); /* D64 U */
 	x86_64_write_gdt_entry(&proc->arch.gdt[4], 0, 0xFFFFF, 0xFA, 0xA); /* C64 U */
 	proc->arch.gdtptr.limit = sizeof(struct x86_64_gdt_entry) * 8 - 1;
-	proc->arch.gdtptr.base = (uintptr_t)&proc->arch.gdt;
-	asm volatile("lgdt (%0)" :: "r"(&proc->arch.gdtptr));
+	proc->arch.gdtptr.base  = (uintptr_t)&proc->arch.gdt;
+	asm volatile("lgdt (%0)" ::"r"(&proc->arch.gdtptr));
 }
 
 extern int initial_boot_stack;
@@ -240,10 +247,10 @@ void x86_64_processor_post_vm_init(struct processor *proc)
 	 * This means storing x86_64_syscall_entry to LSTAR,
 	 * the EFLAGS mask to SFMASK, and the CS kernel segment
 	 * to STAR. */
-	
+
 	/* STAR: bits 32-47 are kernel CS, 48-63 are user CS. */
 	uint32_t lo = 0, hi;
-	hi = (0x10 << 16) | 0x08;
+	hi          = (0x10 << 16) | 0x08;
 	x86_64_wrmsr(X86_MSR_STAR, lo, hi);
 
 	/* LSTAR: contains kernel entry point for syscall */
@@ -277,14 +284,18 @@ void arch_processor_init(struct processor *proc)
 	x86_64_start_vmx(proc);
 }
 
-void arch_thread_init(struct thread *thread, void *entry, void *arg, void *stack, size_t stacksz, void *tls)
+void arch_thread_init(struct thread *thread,
+  void *entry,
+  void *arg,
+  void *stack,
+  size_t stacksz,
+  void *tls)
 {
 	memset(&thread->arch.syscall, 0, sizeof(thread->arch.syscall));
 	thread->arch.syscall.rcx = (uint64_t)entry;
 	thread->arch.syscall.rsp = (uint64_t)stack + stacksz - 8;
 	thread->arch.syscall.rdi = (uint64_t)arg;
 	thread->arch.was_syscall = 1;
-	thread->arch.usedfpu = false;
+	thread->arch.usedfpu     = false;
 	thread->arch.fs = thread->arch.gs = (long)tls; /* TODO: only set one of these */
 }
-
