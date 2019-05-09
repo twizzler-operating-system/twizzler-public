@@ -2,6 +2,9 @@ ifndef PROJECT
 $(error PROJECT is not set. Please choose one of ($(shell ls --format=commas projects)), or create a new one in projects/)
 endif
 
+HOSTCC=$(CC)
+HOSTCFLAGS=-Wall -Wextra -O3 -Wshadow -g
+
 .DEFAULT_GOAL=all
 
 .newproj:
@@ -75,7 +78,8 @@ endif
 
 -include $(addprefix $(BUILDDIR)/,$(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d))
 
-test: $(BUILDDIR)/kernel userspace
+test: $(BUILDDIR)/kernel $(BUILDDIR)/utils/file2obj
+	$(MAKE) -C us
 	$(QEMU) $(QEMU_FLAGS) -initrd $(BUILDDIR)/us/root.tar -serial stdio | tee serial.txt
 
 export TOOLCHAIN_PREFIX
@@ -146,7 +150,7 @@ AHEADERS=$(foreach file,$(ASM_SOURCES),$(shell cpp -MM -I include -I arch/$(ARCH
 tags: $(C_SOURCES) $(ASM_SOURCES) $(CHEADERS) $(AHEADERS)
 	@ctags $(C_SOURCES) $(ASM_SOURCES) $(CHEADERS) $(AHEADERS)
 
-include us/include.mk
+include utils/include.mk
 
 .PHONY: od re clean all test newproj userspace .twizzlerutils
 
