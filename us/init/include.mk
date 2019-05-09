@@ -1,16 +1,18 @@
+PROGS+=init
 
-$(BUILDDIR)/us/init/init: us/init/init.c $(US_LIBDEPS)
-	@mkdir -p $(BUILDDIR)/us/init
-	@echo "[CC]  $@"
-	@$(TOOLCHAIN_PREFIX)gcc $(US_LDFLAGS) $(US_CFLAGS) -o $@ -nostdlib $(US_PRELINK) $< $(US_POSTLINK) -MD
+init_srcs=$(addprefix init/,init.c)
 
--include $(BUILDDIR)/us/init/init.d
+init_objs=$(init_srcs:.c=.o)
+init_deps=$(init_srcs:.c=.d)
 
-$(BUILDDIR)/us/init/init.0.meta: $(BUILDDIR)/us/init/init
-$(BUILDDIR)/us/init/init.0: $(BUILDDIR)/us/init/init
-	@echo "[PE]  $@"
-	@$(TWZUTILSDIR)/postelf/postelf $(BUILDDIR)/us/init/init
-	@echo "fot:R:0:1:0" | $(TWZUTILSDIR)/objbuild/objbuild -o $(BUILDDIR)/us/init/init.0 -a
+init_all: init/init
 
-TWZOBJS+=init/init.0 init/init.1
+init_clean:
+	-rm $(init_objs) $(init_deps) init/init
 
+init/init: $(init_objs)
+	$(TWZCC) $(TWZLDFLAGS) -o init/init $(init_objs)
+
+-include $(init_deps)
+
+.PHONY: init_all init_clean

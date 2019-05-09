@@ -1,12 +1,12 @@
-#include <debug.h>
-#include <clksrc.h>
-#include <memory.h>
-#include <init.h>
 #include <arena.h>
+#include <clksrc.h>
+#include <debug.h>
+#include <init.h>
+#include <memory.h>
 #include <processor.h>
-#include <time.h>
-#include <thread.h>
 #include <secctx.h>
+#include <thread.h>
+#include <time.h>
 
 static struct arena post_init_call_arena;
 static struct init_call *post_init_call_head = NULL;
@@ -148,11 +148,10 @@ void kernel_main(struct processor *proc)
 	printk("Waiting at kernel_main_barrier\n");
 	processor_barrier(&kernel_main_barrier);
 
-
 	if(proc->flags & PROCESSOR_BSP) {
 		arena_destroy(&post_init_call_arena);
 		post_init_call_head = NULL;
-		//bench();
+		// bench();
 		if(kc_bsv_id == 0) {
 			panic("No bsv specified");
 		}
@@ -173,7 +172,10 @@ void kernel_main(struct processor *proc)
 
 		struct elf64_header elf;
 		obj_read_data(initobj, 0, sizeof(elf), &elf);
-		if(memcmp("\x7F" "ELF", elf.e_ident, 4)) {
+		if(memcmp("\x7F"
+		          "ELF",
+		     elf.e_ident,
+		     4)) {
 			panic("Init is not an ELF file");
 		}
 
@@ -182,7 +184,7 @@ void kernel_main(struct processor *proc)
 #define US_STACK_SIZE 0x200000 - 0x1000
 		char *thrd_obj = (void *)(0x400000000000ull);
 		size_t off = US_STACK_SIZE - 0x100, tmp = 0;
-		
+
 		char *argv[4] = {
 			[0] = NULL,
 			[1] = NULL,
@@ -201,11 +203,14 @@ void kernel_main(struct processor *proc)
 		struct object *bthr = obj_create(bthrid, KSO_THREAD);
 		bthr->flags |= OF_KERNELGEN;
 
-
-		obj_write_data(bthr, off + tmp, sizeof(long), &vector[0]); tmp += sizeof(long);
-		obj_write_data(bthr, off + tmp, sizeof(long), &vector[1]); tmp += sizeof(long);
-		obj_write_data(bthr, off + tmp, sizeof(long), &vector[2]); tmp += sizeof(long);
-		obj_write_data(bthr, off + tmp, sizeof(long), &vector[3]); tmp += sizeof(long);
+		obj_write_data(bthr, off + tmp, sizeof(long), &vector[0]);
+		tmp += sizeof(long);
+		obj_write_data(bthr, off + tmp, sizeof(long), &vector[1]);
+		tmp += sizeof(long);
+		obj_write_data(bthr, off + tmp, sizeof(long), &vector[2]);
+		tmp += sizeof(long);
+		obj_write_data(bthr, off + tmp, sizeof(long), &vector[3]);
+		tmp += sizeof(long);
 
 		obj_write_data(bthr, off + tmp, sizeof(char *) * 4, argv);
 
@@ -222,10 +227,9 @@ void kernel_main(struct processor *proc)
 		printk("stackbase: %lx, stacktop: %lx\ntlsbase: %lx, arg: %lx\n",
 				(long)tsa.stack_base, (long)tsa.stack_base + tsa.stack_size,
 				(long)tsa.tls_base, (long)tsa.arg);
-#endif	
+#endif
 		syscall_thread_spawn(ID_LO(bthrid), ID_HI(bthrid), &tsa, 0);
 	}
 	printk("processor %d reached resume state %p\n", proc->id, proc);
 	thread_schedule_resume_proc(proc);
 }
-
