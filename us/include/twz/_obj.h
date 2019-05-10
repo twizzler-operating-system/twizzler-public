@@ -1,5 +1,10 @@
 #pragma once
 
+#include <stdint.h>
+
+#define IDFMT "%lx:%lx"
+#define IDPR(x) (uint64_t)(x >> 64), (uint64_t)(x & 0xffffffffffffffff)
+
 #define MI_MAGIC 0x54575A4F
 
 #define MIF_SZ 0x1

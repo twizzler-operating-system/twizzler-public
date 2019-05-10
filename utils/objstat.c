@@ -84,6 +84,56 @@ void objstat(char *path)
 		perror("read");
 		exit(1);
 	}
+
+	struct metainfo *mi = (struct metainfo *)(m + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE);
+	if(mi->magic != MI_MAGIC) {
+		printf("Invalid object (magic = %x)\n", mi->magic);
+		exit(1);
+	}
+	printf("METAINFO\n");
+	printf("     FIELD VALUE\n");
+	printf("     magic %s\n", mi->magic == MI_MAGIC ? "ok" : "bad");
+	printf("     flags %x\n", mi->flags);
+	printf("   p_flags %x\n", mi->p_flags);
+	printf("     milen %d\n", mi->milen);
+	printf("fotentries %d\n", mi->fotentries);
+	printf("  mdbottom %x\n", mi->mdbottom);
+	printf("        sz %ld\n", mi->sz);
+	printf("     nonce " IDFMT "\n", IDPR(mi->nonce));
+	printf("      kuid " IDFMT "\n", IDPR(mi->kuid));
+
+	if(mi->fotentries) {
+		struct fotentry *fe = (struct fotentry *)(m + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE + mi->milen);
+		printf("FOT ENTRIES\n");
+		printf("    # FLAGS ID/NAME\n");
+		for(unsigned i = 0; i < mi->fotentries; i++, fe++) {
+			char fl[6];
+			char *f = fl;
+			if(fe->flags & FE_READ)
+				*f++ = 'R';
+			if(fe->flags & FE_WRITE)
+				*f++ = 'W';
+			if(fe->flags & FE_EXEC)
+				*f++ = 'X';
+			if(fe->flags & FE_DERIVE)
+				*f++ = 'D';
+			if(fe->flags & FE_NAME)
+				*f++ = 'N';
+			*f = 0;
+			printf("%5d %5s ", i, fl);
+			if(fe->flags & FE_NAME) {
+				if((uintptr_t)fe->name.data > OBJ_MAXSIZE) {
+					printf("foreign name pointer: %p", fe->name.data);
+				} else {
+					printf("%s", m + (uintptr_t)fe->name.data);
+				}
+				printf("!%p", fe->name.nresolver);
+			} else {
+				printf(IDFMT, IDPR(fe->id));
+			}
+			printf("\n");
+		}
+	}
 }
 
 int main(int argc, char **argv)

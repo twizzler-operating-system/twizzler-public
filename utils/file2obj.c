@@ -308,6 +308,7 @@ int main(int argc, char **argv)
 
 	objid_t kuid = str_to_objid(kuidstr);
 
+	fotcount++;
 	struct metainfo mi = {
 		.magic = MI_MAGIC,
 		.sz = st.st_size,
@@ -340,7 +341,7 @@ int main(int argc, char **argv)
 			return 1;
 		}
 		if(name) {
-			if(strlen(name) + 1 + namestart >= 1024) {
+			if(strlen(name) + 1 + namestart >= 4096) {
 				fprintf(stderr, "Out of space for names\n");
 				return 1;
 			}
