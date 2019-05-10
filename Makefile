@@ -78,7 +78,7 @@ endif
 
 -include $(addprefix $(BUILDDIR)/,$(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d))
 
-test: $(BUILDDIR)/kernel $(BUILDDIR)/utils/file2obj
+test: $(BUILDDIR)/kernel $(UTILS)
 	$(MAKE) -C us
 	$(QEMU) $(QEMU_FLAGS) -initrd $(BUILDDIR)/us/root.tar -serial stdio | tee serial.txt
 

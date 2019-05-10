@@ -323,6 +323,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	off_t metapage_start = lseek(outfd, 0, SEEK_CUR);
 	if(write(outfd, &mi, sizeof(mi)) < 0) {
 		perror("write");
 		exit(1);
@@ -355,4 +356,6 @@ int main(int argc, char **argv)
 			return 1;
 		}
 	}
+	pwrite(outfd, "", 1, metapage_start + 0x1000 - 1);
+	return 0;
 }
