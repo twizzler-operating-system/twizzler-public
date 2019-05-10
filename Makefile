@@ -78,8 +78,7 @@ endif
 
 -include $(addprefix $(BUILDDIR)/,$(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d))
 
-test: $(BUILDDIR)/kernel $(UTILS)
-	$(MAKE) -C us
+test: $(BUILDDIR)/kernel
 	$(QEMU) $(QEMU_FLAGS) -initrd $(BUILDDIR)/us/root.tar -serial stdio | tee serial.txt
 
 export TOOLCHAIN_PREFIX
@@ -151,6 +150,7 @@ tags: $(C_SOURCES) $(ASM_SOURCES) $(CHEADERS) $(AHEADERS)
 	@ctags $(C_SOURCES) $(ASM_SOURCES) $(CHEADERS) $(AHEADERS)
 
 include utils/include.mk
+include us/include.mk
 
 .PHONY: od re clean all test newproj userspace .twizzlerutils
 

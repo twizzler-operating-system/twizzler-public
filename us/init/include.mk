@@ -1,18 +1,13 @@
-PROGS+=init
+init_srcs=$(addprefix us/init/,init.c)
 
-init_srcs=$(addprefix init/,init.c)
+init_objs=$(addprefix $(BUILDDIR)/,$(init_srcs:.c=.o))
+init_deps=$(addprefix $(BUILDDIR)/,$(init_srcs:.c=.d))
 
-init_objs=$(init_srcs:.c=.o)
-init_deps=$(init_srcs:.c=.d)
+init_all: $(BUILDDIR)/us/init/init
 
-init_all: init/init
-
-init_clean:
-	-rm $(init_objs) $(init_deps) init/init
-
-init/init: $(init_objs)
-	$(TWZCC) $(TWZLDFLAGS) -o init/init $(init_objs)
+$(BUILDDIR)/us/init/init: $(init_objs) $(US_LIBDEPS)
+	$(TWZCC) $(US_LDFLAGS) $(US_CFLAGS) -o $@ -nostdlib $(US_PRELINK) $< $(US_POSTLINK) -MD
 
 -include $(init_deps)
 
-.PHONY: init_all init_clean
+.PHONY: init_all

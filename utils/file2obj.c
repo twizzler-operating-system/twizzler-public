@@ -97,6 +97,7 @@ objid_t str_to_objid(char *s)
 	if(!s)
 		return 0;
 	objid_t res = 0;
+	char *o = s;
 	for(; *s; s++) {
 		if(*s == ':')
 			continue;
@@ -105,14 +106,14 @@ objid_t str_to_objid(char *s)
 		if(*s == '0' && *(s + 1) == 'x')
 			continue;
 		res <<= 4;
-		if(res >= '0' && res <= '9')
+		if(*s >= '0' && *s <= '9')
 			res += *s - '0';
-		else if(res >= 'a' && res <= 'f')
-			res += *s - 'a';
-		else if(res >= 'A' && res <= 'F')
-			res += *s - 'A';
+		else if(*s >= 'a' && *s <= 'f')
+			res += *s - 'a' + 10;
+		else if(*s >= 'A' && *s <= 'F')
+			res += *s - 'A' + 10;
 		else {
-			fprintf(stderr, "invalid ID string: %s\n", s);
+			fprintf(stderr, "invalid ID string: %s (%c)\n", o, *s);
 			exit(1);
 		}
 	}
@@ -177,7 +178,7 @@ int parse_fotentry(struct fotentry *fe, char *s, char **name)
 	}
 	fe->flags = fl;
 
-	char *res = strtok(NULL, ":");
+	char *res = strtok(NULL, "");
 	if(!res) {
 		fprintf(stderr, "Failed to parse FOT_SPEC\n");
 		exit(1);
@@ -249,7 +250,6 @@ int main(int argc, char **argv)
 				}
 				break;
 			case 'k':
-				pflags |= MIP_HASHKUID;
 				kuidstr = strdup(optarg);
 				break;
 			default:

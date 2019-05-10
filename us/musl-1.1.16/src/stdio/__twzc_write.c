@@ -1,13 +1,13 @@
 #define _INTERNAL_SYSCALL_H
+#if 0
 #include "stdio_impl.h"
 #include <sys/ioctl.h>
 #include <sys/uio.h>
 
-#include <twzobj.h>
 #include <twzio.h>
+#include <twzobj.h>
 #include <twzslots.h>
 
-#if 0
 size_t __stdio_write(FILE *f, const unsigned char *buf, size_t len)
 {
 	struct object so;

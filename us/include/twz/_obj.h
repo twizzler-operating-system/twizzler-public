@@ -10,7 +10,6 @@
 #define MIF_SZ 0x1
 
 #define MIP_HASHDATA 0x1
-#define MIP_HASHKUID 0x2
 #define MIP_DFL_READ 0x4
 #define MIP_DFL_WRITE 0x8
 #define MIP_DFL_EXEC 0x10

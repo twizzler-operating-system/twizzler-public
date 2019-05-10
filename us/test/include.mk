@@ -1,18 +1,13 @@
-PROGS+=test
+test_srcs=$(addprefix us/test/,test.c)
 
-test_srcs=$(addprefix test/,test.c)
+test_objs=$(addprefix $(BUILDDIR)/,$(test_srcs:.c=.o))
+test_deps=$(addprefix $(BUILDDIR)/,$(test_srcs:.c=.d))
 
-test_objs=$(test_srcs:.c=.o)
-test_deps=$(test_srcs:.c=.d)
+test_all: $(BUILDDIR)/us/test/test
 
-test_all: test/test
-
-test_clean:
-	-rm $(test_objs) $(test_deps) test/test
-
-test/test: $(test_objs)
-	$(TWZCC) $(TWZLDFLAGS) -o test/test $(test_objs)
+$(BUILDDIR)/us/test/test: $(test_objs) $(US_LIBDEPS)
+	$(TWZCC) $(US_LDFLAGS) $(US_CFLAGS) -o $@ -nostdlib $(US_PRELINK) $< $(US_POSTLINK) -MD
 
 -include $(test_deps)
 
-.PHONY: test_all test_clean
+.PHONY: test_all
