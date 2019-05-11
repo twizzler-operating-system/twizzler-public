@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-#define IDFMT "%lx:%lx"
+#define IDFMT "%.16lx:%.16lx"
 #define IDPR(x) (uint64_t)(x >> 64), (uint64_t)(x & 0xffffffffffffffff)
 
 #define MI_MAGIC 0x54575A4F
@@ -36,7 +36,7 @@ struct metainfo {
 	nonce_t nonce;
 	objid_t kuid;
 	char data[];
-} __packed;
+} __attribute__((packed));
 
 #define FE_READ MIP_DFL_READ
 #define FE_WRITE MIP_DFL_WRITE
@@ -56,4 +56,4 @@ struct fotentry {
 
 	uint64_t flags;
 	uint64_t info;
-};
+} __attribute__((packed));

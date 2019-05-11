@@ -84,13 +84,15 @@ void objstat(char *path)
 	}
 	struct ustar_header h;
 	if(read(fd, &h, sizeof(h)) != sizeof(h)) {
-		perror("read");
+		perror("read1");
 		exit(1);
 	}
 
 	ssize_t sz = octal_to_int(h.size);
-	if(read(fd, m + OBJ_NULLPAGE_SIZE, sz) != sz) {
-		perror("read");
+	ssize_t r;
+	if((r = read(fd, m + OBJ_NULLPAGE_SIZE, sz)) != sz) {
+		perror("read2");
+		fprintf(stderr, "--> %p %ld %ld %s\n", m + OBJ_METAPAGE_SIZE, sz, r, h.size);
 		exit(1);
 	}
 
@@ -99,7 +101,7 @@ void objstat(char *path)
 	lseek(fd, off, SEEK_SET);
 
 	if(read(fd, &h, sizeof(h)) != sizeof(h)) {
-		perror("read");
+		perror("read3");
 		exit(1);
 	}
 	sz = octal_to_int(h.size);
@@ -108,7 +110,7 @@ void objstat(char *path)
 		exit(1);
 	}
 	if(read(fd, m + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE, sz) != sz) {
-		perror("read");
+		perror("read4");
 		exit(1);
 	}
 

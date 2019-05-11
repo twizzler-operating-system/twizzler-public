@@ -75,7 +75,31 @@ $(BUILDDIR)/us/%.o: us/%.c $(MUSL_READY)
 TWZOBJS=$(addprefix $(BUILDDIR)/us/,$(addsuffix .text.obj,$(foreach x,$(PROGS),$(x)/$(x))))
 TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),$(x)/$(x))))
 
+$(BUILDDIR)/us/bsv.data: $(BUILDDIR)/us/init/init.text.obj
+	@echo "[BSV] $@"
+	@$(BUILDDIR)/utils/bsv $@ 0,$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/init/init.text.obj),RX
+
+$(BUILDDIR)/us/root/kc $(BUILDDIR)/us/bsv.obj: $(BUILDDIR)/us/bsv.data
+	@echo "[OBJ] $(BUILDDIR)/us/bsv.obj"
+	@$(BUILDDIR)/utils/file2obj -i $< -o $(BUILDDIR)/us/bsv.obj -p RWU
+	@echo "bsv=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/bsv.obj)" > $(BUILDDIR)/us/kc
+
+TWZOBJS+=$(BUILDDIR)/us/bsv.obj
+
 $(BUILDDIR)/us/root.tar: $(TWZOBJS)
-	tar cf $@ '--transform=s/projects.*\/us\/.*\//\/bin\//g' $(TWZOBJS)
+	@rm -r $(BUILDDIR)/us/root
+	@mkdir -p $(BUILDDIR)/us/root
+	@NAMES=;\
+	LIST=;\
+		for i in $(TWZOBJS); do \
+		ID=$$($(BUILDDIR)/utils/objstat -i $$i);\
+		NAMES="$$NAMES,$$(basename -s .obj $$i)=$$ID";\
+		cp $$i $(BUILDDIR)/us/root/$$ID ;\
+		done ;\
+		echo $$NAMES > $(BUILDDIR)/us/root/names
+	@echo "init=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/init/init.text.obj)" >> $(BUILDDIR)/us/kc
+	@cp $(BUILDDIR)/us/kc $(BUILDDIR)/us/root/kc
+	@echo [TAR] $@
+	@tar cf $(BUILDDIR)/us/root.tar -C $(BUILDDIR)/us/root --xform s:'./':: .
 
 userspace: $(BUILDDIR)/us/root.tar

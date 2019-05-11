@@ -10,5 +10,8 @@ $(BUILDDIR)/utils/elfsplit: utils/elfsplit.c
 	mkdir -p $(BUILDDIR)/utils
 	$(HOSTCC) $(HOSTCFLAGS) -o $@ $<
 
+$(BUILDDIR)/utils/bsv: utils/bsv.c
+	mkdir -p $(BUILDDIR)/utils
+	$(HOSTCC) $(HOSTCFLAGS) -o $@ $< -Ius/include
 
-UTILS=$(addprefix $(BUILDDIR)/utils/,objstat file2obj elfsplit)
+UTILS=$(addprefix $(BUILDDIR)/utils/,objstat file2obj elfsplit bsv)

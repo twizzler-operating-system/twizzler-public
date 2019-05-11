@@ -1,7 +1,7 @@
-#include <string.h>
 #include <debug.h>
+#include <string.h>
 
-objid_t kc_init_id=0, kc_bsv_id=0, kc_inithr_id=0;
+objid_t kc_init_id = 0, kc_bsv_id = 0, kc_inithr_id = 0;
 
 bool objid_parse(const char *name, objid_t *id)
 {
@@ -9,14 +9,12 @@ bool objid_parse(const char *name, objid_t *id)
 	*id = 0;
 	int shift = 128;
 
-	for(i=0;i<33;i++) {
+	for(i = 0; i < 33; i++) {
 		char c = *(name + i);
 		if(c == ':' && i == 16) {
 			continue;
 		}
-		if(!((c >= '0' && c <= '9')
-					|| (c >= 'a' && c <= 'f')
-					|| (c >= 'A' && c <= 'F'))) {
+		if(!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
 			printk("Malformed object name: %s\n", name);
 			break;
 		}
@@ -59,7 +57,7 @@ static void _parse_kv(char *name, char *value)
 	if(!strcmp(name, "ithr")) {
 		objid_t id;
 		if(objid_parse(value, &id)) {
-			kc_init_id = id;
+			kc_inithr_id = id;
 		} else {
 			printk("Malformed ithr directive: %s=%s\n", name, value);
 		}
@@ -68,11 +66,14 @@ static void _parse_kv(char *name, char *value)
 
 static size_t readl(char *data, size_t dlen, char *buf, size_t blen)
 {
-	if(dlen == 0 || blen == 0) return 0;
+	if(dlen == 0 || blen == 0)
+		return 0;
 	const char *nl = strnchr(data, '\n', dlen);
-	if(!nl) nl = data + dlen;
+	if(!nl)
+		nl = data + dlen;
 	size_t len = nl - data;
-	if(len > blen) len = blen;
+	if(len > blen)
+		len = blen;
 	strncpy(buf, data, len);
 
 	return len;
@@ -88,7 +89,7 @@ void kc_parse(char *data, size_t len)
 	char *tmp = data;
 	char buf[128];
 	size_t tl;
-	while((tl=readl(tmp, len, buf, sizeof(buf))) > 0) {
+	while((tl = readl(tmp, len, buf, sizeof(buf))) > 0) {
 		if(tl == sizeof(buf)) {
 			panic("Increase buffer size");
 		}
@@ -104,14 +105,12 @@ void kc_parse(char *data, size_t len)
 	}
 	/* load kernel configuration *
 	if(!strncmp(data, "init=", 5)) {
-		objid_t id;
-		if(!objid_parse(data+5, &id)) {
-			printk("Cannot parse initline of kc: %s\n", data);
-			break;
-		}
-		kc_init_id = id;
+	    objid_t id;
+	    if(!objid_parse(data+5, &id)) {
+	        printk("Cannot parse initline of kc: %s\n", data);
+	        break;
+	    }
+	    kc_init_id = id;
 	}
 	*/
-
 }
-
