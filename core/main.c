@@ -176,6 +176,7 @@ void kernel_main(struct processor *proc)
 		          "ELF",
 		     elf.e_ident,
 		     4)) {
+			printk("---> %x %x %x\n", elf.e_ident[0], elf.e_ident[1], elf.e_ident[2]);
 			panic("Init is not an ELF file");
 		}
 

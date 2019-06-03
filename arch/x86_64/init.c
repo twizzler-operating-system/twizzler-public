@@ -87,6 +87,47 @@ extern int kernel_end;
 #include <object.h>
 
 extern objid_t kc_init_id;
+
+void load_object_data(struct object *obj, char *tardata, size_t tarlen)
+{
+	struct ustar_header *h = (struct ustar_header *)tardata;
+	while((char *)h < tardata + tarlen) {
+		char *name = h->name;
+		char *data = (char *)h + 512;
+		if(!*name)
+			break;
+		if(strncmp(h->magic, "ustar", 5)) {
+			printk("Malformed object data\n");
+			break;
+		}
+		printk(":: %s\n", name);
+
+		size_t len = strtol(h->size, NULL, 8);
+		size_t reclen = (len + 511) & ~511;
+		size_t nl = strlen(name);
+
+		size_t idx = 0;
+		if(!strncmp(name, "data", nl) && nl == 4) {
+		} else if(!strncmp(name, "meta", nl) && nl == 4) {
+			idx = (mm_page_size(MAX_PGLEVEL) - (mm_page_size(0) + len)) / mm_page_size(0);
+		} else {
+			printk("Malformed object data\n");
+		}
+
+		printk("Copying %ld bytes\n", len);
+		for(size_t s = 0; s < len; s += mm_page_size(0), idx++) {
+			uintptr_t phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+			size_t thislen = 0x1000;
+			if((len - s) < thislen)
+				thislen = len - s;
+			memcpy(mm_ptov(phys), data + s, thislen);
+			obj_cache_page(obj, idx, phys);
+		}
+
+		h = (struct ustar_header *)((char *)h + 512 + reclen);
+	}
+}
+
 static void x86_64_initrd(void *u)
 {
 	(void)u;
@@ -95,8 +136,8 @@ static void x86_64_initrd(void *u)
 		return;
 	struct mboot_module *m = mm_ptov(mb->mods_addr);
 	struct ustar_header *h = mm_ptov(m->start);
-	char *start            = (char *)h;
-	size_t modlen          = m->end - m->start;
+	char *start = (char *)h;
+	size_t modlen = m->end - m->start;
 	printk("Loading objects from modules\n");
 	while((char *)h < start + modlen) {
 		char *name = h->name;
@@ -104,8 +145,8 @@ static void x86_64_initrd(void *u)
 			break;
 		if(strncmp(h->magic, "ustar", 5))
 			break;
-		char *data    = (char *)h + 512;
-		size_t len    = strtol(h->size, NULL, 8);
+		char *data = (char *)h + 512;
+		size_t len = strtol(h->size, NULL, 8);
 		size_t reclen = (len + 511) & ~511;
 
 		switch(h->typeflag[0]) {
@@ -113,9 +154,11 @@ static void x86_64_initrd(void *u)
 			case '0':
 			case '7':
 				nl = strlen(name);
-				// printk("Loading object: %s\n", name);
+				printk("Loading object: %s\n", name);
 				if(!strncmp(name, "kc", 2) && nl == 2) {
 					kc_parse(data, len);
+				} else if(!strncmp(name, "names", 5) && nl == 5) {
+					printk("Loaded name object\n");
 				} else {
 					if(nl < 33) {
 						printk("Malformed object name: %s\n", name);
@@ -140,10 +183,13 @@ static void x86_64_initrd(void *u)
 					}
 					obj->flags |= OF_NOTYPECHECK;
 					size_t idx = 0;
-					if(meta) {
-						idx =
-						  (mm_page_size(MAX_PGLEVEL) - (mm_page_size(0) + len)) / mm_page_size(0);
-					}
+					load_object_data(obj, data, len);
+					//		if(meta) {
+					//			idx =
+					//			  (mm_page_size(MAX_PGLEVEL) - (mm_page_size(0) + len)) /
+					// mm_page_size(0);
+					//		}
+#if 0
 					for(size_t s = 0; s < len; s += mm_page_size(0), idx++) {
 						uintptr_t phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 						size_t thislen = 0x1000;
@@ -152,6 +198,7 @@ static void x86_64_initrd(void *u)
 						memcpy(mm_ptov(phys), data + s, thislen);
 						obj_cache_page(obj, idx, phys);
 					}
+#endif
 				}
 				break;
 			default:
@@ -176,7 +223,7 @@ void x86_64_init(struct multiboot *mth)
 	if(!(mth->flags & MULTIBOOT_FLAG_MEM))
 		panic("don't know how to detect memory!");
 	struct mboot_module *m = mb->mods_count == 0 ? NULL : mm_ptov(mb->mods_addr);
-	x86_64_top_mem         = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
+	x86_64_top_mem = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
 	x86_64_bot_mem =
 	  (m && m->end > PHYS((uintptr_t)&kernel_end)) ? m->end : PHYS((uintptr_t)&kernel_end);
 
@@ -200,12 +247,12 @@ void x86_64_write_gdt_entry(struct x86_64_gdt_entry *entry,
   uint8_t access,
   uint8_t gran)
 {
-	entry->base_low    = base & 0xFFFF;
+	entry->base_low = base & 0xFFFF;
 	entry->base_middle = (base >> 16) & 0xFF;
-	entry->base_high   = (base >> 24) & 0xFF;
-	entry->limit_low   = limit & 0xFFFF;
+	entry->base_high = (base >> 24) & 0xFF;
+	entry->limit_low = limit & 0xFFFF;
 	entry->granularity = ((limit >> 16) & 0x0F) | ((gran & 0x0F) << 4);
-	entry->access      = access;
+	entry->access = access;
 }
 
 void x86_64_tss_init(struct processor *proc)
@@ -228,7 +275,7 @@ void x86_64_gdt_init(struct processor *proc)
 	x86_64_write_gdt_entry(&proc->arch.gdt[3], 0, 0xFFFFF, 0xF2, 0xA); /* D64 U */
 	x86_64_write_gdt_entry(&proc->arch.gdt[4], 0, 0xFFFFF, 0xFA, 0xA); /* C64 U */
 	proc->arch.gdtptr.limit = sizeof(struct x86_64_gdt_entry) * 8 - 1;
-	proc->arch.gdtptr.base  = (uintptr_t)&proc->arch.gdt;
+	proc->arch.gdtptr.base = (uintptr_t)&proc->arch.gdt;
 	asm volatile("lgdt (%0)" ::"r"(&proc->arch.gdtptr));
 }
 
@@ -250,7 +297,7 @@ void x86_64_processor_post_vm_init(struct processor *proc)
 
 	/* STAR: bits 32-47 are kernel CS, 48-63 are user CS. */
 	uint32_t lo = 0, hi;
-	hi          = (0x10 << 16) | 0x08;
+	hi = (0x10 << 16) | 0x08;
 	x86_64_wrmsr(X86_MSR_STAR, lo, hi);
 
 	/* LSTAR: contains kernel entry point for syscall */
@@ -296,6 +343,6 @@ void arch_thread_init(struct thread *thread,
 	thread->arch.syscall.rsp = (uint64_t)stack + stacksz - 8;
 	thread->arch.syscall.rdi = (uint64_t)arg;
 	thread->arch.was_syscall = 1;
-	thread->arch.usedfpu     = false;
+	thread->arch.usedfpu = false;
 	thread->arch.fs = thread->arch.gs = (long)tls; /* TODO: only set one of these */
 }

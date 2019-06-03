@@ -279,6 +279,7 @@ int main(int argc, char **argv)
 		perror("stat");
 		return 1;
 	}
+	printf("%s :: %d\n", infile, st.st_size);
 
 	struct ustar_header header;
 	ustar_fill(&header, outfile, "data", st.st_size);

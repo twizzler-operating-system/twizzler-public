@@ -66,7 +66,7 @@ $(BUILDDIR)/us/%.data.obj $(BUILDDIR)/us/%.text.obj: $(BUILDDIR)/us/% $(BUILDDIR
 	@echo [OBJ] $<.text.obj
 	@DATAID=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
 	FLAGS=$$(cat $<.flags);\
-	$(BUILDDIR)/utils/file2obj -i $< -o $<.text.obj -p RXD -f 1:RWD:$$DATAID $$FLAGS
+	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXD -f 1:RWD:$$DATAID $$FLAGS
 
 $(BUILDDIR)/us/%.o: us/%.c $(MUSL_READY)
 	mkdir -p $(dir $@)
