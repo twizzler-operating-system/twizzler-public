@@ -65,9 +65,12 @@ asm(" \
  * accurately, but the unmodified rsp is 8 above the location where we put the
  * return address */
 
+#include <twz/debug.h>
+
 void __twz_fault_entry(void);
 void __twz_fault_init(void)
 {
+	debug_printf("Fault\n");
 	for(;;)
 		;
 	/* have to do this manually, because fault handling during init
