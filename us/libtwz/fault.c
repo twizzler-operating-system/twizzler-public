@@ -1,9 +1,28 @@
+#include <twz/_obj.h>
+#include <twz/_objid.h>
+#include <twz/_thrd.h>
+#include <twz/debug.h>
+
+static struct {
+	void (*fn)(int, void *);
+} _fault_table[NUM_FAULTS];
+
+int __fault_obj_default(int fault, struct fault_object_info *info)
+{
+	debug_printf("A\n");
+}
+
 static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
 {
-#if 0
+	for(volatile long i = 0; i < 1000000000; i++)
+		;
 	if(fault == FAULT_OBJECT) {
-		if(__fault_obj_default(fault, _info) == TE_FAILURE && !_fault_table[fault].fn) {
-			twz_thread_exit();
+		struct fault_object_info *fi = _info;
+		debug_printf("FIO: %lx (%p)\n", fi->addr, &_fault_table[fault]);
+		if(fi->addr == (uintptr_t)&_fault_table[fault] || !_fault_table[fault].fn) {
+			if(__fault_obj_default(fault, _info) < 0) {
+				twz_thread_exit();
+			}
 		}
 	}
 	if((fault >= NUM_FAULTS || !_fault_table[fault].fn) && fault != FAULT_OBJECT) {
@@ -13,7 +32,6 @@ static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
 	if(_fault_table[fault].fn) {
 		_fault_table[fault].fn(fault, _info);
 	}
-#endif
 }
 
 /* TODO: arch-dep */
@@ -65,27 +83,19 @@ asm(" \
  * accurately, but the unmodified rsp is 8 above the location where we put the
  * return address */
 
-#include <twz/_objid.h>
-#include <twz/debug.h>
-
 void __twz_fault_entry(void);
 void __twz_fault_init(void)
 {
 	uint64_t s, d;
 	asm volatile("mov %%fs:0, %%rsi" : "=S"(s));
 	asm volatile("mov %%fs:8, %%rdx" : "=d"(d));
-	objid_t reprid = MKID(s, d);
-	debug_printf("Fault :: " IDFMT "\n", reprid);
 
-	for(;;)
-		;
+	__seg_gs struct twzthread_repr *repr = (uintptr_t)OBJ_NULLPAGE_SIZE;
+
 	/* have to do this manually, because fault handling during init
 	 * may not use any global data (since the data object may not be mapped) */
 
-	// struct object thrd;
-	// twz_object_init(&thrd, TWZSLOT_THRD);
-	// struct twzthread_repr *repr = thrd.base;
-	// repr->thread_kso_data.faults[FAULT_OBJECT] = (struct faultinfo){
-	//		.addr = (void *)__twz_fault_entry,
-	//};
+	repr->faults[FAULT_OBJECT] = (struct faultinfo){
+		.addr = (void *)__twz_fault_entry,
+	};
 }

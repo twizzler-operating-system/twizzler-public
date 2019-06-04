@@ -12,7 +12,7 @@ struct faultinfo {
 	objid_t view;
 	void *addr;
 	uint64_t flags;
-} __packed;
+} __attribute__((packed));
 
 #define FAULT_OBJECT_READ 1
 #define FAULT_OBJECT_WRITE 2
@@ -26,15 +26,15 @@ struct fault_object_info {
 	uint64_t addr;
 	uint64_t flags;
 	uint64_t pad;
-} __packed;
+} __attribute__((packed));
 
 struct fault_null_info {
 	uint64_t ip;
 	uint64_t addr;
-} __packed;
+} __attribute__((packed));
 
 struct fault_exception_info {
 	uint64_t ip;
 	uint64_t code;
 	uint64_t arg0;
-} __packed;
+} __attribute__((packed));

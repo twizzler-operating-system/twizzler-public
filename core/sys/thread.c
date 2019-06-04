@@ -54,7 +54,13 @@ long syscall_thread_spawn(uint64_t tidlo,
 		t->attached_scs[0] = t->active_sc;
 	}
 
-	arch_thread_init(t, tsa->start_func, tsa->arg, tsa->stack_base, tsa->stack_size, tsa->tls_base);
+	arch_thread_init(t,
+	  tsa->start_func,
+	  tsa->arg,
+	  tsa->stack_base,
+	  tsa->stack_size,
+	  tsa->tls_base,
+	  tsa->thrd_ctrl);
 
 	t->state = THREADSTATE_RUNNING;
 	processor_attach_thread(NULL, t);

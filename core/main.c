@@ -9,6 +9,7 @@
 #include <time.h>
 
 #include <twz/_objid.h>
+#include <twz/_thrd.h>
 
 static struct arena post_init_call_arena;
 static struct init_call *post_init_call_head = NULL;
@@ -185,9 +186,12 @@ void kernel_main(struct processor *proc)
 		obj_put(initobj);
 
 #define US_STACK_SIZE 0x200000 - 0x1000
-		char *stck_obj = (void *)(0x400000000000ull);
-		char *thrd_obj = (void *)(0x400010000000ull);
+		char *stck_obj = (void *)(0x400040000000ull);
+		char *thrd_obj = (void *)(0x400000000000ull);
 		size_t off = US_STACK_SIZE - 0x100, tmp = 0;
+
+		printk("stck slot = %ld\n", (uintptr_t)stck_obj / mm_page_size(MAX_PGLEVEL));
+		printk("thrd slot = %ld\n", (uintptr_t)thrd_obj / mm_page_size(MAX_PGLEVEL));
 
 		char *argv[4] = {
 			[0] = NULL,
@@ -219,9 +223,6 @@ void kernel_main(struct processor *proc)
 			.flags = VE_READ | VE_WRITE | VE_VALID,
 		};
 
-		kso_view_write(bv, (uintptr_t)stck_obj / mm_page_size(MAX_PGLEVEL), &v_s);
-		kso_view_write(bv, (uintptr_t)thrd_obj / mm_page_size(MAX_PGLEVEL), &v_t);
-
 		bthr->flags |= OF_KERNELGEN;
 		bstck->flags |= OF_KERNELGEN;
 
@@ -236,6 +237,18 @@ void kernel_main(struct processor *proc)
 
 		obj_write_data(bthr, off + tmp, sizeof(char *) * 4, argv);
 
+		obj_write_data(bthr,
+		  sizeof(struct twzthread_repr)
+		    + ((uintptr_t)thrd_obj / mm_page_size(MAX_PGLEVEL)) * sizeof(struct viewentry),
+		  sizeof(struct viewentry),
+		  &v_t);
+
+		obj_write_data(bthr,
+		  sizeof(struct twzthread_repr)
+		    + ((uintptr_t)stck_obj / mm_page_size(MAX_PGLEVEL)) * sizeof(struct viewentry),
+		  sizeof(struct viewentry),
+		  &v_s);
+
 		struct sys_thrd_spawn_args tsa = {
 			.start_func = (void *)elf.e_entry,
 			.stack_base = (void *)stck_obj + 0x1000,
@@ -243,6 +256,7 @@ void kernel_main(struct processor *proc)
 			.tls_base = stck_obj + 0x1000 + US_STACK_SIZE,
 			.arg = stck_obj + off + 0x1000,
 			.target_view = kc_bsv_id,
+			.thrd_ctrl = (uintptr_t)thrd_obj / mm_page_size(MAX_PGLEVEL),
 		};
 
 #if 0

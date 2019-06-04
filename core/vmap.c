@@ -95,6 +95,7 @@ struct viewentry kso_view_lookup(struct vm_context *ctx, size_t slot)
 	return v;
 }
 
+#include <twz/_thrd.h>
 static bool lookup_by_slot(size_t slot, objid_t *id, uint64_t *flags)
 {
 	switch(slot) {
@@ -104,6 +105,17 @@ static bool lookup_by_slot(size_t slot, objid_t *id, uint64_t *flags)
 		//	if(flags) *flags = VE_READ | VE_WRITE;
 		// break;
 		default:
+			obj_read_data(kso_get_obj(current_thread->throbj, thr),
+			  slot * sizeof(struct viewentry) + sizeof(struct twzthread_repr),
+			  sizeof(struct viewentry),
+			  &ve);
+			if(ve.res0 == 0 && ve.res1 == 0 && ve.flags & VE_VALID) {
+				printk("Slot %lx is fixed-point " IDFMT " %x\n", slot, IDPR(ve.id), ve.flags);
+				*id = ve.id;
+				if(flags)
+					*flags = ve.flags;
+				return true;
+			}
 			ve = kso_view_lookup(current_thread->ctx, slot);
 			printk("Slot %lx contains " IDFMT " %x\n", slot, IDPR(ve.id), ve.flags);
 			if(ve.res0 != 0 || ve.res1 != 0 || !(ve.flags & VE_VALID)) {

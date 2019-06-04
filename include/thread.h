@@ -56,7 +56,8 @@ void arch_thread_init(struct thread *thread,
   void *arg,
   void *stack,
   size_t stacksz,
-  void *tls);
+  void *tls,
+  size_t);
 
 void thread_initialize_processor(struct processor *proc);
 

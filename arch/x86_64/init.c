@@ -319,7 +319,8 @@ void arch_thread_init(struct thread *thread,
   void *arg,
   void *stack,
   size_t stacksz,
-  void *tls)
+  void *tls,
+  size_t thrd_ctrl_slot)
 {
 	memset(&thread->arch.syscall, 0, sizeof(thread->arch.syscall));
 	thread->arch.syscall.rcx = (uint64_t)entry;
@@ -330,5 +331,5 @@ void arch_thread_init(struct thread *thread,
 	thread->arch.was_syscall = 1;
 	thread->arch.usedfpu = false;
 	thread->arch.fs = (long)tls; /* TODO: only set one of these */
-	thread->arch.gs = (long)tls; /* TODO: only set one of these */
+	thread->arch.gs = (long)thrd_ctrl_slot * mm_page_size(MAX_PGLEVEL);
 }

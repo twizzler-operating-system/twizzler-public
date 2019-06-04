@@ -108,6 +108,7 @@ struct thread *thread_create(void)
 }
 
 #include <object.h>
+#include <twz/_thrd.h>
 void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 {
 	struct object *to = kso_get_obj(t->throbj, thr);
@@ -115,9 +116,10 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 		panic("No repr");
 	}
 	struct faultinfo fi;
-	obj_read_data(to, sizeof(fi) * fault, sizeof(fi), &fi);
+	obj_read_data(
+	  to, offsetof(struct twzthread_repr, faults) + sizeof(fi) * fault, sizeof(fi), &fi);
 	if(fi.view) {
-		panic("NI - different view");
+		panic("NI - different view :: %d", fault);
 	}
 	if(fi.addr) {
 		arch_thread_raise_call(t, fi.addr, fault, info, infolen);
