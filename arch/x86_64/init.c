@@ -325,7 +325,10 @@ void arch_thread_init(struct thread *thread,
 	thread->arch.syscall.rcx = (uint64_t)entry;
 	thread->arch.syscall.rsp = (uint64_t)stack + stacksz - 8;
 	thread->arch.syscall.rdi = (uint64_t)arg;
+	thread->arch.syscall.rsi = ID_LO(thread->thrid);
+	thread->arch.syscall.rdx = ID_HI(thread->thrid);
 	thread->arch.was_syscall = 1;
 	thread->arch.usedfpu = false;
-	thread->arch.fs = thread->arch.gs = (long)tls; /* TODO: only set one of these */
+	thread->arch.fs = (long)tls; /* TODO: only set one of these */
+	thread->arch.gs = (long)tls; /* TODO: only set one of these */
 }

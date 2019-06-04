@@ -27,6 +27,7 @@ struct thread {
 	int64_t timeslice;
 	int priority;
 	struct krc refs;
+	objid_t thrid;
 
 	struct processor *processor;
 	struct vm_context *ctx;

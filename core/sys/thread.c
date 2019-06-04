@@ -32,6 +32,7 @@ long syscall_thread_spawn(uint64_t tidlo,
 	obj_write_data(repr, offsetof(struct twzthread_repr, reprid), sizeof(objid_t), &tid);
 
 	struct thread *t = thread_create();
+	t->thrid = tid;
 	t->throbj = &repr->thr; /* krc: move */
 	vm_setview(t, view);
 	obj_put(view);

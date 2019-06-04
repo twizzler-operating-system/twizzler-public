@@ -1,6 +1,6 @@
+#include <processor.h>
 #include <syscall.h>
 #include <thread.h>
-#include <processor.h>
 
 void arch_thread_become(struct arch_syscall_become_args *ba)
 {
@@ -40,7 +40,7 @@ void arch_thread_become(struct arch_syscall_become_args *ba)
 		current_thread->arch.exception.r13 = ba->r13;
 		current_thread->arch.exception.r14 = ba->r14;
 		current_thread->arch.exception.r15 = ba->r15;
-		
+
 		current_thread->arch.exception.rip = ba->target_rip;
 	}
 }
@@ -52,6 +52,7 @@ int arch_syscall_thrd_ctl(int op, long arg)
 			current_thread->arch.fs = arg;
 			break;
 		case THRD_CTL_SET_GS:
+			printk("*** SETTING GS\n");
 			current_thread->arch.gs = arg;
 			break;
 		case THRD_CTL_SET_IOPL:
@@ -64,8 +65,7 @@ int arch_syscall_thrd_ctl(int op, long arg)
 	return 0;
 }
 
-void arch_thread_raise_call(struct thread *t, void *addr, long a0,
-		void *info, size_t infolen)
+void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, size_t infolen)
 {
 	if(t != current_thread) {
 		panic("NI - raise fault in non-current thread");
@@ -77,14 +77,14 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0,
 		stack = (uint64_t *)t->arch.syscall.rsp;
 		arg0 = &t->arch.syscall.rdi;
 		arg1 = &t->arch.syscall.rsi;
-		jmp  = &t->arch.syscall.rcx;
-		rsp  = &t->arch.syscall.rsp;
+		jmp = &t->arch.syscall.rcx;
+		rsp = &t->arch.syscall.rsp;
 	} else {
 		stack = (uint64_t *)t->arch.exception.userrsp;
 		arg0 = &t->arch.exception.rdi;
 		arg1 = &t->arch.exception.rsi;
-		jmp  = &t->arch.exception.rip;
-		rsp  = &t->arch.exception.userrsp;
+		jmp = &t->arch.exception.rip;
+		rsp = &t->arch.exception.userrsp;
 	}
 
 	*--stack = *jmp;
@@ -111,4 +111,3 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0,
 	*arg1 = info_base_user;
 	*rsp = (long)stack;
 }
-
