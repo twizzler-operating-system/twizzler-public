@@ -1,8 +1,10 @@
 #pragma once
 
+#include <krc.h>
 #include <lib/inthash.h>
 #include <spinlock.h>
-#include <krc.h>
+
+#include <twz/_obj.h>
 
 enum kso_type {
 	KSO_NONE,
@@ -14,14 +16,12 @@ enum kso_type {
 };
 
 #define OF_NOTYPECHECK 1
-#define OF_KERNELGEN   2
+#define OF_KERNELGEN 2
 
 struct kso_view {
-
 };
 
 struct kso_throbj {
-
 };
 
 struct kso_invl_args {
@@ -32,8 +32,7 @@ struct kso_invl_args {
 	uint16_t result;
 };
 
-#define kso_get_obj(ptr, type) \
-	container_of(ptr, struct object, type)
+#define kso_get_obj(ptr, type) container_of(ptr, struct object, type)
 
 struct object;
 struct kso_calls {
@@ -86,18 +85,16 @@ void obj_kso_init(struct object *obj, enum kso_type ksot);
 void obj_put_page(struct objpage *p);
 void obj_put(struct object *o);
 
-
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
 
-#define OBJSPACE_FAULT_READ   1
-#define OBJSPACE_FAULT_WRITE  2
-#define OBJSPACE_FAULT_EXEC   4
+#define OBJSPACE_FAULT_READ 1
+#define OBJSPACE_FAULT_WRITE 2
+#define OBJSPACE_FAULT_EXEC 4
 
-#define OBJSPACE_READ   1
-#define OBJSPACE_WRITE  2
+#define OBJSPACE_READ 1
+#define OBJSPACE_WRITE 2
 #define OBJSPACE_EXEC_U 4
 #define OBJSPACE_EXEC_S 8
 
 void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t phys, uint32_t flags);
-

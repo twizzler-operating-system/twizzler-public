@@ -8,6 +8,8 @@
 #include <thread.h>
 #include <time.h>
 
+#include <twz/_objid.h>
+
 static struct arena post_init_call_arena;
 static struct init_call *post_init_call_head = NULL;
 

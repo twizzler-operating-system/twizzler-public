@@ -2,8 +2,7 @@
 
 #include <stdint.h>
 
-#define IDFMT "%.16lx:%.16lx"
-#define IDPR(x) (uint64_t)(x >> 64), (uint64_t)(x & 0xffffffffffffffff)
+#include <twz/_objid.h>
 
 #define MI_MAGIC 0x54575A4F
 
@@ -21,7 +20,6 @@
 #define OBJ_MAXSIZE (1ul << 30)
 
 typedef unsigned __int128 nonce_t;
-typedef unsigned __int128 objid_t;
 
 struct metainfo {
 	uint32_t magic;

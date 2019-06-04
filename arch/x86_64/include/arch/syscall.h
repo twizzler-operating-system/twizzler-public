@@ -1,7 +1,9 @@
 #pragma once
 
-#define THRD_CTL_SET_FS   1
-#define THRD_CTL_SET_GS   2
+#include <twz/_objid.h>
+
+#define THRD_CTL_SET_FS 1
+#define THRD_CTL_SET_GS 2
 #define THRD_CTL_SET_IOPL 3
 
 struct arch_syscall_become_args {
@@ -24,4 +26,3 @@ struct arch_syscall_become_args {
 	uint64_t r14;
 	uint64_t r15;
 };
-

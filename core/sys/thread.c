@@ -1,15 +1,18 @@
-#include <thread.h>
-#include <syscall.h>
+#include <limits.h>
 #include <object.h>
 #include <processor.h>
-#include <limits.h>
 #include <secctx.h>
-#include <throbj.h>
+#include <syscall.h>
+#include <thread.h>
+
+#include <twz/_thrd.h>
 
 /* TODO (major): verify all incoming pointers from syscalls */
 
-long syscall_thread_spawn(uint64_t tidlo, uint64_t tidhi,
-		struct sys_thrd_spawn_args *tsa, int flags)
+long syscall_thread_spawn(uint64_t tidlo,
+  uint64_t tidhi,
+  struct sys_thrd_spawn_args *tsa,
+  int flags)
 {
 	objid_t tid = MKID(tidhi, tidlo);
 	struct object *repr = obj_lookup(tid);
@@ -17,8 +20,7 @@ long syscall_thread_spawn(uint64_t tidlo, uint64_t tidhi,
 		return -1;
 	}
 
-	struct object *view = current_thread ? kso_get_obj(current_thread->ctx->view, view)
-	                                     : NULL;
+	struct object *view = current_thread ? kso_get_obj(current_thread->ctx->view, view) : NULL;
 	if(tsa->target_view) {
 		view = obj_lookup(tsa->target_view);
 		if(view == NULL) {
@@ -27,8 +29,8 @@ long syscall_thread_spawn(uint64_t tidlo, uint64_t tidhi,
 		}
 	}
 
-	obj_write_data(repr, offsetof(struct twzthread_repr, thread_kso_data.reprid),
-			sizeof(objid_t), &tid);
+	obj_write_data(
+	  repr, offsetof(struct twzthread_repr, thread_kso_data.reprid), sizeof(objid_t), &tid);
 
 	struct thread *t = thread_create();
 	t->throbj = &repr->thr; /* krc: move */
@@ -37,7 +39,7 @@ long syscall_thread_spawn(uint64_t tidlo, uint64_t tidhi,
 
 	if(current_thread) {
 		spinlock_acquire_save(&current_thread->sc_lock);
-		for(int i=0;i<MAX_SC;i++) {
+		for(int i = 0; i < MAX_SC; i++) {
 			if(current_thread->attached_scs[i]) {
 				krc_get(&current_thread->attached_scs[i]->refs);
 				t->attached_scs[i] = current_thread->attached_scs[i];
@@ -52,8 +54,7 @@ long syscall_thread_spawn(uint64_t tidlo, uint64_t tidhi,
 		t->attached_scs[0] = t->active_sc;
 	}
 
-	arch_thread_init(t, tsa->start_func, tsa->arg, tsa->stack_base,
-			tsa->stack_size, tsa->tls_base);
+	arch_thread_init(t, tsa->start_func, tsa->arg, tsa->stack_base, tsa->stack_size, tsa->tls_base);
 
 	t->state = THREADSTATE_RUNNING;
 	processor_attach_thread(NULL, t);
@@ -102,4 +103,3 @@ long syscall_become(uint64_t sclo, uint64_t schi, struct arch_syscall_become_arg
 	syscall_detach(0, 0, sclo, schi, 0);
 	return 0;
 }
-

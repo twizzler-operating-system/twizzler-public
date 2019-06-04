@@ -1,4 +1,5 @@
 #include <debug.h>
+#include <kc.h>
 #include <string.h>
 
 objid_t kc_init_id = 0, kc_bsv_id = 0, kc_inithr_id = 0;

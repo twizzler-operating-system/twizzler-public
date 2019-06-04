@@ -75,7 +75,7 @@ static inline void mm_virtual_dealloc(uintptr_t addr)
 	mm_physical_dealloc(mm_vtop((void *)addr));
 }
 
-#include <smapi/view.h>
+#include <twz/_view.h>
 
 struct vm_context {
 	struct arch_vm_context arch;

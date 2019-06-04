@@ -87,7 +87,7 @@ $(BUILDDIR)/us/root/kc $(BUILDDIR)/us/bsv.obj: $(BUILDDIR)/us/bsv.data
 TWZOBJS+=$(BUILDDIR)/us/bsv.obj
 
 $(BUILDDIR)/us/root.tar: $(TWZOBJS)
-	@rm -r $(BUILDDIR)/us/root
+	@-rm -r $(BUILDDIR)/us/root
 	@mkdir -p $(BUILDDIR)/us/root
 	@NAMES=;\
 	LIST=;\

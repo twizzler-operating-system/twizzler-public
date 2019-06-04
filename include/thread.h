@@ -1,11 +1,13 @@
 #pragma once
-#include <thread-bits.h>
-#include <lib/inthash.h>
 #include <arch/thread.h>
-#include <workqueue.h>
-#include <memory.h>
-#include <lib/list.h>
 #include <krc.h>
+#include <lib/inthash.h>
+#include <lib/list.h>
+#include <memory.h>
+#include <thread-bits.h>
+#include <workqueue.h>
+
+#include <twz/_fault.h>
 
 struct processor;
 
@@ -18,44 +20,6 @@ enum thread_state {
 
 #define MAX_SC 32
 
-enum {
-	FAULT_OBJECT,
-	FAULT_NULL,
-	FAULT_EXCEPTION,
-	NUM_FAULTS,
-};
-
-struct faultinfo {
-	objid_t view;
-	void *addr;
-	uint64_t flags;
-} __packed;
-
-#define FAULT_OBJECT_READ  1
-#define FAULT_OBJECT_WRITE 2
-#define FAULT_OBJECT_EXEC  4
-#define FAULT_OBJECT_NOMAP 8
-#define FAULT_OBJECT_EXIST 16
-
-struct fault_object_info {
-	objid_t objid;
-	uint64_t ip;
-	uint64_t addr;
-	uint64_t flags;
-	uint64_t pad;
-} __packed;
-
-struct fault_null_info {
-	uint64_t ip;
-	uint64_t addr;
-} __packed;
-
-struct fault_exception_info {
-	uint64_t ip;
-	uint64_t code;
-	uint64_t arg0;
-} __packed;
-
 struct thread {
 	struct arch_thread arch;
 	unsigned long id;
@@ -63,7 +27,7 @@ struct thread {
 	int64_t timeslice;
 	int priority;
 	struct krc refs;
-	
+
 	struct processor *processor;
 	struct vm_context *ctx;
 
@@ -86,12 +50,15 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *, size_
 
 struct thread *thread_lookup(unsigned long id);
 struct thread *thread_create(void);
-void arch_thread_init(struct thread *thread, void *entry, void *arg,
-		void *stack, size_t stacksz, void *tls);
+void arch_thread_init(struct thread *thread,
+  void *entry,
+  void *arg,
+  void *stack,
+  size_t stacksz,
+  void *tls);
 
 void thread_initialize_processor(struct processor *proc);
 
 void thread_schedule_resume(void);
 void thread_schedule_resume_proc(struct processor *proc);
 void arch_thread_resume(struct thread *thread);
-

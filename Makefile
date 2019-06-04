@@ -27,7 +27,7 @@ DEFINES=$(addprefix -D,$(shell grep "CONFIG" $(CONFIGFILE) | sed -e 's/=y/=1/g' 
 ARCH=$(CONFIG_ARCH)
 MACHINE=$(CONFIG_MACHINE)
 
-INCLUDES=-Iinclude -Imachine/$(MACHINE)/include -Iarch/$(ARCH)/include
+INCLUDES=-Iinclude -Imachine/$(MACHINE)/include -Iarch/$(ARCH)/include -Ius/include
 CFLAGS=-ffreestanding -Wall -Wextra -std=gnu11 -include stdbool.h -include stddef.h -include stdint.h $(INCLUDES) -include printk.h $(DEFINES) -include system.h -fno-omit-frame-pointer -g -Wno-error=unused-variable -Wno-error=unused-function -Wno-error=unused-parameter -Wshadow
 ASFLAGS=$(INCLUDES) $(DEFINES)
 
@@ -154,3 +154,5 @@ include us/include.mk
 
 .PHONY: od re clean all test newproj userspace .twizzlerutils
 
+depclean:
+	-rm $(addprefix $(BUILDDIR)/,$(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d))
