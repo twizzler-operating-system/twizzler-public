@@ -205,17 +205,18 @@ void kernel_main(struct processor *proc)
 
 		objid_t bthrid = objid_generate();
 		objid_t bstckid = objid_generate();
+		printk("Created bthrd = " IDFMT " and bstck = " IDFMT "\n", IDPR(bthrid), IDPR(bstckid));
 		struct object *bthr = obj_create(bthrid, KSO_THREAD);
 		struct object *bstck = obj_create(bstckid, 0);
 		struct object *bv = obj_lookup(kc_bsv_id);
 
 		struct viewentry v_t = {
 			.id = bthrid,
-			.flags = VE_READ | VE_WRITE,
+			.flags = VE_READ | VE_WRITE | VE_VALID,
 		};
 		struct viewentry v_s = {
 			.id = bstckid,
-			.flags = VE_READ | VE_WRITE,
+			.flags = VE_READ | VE_WRITE | VE_VALID,
 		};
 
 		kso_view_write(bv, (uintptr_t)stck_obj / mm_page_size(MAX_PGLEVEL), &v_s);

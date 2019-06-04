@@ -1,19 +1,18 @@
-#include <processor.h>
-#include <debug.h>
-#include <thread.h>
 #include <clksrc.h>
+#include <debug.h>
+#include <processor.h>
+#include <thread.h>
 
-__noinstrument
-void thread_schedule_resume_proc(struct processor *proc)
+__noinstrument void thread_schedule_resume_proc(struct processor *proc)
 {
 	while(true) {
 		/* TODO (major): allow current thread to run again */
 		spinlock_acquire(&proc->sched_lock);
-	//	if(current_thread && current_thread->state == THREADSTATE_RUNNING) {
-	//		list_insert(&proc->runqueue, &current_thread->rq_entry);
-	//	} else if(current_thread && current_thread->state == THREADSTATE_BLOCKING) {
-	//		current_thread->state = THREADSTATE_BLOCKED;
-	//	}
+		//	if(current_thread && current_thread->state == THREADSTATE_RUNNING) {
+		//		list_insert(&proc->runqueue, &current_thread->rq_entry);
+		//	} else if(current_thread && current_thread->state == THREADSTATE_BLOCKING) {
+		//		current_thread->state = THREADSTATE_BLOCKED;
+		//	}
 		struct list *ent = list_dequeue(&proc->runqueue);
 		if(ent) {
 			bool empty = list_empty(&proc->runqueue);
@@ -24,10 +23,14 @@ void thread_schedule_resume_proc(struct processor *proc)
 			next->timeslice = 100000 + next->priority * 100000;
 			if(!empty) {
 				clksrc_set_interrupt_countdown(next->timeslice, false);
-				if(next->priority > 1) next->priority--;
+				if(next->priority > 1)
+					next->priority--;
 			}
 			assertmsg(next->state == THREADSTATE_RUNNING,
-					"%ld threadstate is %d (%d)", next->id, next->state, empty);
+			  "%ld threadstate is %d (%d)",
+			  next->id,
+			  next->state,
+			  empty);
 			arch_thread_resume(next);
 		} else {
 			spinlock_release(&proc->sched_lock, 1);
@@ -53,8 +56,7 @@ static void _thread_ctor(void *_u __unused, void *ptr)
 
 static DECLARE_SLABCACHE(_sc_thread, sizeof(struct thread), _thread_ctor, NULL, NULL);
 
-__noinstrument
-void thread_schedule_resume(void)
+__noinstrument void thread_schedule_resume(void)
 {
 	assert(current_thread != NULL);
 	thread_schedule_resume_proc(current_processor);
@@ -76,14 +78,13 @@ void thread_sleep(struct thread *t, int flags, int64_t timeout)
 void thread_wake(struct thread *t)
 {
 	assert(t->state == THREADSTATE_BLOCKED);
-	
+
 	spinlock_acquire_save(&t->processor->sched_lock);
 	int old = atomic_exchange(&t->state, THREADSTATE_RUNNING);
 	if(old == THREADSTATE_BLOCKED) {
 		list_insert(&t->processor->runqueue, &t->rq_entry);
 		if(t->processor != current_processor) {
-			processor_send_ipi(t->processor->id, PROCESSOR_IPI_RESUME,
-					NULL, PROCESSOR_IPI_NOWAIT);
+			processor_send_ipi(t->processor->id, PROCESSOR_IPI_RESUME, NULL, PROCESSOR_IPI_NOWAIT);
 		}
 	}
 	spinlock_release_restore(&t->processor->sched_lock);
@@ -114,7 +115,7 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 		panic("No repr");
 	}
 	struct faultinfo fi;
-	obj_read_data(to, sizeof(fi) * fault, sizeof(fi), &fi); 
+	obj_read_data(to, sizeof(fi) * fault, sizeof(fi), &fi);
 	if(fi.view) {
 		panic("NI - different view");
 	}
@@ -126,4 +127,3 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 		thread_exit();
 	}
 }
-

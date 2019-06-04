@@ -29,8 +29,7 @@ long syscall_thread_spawn(uint64_t tidlo,
 		}
 	}
 
-	obj_write_data(
-	  repr, offsetof(struct twzthread_repr, thread_kso_data.reprid), sizeof(objid_t), &tid);
+	obj_write_data(repr, offsetof(struct twzthread_repr, reprid), sizeof(objid_t), &tid);
 
 	struct thread *t = thread_create();
 	t->throbj = &repr->thr; /* krc: move */
