@@ -7,6 +7,105 @@ static struct {
 	void (*fn)(int, void *);
 } _fault_table[NUM_FAULTS];
 
+#define TE_FAILURE -1
+#define TE_SUCCESS 0
+
+int twz_map_fot_entry(size_t slot, struct fotentry *fe)
+{
+	objid_t id;
+	if(fe->flags & FE_NAME) {
+		//	id = twz_name_resolve(NULL, fe->data, fe->nresolver);
+		//	if(id == 0) {
+		debug_printf("Name not resolved: %s\n", fe->name.data);
+		//		return TE_FAILURE;
+		//	}
+	} else {
+		id = fe->id;
+	}
+
+	int flags = ((fe->flags & FE_READ) ? VE_READ : 0) | ((fe->flags & FE_WRITE) ? VE_WRITE : 0)
+	            | ((fe->flags & FE_EXEC) ? VE_EXEC : 0);
+
+#if 0
+	if(fe->flags & FE_DERIVE) {
+		objid_t nid = 0;
+		if(twz_object_new(
+		     NULL, &nid, id, 0 /* TODO: KUID, perms */, TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE)
+		   < 0) {
+			debug_printf("Failed to make new derived object\n");
+			return TE_FAILURE;
+		}
+		id = nid;
+	}
+#endif
+
+	twz_view_set(NULL, slot, id, flags);
+	debug_printf("Mapping slot: %ld :: " IDFMT "\n", slot, IDPR(id));
+
+	return TE_SUCCESS;
+}
+
+int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source)
+{
+	uint64_t offset = addr % OBJ_MAXSIZE;
+	if(offset < OBJ_NULLPAGE_SIZE) {
+		debug_printf("NULL ptr\n");
+		return TE_FAILURE;
+	}
+
+	if(!(cause & FAULT_OBJECT_NOMAP)) {
+		debug_printf("PERM err\n");
+		return TE_FAILURE;
+	}
+
+	if(cause & FAULT_OBJECT_EXIST) {
+		debug_printf("object no exist\n");
+		return TE_FAILURE;
+	}
+
+	uint32_t obj0flags;
+	objid_t obj0id;
+	twz_view_get(NULL, 0, &obj0id, &obj0flags);
+	if(!(obj0flags & VE_VALID) || obj0id == 0) {
+		debug_printf("No obj0\n");
+		return TE_FAILURE;
+	}
+
+	// struct metainfo *mi = twz_slot_to_meta(0);
+	struct metainfo *mi = (void *)(OBJ_MAXSIZE - OBJ_METAPAGE_SIZE);
+	if(mi->magic != MI_MAGIC) {
+		debug_printf("No metainfo in object 0\n");
+		return TE_FAILURE;
+	}
+
+	size_t slot = (addr / OBJ_MAXSIZE) - 1;
+	// if(slot >= TWZSLOT_ALLOC_START) {
+	//	debug_printf("Fault in allocatable object space (%lx)\n", slot + 1);
+	//	return TE_FAILURE;
+	//}
+	if(slot >= 94) {
+		debug_printf("TODO: large FOTs (%lx)\n", slot);
+		return TE_FAILURE;
+	}
+
+	// struct object obj0 = TWZ_OBJECT_INIT(0);
+	// struct fotentry *fot = twz_object_fot(&obj0, false);
+	// if(!fot) {
+	//	debug_printf("obj 0 has no FOT\n");
+	//}
+
+	struct fotentry *fot = (void *)((char *)mi + mi->milen);
+
+	if(fot[slot].id == 0) {
+		debug_printf("Invalid FOT entry\n");
+		return TE_FAILURE;
+	}
+
+	debug_printf("Slot: %ld - %s\n", slot + 1, fot[slot].name.data);
+
+	return twz_map_fot_entry(slot + 1, &fot[slot]);
+}
+
 int __fault_obj_default(int fault, struct fault_object_info *info)
 {
 	debug_printf("A\n");

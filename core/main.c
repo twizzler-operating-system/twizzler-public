@@ -9,6 +9,7 @@
 #include <time.h>
 
 #include <twz/_objid.h>
+#include <twz/_slots.h>
 #include <twz/_thrd.h>
 
 static struct arena post_init_call_arena;
@@ -222,6 +223,13 @@ void kernel_main(struct processor *proc)
 			.id = bstckid,
 			.flags = VE_READ | VE_WRITE | VE_VALID,
 		};
+
+		struct viewentry v_v = {
+			.id = kc_bsv_id,
+			.flags = VE_READ | VE_WRITE | VE_VALID,
+		};
+
+		kso_view_write(bv, TWZSLOT_CVIEW, &v_v);
 
 		bthr->flags |= OF_KERNELGEN;
 		bstck->flags |= OF_KERNELGEN;
