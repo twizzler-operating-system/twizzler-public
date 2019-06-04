@@ -1,8 +1,8 @@
-#include <memory.h>
-#include <slab.h>
 #include <lib/inthash.h>
-#include <processor.h>
+#include <memory.h>
 #include <object.h>
+#include <processor.h>
+#include <slab.h>
 
 struct slabcache sc_vmctx, sc_iht, sc_vmap;
 
@@ -21,8 +21,7 @@ static void _vmctx_dtor(void *_p, void *obj)
 	slabcache_free(v->maps);
 }
 
-__initializer
-static void _init_vmctx(void)
+__initializer static void _init_vmctx(void)
 {
 	slabcache_init(&sc_iht, ihtable_size(4), _iht_ctor, NULL, (void *)4ul);
 	slabcache_init(&sc_vmap, sizeof(struct vmap), NULL, NULL, NULL);
@@ -40,16 +39,20 @@ void vm_context_destroy(struct vm_context *v)
 	slabcache_free(v);
 }
 
-bool vm_map_contig(struct vm_context *v, uintptr_t virt, uintptr_t phys, size_t len, uintptr_t flags)
+bool vm_map_contig(struct vm_context *v,
+  uintptr_t virt,
+  uintptr_t phys,
+  size_t len,
+  uintptr_t flags)
 {
-	for(int level=MAX_PGLEVEL;level >= 0;level--) {
+	for(int level = MAX_PGLEVEL; level >= 0; level--) {
 		/* is this a valid level to map at? */
 		size_t pgsz = mm_page_size(level);
 		if(len % pgsz != 0) {
 			continue;
 		}
 
-		for(size_t off=0;off < len;off += pgsz) {
+		for(size_t off = 0; off < len; off += pgsz) {
 			if(!arch_vm_map(v, virt + off, phys + off, level, flags)) {
 				panic("overwriting existing mapping at %lx", virt + off);
 			}
@@ -79,11 +82,16 @@ struct vmap *vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, 
 	return m;
 }
 
+void kso_view_write(struct object *obj, size_t slot, struct viewentry *v)
+{
+	obj_write_data(obj, slot * sizeof(struct viewentry), sizeof(struct viewentry), v);
+}
+
 struct viewentry kso_view_lookup(struct vm_context *ctx, size_t slot)
 {
 	struct viewentry v;
-	obj_read_data(kso_get_obj(ctx->view, view), slot * sizeof(struct viewentry),
-			sizeof(struct viewentry), &v);
+	obj_read_data(
+	  kso_get_obj(ctx->view, view), slot * sizeof(struct viewentry), sizeof(struct viewentry), &v);
 	return v;
 }
 
@@ -91,18 +99,19 @@ static bool lookup_by_slot(size_t slot, objid_t *id, uint64_t *flags)
 {
 	switch(slot) {
 		struct viewentry ve;
-		case 0x10000:
-			*id = kso_get_obj(current_thread->throbj, thr)->id;
-			if(flags) *flags = VE_READ | VE_WRITE;
-		break;
+		// case 0x10000:
+		//	*id = kso_get_obj(current_thread->throbj, thr)->id;
+		//	if(flags) *flags = VE_READ | VE_WRITE;
+		// break;
 		default:
 			ve = kso_view_lookup(current_thread->ctx, slot);
-			//printk("Slot %lx contains " IDFMT " %x\n", slot, IDPR(ve.id), ve.flags);
+			// printk("Slot %lx contains " IDFMT " %x\n", slot, IDPR(ve.id), ve.flags);
 			if(ve.res0 != 0 || ve.res1 != 0 || !(ve.flags & VE_VALID)) {
 				return false;
 			}
 			*id = ve.id;
-			if(flags) *flags = ve.flags;
+			if(flags)
+				*flags = ve.flags;
 	}
 	return true;
 }
@@ -119,8 +128,8 @@ bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off)
 static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 {
 	for(size_t slot = invl->offset / mm_page_size(MAX_PGLEVEL);
-			slot <= (invl->offset + invl->length) / mm_page_size(MAX_PGLEVEL);
-			slot++) {
+	    slot <= (invl->offset + invl->length) / mm_page_size(MAX_PGLEVEL);
+	    slot++) {
 		struct vmap *map = ihtable_find(current_thread->ctx->maps, slot, struct vmap, elem, slot);
 		/* TODO (major): unmap all ctxs that use this view */
 		if(map) {
@@ -133,9 +142,8 @@ static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 
 bool vm_setview(struct thread *t, struct object *viewobj)
 {
-	obj_kso_init(viewobj, KSO_VIEW); //TODO
-	struct object *old = (t->ctx && t->ctx->view) ? 
-		kso_get_obj(t->ctx->view, view) : NULL;
+	obj_kso_init(viewobj, KSO_VIEW); // TODO
+	struct object *old = (t->ctx && t->ctx->view) ? kso_get_obj(t->ctx->view, view) : NULL;
 	struct vm_context *oldctx = t->ctx;
 	t->ctx = vm_context_create();
 	krc_get(&viewobj->refs);
@@ -146,11 +154,11 @@ bool vm_setview(struct thread *t, struct object *viewobj)
 }
 
 static struct kso_calls _kso_view = {
-	.ctor   = NULL,
-	.dtor   = NULL,
+	.ctor = NULL,
+	.dtor = NULL,
 	.attach = NULL,
 	.detach = NULL,
-	.invl   = _vm_view_invl,
+	.invl = _vm_view_invl,
 };
 
 __initializer static void _init_kso_view(void)
@@ -158,8 +166,11 @@ __initializer static void _init_kso_view(void)
 	kso_register(KSO_VIEW, &_kso_view);
 }
 
-static inline void popul_info(struct fault_object_info *info, int flags,
-		uintptr_t ip, uintptr_t addr, objid_t objid)
+static inline void popul_info(struct fault_object_info *info,
+  int flags,
+  uintptr_t ip,
+  uintptr_t addr,
+  objid_t objid)
 {
 	memset(info, 0, sizeof(*info));
 	if(!(flags & FAULT_ERROR_PERM)) {
@@ -180,8 +191,8 @@ static inline void popul_info(struct fault_object_info *info, int flags,
 
 void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 {
-	//printk("Page Fault from %lx: %lx %x\n", ip, addr, flags);
-	
+	// printk("Page Fault from %lx: %lx %x\n", ip, addr, flags);
+
 	if(flags & FAULT_ERROR_PERM) {
 		struct fault_object_info info;
 		popul_info(&info, flags, ip, addr, 0);
@@ -189,8 +200,7 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 		return;
 	}
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
-	struct vmap *map = ihtable_find(current_thread->ctx->maps, slot,
-			struct vmap, elem, slot);
+	struct vmap *map = ihtable_find(current_thread->ctx->maps, slot, struct vmap, elem, slot);
 	if(!map) {
 		objid_t id;
 		uint64_t fl;
@@ -200,8 +210,7 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 			thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
 			return;
 		}
-		map = vm_context_map(current_thread->ctx, id, slot,
-				fl & (VE_READ | VE_WRITE | VE_EXEC));
+		map = vm_context_map(current_thread->ctx, id, slot, fl & (VE_READ | VE_WRITE | VE_EXEC));
 		if(!map) {
 			struct fault_object_info info;
 			popul_info(&info, flags, ip, addr, id);
@@ -215,4 +224,3 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 	}
 	arch_vm_map_object(current_thread->ctx, map, map->obj);
 }
-

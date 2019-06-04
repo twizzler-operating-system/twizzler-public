@@ -100,7 +100,6 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 			printk("Malformed object data\n");
 			break;
 		}
-		printk(":: %s\n", name);
 
 		size_t len = strtol(h->size, NULL, 8);
 		size_t reclen = (len + 511) & ~511;
@@ -114,7 +113,6 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 			printk("Malformed object data\n");
 		}
 
-		printk("Copying %ld bytes\n", len);
 		for(size_t s = 0; s < len; s += mm_page_size(0), idx++) {
 			uintptr_t phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 			size_t thislen = 0x1000;
@@ -184,21 +182,6 @@ static void x86_64_initrd(void *u)
 					obj->flags |= OF_NOTYPECHECK;
 					size_t idx = 0;
 					load_object_data(obj, data, len);
-					//		if(meta) {
-					//			idx =
-					//			  (mm_page_size(MAX_PGLEVEL) - (mm_page_size(0) + len)) /
-					// mm_page_size(0);
-					//		}
-#if 0
-					for(size_t s = 0; s < len; s += mm_page_size(0), idx++) {
-						uintptr_t phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
-						size_t thislen = 0x1000;
-						if((len - s) < thislen)
-							thislen = len - s;
-						memcpy(mm_ptov(phys), data + s, thislen);
-						obj_cache_page(obj, idx, phys);
-					}
-#endif
 				}
 				break;
 			default:

@@ -68,6 +68,8 @@ asm(" \
 void __twz_fault_entry(void);
 void __twz_fault_init(void)
 {
+	for(;;)
+		;
 	/* have to do this manually, because fault handling during init
 	 * may not use any global data (since the data object may not be mapped) */
 

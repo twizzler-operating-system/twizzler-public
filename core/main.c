@@ -183,7 +183,8 @@ void kernel_main(struct processor *proc)
 		obj_put(initobj);
 
 #define US_STACK_SIZE 0x200000 - 0x1000
-		char *thrd_obj = (void *)(0x400000000000ull);
+		char *stck_obj = (void *)(0x400000000000ull);
+		char *thrd_obj = (void *)(0x400010000000ull);
 		size_t off = US_STACK_SIZE - 0x100, tmp = 0;
 
 		char *argv[4] = {
@@ -201,26 +202,43 @@ void kernel_main(struct processor *proc)
 		};
 
 		objid_t bthrid = objid_generate();
+		objid_t bstckid = objid_generate();
 		struct object *bthr = obj_create(bthrid, KSO_THREAD);
-		bthr->flags |= OF_KERNELGEN;
+		struct object *bstck = obj_create(bstckid, 0);
+		struct object *bv = obj_lookup(kc_bsv_id);
 
-		obj_write_data(bthr, off + tmp, sizeof(long), &vector[0]);
+		struct viewentry v_t = {
+			.id = bthrid,
+			.flags = VE_READ | VE_WRITE,
+		};
+		struct viewentry v_s = {
+			.id = bstckid,
+			.flags = VE_READ | VE_WRITE,
+		};
+
+		kso_view_write(bv, (uintptr_t)stck_obj / mm_page_size(MAX_PGLEVEL), &v_s);
+		kso_view_write(bv, (uintptr_t)thrd_obj / mm_page_size(MAX_PGLEVEL), &v_t);
+
+		bthr->flags |= OF_KERNELGEN;
+		bstck->flags |= OF_KERNELGEN;
+
+		obj_write_data(bstck, off + tmp, sizeof(long), &vector[0]);
 		tmp += sizeof(long);
-		obj_write_data(bthr, off + tmp, sizeof(long), &vector[1]);
+		obj_write_data(bstck, off + tmp, sizeof(long), &vector[1]);
 		tmp += sizeof(long);
-		obj_write_data(bthr, off + tmp, sizeof(long), &vector[2]);
+		obj_write_data(bstck, off + tmp, sizeof(long), &vector[2]);
 		tmp += sizeof(long);
-		obj_write_data(bthr, off + tmp, sizeof(long), &vector[3]);
+		obj_write_data(bstck, off + tmp, sizeof(long), &vector[3]);
 		tmp += sizeof(long);
 
 		obj_write_data(bthr, off + tmp, sizeof(char *) * 4, argv);
 
 		struct sys_thrd_spawn_args tsa = {
 			.start_func = (void *)elf.e_entry,
-			.stack_base = (void *)thrd_obj + 0x1000,
+			.stack_base = (void *)stck_obj + 0x1000,
 			.stack_size = (US_STACK_SIZE - 0x100),
-			.tls_base = thrd_obj + 0x1000 + US_STACK_SIZE,
-			.arg = thrd_obj + off + 0x1000,
+			.tls_base = stck_obj + 0x1000 + US_STACK_SIZE,
+			.arg = stck_obj + off + 0x1000,
 			.target_view = kc_bsv_id,
 		};
 
