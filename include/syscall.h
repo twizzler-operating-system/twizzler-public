@@ -25,7 +25,12 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count);
 long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t flags);
 long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t flags);
 
-long syscall_ocreate(uint64_t olo, uint64_t ohi, uint64_t tlo, uint64_t thi, uint64_t flags);
+long syscall_ocreate(uint64_t kulo,
+  uint64_t kuhi,
+  uint64_t tlo,
+  uint64_t thi,
+  uint64_t flags,
+  objid_t *);
 long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags);
 
 #define THRD_CTL_ARCH_MAX 0xff

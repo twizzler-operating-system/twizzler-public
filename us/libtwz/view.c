@@ -9,7 +9,6 @@
 
 #include <twz/_err.h>
 
-#include <twz/debug.h>
 int twz_view_set(struct object *obj, size_t slot, objid_t target, uint32_t flags)
 {
 	if(slot > TWZSLOT_MAX_SLOT) {
@@ -17,7 +16,6 @@ int twz_view_set(struct object *obj, size_t slot, objid_t target, uint32_t flags
 	}
 	struct viewentry *ves = obj ? (struct viewentry *)twz_obj_base(obj)
 	                            : (struct viewentry *)twz_slot_to_base(TWZSLOT_CVIEW);
-	debug_printf(":::: %p\n", ves);
 	uint32_t old = atomic_fetch_and(&ves[slot].flags, ~VE_VALID);
 	ves[slot].id = target;
 	ves[slot].res0 = 0;

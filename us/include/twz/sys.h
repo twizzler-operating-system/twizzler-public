@@ -23,9 +23,10 @@ static inline long __sys_debug_print(const char *str, size_t len)
 	return __syscall6(SYS_DEBUG_PRINT, (long)str, len, 0, 0, 0, 0);
 }
 
-static inline long sys_ocreate(objid_t id, objid_t srcid, int flags)
+static inline long sys_ocreate(int flags, objid_t kuid, objid_t src, objid_t *id)
 {
-	return __syscall6(SYS_OCREATE, ID_LO(id), ID_HI(id), ID_LO(srcid), ID_HI(srcid), flags, 0);
+	return __syscall6(
+	  SYS_OCREATE, ID_LO(kuid), ID_HI(kuid), ID_LO(src), ID_HI(src), flags, (long)id);
 }
 
 static inline long sys_attach(objid_t pid, objid_t cid, int flags)

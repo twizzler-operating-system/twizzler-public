@@ -1,6 +1,6 @@
-#include <syscall.h>
 #include <object.h>
 #include <processor.h>
+#include <syscall.h>
 
 static bool __do_invalidate(struct object *obj, struct kso_invl_args *invl)
 {
@@ -14,7 +14,7 @@ static bool __do_invalidate(struct object *obj, struct kso_invl_args *invl)
 long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 {
 	size_t suc = 0;
-	for(size_t i=0;i<count;i++) {
+	for(size_t i = 0; i < count; i++) {
 		struct kso_invl_args ko;
 		memcpy(&ko, &invl[i], sizeof(ko));
 		if(ko.flags & KSOI_VALID) {
@@ -33,13 +33,14 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t flags)
 {
 	objid_t paid = MKID(pahi, palo), chid = MKID(chhi, chlo);
-	struct object *parent = paid == 0 ? kso_get_obj(current_thread->throbj, thr)
-	                                  : obj_lookup(paid);
+	struct object *parent = paid == 0 ? kso_get_obj(current_thread->throbj, thr) : obj_lookup(paid);
 	struct object *child = obj_lookup(chid);
 
 	if(!parent || !child) {
-		if(child) obj_put(child);
-		if(parent) obj_put(parent);
+		if(child)
+			obj_put(child);
+		if(parent)
+			obj_put(parent);
 		return -1;
 	}
 
@@ -62,13 +63,14 @@ long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t flags)
 {
 	objid_t paid = MKID(pahi, palo), chid = MKID(chhi, chlo);
-	struct object *parent = paid == 0 ? kso_get_obj(current_thread->throbj, thr)
-	                                  : obj_lookup(paid);
+	struct object *parent = paid == 0 ? kso_get_obj(current_thread->throbj, thr) : obj_lookup(paid);
 	struct object *child = obj_lookup(chid);
 
 	if(!parent || !child) {
-		if(child) obj_put(child);
-		if(parent) obj_put(parent);
+		if(child)
+			obj_put(child);
+		if(parent)
+			obj_put(parent);
 		return -1;
 	}
 
@@ -88,10 +90,17 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 	return ret;
 }
 
-long syscall_ocreate(uint64_t olo, uint64_t ohi, uint64_t tlo, uint64_t thi, uint64_t flags)
+objid_t objid_generate(void);
+long syscall_ocreate(uint64_t kulo,
+  uint64_t kuhi,
+  uint64_t slo,
+  uint64_t shi,
+  uint64_t flags,
+  objid_t *retid)
 {
-	objid_t id = MKID(ohi, olo);
-	objid_t srcid = MKID(thi, tlo);
+	objid_t kuid = MKID(kuhi, kulo);
+	objid_t srcid = MKID(shi, slo);
+	objid_t id = objid_generate();
 	int ksot = (flags >> 8) & 0xF;
 	if(ksot >= KSO_MAX) {
 		return -1;
@@ -105,7 +114,10 @@ long syscall_ocreate(uint64_t olo, uint64_t ohi, uint64_t tlo, uint64_t thi, uin
 	} else {
 		o = obj_create(id, ksot);
 	}
+	o->flags |= OF_KERNELGEN; /* TODO: actually compute new objid */
 	obj_put(o);
+	if(retid)
+		*retid = id;
 	return 0;
 }
 
@@ -113,4 +125,3 @@ long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags)
 {
 	return 0;
 }
-
