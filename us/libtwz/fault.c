@@ -33,7 +33,7 @@ int twz_map_fot_entry(size_t slot, struct fotentry *fe)
 	}
 
 	twz_view_set(NULL, slot, id, flags);
-	debug_printf("Mapping slot: %ld :: " IDFMT "\n", slot, IDPR(id));
+	// debug_printf("Mapping slot: %ld :: " IDFMT "\n", slot, IDPR(id));
 
 	return 0;
 }
@@ -112,7 +112,6 @@ static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
 {
 	if(fault == FAULT_OBJECT) {
 		struct fault_object_info *fi = _info;
-		debug_printf("FIO: %lx (%p)\n", fi->addr, &_fault_table[fault]);
 		// if(fi->addr == (uintptr_t)&_fault_table[fault] || !_fault_table[fault].fn) {
 		if(__fault_obj_default(fault, _info) < 0) {
 			twz_thread_exit();

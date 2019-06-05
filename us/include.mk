@@ -96,8 +96,11 @@ $(BUILDDIR)/us/root.tar: $(TWZOBJS)
 		NAMES="$$NAMES,$$(basename -s .obj $$i)=$$ID";\
 		cp $$i $(BUILDDIR)/us/root/$$ID ;\
 		done ;\
-		echo $$NAMES > $(BUILDDIR)/us/root/names
+		echo $$NAMES > $(BUILDDIR)/us/names
+	@$(BUILDDIR)/utils/file2obj -i $(BUILDDIR)/us/names -o $(BUILDDIR)/us/names.obj -p RU
+	@cp $(BUILDDIR)/us/names.obj $(BUILDDIR)/us/root/$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/names.obj)
 	@echo "init=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/init/init.text.obj)" >> $(BUILDDIR)/us/kc
+	@echo "name=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/names.obj)" >> $(BUILDDIR)/us/kc
 	@cp $(BUILDDIR)/us/kc $(BUILDDIR)/us/root/kc
 	@echo [TAR] $@
 	@tar cf $(BUILDDIR)/us/root.tar -C $(BUILDDIR)/us/root --xform s:'./':: .

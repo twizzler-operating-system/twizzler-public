@@ -194,18 +194,17 @@ void kernel_main(struct processor *proc)
 		printk("stck slot = %ld\n", (uintptr_t)stck_obj / mm_page_size(MAX_PGLEVEL));
 		printk("thrd slot = %ld\n", (uintptr_t)thrd_obj / mm_page_size(MAX_PGLEVEL));
 
-		char *argv[4] = {
-			[0] = NULL,
-			[1] = NULL,
-			[2] = NULL,
-			[3] = NULL,
-		};
-		long vector[4] = {
+		char name_id[32];
+		snprintf(name_id, 32, "BSNAME=" IDFMT, IDPR(kc_name_id));
+
+		long vector[6] = {
 			[0] = 1, /* argc */
-			[1] = 0,
-			[2] = 0,
-			[3] = 0,
-			//[1] = (long)thrd_obj + off + sizeof(vector) + 0x1000,
+			[1] = 0, /* argv[0] */
+			[2] = 0, /* argv[1] == NULL */
+			[3] = 0, /* envp[0] == NAME */
+			[4] = 0, /* envp[1] == NULL */
+			[5] = 0, /* envp[2] == NULL */
+			         //[1] = (long)thrd_obj + off + sizeof(vector) + 0x1000,
 		};
 
 		objid_t bthrid = objid_generate();
@@ -234,6 +233,15 @@ void kernel_main(struct processor *proc)
 		bthr->flags |= OF_KERNELGEN;
 		bstck->flags |= OF_KERNELGEN;
 
+		char *init_argv0 = "___init";
+		obj_write_data(bstck, off, strlen(init_argv0) + 1, init_argv0);
+		vector[1] = (long)stck_obj + off + 0x1000;
+		off += strlen(init_argv0) + 1;
+
+		obj_write_data(bstck, off, strlen(name_id) + 1, name_id);
+		vector[3] = (long)stck_obj + off + 0x1000;
+		off += strlen(name_id) + 1;
+
 		obj_write_data(bstck, off + tmp, sizeof(long), &vector[0]);
 		tmp += sizeof(long);
 		obj_write_data(bstck, off + tmp, sizeof(long), &vector[1]);
@@ -242,8 +250,12 @@ void kernel_main(struct processor *proc)
 		tmp += sizeof(long);
 		obj_write_data(bstck, off + tmp, sizeof(long), &vector[3]);
 		tmp += sizeof(long);
+		obj_write_data(bstck, off + tmp, sizeof(long), &vector[4]);
+		tmp += sizeof(long);
+		obj_write_data(bstck, off + tmp, sizeof(long), &vector[5]);
+		tmp += sizeof(long);
 
-		obj_write_data(bthr, off + tmp, sizeof(char *) * 4, argv);
+		// obj_write_data(bthr, off + tmp, sizeof(char *) * 4, argv);
 
 		obj_write_data(bthr,
 		  sizeof(struct twzthread_repr)

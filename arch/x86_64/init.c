@@ -155,8 +155,6 @@ static void x86_64_initrd(void *u)
 				printk("Loading object: %s\n", name);
 				if(!strncmp(name, "kc", 2) && nl == 2) {
 					kc_parse(data, len);
-				} else if(!strncmp(name, "names", 5) && nl == 5) {
-					printk("Loaded name object\n");
 				} else {
 					if(nl < 33) {
 						printk("Malformed object name: %s\n", name);
