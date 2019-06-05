@@ -1,4 +1,4 @@
-LIBTWZ_SRC=$(addprefix us/libtwz/,object.c fault.c thread.c view.c)
+LIBTWZ_SRC=$(addprefix us/libtwz/,object.c fault.c thread.c view.c name.c oa.c btree.c)
 
 LIBTWZ_OBJ=$(addprefix $(BUILDDIR)/,$(LIBTWZ_SRC:.c=.o))
 
