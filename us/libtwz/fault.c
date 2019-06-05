@@ -1,7 +1,8 @@
 #include <twz/_obj.h>
 #include <twz/_objid.h>
-#include <twz/_thrd.h>
 #include <twz/debug.h>
+#include <twz/thread.h>
+#include <twz/view.h>
 
 static struct {
 	void (*fn)(int, void *);
@@ -78,7 +79,7 @@ int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source)
 		return TE_FAILURE;
 	}
 
-	size_t slot = (addr / OBJ_MAXSIZE) - 1;
+	size_t slot = (addr / OBJ_MAXSIZE);
 	// if(slot >= TWZSLOT_ALLOC_START) {
 	//	debug_printf("Fault in allocatable object space (%lx)\n", slot + 1);
 	//	return TE_FAILURE;
@@ -101,20 +102,22 @@ int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source)
 		return TE_FAILURE;
 	}
 
-	debug_printf("Slot: %ld - %s\n", slot + 1, fot[slot].name.data);
+	if(fot[slot].flags & FE_NAME) {
+		debug_printf("Slot: %ld - %s\n", slot, fot[slot].name.data);
+	} else {
+		debug_printf("Slot: %ld - " IDFMT "\n", slot, IDPR(fot[slot].id));
+	}
 
-	return twz_map_fot_entry(slot + 1, &fot[slot]);
+	return twz_map_fot_entry(slot, &fot[slot]);
 }
 
 int __fault_obj_default(int fault, struct fault_object_info *info)
 {
-	debug_printf("A\n");
+	return twz_handle_fault(info->addr, info->flags, info->ip);
 }
 
 static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
 {
-	for(volatile long i = 0; i < 1000000000; i++)
-		;
 	if(fault == FAULT_OBJECT) {
 		struct fault_object_info *fi = _info;
 		debug_printf("FIO: %lx (%p)\n", fi->addr, &_fault_table[fault]);

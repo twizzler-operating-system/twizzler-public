@@ -22,6 +22,13 @@ struct sys_invalidate_op {
 #define KSO_INVL_RES_OK 0
 #define KSO_INVL_RES_ERR -1
 #define KSOI_VALID 1
+#define KSOI_CURRENT 2
+
+enum kso_invl_current {
+	KSO_CURRENT_VIEW,
+	KSO_CURRENT_ACTIVE_SECCTX,
+	KSO_CURRENT_ATTACHED_SECCTXS,
+};
 
 #define THREAD_SYNC_SLEEP 0
 #define THREAD_SYNC_WAKE 1

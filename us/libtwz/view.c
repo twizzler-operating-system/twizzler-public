@@ -3,16 +3,21 @@
 #include <stdint.h>
 #include <twz/_objid.h>
 #include <twz/_slots.h>
-#include <twz/_sys.h>
 #include <twz/_view.h>
 #include <twz/obj.h>
-static inline int twz_view_set(struct object *obj, size_t slot, objid_t target, uint32_t flags)
+#include <twz/sys.h>
+
+#include <twz/_err.h>
+
+#include <twz/debug.h>
+int twz_view_set(struct object *obj, size_t slot, objid_t target, uint32_t flags)
 {
 	if(slot > TWZSLOT_MAX_SLOT) {
-		return -1;
+		return -EINVAL;
 	}
-	struct viewentry *ves =
-	  obj ? (struct virtentry *)obj->base : (struct virtentry *)twz_slot_to_base(TWZSLOT_CVIEW);
+	struct viewentry *ves = obj ? (struct viewentry *)twz_obj_base(obj)
+	                            : (struct viewentry *)twz_slot_to_base(TWZSLOT_CVIEW);
+	debug_printf(":::: %p\n", ves);
 	uint32_t old = atomic_fetch_and(&ves[slot].flags, ~VE_VALID);
 	ves[slot].id = target;
 	ves[slot].res0 = 0;
@@ -23,10 +28,25 @@ static inline int twz_view_set(struct object *obj, size_t slot, objid_t target, 
 		struct sys_invalidate_op op = {
 			.offset = slot * OBJ_MAXSIZE,
 			.length = 1,
-			.flags = KSOI_VALID,
+			.flags = KSOI_VALID | KSOI_CURRENT,
+			.id = KSO_CURRENT_VIEW,
 		};
-		sys_invalidate(&op, 1);
+		return sys_invalidate(&op, 1);
 	}
 
+	return 0;
+}
+
+int twz_view_get(struct object *obj, size_t slot, objid_t *target, uint32_t *flags)
+{
+	if(slot > TWZSLOT_MAX_SLOT) {
+		return -EINVAL;
+	}
+	struct viewentry *ves = obj ? (struct viewentry *)twz_obj_base(obj)
+	                            : (struct viewentry *)twz_slot_to_base(TWZSLOT_CVIEW);
+	if(flags)
+		*flags = atomic_load(&ves[slot].flags);
+	if(target)
+		*target = ves[slot].id;
 	return 0;
 }
