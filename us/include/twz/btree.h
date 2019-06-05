@@ -12,8 +12,6 @@ struct btree_node {
 	struct btree_node *left, *right, *parent;
 	struct btree_val mk, md;
 	int color;
-	char ind[32];
-	char ink[16];
 };
 
 #define BTMAGIC 0xcafed00ddeadbeef
@@ -37,3 +35,14 @@ struct btree_node *bt_next(struct object *obj, struct btree_hdr *hdr, struct btr
 struct btree_node *bt_prev(struct object *obj, struct btree_hdr *hdr, struct btree_node *n);
 struct btree_node *bt_first(struct object *obj, struct btree_hdr *hdr);
 struct btree_node *bt_last(struct object *obj, struct btree_hdr *hdr);
+
+int bt_node_get(struct object *obj,
+  struct btree_hdr *hdr,
+  struct btree_node *n,
+  struct btree_val *v);
+
+int bt_put(struct object *obj,
+  struct btree_hdr *hdr,
+  struct btree_val *k,
+  struct btree_val *v,
+  struct btree_node **node);

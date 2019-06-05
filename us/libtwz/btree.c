@@ -2,6 +2,7 @@
 #include <twz/_err.h>
 #include <twz/alloc.h>
 #include <twz/btree.h>
+#include <twz/debug.h>
 #include <twz/obj.h>
 enum {
 	RED,
@@ -256,21 +257,10 @@ int bt_insert(struct object *obj,
 	pt->color = 0;
 	pt->mk.mv_size = k->mv_size;
 	pt->md.mv_size = d->mv_size;
-	if(k->mv_size > 16) {
-		pt->mk.mv_data = k->mv_data;
-		k->mv_data = twz_ptr_lea(obj, k->mv_data);
-	} else {
-		memcpy(pt->ink, k->mv_data, k->mv_size);
-		pt->mk.mv_data = __c(pt->ink);
-		k->mv_data = twz_ptr_lea(obj, pt->mk.mv_data);
-	}
+	pt->mk.mv_data = k->mv_data;
+	k->mv_data = twz_ptr_lea(obj, k->mv_data);
 
-	if(d->mv_size > 32) {
-		pt->md.mv_data = d->mv_data;
-	} else {
-		memcpy(pt->ind, d->mv_data, d->mv_size);
-		pt->md.mv_data = __c(pt->ind);
-	}
+	pt->md.mv_data = d->mv_data;
 
 	// debug_printf("%ld %ld %d\n", k->mv_size, d->mv_size, sizeof(struct btree_node));
 	// pt->md.mv_data = d->mv_data;
@@ -296,6 +286,7 @@ int bt_insert(struct object *obj,
 	if(nt)
 		*nt = pt;
 	pt = __c(pt);
+	debug_printf("PT: %p\n", pt);
 
 	// debug_printf("END INSERTING === === === %p\n", obj->base);
 	// bt_print_tree(obj, hdr);
@@ -384,20 +375,15 @@ struct btree_node *bt_next(struct object *obj, struct btree_hdr *hdr, struct btr
 	if(hdr->magic != BTMAGIC) {
 		return NULL;
 	}
-	// printf("nextof %p\n", n);
-	// bt_print_tree(obj, hdr);
 	if(!n)
 		return n;
 	if(n->right)
 		return __bt_leftmost(obj, __l(obj, n->right));
 	struct btree_node *p = __l(obj, n->parent);
-	// printf("p = %p, n = %p, __r = %p\n", p, n, p ? __l(obj, p->right) : 0x1234);
 	while(p && n == __l(obj, p->right)) {
 		n = p;
 		p = __l(obj, p->parent);
-		//	printf("p = %p\n", p);
 	}
-	// printf(":: %p\n", p);
 	return p;
 }
 
@@ -412,8 +398,44 @@ struct btree_node *bt_lookup(struct object *obj, struct btree_hdr *hdr, struct b
 	if(hdr->magic != BTMAGIC) {
 		return NULL;
 	}
-	// bt_print_tree(obj, hdr);
 	return _dolookup(obj, __l(obj, hdr->root), k);
+}
+
+int bt_node_get(struct object *obj,
+  struct btree_hdr *hdr,
+  struct btree_node *n,
+  struct btree_val *v)
+{
+	v->mv_size = n->md.mv_size;
+	v->mv_data = twz_ptr_lea(obj, n->md.mv_data);
+	return 0;
+}
+
+int bt_put(struct object *obj,
+  struct btree_hdr *hdr,
+  struct btree_val *k,
+  struct btree_val *v,
+  struct btree_node **node)
+{
+	void *dest_k = oa_hdr_alloc(obj, &hdr->oa, k->mv_size);
+	if(!dest_k)
+		return -ENOSPC;
+	void *vdest_k = twz_ptr_lea(obj, dest_k);
+	memcpy(vdest_k, k->mv_data, k->mv_size);
+
+	void *dest_v = oa_hdr_alloc(obj, &hdr->oa, v->mv_size);
+	if(!dest_v) {
+		oa_hdr_free(obj, &hdr->oa, dest_k);
+		return -ENOSPC;
+	}
+	void *vdest_v = twz_ptr_lea(obj, dest_v);
+	memcpy(vdest_v, v->mv_data, v->mv_size);
+
+	struct btree_val nk = { .mv_data = dest_k, .mv_size = k->mv_size };
+	struct btree_val nv = { .mv_data = dest_v, .mv_size = v->mv_size };
+
+	debug_printf("A\n");
+	return bt_insert(obj, hdr, &nk, &nv, node);
 }
 
 #include <twz/debug.h>

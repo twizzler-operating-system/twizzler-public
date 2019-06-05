@@ -21,4 +21,6 @@ static inline void *__twz_ptr_lea(struct object *o, void *p)
 
 #define twz_ptr_lea(o, p) ({ (typeof(p)) __twz_ptr_lea((o), (p)); })
 
-#define twz_ptr_local(p) ({ (typeof(p))((uintptr_t)p & ~(OBJ_MAXSIZE - 1)); })
+#define twz_ptr_local(p) ({ (typeof(p))((uintptr_t)p & (OBJ_MAXSIZE - 1)); })
+
+int twz_object_open(struct object *obj, objid_t id, int flags);

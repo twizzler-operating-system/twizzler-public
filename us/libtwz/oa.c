@@ -32,6 +32,8 @@ static void *__buddy_alloc(struct object *o, struct twzoa_header *hdr, size_t si
 
 	void *block = hdr->bdy.flist[i];
 	void *vblock = twz_ptr_lea(o, block);
+	debug_printf("1 %p\n", vblock);
+	debug_printf("2 %p\n", *(void **)vblock);
 	hdr->bdy.flist[i] = *(void **)vblock;
 
 	while(i-- > order) {
