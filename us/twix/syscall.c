@@ -23,15 +23,14 @@ struct twix_register_frame {
 
 #include <errno.h>
 #include <sys/types.h>
-/*
-#include <debug.h>
-#include <twzio.h>
-#include <twzname.h>
-#include <twzobj.h>
-#include <twzslots.h>
-#include <twzsys.h>
-#include <twzview.h>
-*/
+#include <twz/_slots.h>
+#include <twz/_view.h>
+#include <twz/name.h>
+#include <twz/obj.h>
+#include <twz/sys.h>
+#include <twz/view.h>
+
+#include <twz/debug.h>
 
 #define LINUX_SYS_read 0
 #define LINUX_SYS_write 1
@@ -361,7 +360,6 @@ long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t 
 		return -ENOTSUP;
 	}
 
-#if 0
 	/* TODO: fix all this up so its better */
 	size_t slot = 0x10006ul;
 	objid_t o;
@@ -369,8 +367,8 @@ long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t 
 	twz_view_get(NULL, slot, &o, &fl);
 	if(!(fl & VE_VALID)) {
 		objid_t nid = 0;
-		twz_object_new(NULL, &nid, 0, 0, TWZ_ON_DFL_READ | TWZ_ON_DFL_WRITE);
-		twz_view_set(NULL, slot, nid, VE_READ | VE_WRITE);
+		twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &nid);
+		twz_view_set(NULL, slot, nid, FE_READ | FE_WRITE);
 	}
 
 	void *base = (void *)(slot * 1024 * 1024 * 1024 + 0x1000);
@@ -383,7 +381,6 @@ long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t 
 	long ret = (long)(base + *next);
 	*next += len;
 	return ret;
-#endif
 }
 
 //#include <twzthread.h>
@@ -426,7 +423,7 @@ static size_t stlen = sizeof(syscall_table) / sizeof(syscall_table[0]);
 
 long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5)
 {
-	// debug_printf("TWIX entry: %ld\n", num);
+	debug_printf("TWIX entry: %ld\n", num);
 	//__fd_sys_init();
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
 		// debug_printf("Unimplemented UNIX system call: %ld", num);

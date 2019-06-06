@@ -4,7 +4,7 @@
 #include <twz/obj.h>
 
 struct btree_val {
-	void *mv_data;
+	const void *mv_data;
 	size_t mv_size;
 };
 

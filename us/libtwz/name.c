@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <twz/_err.h>
@@ -53,6 +54,8 @@ static bool __name_init(void)
 	static const char *nameid = NULL;
 	if(!nameid)
 		nameid = getenv("TWZNAME");
+
+	debug_printf("JERE: %s\n", nameid);
 	if(!nameid)
 		return false;
 
@@ -60,6 +63,8 @@ static bool __name_init(void)
 	objid_parse(nameid, strlen(nameid), &id);
 
 	debug_printf("---> " IDFMT "\n", IDPR(id));
+
+	twz_object_open(&nameobj, id, FE_READ);
 
 	return true;
 }
@@ -86,7 +91,10 @@ static void copy_names(const char *bsname, struct object *nobj)
 		debug_printf("PARSED: <%s> <%s>\n", names, eq);
 
 		struct btree_val kv = { .mv_data = names, .mv_size = strlen(names) + 1 };
-		struct btree_val dv = { .mv_data = eq, .mv_size = strlen(eq) + 1 };
+
+		objid_t thisid;
+		objid_parse(eq, strlen(eq), &thisid);
+		struct btree_val dv = { .mv_data = &thisid, .mv_size = sizeof(thisid) };
 
 		bt_put(nobj, twz_obj_base(nobj), &kv, &dv, NULL);
 
@@ -118,7 +126,9 @@ int __name_boostrap(void)
 	debug_printf("BSNAME=%s\n", bsname);
 	copy_names(bsname, &no);
 
-	setenv("TWZNAME", tmp, 1);
+	debug_printf("SET: %s\n", tmp);
+	if(setenv("TWZNAME", tmp, 1) == -1)
+		return -EGENERIC;
 	return 0;
 }
 
@@ -127,7 +137,20 @@ static int __twz_name_dfl_resolve(struct object *obj, const char *name, int flag
 	if(!__name_init())
 		return -ENOTSUP;
 
-	return -ENOTSUP;
+	const char *vname = obj ? twz_ptr_lea(obj, name) : name;
+
+	struct btree_val kv = { .mv_data = vname, .mv_size = strlen(vname) + 1 };
+	struct btree_val dv;
+
+	struct btree_node *n = bt_lookup(&nameobj, twz_obj_base(&nameobj), &kv);
+	if(!n)
+		return -ENOENT;
+	bt_node_get(&nameobj, twz_obj_base(&nameobj), n, &dv);
+
+	if(id)
+		*id = *(objid_t *)dv.mv_data;
+
+	return 0;
 }
 
 int twz_name_resolve(struct object *obj,
@@ -136,6 +159,8 @@ int twz_name_resolve(struct object *obj,
   int flags,
   objid_t *id)
 {
+	if(obj)
+		fn = twz_ptr_lea(obj, fn);
 	if(fn)
 		return fn(obj, name, flags, id);
 	return __twz_name_dfl_resolve(obj, name, flags, id);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <twz/_obj.h>
+#include <twz/_slots.h>
 
 struct object {
 	void *base;
@@ -14,7 +15,7 @@ struct object {
 #define TWZ_OC_DFL_WRITE 4
 int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id);
 
-static inline void *__twz_ptr_lea(struct object *o, void *p)
+static inline void *__twz_ptr_lea(const struct object *o, const void *p)
 {
 	return (void *)((uintptr_t)o->base + (uintptr_t)p);
 }
@@ -24,3 +25,10 @@ static inline void *__twz_ptr_lea(struct object *o, void *p)
 #define twz_ptr_local(p) ({ (typeof(p))((uintptr_t)p & (OBJ_MAXSIZE - 1)); })
 
 int twz_object_open(struct object *obj, objid_t id, int flags);
+
+#define SLOT_TO_VADDR(s) ({ (void *)((s)*OBJ_MAXSIZE); })
+
+#define TWZ_OBJECT_INIT(s)                                                                         \
+	{                                                                                              \
+		.base = SLOT_TO_VADDR(s)                                                                   \
+	}

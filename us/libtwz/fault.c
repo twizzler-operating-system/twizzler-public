@@ -1,6 +1,7 @@
 #include <twz/_err.h>
 #include <twz/_objid.h>
 #include <twz/debug.h>
+#include <twz/name.h>
 #include <twz/obj.h>
 #include <twz/thread.h>
 #include <twz/view.h>
@@ -9,12 +10,15 @@ static struct {
 	void (*fn)(int, void *);
 } _fault_table[NUM_FAULTS];
 
-int twz_map_fot_entry(size_t slot, struct fotentry *fe)
+int twz_map_fot_entry(struct object *obj, size_t slot, struct fotentry *fe)
 {
 	objid_t id;
 	if(fe->flags & FE_NAME) {
-		debug_printf("Name not resolved: %s\n", fe->name.data);
-		return -EGENERIC;
+		int r = twz_name_resolve(obj, fe->name.data, fe->name.nresolver, 0, &id);
+		if(r < 0) {
+			debug_printf("Name %p not resolved\n", fe->name.data);
+			return r;
+		}
 	} else {
 		id = fe->id;
 	}
@@ -100,7 +104,9 @@ int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source)
 		debug_printf("Slot: %ld - " IDFMT "\n", slot, IDPR(fot[slot].id));
 	}
 
-	return twz_map_fot_entry(slot, &fot[slot]);
+	struct object o0 = TWZ_OBJECT_INIT(0);
+
+	return twz_map_fot_entry(&o0, slot, &fot[slot]);
 }
 
 int __fault_obj_default(int fault, struct fault_object_info *info)
