@@ -75,13 +75,13 @@ long syscall_thrd_ctl(int op, long arg)
 	}
 	int ret;
 	switch(op) {
-		int *eptr;
+		long *eptr;
 		case THRD_CTL_EXIT:
 			/* TODO (sec): check eptr */
-			eptr = (int *)arg;
+			eptr = (long *)arg;
 			if(eptr) {
 				*eptr = 1;
-				syscall_thread_sync(THREAD_SYNC_WAKE, eptr, INT_MAX, NULL);
+				thread_sync_single(THREAD_SYNC_WAKE, eptr, INT_MAX, NULL);
 			}
 			thread_exit();
 			break;

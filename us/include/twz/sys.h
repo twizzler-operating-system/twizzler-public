@@ -46,9 +46,15 @@ static inline long sys_invalidate(struct sys_invalidate_op *invl, size_t count)
 
 #include <time.h>
 
-static inline long sys_thread_sync(int operation, int *addr, int arg, struct timespec *spec)
+static inline long sys_thread_sync(size_t count,
+  int *operation,
+  long **addr,
+  long *arg,
+  long *res,
+  struct timespec **spec)
 {
-	return __syscall6(SYS_THRD_SYNC, operation, (long)addr, arg, (long)spec, 0, 0);
+	return __syscall6(
+	  SYS_THRD_SYNC, count, (long)operation, (long)addr, (long)arg, (long)res, (long)spec);
 }
 
 static inline long sys_thrd_spawn(objid_t tid, struct sys_thrd_spawn_args *tsa, int flags)

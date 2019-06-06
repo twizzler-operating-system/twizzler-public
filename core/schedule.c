@@ -51,6 +51,7 @@ static void _thread_ctor(void *_u __unused, void *ptr)
 	struct thread *thr = ptr;
 	thr->id = ++_internal_tid_counter;
 	thr->sc_lock = SPINLOCK_INIT;
+	thr->lock = SPINLOCK_INIT;
 	thr->state = THREADSTATE_INITING;
 }
 
@@ -69,9 +70,12 @@ void thread_sleep(struct thread *t, int flags, int64_t timeout)
 	if(t->priority > 1000) {
 		t->priority = 1000;
 	}
+	/* TODO: threadsafe? */
 	bool in = arch_interrupt_set(false);
-	t->state = THREADSTATE_BLOCKED;
-	list_remove(&t->rq_entry);
+	if(t->state != THREADSTATE_BLOCKED) {
+		t->state = THREADSTATE_BLOCKED;
+		list_remove(&t->rq_entry);
+	}
 	arch_interrupt_set(in);
 }
 

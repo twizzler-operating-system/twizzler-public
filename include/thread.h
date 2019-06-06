@@ -22,6 +22,7 @@ enum thread_state {
 
 struct thread {
 	struct arch_thread arch;
+	struct spinlock lock;
 	unsigned long id;
 	enum thread_state state;
 	int64_t timeslice;
@@ -47,6 +48,8 @@ void thread_sleep(struct thread *t, int flags, int64_t);
 void thread_wake(struct thread *t);
 void thread_exit(void);
 void thread_raise_fault(struct thread *t, int fault, void *info, size_t);
+struct timespec;
+long thread_sync_single(int operation, long *addr, long arg, struct timespec *spec);
 void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *, size_t);
 
 struct thread *thread_lookup(unsigned long id);
