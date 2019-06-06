@@ -55,14 +55,11 @@ static bool __name_init(void)
 	if(!nameid)
 		nameid = getenv("TWZNAME");
 
-	debug_printf("JERE: %s\n", nameid);
 	if(!nameid)
 		return false;
 
 	objid_t id;
 	objid_parse(nameid, strlen(nameid), &id);
-
-	debug_printf("---> " IDFMT "\n", IDPR(id));
 
 	twz_object_open(&nameobj, id, FE_READ);
 
@@ -75,7 +72,6 @@ static void copy_names(const char *bsname, struct object *nobj)
 
 	objid_t id;
 	objid_parse(bsname, strlen(bsname), &id);
-	debug_printf("PARSED as " IDFMT "\n", IDPR(id));
 	twz_object_open(&bobj, id, FE_READ);
 	char *names = twz_obj_base(&bobj);
 	while(*names == ',')
@@ -88,7 +84,6 @@ static void copy_names(const char *bsname, struct object *nobj)
 		char *next = strchr(eq, ',');
 		if(next)
 			*next = 0;
-		debug_printf("PARSED: <%s> <%s>\n", names, eq);
 
 		struct btree_val kv = { .mv_data = names, .mv_size = strlen(names) + 1 };
 
@@ -123,10 +118,7 @@ int __name_boostrap(void)
 	char tmp[64];
 	snprintf(tmp, 64, IDFMT, IDPR(id));
 
-	debug_printf("BSNAME=%s\n", bsname);
 	copy_names(bsname, &no);
-
-	debug_printf("SET: %s\n", tmp);
 	if(setenv("TWZNAME", tmp, 1) == -1)
 		return -EGENERIC;
 	return 0;

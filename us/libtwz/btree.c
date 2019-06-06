@@ -286,7 +286,6 @@ int bt_insert(struct object *obj,
 	if(nt)
 		*nt = pt;
 	pt = __c(pt);
-	debug_printf("PT: %p\n", pt);
 
 	// debug_printf("END INSERTING === === === %p\n", obj->base);
 	// bt_print_tree(obj, hdr);
@@ -434,7 +433,6 @@ int bt_put(struct object *obj,
 	struct btree_val nk = { .mv_data = dest_k, .mv_size = k->mv_size };
 	struct btree_val nv = { .mv_data = dest_v, .mv_size = v->mv_size };
 
-	debug_printf("A\n");
 	return bt_insert(obj, hdr, &nk, &nv, node);
 }
 

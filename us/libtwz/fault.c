@@ -98,11 +98,13 @@ int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source)
 		return -ENOENT;
 	}
 
+#if 0
 	if(fot[slot].flags & FE_NAME) {
 		debug_printf("Slot: %ld - %s\n", slot, fot[slot].name.data);
 	} else {
 		debug_printf("Slot: %ld - " IDFMT "\n", slot, IDPR(fot[slot].id));
 	}
+#endif
 
 	struct object o0 = TWZ_OBJECT_INIT(0);
 

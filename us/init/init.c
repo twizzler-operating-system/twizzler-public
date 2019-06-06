@@ -4,8 +4,6 @@
 static int __name_boostrap(void);
 int main(int argc, char **argv)
 {
-	debug_printf("%d: %p\n", argc, argv[0]);
-	debug_printf("%d: %s\n", argc, argv[0]);
 	debug_printf("Testing!:: %s\n", getenv("BSNAME"));
 
 	if(__name_boostrap() == -1) {

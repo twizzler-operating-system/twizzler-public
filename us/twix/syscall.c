@@ -423,10 +423,10 @@ static size_t stlen = sizeof(syscall_table) / sizeof(syscall_table[0]);
 
 long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5)
 {
-	debug_printf("TWIX entry: %ld\n", num);
+	// debug_printf("TWIX entry: %ld\n", num);
 	//__fd_sys_init();
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
-		// debug_printf("Unimplemented UNIX system call: %ld", num);
+		debug_printf("Unimplemented UNIX system call: %ld", num);
 		return -ENOSYS;
 	}
 	return syscall_table[num](a0, a1, a2, a3, a4, a5);
