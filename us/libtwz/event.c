@@ -7,6 +7,8 @@
 #include <twz/obj.h>
 #include <twz/sys.h>
 
+void event_obj_init(struct object *obj
+
 static _Atomic uint64_t *__event_point(struct event *ev)
 {
 	return &ev->hdr->point;
