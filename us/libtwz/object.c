@@ -16,3 +16,17 @@ int twz_object_open(struct object *obj, objid_t id, int flags)
 	obj->base = (void *)(OBJ_MAXSIZE * (x + 0x100));
 	return 0;
 }
+
+void *twz_object_getext(struct object *obj, uint64_t tag)
+{
+	struct metainfo *mi = twz_object_meta(obj);
+	struct metaext *e = &mi->exts[0];
+
+	while((char *)e < (char *)mi + mi->milen) {
+		if(e->tag == tag) {
+			return twz_ptr_lea(obj, e->ptr);
+		}
+		e++;
+	}
+	return NULL;
+}

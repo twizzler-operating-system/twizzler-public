@@ -373,7 +373,7 @@ long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t 
 
 	void *base = (void *)(slot * 1024 * 1024 * 1024 + 0x1000);
 	struct metainfo *mi = (void *)((slot + 1) * 1024 * 1024 * 1024 - 0x1000);
-	uint32_t *next = (uint32_t *)mi->data;
+	uint32_t *next = (uint32_t *)((char *)mi + mi->milen);
 	if(*next + len > (1024 * 1024 * 1024 - 0x2000)) {
 		return -1; // TODO allocate a new object
 	}

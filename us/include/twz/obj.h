@@ -24,6 +24,9 @@ static inline void *__twz_ptr_lea(const struct object *o, const void *p)
 
 #define twz_ptr_local(p) ({ (typeof(p))((uintptr_t)p & (OBJ_MAXSIZE - 1)); })
 
+#define twz_object_meta(o)                                                                         \
+	({ (struct metainfo *)(((char *)o->base + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE)); })
+
 int twz_object_open(struct object *obj, objid_t id, int flags);
 
 #define SLOT_TO_VADDR(s) ({ (void *)((s)*OBJ_MAXSIZE); })

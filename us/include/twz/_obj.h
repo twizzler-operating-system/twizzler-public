@@ -21,6 +21,11 @@
 
 typedef unsigned __int128 nonce_t;
 
+struct metaext {
+	uint64_t tag;
+	void *ptr;
+};
+
 struct metainfo {
 	uint32_t magic;
 	uint16_t flags;
@@ -33,7 +38,7 @@ struct metainfo {
 	uint32_t hashstart;
 	nonce_t nonce;
 	objid_t kuid;
-	char data[];
+	struct metaext exts[];
 } __attribute__((packed));
 
 #define FE_READ MIP_DFL_READ
