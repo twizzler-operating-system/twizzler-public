@@ -3,7 +3,7 @@
 #include <twz/sys.h>
 
 struct mutex {
-	_Atomic int sleep;
+	_Atomic long sleep;
 };
 
 #define MUTEX_INIT                                                                                 \

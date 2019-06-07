@@ -7,7 +7,10 @@
 #include <twz/obj.h>
 #include <twz/sys.h>
 
-void event_obj_init(struct object *obj
+void event_obj_init(struct object *obj, struct evhdr *hdr)
+{
+	hdr->point = 0;
+}
 
 static _Atomic uint64_t *__event_point(struct event *ev)
 {
