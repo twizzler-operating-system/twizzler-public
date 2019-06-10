@@ -14,6 +14,7 @@ int main(int argc, char **argv)
 	objid_t id = 0;
 	int r = twz_name_resolve(NULL, "test.text", NULL, 0, &id);
 	debug_printf("NAME: " IDFMT " : %d\n", IDPR(id), r);
+	bstream_read();
 	for(;;)
 		;
 

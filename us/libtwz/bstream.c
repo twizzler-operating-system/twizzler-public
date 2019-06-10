@@ -6,7 +6,7 @@ int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr)
 {
 }
 
-ssize_t bstream_read(struct object *obj,
+__attribute__((externally_visible, used)) ssize_t bstream_read(struct object *obj,
   struct bstream_hdr *hdr,
   void *ptr,
   size_t len,
@@ -21,3 +21,12 @@ ssize_t bstream_write(struct object *obj,
   unsigned flags)
 {
 }
+
+#define TWZ_GATE(fn, g)                                                                            \
+	__asm__(".section .gates, \"ax\", @progbits\n"                                                 \
+	        ".global __twz_gate_" #fn "\n"                                                         \
+	        ".type __twz_gate_" #fn " STT_FUNC\n"                                                  \
+	        "__twz_gate_" #fn ": call " #fn "\n"                                                   \
+	        ".previous");
+
+TWZ_GATE(bstream_read, BSTREAM_GATE_READ);

@@ -15,6 +15,7 @@ PHDRS
 {
 	headers PT_PHDR PHDRS ;
 	text PT_LOAD FILEHDR PHDRS ;
+	gates PT_LOAD ;
 	data PT_LOAD ;
 	dynamic PT_DYNAMIC ;
 }
@@ -70,7 +71,15 @@ SECTIONS
 		KEEP(*(.got*))
 		KEEP(*(.got.plt*))
 	} :text
-	
+
+	/* gates */
+	. += 0x1000;
+	. = ALIGN(0x1000);
+	.gates : 
+	{
+		KEEP(*(.gates*))
+	} :gates
+
 	/* read-write sections, merged into data segment.
 	 * Move up by 1 object slot size, and give us space
 	 * for the null page. */
