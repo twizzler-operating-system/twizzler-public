@@ -29,10 +29,10 @@ int main(int argc, char **argv)
 	struct bstream_hdr *hdr = twz_obj_base(&bs);
 	debug_printf("%d:: %p %p\n", r, hdr->io.read, hdr->io.write);
 
-	r = twzio_write(&bs, "hello\n", 6, 0, 0);
+	r = twzio_write(&bs, twz_obj_base(&bs), "hello\n", 6, 0, 0);
 	debug_printf("write: %d\n", r);
 	char buf[128] = { 0 };
-	r = twzio_read(&bs, buf, 128, 0, 0);
+	r = twzio_read(&bs, twz_obj_base(&bs), buf, 128, 0, 0);
 	debug_printf("read: %d\n", r);
 	debug_printf("read: %s\n", buf);
 

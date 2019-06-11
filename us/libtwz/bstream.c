@@ -41,6 +41,7 @@ ssize_t bstream_write(struct object *obj,
   unsigned flags)
 {
 	debug_printf("W\n");
+	debug_printf("---> %p %lx\n", hdr, hdr->wlock.sleep);
 	mutex_acquire(&hdr->wlock);
 
 	size_t count = 0;
@@ -83,6 +84,8 @@ int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr, uint32_t nbits
 	  obj, id, TWZ_GATE_CALL(NULL, BSTREAM_GATE_WRITE), FE_READ | FE_EXEC, &hdr->io.write);
 	if(r)
 		return r;
+
+	return 0;
 }
 
 TWZ_GATE(bstream_read, BSTREAM_GATE_READ);

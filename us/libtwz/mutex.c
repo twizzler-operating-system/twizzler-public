@@ -1,3 +1,4 @@
+#include <twz/debug.h>
 #include <twz/mutex.h>
 void mutex_acquire(struct mutex *m)
 {
