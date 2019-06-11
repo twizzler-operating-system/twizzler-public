@@ -1,7 +1,7 @@
+#include <lib/bitmap.h>
+#include <memory.h>
 #include <object.h>
 #include <slab.h>
-#include <memory.h>
-#include <lib/bitmap.h>
 
 DECLARE_IHTABLE(objtbl, 12);
 DECLARE_IHTABLE(objslots, 10);
@@ -33,8 +33,7 @@ static void _obj_dtor(void *_u, void *ptr)
 	slabcache_free(obj->pagecache);
 }
 
-__initializer
-static void _init_objs(void)
+__initializer static void _init_objs(void)
 {
 	/* TODO (perf): verify all ihtable sizes */
 	slabcache_init(&sc_pctable, ihtable_size(4), _iht_ctor, NULL, (void *)4ul);
@@ -47,7 +46,7 @@ static void _init_objs(void)
 
 static int sz_to_pglevel(size_t sz)
 {
-	for(int i=0;i<MAX_PGLEVEL;i++) {
+	for(int i = 0; i < MAX_PGLEVEL; i++) {
 		if(sz < mm_page_size(i))
 			return i;
 	}
@@ -101,13 +100,11 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 	struct object *obj = __obj_alloc(ksot, id);
 
 	spinlock_acquire_save(&src->lock);
-	for(size_t b = ihtable_iter_start(src->pagecache);
-			b != ihtable_iter_end(src->pagecache);
-			b = ihtable_iter_next(b)) {
-
+	for(size_t b = ihtable_iter_start(src->pagecache); b != ihtable_iter_end(src->pagecache);
+	    b = ihtable_iter_next(b)) {
 		for(struct ihelem *e = ihtable_bucket_iter_start(src->pagecache, b);
-				e != ihtable_bucket_iter_end(src->pagecache);
-				e = ihtable_bucket_iter_next(e)) {
+		    e != ihtable_bucket_iter_end(src->pagecache);
+		    e = ihtable_bucket_iter_next(e)) {
 			struct objpage *pg = container_of(e, struct objpage, elem);
 			if(pg->phys) {
 				void *np = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, false);
@@ -155,7 +152,7 @@ void obj_alloc_slot(struct object *obj)
 
 	ihtable_insert(&objslots, &obj->slotelem, obj->slot);
 	spinlock_release_restore(&slotlock);
-	//printk("Assigned object " PR128FMT " slot %d (%lx)\n",
+	// printk("Assigned object " PR128FMT " slot %d (%lx)\n",
 	//		PR128(obj->id), es, es * mm_page_size(obj->pglevel));
 }
 
@@ -242,9 +239,9 @@ struct object *obj_lookup_slot(uintptr_t oaddr)
 {
 	/* TODO: this is allllll bullshit */
 	ssize_t tl = oaddr / mm_page_size(MAX_PGLEVEL);
-	//tl -= 8;
-	//tl += 4096;
-	//tl *= 512;
+	// tl -= 8;
+	// tl += 4096;
+	// tl *= 512;
 	spinlock_acquire_save(&slotlock);
 	struct object *obj = ihtable_find(&objslots, tl, struct object, slotelem, slot);
 	if(obj) {
@@ -255,13 +252,13 @@ struct object *obj_lookup_slot(uintptr_t oaddr)
 }
 
 bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags);
-#include <thread.h>
 #include <processor.h>
+#include <thread.h>
 void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 {
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
 	size_t idx = (addr % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
-	//printk("OSPACE FAULT: %lx %lx %x\n", ip, addr, flags);
+	// printk("OSPACE FAULT: %lx %lx %x\n", ip, addr, flags);
 	if(idx == 0) {
 		struct fault_null_info info = {
 			.ip = ip,
@@ -280,7 +277,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 	struct objpage *p = obj_get_page(o, idx);
 	obj_put(o);
 
-	arch_objspace_map(addr & ~(mm_page_size(0) - 1), p->phys, 0, OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U);
+	arch_objspace_map(
+	  addr & ~(mm_page_size(0) - 1), p->phys, 0, OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U);
 	/* TODO (major): deal with mapcounting */
 }
-

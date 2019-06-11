@@ -6,6 +6,7 @@
 	        ".type __twz_gate_" #fn " STT_FUNC\n"                                                  \
 	        ".org " #g "*16, 0x90\n"                                                               \
 	        "__twz_gate_" #fn ": call " #fn "\n"                                                   \
+	        "ret\n"                                                                                \
 	        ".balign 16, 0x90\n"                                                                   \
 	        ".previous");
 #define TWZ_GATE(fn, g) __TWZ_GATE(fn, g)

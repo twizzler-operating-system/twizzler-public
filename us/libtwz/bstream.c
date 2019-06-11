@@ -5,12 +5,14 @@
 #include <twz/io.h>
 #include <twz/obj.h>
 
+#include <twz/debug.h>
 ssize_t bstream_read(struct object *obj,
   struct bstream_hdr *hdr,
   void *ptr,
   size_t len,
   unsigned flags)
 {
+	debug_printf("HELLO!\n");
 }
 
 ssize_t bstream_write(struct object *obj,

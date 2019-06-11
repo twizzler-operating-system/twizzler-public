@@ -2,6 +2,7 @@
 #include <twz/io.h>
 #include <twz/obj.h>
 
+#include <twz/debug.h>
 ssize_t twzio_read(struct object *obj, void *buf, size_t len, size_t off, unsigned flags)
 {
 	struct twzio_hdr *hdr = twz_object_getext(obj, TWZIO_METAEXT_TAG);
@@ -12,6 +13,7 @@ ssize_t twzio_read(struct object *obj, void *buf, size_t len, size_t off, unsign
 	if(!_fn)
 		return -EGENERIC;
 	ssize_t (*fn)(struct object *, void *, size_t, size_t, unsigned) = _fn;
+	debug_printf("::: %p\n", _fn);
 	return fn(obj, buf, len, off, flags);
 }
 

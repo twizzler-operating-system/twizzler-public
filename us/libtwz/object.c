@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <twz/_err.h>
+#include <twz/name.h>
 #include <twz/obj.h>
 #include <twz/sys.h>
 #include <twz/view.h>
@@ -62,6 +63,8 @@ ssize_t twz_object_addfot(struct object *obj, objid_t id, uint64_t flags)
 		if(fe[e].id == 0) {
 			fe[e].id = id;
 			fe[e].flags = flags;
+			if(mi->fotentries <= e)
+				mi->fotentries = e + 1;
 			return e;
 		}
 	}
@@ -82,4 +85,34 @@ int __twz_ptr_store(struct object *obj, const void *p, uint32_t flags, const voi
 	*res = twz_ptr_rebase(fe, p);
 
 	return 0;
+}
+
+void *__twz_ptr_lea_foreign(const struct object *o, const void *p)
+{
+	struct metainfo *mi = twz_object_meta(o);
+	struct fotentry *fe = (void *)((char *)mi + mi->milen);
+
+	int r;
+	size_t slot = (uintptr_t)p / OBJ_MAXSIZE;
+	if(slot >= mi->fotentries)
+		return NULL;
+
+	if(fe[slot].id == 0)
+		return NULL;
+
+	objid_t id;
+	if(fe[slot].flags & FE_NAME) {
+		r = twz_name_resolve(o, fe[slot].name.data, fe[slot].name.nresolver, 0, &id);
+		if(r)
+			return NULL;
+	} else {
+		id = fe[slot].id;
+	}
+
+	static size_t ns = 0x200;
+	size_t s = ++ns;
+
+	if(twz_view_set(NULL, s, id, fe[slot].flags & (FE_READ | FE_WRITE | FE_EXEC)))
+		return NULL;
+	return twz_ptr_rebase(s, (void *)p);
 }

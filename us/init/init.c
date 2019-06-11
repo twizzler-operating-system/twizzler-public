@@ -29,6 +29,9 @@ int main(int argc, char **argv)
 	struct bstream_hdr *hdr = twz_obj_base(&bs);
 	debug_printf("%d:: %p %p\n", r, hdr->io.read, hdr->io.write);
 
+	r = twzio_read(&bs, NULL, 0, 0, 0);
+	debug_printf("read: %d\n", r);
+
 	for(;;)
 		;
 
