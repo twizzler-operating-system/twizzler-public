@@ -22,14 +22,22 @@ ssize_t bstream_read(struct object *obj,
 
 	size_t count = 0;
 	unsigned char *data = ptr;
-	for(size_t i = 0; i < len; i++) {
-		if(hdr->head == hdr->tail)
+	while(count < len) {
+		if(hdr->head == hdr->tail) {
+			if(count == 0) {
+				struct event e;
+				event_init(&e, &hdr->ev, TWZIO_EVENT_READ, NULL);
+				event_wait(1, &e);
+				continue;
+			}
 			break;
-		count++;
-		data[i] = hdr->data[hdr->tail];
+		}
+		data[count] = hdr->data[hdr->tail];
 		hdr->tail = (hdr->tail + 1) % (1 << hdr->nbits);
+		count++;
 	}
 
+	event_wake(&hdr->ev, TWZIO_EVENT_WRITE, -1);
 	mutex_release(&hdr->rlock);
 	return count;
 }
@@ -46,15 +54,22 @@ ssize_t bstream_write(struct object *obj,
 
 	size_t count = 0;
 	const unsigned char *data = ptr;
-	for(size_t i = 0; i < len; i++) {
-		debug_printf(".");
-		if(free_space(hdr->head, hdr->tail, 1 << hdr->nbits) <= 1)
+	while(count < len) {
+		if(free_space(hdr->head, hdr->tail, 1 << hdr->nbits) <= 1) {
+			if(count == 0) {
+				struct event e;
+				event_init(&e, &hdr->ev, TWZIO_EVENT_WRITE, NULL);
+				event_wait(1, &e);
+				continue;
+			}
 			break;
-		count++;
-		hdr->data[hdr->head] = data[i];
+		}
+		hdr->data[hdr->head] = data[count];
 		hdr->head = (hdr->head + 1) % (1 << hdr->nbits);
+		count++;
 	}
 
+	event_wake(&hdr->ev, TWZIO_EVENT_READ, -1);
 	mutex_release(&hdr->wlock);
 	return count;
 }

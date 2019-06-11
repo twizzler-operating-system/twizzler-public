@@ -10,3 +10,6 @@ struct twzio_hdr {
 };
 
 #define TWZIO_METAEXT_TAG 0x0000000010101010
+
+#define TWZIO_EVENT_READ 1
+#define TWZIO_EVENT_WRITE 2

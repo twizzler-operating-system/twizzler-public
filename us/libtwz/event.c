@@ -7,6 +7,9 @@
 #include <twz/obj.h>
 #include <twz/sys.h>
 
+/* TODO: update kernel API to allow rechecking value instead of returning whenever woken up? or just
+ * update api so that we can sleep on a bitwise level (sleep if this bit is set), etc */
+
 void event_obj_init(struct object *obj, struct evhdr *hdr)
 {
 	hdr->point = 0;

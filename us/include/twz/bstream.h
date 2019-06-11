@@ -8,8 +8,8 @@
 struct bstream_hdr {
 	struct mutex rlock, wlock;
 	uint32_t flags;
-	uint32_t head;
-	uint32_t tail;
+	_Atomic uint32_t head;
+	_Atomic uint32_t tail;
 	uint32_t nbits;
 	struct evhdr ev;
 	struct twzio_hdr io;
