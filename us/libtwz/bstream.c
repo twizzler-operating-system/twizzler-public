@@ -12,7 +12,9 @@ ssize_t bstream_read(struct object *obj,
   size_t len,
   unsigned flags)
 {
-	debug_printf("HELLO!\n");
+	uint64_t r;
+	asm volatile("lea 0(%%rip), %%rax" : "=a"(r));
+	debug_printf("HELLO! %lx\n", r);
 }
 
 ssize_t bstream_write(struct object *obj,
@@ -35,12 +37,17 @@ int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr, uint32_t nbits
 	mutex_init(&hdr->wlock);
 	hdr->nbits = nbits;
 	event_obj_init(obj, &hdr->ev);
-	r =
-	  twz_ptr_store(obj, TWZ_GATE_CALL(NULL, BSTREAM_GATE_READ), FE_READ | FE_EXEC, &hdr->io.read);
+
+	objid_t id;
+	r = twz_name_resolve(NULL, "libtwz.so.text", NULL, 0, &id);
 	if(r)
 		return r;
-	r = twz_ptr_store(
-	  obj, TWZ_GATE_CALL(NULL, BSTREAM_GATE_WRITE), FE_READ | FE_EXEC, &hdr->io.write);
+	r = twz_ptr_make(
+	  obj, id, TWZ_GATE_CALL(NULL, BSTREAM_GATE_READ), FE_READ | FE_EXEC, &hdr->io.read);
+	if(r)
+		return r;
+	r = twz_ptr_make(
+	  obj, id, TWZ_GATE_CALL(NULL, BSTREAM_GATE_WRITE), FE_READ | FE_EXEC, &hdr->io.write);
 	if(r)
 		return r;
 }

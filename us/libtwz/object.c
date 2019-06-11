@@ -71,6 +71,17 @@ ssize_t twz_object_addfot(struct object *obj, objid_t id, uint64_t flags)
 	return -ENOSPC;
 }
 
+int __twz_ptr_make(struct object *obj, objid_t id, const void *p, uint32_t flags, const void **res)
+{
+	ssize_t fe = twz_object_addfot(obj, id, flags);
+	if(fe < 0)
+		return fe;
+
+	*res = twz_ptr_rebase(fe, p);
+
+	return 0;
+}
+
 int __twz_ptr_store(struct object *obj, const void *p, uint32_t flags, const void **res)
 {
 	objid_t target;
@@ -78,13 +89,7 @@ int __twz_ptr_store(struct object *obj, const void *p, uint32_t flags, const voi
 	if(r)
 		return r;
 
-	ssize_t fe = twz_object_addfot(obj, target, flags);
-	if(fe < 0)
-		return fe;
-
-	*res = twz_ptr_rebase(fe, p);
-
-	return 0;
+	return __twz_ptr_make(obj, target, p, flags, res);
 }
 
 void *__twz_ptr_lea_foreign(const struct object *o, const void *p)

@@ -51,3 +51,7 @@ int twz_object_addext(struct object *obj, uint64_t tag, void *ptr);
 int __twz_ptr_store(struct object *o, const void *p, uint32_t flags, const void **res);
 
 #define twz_ptr_rebase(fe, p) ({ (typeof(p))((fe)*OBJ_MAXSIZE | (uintptr_t)twz_ptr_local(p)); })
+
+int __twz_ptr_make(struct object *obj, objid_t id, const void *p, uint32_t flags, const void **res);
+
+#define twz_ptr_make(o, id, p, f, res) ({ __twz_ptr_make((o), (id), (p), (f), (void **)(res)); })

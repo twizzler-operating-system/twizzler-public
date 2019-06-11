@@ -5,7 +5,8 @@
 	        ".global __twz_gate_" #fn "\n"                                                         \
 	        ".type __twz_gate_" #fn " STT_FUNC\n"                                                  \
 	        ".org " #g "*16, 0x90\n"                                                               \
-	        "__twz_gate_" #fn ": call " #fn "\n"                                                   \
+	        "__twz_gate_" #fn ": lea " #fn "(%rip), %rax\n"                                        \
+	        "call *%rax\n"                                                                         \
 	        "ret\n"                                                                                \
 	        ".balign 16, 0x90\n"                                                                   \
 	        ".previous");

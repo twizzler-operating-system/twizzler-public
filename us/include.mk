@@ -68,9 +68,20 @@ $(BUILDDIR)/us/%.data.obj $(BUILDDIR)/us/%.text.obj: $(BUILDDIR)/us/% $(BUILDDIR
 	FLAGS=$$(cat $<.flags);\
 	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXD -f 1:RWD:$$DATAID $$FLAGS
 
+$(BUILDDIR)/us/libtwz/libtwz.so.data.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.obj: $(BUILDDIR)/us/libtwz/libtwz.so $(BUILDDIR)/us/libtwz/libtwz.so.flags $(UTILS)
+	@echo [SPLIT] $<
+	@$(BUILDDIR)/utils/elfsplit $<
+	@echo [OBJ] $<.data.obj
+	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p RD
+	@echo [OBJ] $<.text.obj
+	@DATAID=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
+	FLAGS=$$(cat $<.flags);\
+	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXD -f 1:RWD:$$DATAID $$FLAGS
+
+
 $(BUILDDIR)/us/%.o: us/%.c $(MUSL_READY)
 	mkdir -p $(dir $@)
-	$(TWZCC) $(TWZCFLAGS) -c -o $@ $<
+	$(TWZCC) $(TWZCFLAGS) -fpic -c -o $@ $<
 
 TWZOBJS=$(addprefix $(BUILDDIR)/us/,$(addsuffix .text.obj,$(foreach x,$(PROGS),$(x)/$(x))))
 TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),$(x)/$(x))))
@@ -84,7 +95,7 @@ $(BUILDDIR)/us/root/kc $(BUILDDIR)/us/bsv.obj: $(BUILDDIR)/us/bsv.data
 	@$(BUILDDIR)/utils/file2obj -i $< -o $(BUILDDIR)/us/bsv.obj -p RWU
 	@echo "bsv=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/bsv.obj)" > $(BUILDDIR)/us/kc
 
-TWZOBJS+=$(BUILDDIR)/us/bsv.obj
+TWZOBJS+=$(BUILDDIR)/us/bsv.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.obj $(BUILDDIR)/us/libtwz/libtwz.so.data.obj
 
 $(BUILDDIR)/us/root.tar: $(TWZOBJS)
 	@-rm -r $(BUILDDIR)/us/root
