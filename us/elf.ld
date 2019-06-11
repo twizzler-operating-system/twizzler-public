@@ -14,8 +14,7 @@ INPUT(-lc)
 PHDRS
 {
 	headers PT_PHDR PHDRS ;
-	text PT_LOAD FILEHDR PHDRS ;
-	gates PT_LOAD ;
+	text PT_LOAD FILEHDR PHDRS;
 	data PT_LOAD ;
 	dynamic PT_DYNAMIC ;
 }
@@ -24,6 +23,14 @@ SECTIONS
 {
 	/* Link at a high address for core. We'll need to put this much higher later. */
 	. = 0x1000 + SIZEOF_HEADERS;
+	. = ALIGN(0x200);
+	/* gates */
+	.gates : 
+	{
+		KEEP(*(.gates*))
+	} :text = 0x90909090
+	. = ALIGN(32);
+
 	/* Read-only sections, merged into text segment. */
 	.text :
 	{
@@ -71,14 +78,6 @@ SECTIONS
 		KEEP(*(.got*))
 		KEEP(*(.got.plt*))
 	} :text
-
-	/* gates */
-	. += 0x1000;
-	. = ALIGN(0x1000);
-	.gates : 
-	{
-		KEEP(*(.gates*))
-	} :gates
 
 	/* read-write sections, merged into data segment.
 	 * Move up by 1 object slot size, and give us space

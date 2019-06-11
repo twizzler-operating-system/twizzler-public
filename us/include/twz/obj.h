@@ -35,3 +35,5 @@ int twz_object_open(struct object *obj, objid_t id, int flags);
 	{                                                                                              \
 		.base = SLOT_TO_VADDR(s)                                                                   \
 	}
+
+void *twz_object_getext(struct object *obj, uint64_t tag);

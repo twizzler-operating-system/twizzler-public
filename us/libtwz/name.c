@@ -99,7 +99,7 @@ static void copy_names(const char *bsname, struct object *nobj)
 	}
 }
 
-int __name_boostrap(void)
+int __name_bootstrap(void)
 {
 	const char *bsname = getenv("BSNAME");
 	if(!bsname)
