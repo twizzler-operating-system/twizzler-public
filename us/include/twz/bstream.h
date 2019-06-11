@@ -13,6 +13,7 @@ struct bstream_hdr {
 	uint32_t nbits;
 	struct evhdr ev;
 	struct twzio_hdr io;
+	unsigned char data[];
 };
 
 #define BSTREAM_METAEXT_TAG 0x00000000bbbbbbbb

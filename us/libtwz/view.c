@@ -22,7 +22,6 @@ int twz_view_set(struct object *obj, size_t slot, objid_t target, uint32_t flags
 	ves[slot].res0 = 0;
 	ves[slot].res1 = 0;
 	atomic_store(&ves[slot].flags, flags | VE_VALID);
-	debug_printf("MAPPING :: %lx %x\n", slot, flags);
 
 	if(old & VE_VALID) {
 		struct sys_invalidate_op op = {

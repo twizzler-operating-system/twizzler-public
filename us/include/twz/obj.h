@@ -46,7 +46,7 @@ int twz_object_open(struct object *obj, objid_t id, int flags);
 void *twz_object_getext(struct object *obj, uint64_t tag);
 int twz_object_addext(struct object *obj, uint64_t tag, void *ptr);
 
-#define twz_ptr_store(o, p, f, res) ({ __twz_ptr_store((o), (p), (f), (void **)(res)); })
+#define twz_ptr_store(o, p, f, res) ({ __twz_ptr_store((o), (p), (f), (const void **)(res)); })
 
 int __twz_ptr_store(struct object *o, const void *p, uint32_t flags, const void **res);
 
@@ -54,4 +54,5 @@ int __twz_ptr_store(struct object *o, const void *p, uint32_t flags, const void 
 
 int __twz_ptr_make(struct object *obj, objid_t id, const void *p, uint32_t flags, const void **res);
 
-#define twz_ptr_make(o, id, p, f, res) ({ __twz_ptr_make((o), (id), (p), (f), (void **)(res)); })
+#define twz_ptr_make(o, id, p, f, res)                                                             \
+	({ __twz_ptr_make((o), (id), (p), (f), (const void **)(res)); })

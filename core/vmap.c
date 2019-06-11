@@ -203,7 +203,7 @@ static inline void popul_info(struct fault_object_info *info,
 
 void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 {
-	// printk("Page Fault from %lx: %lx %x\n", ip, addr, flags);
+	printk("Page Fault from %lx: %lx %x\n", ip, addr, flags);
 
 	if(flags & FAULT_ERROR_PERM) {
 		struct fault_object_info info;
