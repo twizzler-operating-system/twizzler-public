@@ -33,8 +33,14 @@ int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr, uint32_t nbits
 	mutex_init(&hdr->wlock);
 	hdr->nbits = nbits;
 	event_obj_init(obj, &hdr->ev);
-	hdr->io.read = TWZ_GATE_CALL(NULL, BSTREAM_GATE_READ);
-	hdr->io.write = TWZ_GATE_CALL(NULL, BSTREAM_GATE_WRITE);
+	r =
+	  twz_ptr_store(obj, TWZ_GATE_CALL(NULL, BSTREAM_GATE_READ), FE_READ | FE_EXEC, &hdr->io.read);
+	if(r)
+		return r;
+	r = twz_ptr_store(
+	  obj, TWZ_GATE_CALL(NULL, BSTREAM_GATE_WRITE), FE_READ | FE_EXEC, &hdr->io.write);
+	if(r)
+		return r;
 }
 
 TWZ_GATE(bstream_read, BSTREAM_GATE_READ);

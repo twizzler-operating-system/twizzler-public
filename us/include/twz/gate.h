@@ -12,5 +12,9 @@
 #define TWZ_GATE_OFFSET (OBJ_NULLPAGE_SIZE + 0x200)
 
 #include <twz/obj.h>
-/* TODO: obj */
-#define TWZ_GATE_CALL(obj, g) twz_ptr_local((void *)(g * TWZ_GATE_SIZE + TWZ_GATE_OFFSET))
+#define TWZ_GATE_CALL(_obj, g)                                                                     \
+	({                                                                                             \
+		struct object *obj = _obj;                                                                 \
+		(void *)((obj ? (uintptr_t)twz_obj_base(obj) : 0ull) + g * TWZ_GATE_SIZE                   \
+		         + TWZ_GATE_OFFSET);                                                               \
+	})

@@ -48,3 +48,8 @@ int twz_view_get(struct object *obj, size_t slot, objid_t *target, uint32_t *fla
 		*target = ves[slot].id;
 	return 0;
 }
+
+int twz_vaddr_to_obj(const void *v, objid_t *id, uint32_t *fl)
+{
+	return twz_view_get(NULL, VADDR_TO_SLOT(v), id, fl);
+}
