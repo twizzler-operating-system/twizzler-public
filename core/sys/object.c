@@ -114,7 +114,7 @@ long syscall_ocreate(uint64_t kulo,
 	} else {
 		o = obj_create(id, ksot);
 	}
-	o->flags |= OF_KERNELGEN; /* TODO: actually compute new objid */
+	o->flags |= OF_KERNELGEN; /* TODO: actually compute new objid and fill out mi */
 	obj_put(o);
 	if(retid)
 		*retid = id;

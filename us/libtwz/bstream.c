@@ -1,11 +1,9 @@
+#include <string.h>
 #include <twz/bstream.h>
+#include <twz/event.h>
 #include <twz/gate.h>
 #include <twz/io.h>
 #include <twz/obj.h>
-
-int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr)
-{
-}
 
 ssize_t bstream_read(struct object *obj,
   struct bstream_hdr *hdr,
@@ -23,5 +21,21 @@ ssize_t bstream_write(struct object *obj,
 {
 }
 
-TWZ_GATE(bstream_read, 1);
-TWZ_GATE(bstream_write, 2);
+int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr, uint32_t nbits)
+{
+	int r;
+	if((r = twz_object_addext(obj, TWZIO_METAEXT_TAG, &hdr->io)))
+		return r;
+	if((r = twz_object_addext(obj, EVENT_METAEXT_TAG, &hdr->ev)))
+		return r;
+	memset(hdr, 0, sizeof(*hdr));
+	mutex_init(&hdr->rlock);
+	mutex_init(&hdr->wlock);
+	hdr->nbits = nbits;
+	event_obj_init(obj, &hdr->ev);
+	hdr->io.read = TWZ_GATE_CALL(NULL, BSTREAM_GATE_READ);
+	hdr->io.write = TWZ_GATE_CALL(NULL, BSTREAM_GATE_WRITE);
+}
+
+TWZ_GATE(bstream_read, BSTREAM_GATE_READ);
+TWZ_GATE(bstream_write, BSTREAM_GATE_WRITE);

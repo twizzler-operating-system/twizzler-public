@@ -279,7 +279,6 @@ int main(int argc, char **argv)
 		perror("stat");
 		return 1;
 	}
-	printf("%s :: %d\n", infile, st.st_size);
 
 	struct ustar_header header;
 	ustar_fill(&header, outfile, "data", st.st_size);
@@ -310,12 +309,13 @@ int main(int argc, char **argv)
 	objid_t kuid = str_to_objid(kuidstr);
 
 	fotcount++;
+	size_t metaext_size = 128;
 	struct metainfo mi = {
 		.magic = MI_MAGIC,
 		.sz = st.st_size,
 		.flags = MIF_SZ,
 		.p_flags = pflags,
-		.milen = sizeof(mi),
+		.milen = sizeof(mi) + metaext_size,
 		.fotentries = fotcount,
 		.mdbottom = 0x1000,
 		.kuid = kuid,
@@ -331,7 +331,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	off_t fotstart = lseek(outfd, 0, SEEK_CUR);
+	off_t fotstart = lseek(outfd, 0, SEEK_CUR) + metaext_size;
 	off_t namestart = 64 * sizeof(struct fotentry);
 	for(struct list *l = fotlist; l; l = l->next) {
 		struct fotentry fe = { 0 };

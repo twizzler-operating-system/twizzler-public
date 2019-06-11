@@ -18,3 +18,4 @@ struct bstream_hdr {
 #define BSTREAM_METAEXT_TAG 0x00000000bbbbbbbb
 
 #define BSTREAM_GATE_READ 1
+#define BSTREAM_GATE_WRITE 2

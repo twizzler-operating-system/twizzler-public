@@ -1,3 +1,4 @@
+#include <twz/_err.h>
 #include <twz/obj.h>
 #include <twz/sys.h>
 #include <twz/view.h>
@@ -29,4 +30,22 @@ void *twz_object_getext(struct object *obj, uint64_t tag)
 		e++;
 	}
 	return NULL;
+}
+
+#include <twz/debug.h>
+int twz_object_addext(struct object *obj, uint64_t tag, void *ptr)
+{
+	struct metainfo *mi = twz_object_meta(obj);
+	struct metaext *e = &mi->exts[0];
+
+	while((char *)e < (char *)mi + mi->milen) {
+		debug_printf("-> %p %lx\n", e, e->tag);
+		if(e->tag == 0) {
+			e->ptr = twz_ptr_local(ptr);
+			e->tag = tag;
+			return 0;
+		}
+		e++;
+	}
+	return -ENOSPC;
 }

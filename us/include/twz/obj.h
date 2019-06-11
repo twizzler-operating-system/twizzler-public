@@ -22,10 +22,10 @@ static inline void *__twz_ptr_lea(const struct object *o, const void *p)
 
 #define twz_ptr_lea(o, p) ({ (typeof(p)) __twz_ptr_lea((o), (p)); })
 
-#define twz_ptr_local(p) ({ (typeof(p))((uintptr_t)p & (OBJ_MAXSIZE - 1)); })
+#define twz_ptr_local(p) ({ (typeof(p))((uintptr_t)(p) & (OBJ_MAXSIZE - 1)); })
 
 #define twz_object_meta(o)                                                                         \
-	({ (struct metainfo *)(((char *)o->base + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE)); })
+	({ (struct metainfo *)(((char *)(o)->base + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE)); })
 
 int twz_object_open(struct object *obj, objid_t id, int flags);
 
@@ -37,3 +37,4 @@ int twz_object_open(struct object *obj, objid_t id, int flags);
 	}
 
 void *twz_object_getext(struct object *obj, uint64_t tag);
+int twz_object_addext(struct object *obj, uint64_t tag, void *ptr);
