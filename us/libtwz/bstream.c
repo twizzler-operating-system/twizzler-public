@@ -33,7 +33,7 @@ ssize_t bstream_read(struct object *obj,
 			break;
 		}
 		data[count] = hdr->data[hdr->tail];
-		hdr->tail = (hdr->tail + 1) % (1 << hdr->nbits);
+		hdr->tail = (hdr->tail + 1) & ((1 << hdr->nbits) - 1);
 		count++;
 	}
 
@@ -48,8 +48,6 @@ ssize_t bstream_write(struct object *obj,
   size_t len,
   unsigned flags)
 {
-	debug_printf("W\n");
-	debug_printf("---> %p %lx\n", hdr, hdr->wlock.sleep);
 	mutex_acquire(&hdr->wlock);
 
 	size_t count = 0;
@@ -65,7 +63,7 @@ ssize_t bstream_write(struct object *obj,
 			break;
 		}
 		hdr->data[hdr->head] = data[count];
-		hdr->head = (hdr->head + 1) % (1 << hdr->nbits);
+		hdr->head = (hdr->head + 1) & ((1 << hdr->nbits) - 1);
 		count++;
 	}
 

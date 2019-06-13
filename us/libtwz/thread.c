@@ -30,6 +30,7 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 	struct sys_thrd_spawn_args sa = {
 		.target_view = args->target_view,
 		.start_func = args->start_func,
+		.arg = args->arg,
 		.stack_base = args->stack_base,
 		.stack_size = args->stack_size,
 		.tls_base = args->tls_base,

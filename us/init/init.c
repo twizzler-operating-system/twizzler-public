@@ -3,7 +3,22 @@
 #include <twz/debug.h>
 #include <twz/name.h>
 #include <twz/obj.h>
+#include <twz/thread.h>
 static int __name_bootstrap(void);
+
+void tmain(void *a)
+{
+	debug_printf("Hello from thread! %p\n", a);
+	struct object *b = a;
+	debug_printf("WRITING\n");
+	for(;;)
+		bstream_write(b, twz_obj_base(b), "Hello!", 6, 0, 0);
+	debug_printf("WRITING done\n");
+	for(;;)
+		;
+}
+
+struct object bs;
 int main(int argc, char **argv)
 {
 	debug_printf("Testing!:: %s\n", getenv("BSNAME"));
@@ -17,7 +32,8 @@ int main(int argc, char **argv)
 	int r = twz_name_resolve(NULL, "test.text", NULL, 0, &id);
 	debug_printf("NAME: " IDFMT " : %d\n", IDPR(id), r);
 
-	struct object bs;
+	struct thread t;
+
 	id = 0;
 	twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &id);
 	twz_object_open(&bs, id, FE_READ | FE_WRITE);
@@ -29,12 +45,16 @@ int main(int argc, char **argv)
 	struct bstream_hdr *hdr = twz_obj_base(&bs);
 	debug_printf("%d:: %p %p\n", r, hdr->io.read, hdr->io.write);
 
-	r = twzio_write(&bs, twz_obj_base(&bs), "hello\n", 6, 0, 0);
-	debug_printf("write: %d\n", r);
-	char buf[128] = { 0 };
-	r = twzio_read(&bs, twz_obj_base(&bs), buf, 128, 0, 0);
-	debug_printf("read: %d\n", r);
-	debug_printf("read: %s\n", buf);
+	r = twz_thread_spawn(&t, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &bs });
+	debug_printf("spawn r = %d\n", r);
+
+	// r = twzio_write(&bs, twz_obj_base(&bs), "hello\n", 6, 0, 0);
+	for(;;) {
+		char buf[128] = { 0 };
+		r = twzio_read(&bs, twz_obj_base(&bs), buf, 127, 0, 0);
+		debug_printf("read: %d\n", r);
+		debug_printf("read: %s\n", buf);
+	}
 
 	for(;;)
 		;

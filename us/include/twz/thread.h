@@ -8,4 +8,15 @@ struct thread {
 	struct object obj;
 };
 
+struct thrd_spawn_args {
+	objid_t target_view;
+	void (*start_func)(void *); /* thread entry function. */
+	void *arg;                  /* argument for entry function. */
+	char *stack_base;           /* stack base address. */
+	size_t stack_size;
+	char *tls_base; /* tls base address. */
+};
+
+int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args);
+
 #define TWZ_THREAD_STACK_SIZE 0x200000

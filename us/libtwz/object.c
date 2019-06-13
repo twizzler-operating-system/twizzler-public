@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <twz/_err.h>
+#include <twz/debug.h>
 #include <twz/name.h>
 #include <twz/obj.h>
 #include <twz/sys.h>
@@ -11,12 +12,14 @@ int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 
 int twz_object_open(struct object *obj, objid_t id, int flags)
 {
-	static int i = 0;
-	int x = i++;
+	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);
+	debug_printf("OPEN: " IDFMT " %x -> %lx\n", id, flags, slot);
+	if(slot < 0)
+		return slot;
 
-	twz_view_set(NULL, 0x100 + x, id, FE_READ | FE_WRITE); // TODO
+	twz_view_set(NULL, slot, id, FE_READ | FE_WRITE); // TODO
 
-	obj->base = (void *)(OBJ_MAXSIZE * (x + 0x100));
+	obj->base = (void *)(OBJ_MAXSIZE * (slot));
 	return 0;
 }
 
@@ -34,7 +37,6 @@ void *twz_object_getext(struct object *obj, uint64_t tag)
 	return NULL;
 }
 
-#include <twz/debug.h>
 int twz_object_addext(struct object *obj, uint64_t tag, void *ptr)
 {
 	struct metainfo *mi = twz_object_meta(obj);

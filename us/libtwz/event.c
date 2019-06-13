@@ -64,11 +64,14 @@ int event_wait(size_t count, struct event *ev)
 
 int event_wake(struct evhdr *ev, uint64_t events, long wcount)
 {
-	ev->point |= events;
-	return sys_thread_sync(1,
-	  (int[1]){ THREAD_SYNC_WAKE },
-	  (long * [1]){ (long *)&ev->point },
-	  (long[1]){ wcount },
-	  NULL,
-	  NULL);
+	uint64_t old = atomic_fetch_or(&ev->point, events);
+	if((old & events) != events) {
+		return sys_thread_sync(1,
+		  (int[1]){ THREAD_SYNC_WAKE },
+		  (long * [1]){ (long *)&ev->point },
+		  (long[1]){ wcount },
+		  NULL,
+		  NULL);
+	}
+	return 0;
 }

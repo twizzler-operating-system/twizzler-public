@@ -13,15 +13,7 @@
 struct twzthread_repr {
 	objid_t reprid;
 	uint64_t syncs[THRD_SYNCPOINTS];
+	uint64_t syncinfos[THRD_SYNCPOINTS];
 	struct faultinfo faults[NUM_FAULTS];
 	struct viewentry fixed_points[];
-};
-
-struct thrd_spawn_args {
-	objid_t target_view;
-	void (*start_func)(void *); /* thread entry function. */
-	void *arg;                  /* argument for entry function. */
-	char *stack_base;           /* stack base address. */
-	size_t stack_size;
-	char *tls_base; /* tls base address. */
 };
