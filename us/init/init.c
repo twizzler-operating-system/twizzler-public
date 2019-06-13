@@ -11,8 +11,10 @@ void tmain(void *a)
 	debug_printf("Hello from thread! %p\n", a);
 	struct object *b = a;
 	debug_printf("WRITING\n");
-	for(;;)
-		bstream_write(b, twz_obj_base(b), "Hello!", 6, 0, 0);
+	for(;;) {
+		int r = bstream_write(b, twz_obj_base(b), "Hello!", 1, 0, 0);
+		debug_printf("write: %d\n", r);
+	}
 	debug_printf("WRITING done\n");
 	for(;;)
 		;
@@ -40,7 +42,7 @@ int main(int argc, char **argv)
 	struct metainfo *mi = twz_object_meta(&bs);
 	mi->milen = sizeof(*mi) + 128;
 
-	r = bstream_obj_init(&bs, twz_obj_base(&bs), 8);
+	r = bstream_obj_init(&bs, twz_obj_base(&bs), 16);
 
 	struct bstream_hdr *hdr = twz_obj_base(&bs);
 	debug_printf("%d:: %p %p\n", r, hdr->io.read, hdr->io.write);
@@ -49,11 +51,11 @@ int main(int argc, char **argv)
 	debug_printf("spawn r = %d\n", r);
 
 	// r = twzio_write(&bs, twz_obj_base(&bs), "hello\n", 6, 0, 0);
+	char buf[1 << 15] = { 0 };
 	for(;;) {
-		char buf[128] = { 0 };
-		r = twzio_read(&bs, twz_obj_base(&bs), buf, 127, 0, 0);
+		r = twzio_read(&bs, twz_obj_base(&bs), buf, 1 << 15, 0, 0);
 		debug_printf("read: %d\n", r);
-		debug_printf("read: %s\n", buf);
+		// debug_printf("read: %s\n", buf);
 	}
 
 	for(;;)

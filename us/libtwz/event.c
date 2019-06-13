@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <time.h>
 #include <twz/_err.h>
+#include <twz/debug.h>
 #include <twz/event.h>
 #include <twz/obj.h>
 #include <twz/sys.h>
@@ -32,6 +33,12 @@ int event_init(struct event *ev, struct evhdr *hdr, uint64_t events, struct time
 	return 0;
 }
 
+uint64_t event_clear(struct evhdr *hdr, uint64_t events)
+{
+	uint64_t old = atomic_fetch_and(&hdr->point, ~events);
+	return old & events;
+}
+
 int event_wait(size_t count, struct event *ev)
 {
 	if(count > 4096)
@@ -48,6 +55,7 @@ int event_wait(size_t count, struct event *ev)
 			points[i] = (long *)point;
 			ops[i] = THREAD_SYNC_SLEEP;
 			spec[i] = ev->flags & EV_TIMEOUT ? &ev->timeout : NULL;
+			debug_printf("== %lx %lx\n", *point, ev->events);
 			ev->result = arg[i] & ev->events;
 			if(ev->result) {
 				ready++;

@@ -13,11 +13,9 @@ int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 int twz_object_open(struct object *obj, objid_t id, int flags)
 {
 	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);
-	debug_printf("OPEN: " IDFMT " %x -> %lx\n", id, flags, slot);
+	// debug_printf("OPEN: " IDFMT " %x -> %lx\n", id, flags, slot);
 	if(slot < 0)
 		return slot;
-
-	twz_view_set(NULL, slot, id, FE_READ | FE_WRITE); // TODO
 
 	obj->base = (void *)(OBJ_MAXSIZE * (slot));
 	return 0;
@@ -116,10 +114,11 @@ void *__twz_ptr_lea_foreign(const struct object *o, const void *p)
 		id = fe[slot].id;
 	}
 
-	static size_t ns = 0x200;
-	size_t s = ++ns;
-
-	if(twz_view_set(NULL, s, id, fe[slot].flags & (FE_READ | FE_WRITE | FE_EXEC)))
+	ssize_t ns = twz_view_allocate_slot(NULL, id, fe[slot].flags & (FE_READ | FE_WRITE | FE_EXEC));
+	if(ns < 0)
 		return NULL;
-	return twz_ptr_rebase(s, (void *)p);
+
+	// if(twz_view_set(NULL, ns, id, fe[slot].flags & (FE_READ | FE_WRITE | FE_EXEC)))
+	//	return NULL;
+	return twz_ptr_rebase(ns, (void *)p);
 }

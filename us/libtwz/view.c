@@ -138,6 +138,9 @@ ssize_t twz_view_allocate_slot(struct object *obj, objid_t id, uint32_t flags)
 			return slot;
 		}
 		b = __insert_obj(v, id, flags, slot);
+		int r;
+		if((r = twz_view_set(obj, slot, id, flags)) < 0)
+			return r;
 	}
 
 	mutex_release(&v->lock);

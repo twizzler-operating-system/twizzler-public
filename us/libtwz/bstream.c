@@ -25,6 +25,9 @@ ssize_t bstream_read(struct object *obj,
 	while(count < len) {
 		if(hdr->head == hdr->tail) {
 			if(count == 0) {
+				if(event_clear(&hdr->ev, TWZIO_EVENT_READ)) {
+					continue;
+				}
 				struct event e;
 				event_init(&e, &hdr->ev, TWZIO_EVENT_READ, NULL);
 				event_wait(1, &e);
@@ -55,6 +58,9 @@ ssize_t bstream_write(struct object *obj,
 	while(count < len) {
 		if(free_space(hdr->head, hdr->tail, 1 << hdr->nbits) <= 1) {
 			if(count == 0) {
+				if(event_clear(&hdr->ev, TWZIO_EVENT_WRITE)) {
+					continue;
+				}
 				struct event e;
 				event_init(&e, &hdr->ev, TWZIO_EVENT_WRITE, NULL);
 				event_wait(1, &e);
