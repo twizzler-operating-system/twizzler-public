@@ -115,6 +115,14 @@ long syscall_ocreate(uint64_t kulo,
 		o = obj_create(id, ksot);
 	}
 	o->flags |= OF_KERNELGEN; /* TODO: actually compute new objid and fill out mi */
+
+	struct metainfo mi = {
+		.flags = flags,
+		.milen = sizeof(mi) + 128,
+		.kuid = kuid,
+	};
+	obj_write_data(o, OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + OBJ_METAPAGE_SIZE), sizeof(mi), &mi);
+
 	obj_put(o);
 	if(retid)
 		*retid = id;
