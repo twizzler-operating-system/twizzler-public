@@ -7,8 +7,8 @@
 #include <twz/sys.h>
 #include <twz/view.h>
 
-#include <sys/types.h>
 #include <twz/_err.h>
+#include <twz/_types.h>
 
 #include <twz/debug.h>
 int twz_view_set(struct object *obj, size_t slot, objid_t target, uint32_t flags)

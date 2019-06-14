@@ -9,6 +9,9 @@ static int __name_bootstrap(void);
 void tmain(void *a)
 {
 	debug_printf("Hello from thread! %p\n", a);
+	twz_thread_ready(NULL, THRD_SYNC_READY, 1234);
+	for(;;)
+		;
 	struct object *b = a;
 	debug_printf("WRITING\n");
 	for(;;) {
@@ -40,7 +43,6 @@ int main(int argc, char **argv)
 	twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &id);
 	twz_object_open(&bs, id, FE_READ | FE_WRITE);
 	struct metainfo *mi = twz_object_meta(&bs);
-	mi->milen = sizeof(*mi) + 128;
 
 	r = bstream_obj_init(&bs, twz_obj_base(&bs), 16);
 
@@ -49,6 +51,14 @@ int main(int argc, char **argv)
 
 	r = twz_thread_spawn(&t, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &bs });
 	debug_printf("spawn r = %d\n", r);
+
+	struct thread *w = &t;
+	uint64_t info;
+	r = twz_thread_wait(1, &w, (int[]){ THRD_SYNC_READY }, NULL, &info);
+	debug_printf("WAIT RET %d: %ld\n", r, info);
+
+	for(;;)
+		;
 
 	// r = twzio_write(&bs, twz_obj_base(&bs), "hello\n", 6, 0, 0);
 	char buf[1 << 15] = { 0 };

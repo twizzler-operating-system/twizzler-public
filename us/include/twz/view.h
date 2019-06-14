@@ -1,8 +1,8 @@
 #pragma once
 #include <stdint.h>
-#include <sys/types.h>
 #include <twz/_objid.h>
 #include <twz/_slots.h>
+#include <twz/_types.h>
 #include <twz/_view.h>
 #include <twz/mutex.h>
 

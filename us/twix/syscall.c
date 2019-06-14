@@ -22,8 +22,8 @@ struct twix_register_frame {
 };
 
 #include <errno.h>
-#include <sys/types.h>
 #include <twz/_slots.h>
+#include <twz/_types.h>
 #include <twz/_view.h>
 #include <twz/name.h>
 #include <twz/obj.h>

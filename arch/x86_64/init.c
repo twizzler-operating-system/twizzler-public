@@ -37,6 +37,7 @@ static void proc_init(void)
 	asm volatile("mov %%cr4, %0" : "=r"(cr4));
 	cr4 |= (1 << 7);  // enable page global
 	cr4 |= (1 << 10); // enable fast fxsave etc, sse
+	cr4 |= (1 << 16); // rdgsbase
 	cr4 &= ~(1 << 9);
 	asm volatile("mov %0, %%cr4" ::"r"(cr4));
 
