@@ -10,7 +10,7 @@
 
 int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 {
-	__seg_gs struct twzthread_repr *currepr = (uintptr_t)OBJ_NULLPAGE_SIZE;
+	struct twzthread_repr *currepr = twz_thread_repr_base();
 	int r;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &thrd->tid))) {
 		return r;

@@ -1,4 +1,4 @@
-PROGS=test init
+PROGS=test init term
 TWZCC?=x86_64-pc-elf-gcc
 
 
@@ -80,8 +80,11 @@ $(BUILDDIR)/us/libtwz/libtwz.so.data.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.ob
 
 
 $(BUILDDIR)/us/%.o: us/%.c $(MUSL_READY)
-	mkdir -p $(dir $@)
-	$(TWZCC) $(TWZCFLAGS) -fpic -c -o $@ $<
+	@mkdir -p $(dir $@)
+	@echo "[CCC] $@"
+	@$(TWZCC) $(TWZCFLAGS) -fpic -c -MD -MF $(BUILDDIR)/us/$*.d -o $@ $<
+
+-include $(BUILDDIR)/us/*/*.d
 
 TWZOBJS=$(addprefix $(BUILDDIR)/us/,$(addsuffix .text.obj,$(foreach x,$(PROGS),$(x)/$(x))))
 TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),$(x)/$(x))))

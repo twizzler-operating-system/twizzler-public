@@ -1,5 +1,6 @@
 #pragma once
 #include <twz/_thrd.h>
+#include <twz/_types.h>
 #include <twz/obj.h>
 void twz_thread_exit(void);
 

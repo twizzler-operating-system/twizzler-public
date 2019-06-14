@@ -6,7 +6,8 @@ init_deps=$(addprefix $(BUILDDIR)/,$(init_srcs:.c=.d))
 init_all: $(BUILDDIR)/us/init/init
 
 $(BUILDDIR)/us/init/init: $(init_objs) $(US_LIBDEPS)
-	$(TWZCC) $(US_LDFLAGS) $(US_CFLAGS) -o $@ -nostdlib $(US_PRELINK) $< $(US_POSTLINK) -MD
+	@echo "[CLD] $@"
+	@$(TWZCC) $(US_LDFLAGS) $(US_CFLAGS) -o $@ -nostdlib $(US_PRELINK) $< $(US_POSTLINK) -MD
 
 -include $(init_deps)
 

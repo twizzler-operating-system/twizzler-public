@@ -6,7 +6,8 @@ test_deps=$(addprefix $(BUILDDIR)/,$(test_srcs:.c=.d))
 test_all: $(BUILDDIR)/us/test/test
 
 $(BUILDDIR)/us/test/test: $(test_objs) $(US_LIBDEPS)
-	$(TWZCC) $(US_LDFLAGS) $(US_CFLAGS) -o $@ -nostdlib $(US_PRELINK) $< $(US_POSTLINK) -MD
+	@echo "[CLD] $@"
+	@$(TWZCC) $(US_LDFLAGS) $(US_CFLAGS) -o $@ -nostdlib $(US_PRELINK) $< $(US_POSTLINK) -MD
 
 -include $(test_deps)
 
