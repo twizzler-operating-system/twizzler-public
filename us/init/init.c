@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <twz/bstream.h>
 #include <twz/debug.h>
@@ -8,43 +10,63 @@ static int __name_bootstrap(void);
 
 void tmain(void *a)
 {
-	debug_printf("Hello from thread! %p\n", a);
-
+	char *pg = a;
 	objid_t id = 0;
-	int r = twz_name_resolve(NULL, "term.text", NULL, 0, &id);
+	int r = twz_name_resolve(NULL, pg, NULL, 0, &id);
 	if(r) {
-		debug_printf("FAILED to resolve term");
+		debug_printf("failed to resolve '%s'", pg);
 		twz_thread_exit();
 	}
 
-	debug_printf("EXECUTE " IDFMT, IDPR(id));
-	twz_exec(id, (const char *const[]){ "term.text", "arg1", "arg2", NULL }, NULL);
-	for(;;)
-		;
+	twz_exec(id, (const char *const[]){ pg, NULL }, NULL);
+	debug_printf("failed to exec '%s'", pg);
+	twz_thread_exit();
 }
 
 struct object bs;
 int main(int argc, char **argv)
 {
-	debug_printf("Testing!:: %s\n", getenv("BSNAME"));
-
 	if(__name_bootstrap() == -1) {
 		debug_printf("Failed to bootstrap namer\n");
-		for(;;)
-			;
+		abort();
 	}
-	objid_t id = 0;
-	int r = twz_name_resolve(NULL, "test.text", NULL, 0, &id);
-	debug_printf("NAME: " IDFMT " : %d\n", IDPR(id), r);
 
-	struct thread t;
-	r = twz_thread_spawn(&t, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &bs });
-	debug_printf("spawn r = %d\n", r);
+	struct thread tthr;
+	int r;
+	if((r = twz_thread_spawn(
+	      &tthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = "term.text" }))) {
+		debug_printf("failed to spawn terminal");
+		abort();
+	}
 
-	struct thread *w = &t;
-	uint64_t info;
-	r = twz_thread_wait(1, &w, (int[]){ THRD_SYNC_READY }, NULL, &info);
-	debug_printf("WAIT RET %d: %ld\n", r, info);
+	twz_thread_wait(1, (struct thread *[]){ &tthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+
+	objid_t stdinid, stdoutid;
+
+	if(twz_name_resolve(NULL, "dev:dfl:screen", NULL, 0, &stdoutid)) {
+		debug_printf("failed to resolve dfl screen");
+		abort();
+	}
+	if(twz_name_resolve(NULL, "dev:dfl:keyboard", NULL, 0, &stdinid)) {
+		debug_printf("failed to resolve dfl keyboard");
+		abort();
+	}
+
+	int fd;
+	if((fd = open("dev:dfl:keyboard", O_RDONLY)) != 0) {
+		debug_printf("err opening stdin");
+		abort();
+	}
+	if((fd = open("dev:dfl:screen", O_RDWR)) != 1) {
+		debug_printf("err opening stdout");
+		abort();
+	}
+	if((fd = open("dev:dfl:screen", O_RDWR)) != 2) {
+		debug_printf("err opening stderr");
+		abort();
+	}
+
+	printf("twzinit: starting\n");
 
 	for(;;)
 		;

@@ -134,7 +134,6 @@ objid_t kid, sid;
 struct object kobj, sobj;
 void kbmain(void *a)
 {
-	debug_printf("keyboard thread started");
 	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
 	int r;
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
@@ -142,8 +141,7 @@ void kbmain(void *a)
 		abort();
 	}
 
-	bstream_write(&sobj, twz_obj_base(&sobj), "Hello, World", 12, 0);
-	(void)a;
+	// bstream_write(&sobj, twz_obj_base(&sobj), "Hello, World", 12, 0);
 	for(;;) {
 		int x = serial_getc();
 		switch(x) {
@@ -151,19 +149,18 @@ void kbmain(void *a)
 				//	bstream_mark_eof(&ko);
 				break;
 			case '\r':
-				serial_putc('\n'); /* fall through */
+				x = '\n';
+				serial_putc('\r'); /* fall through */
 			default:
 				serial_putc(x);
 		}
-		bstream_write(&kobj, twz_obj_base(&kobj), &x, 1, 0);
+		bstream_write(&kobj, &x, 1, 0);
 	}
 }
 
 struct object bs;
 int main(int argc, char **argv)
 {
-	debug_printf("Twizzler Terminal Emulator");
-
 	int r;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &kid))) {
 		debug_printf("failed to create keyboard object");
@@ -218,7 +215,7 @@ int main(int argc, char **argv)
 	for(;;) {
 		char buf[128];
 		memset(buf, 0, sizeof(buf));
-		ssize_t r = bstream_read(&sobj, twz_obj_base(&sobj), buf, 127, 0);
+		ssize_t r = bstream_read(&sobj, buf, 127, 0);
 		if(r > 0) {
 			for(ssize_t i = 0; i < r; i++) {
 				if(buf[i] == '\n')

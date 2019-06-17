@@ -26,6 +26,12 @@ static inline void *__twz_ptr_lea(const struct object *o, const void *p)
 	}
 }
 
+#define TWZ_OBJECT_INIT(s)                                                                         \
+	(struct object)                                                                                \
+	{                                                                                              \
+		.base = (void *)(SLOT_TO_VADDR(s)),                                                        \
+	}
+
 #define twz_ptr_lea(o, p) ({ (typeof(p)) __twz_ptr_lea((o), (p)); })
 
 #define twz_ptr_local(p) ({ (typeof(p))((uintptr_t)(p) & (OBJ_MAXSIZE - 1)); })
@@ -37,11 +43,6 @@ int twz_object_open(struct object *obj, objid_t id, int flags);
 
 #define SLOT_TO_VADDR(s) ({ (void *)((s)*OBJ_MAXSIZE); })
 #define VADDR_TO_SLOT(s) ({ (size_t)((uintptr_t)(s) / OBJ_MAXSIZE); })
-
-#define TWZ_OBJECT_INIT(s)                                                                         \
-	{                                                                                              \
-		.base = SLOT_TO_VADDR(s)                                                                   \
-	}
 
 void *twz_object_getext(struct object *obj, uint64_t tag);
 int twz_object_addext(struct object *obj, uint64_t tag, void *ptr);

@@ -13,3 +13,8 @@ struct twzio_hdr {
 
 #define TWZIO_EVENT_READ 1
 #define TWZIO_EVENT_WRITE 2
+
+ssize_t twzio_read(struct object *obj, void *buf, size_t len, size_t off, unsigned flags);
+ssize_t twzio_write(struct object *obj, const void *buf, size_t len, size_t off, unsigned flags);
+
+#define TWZIO_NONBLOCK 1
