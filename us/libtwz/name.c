@@ -99,6 +99,17 @@ static void copy_names(const char *bsname, struct object *nobj)
 	}
 }
 
+int twz_name_assign(objid_t id, const char *name)
+{
+	if(!__name_init())
+		return -ENOTSUP;
+
+	struct btree_val kv = { .mv_data = name, .mv_size = strlen(name) + 1 };
+	struct btree_val dv = { .mv_data = &id, .mv_size = sizeof(id) };
+
+	return bt_put(&nameobj, twz_obj_base(&nameobj), &kv, &dv, NULL);
+}
+
 int __name_bootstrap(void)
 {
 	const char *bsname = getenv("BSNAME");

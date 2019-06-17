@@ -28,9 +28,11 @@ ssize_t bstream_read(struct object *obj,
 				if(event_clear(&hdr->ev, TWZIO_EVENT_READ)) {
 					continue;
 				}
+				mutex_release(&hdr->rlock);
 				struct event e;
 				event_init(&e, &hdr->ev, TWZIO_EVENT_READ, NULL);
 				event_wait(1, &e);
+				mutex_acquire(&hdr->rlock);
 				continue;
 			}
 			break;
@@ -61,9 +63,11 @@ ssize_t bstream_write(struct object *obj,
 				if(event_clear(&hdr->ev, TWZIO_EVENT_WRITE)) {
 					continue;
 				}
+				mutex_release(&hdr->wlock);
 				struct event e;
 				event_init(&e, &hdr->ev, TWZIO_EVENT_WRITE, NULL);
 				event_wait(1, &e);
+				mutex_acquire(&hdr->wlock);
 				continue;
 			}
 			break;

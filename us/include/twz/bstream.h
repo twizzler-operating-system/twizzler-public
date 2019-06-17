@@ -20,3 +20,15 @@ struct bstream_hdr {
 
 #define BSTREAM_GATE_READ 1
 #define BSTREAM_GATE_WRITE 2
+
+ssize_t bstream_write(struct object *obj,
+  struct bstream_hdr *hdr,
+  const void *ptr,
+  size_t len,
+  unsigned flags);
+ssize_t bstream_read(struct object *obj,
+  struct bstream_hdr *hdr,
+  void *ptr,
+  size_t len,
+  unsigned flags);
+int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr, uint32_t nbits);

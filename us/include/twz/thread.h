@@ -24,6 +24,7 @@ ssize_t twz_thread_wait(size_t count,
   int *syncpoints,
   long *event,
   uint64_t *info);
+int twz_thread_ready(struct thread *thread, int sp, uint64_t info);
 
 #define twz_thread_repr_base()                                                                     \
 	({                                                                                             \

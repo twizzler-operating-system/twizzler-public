@@ -55,7 +55,6 @@ int event_wait(size_t count, struct event *ev)
 			points[i] = (long *)point;
 			ops[i] = THREAD_SYNC_SLEEP;
 			spec[i] = ev->flags & EV_TIMEOUT ? &ev->timeout : NULL;
-			debug_printf("== %lx %lx\n", *point, ev->events);
 			ev->result = arg[i] & ev->events;
 			if(ev->result) {
 				ready++;

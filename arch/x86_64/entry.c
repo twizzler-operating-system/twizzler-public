@@ -92,7 +92,7 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
 		} else if(frame->int_no < 32) {
 			if(was_userspace) {
 				struct fault_exception_info info = {
-					.ip   = frame->rip,
+					.ip = frame->rip,
 					.code = frame->int_no,
 					.arg0 = frame->err_code,
 				};
@@ -150,7 +150,7 @@ extern void x86_64_resume_userspace_interrupt(void *);
 __noinstrument void arch_thread_resume(struct thread *thread)
 {
 	// printk("resume %ld\n", thread->id);
-	struct thread *old           = current_thread;
+	struct thread *old = current_thread;
 	thread->processor->arch.curr = thread;
 	thread->processor->arch.tcb =
 	  (void *)((uint64_t)&thread->arch.syscall + sizeof(struct x86_64_syscall_frame));
