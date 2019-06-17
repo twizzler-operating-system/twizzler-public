@@ -33,3 +33,5 @@ ssize_t twz_thread_wait(size_t count,
 	})
 
 #define TWZ_THREAD_STACK_SIZE 0x200000
+
+int twz_exec(objid_t id, char const *const *argv, char *const *env);

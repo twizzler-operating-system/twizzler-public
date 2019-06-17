@@ -1,7 +1,7 @@
-#include <memory.h>
 #include <debug.h>
-#include <thread.h>
 #include <lib/iter.h>
+#include <memory.h>
+#include <thread.h>
 static DECLARE_LIST(physical_regions);
 
 void mm_init(void)
@@ -12,10 +12,13 @@ void mm_init(void)
 		pmm_buddy_init(reg);
 
 		printk("[mm]: memory region %lx -> %lx (%ld MB), %x\n",
-				reg->start, reg->start + reg->length, reg->length / (1024*1024), reg->flags);
+		  reg->start,
+		  reg->start + reg->length,
+		  reg->length / (1024 * 1024),
+		  reg->flags);
 
 		for(uintptr_t addr = reg->start; addr < reg->start + reg->length;
-				addr += MM_BUDDY_MIN_SIZE) {
+		    addr += MM_BUDDY_MIN_SIZE) {
 			pmm_buddy_deallocate(reg, addr);
 		}
 		reg->ready = true;
@@ -58,7 +61,6 @@ void kernel_fault_entry(uintptr_t ip, uintptr_t addr, int flags)
 	if(addr < KERNEL_VIRTUAL_BASE) {
 		vm_context_fault(ip, addr, flags);
 	} else {
-		panic("kernel page fault: %lx, %x", addr, flags);
+		panic("kernel page fault: %lx, %x at ip=%lx", addr, flags, ip);
 	}
 }
-

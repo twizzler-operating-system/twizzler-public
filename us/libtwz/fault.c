@@ -191,7 +191,7 @@ void __twz_fault_init(void)
 	asm volatile("mov %%fs:0, %%rsi" : "=S"(s));
 	asm volatile("mov %%fs:8, %%rdx" : "=d"(d));
 
-	__seg_gs struct twzthread_repr *repr = (uintptr_t)OBJ_NULLPAGE_SIZE;
+	struct twzthread_repr *repr = twz_thread_repr_base();
 
 	/* have to do this manually, because fault handling during init
 	 * may not use any global data (since the data object may not be mapped) */

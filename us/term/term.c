@@ -15,8 +15,10 @@ void tmain(void *a)
 struct object bs;
 int main(int argc, char **argv)
 {
-	(void)argc;
-	(void)argv;
+	debug_printf("HELLO FROM TERM\n");
+
+	for(;;)
+		;
 	struct thread t;
 	int r;
 	r = twz_thread_spawn(&t, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &bs });

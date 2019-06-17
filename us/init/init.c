@@ -9,7 +9,17 @@ static int __name_bootstrap(void);
 void tmain(void *a)
 {
 	debug_printf("Hello from thread! %p\n", a);
-	twz_thread_ready(NULL, THRD_SYNC_READY, 1234);
+
+	objid_t id = 0;
+	int r = twz_name_resolve(NULL, "term.text", NULL, 0, &id);
+	if(r) {
+		debug_printf("FAILED to resolve term");
+		twz_thread_exit();
+	}
+
+	debug_printf("EXECUTE " IDFMT, IDPR(id));
+	twz_exec(id, (const char *const[]){ "term.text", "arg1", "arg2", NULL }, NULL);
+
 	for(;;)
 		;
 	struct object *b = a;
