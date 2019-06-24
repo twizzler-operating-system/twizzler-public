@@ -45,6 +45,7 @@ struct twix_register_frame {
 #define LINUX_SYS_readv 19
 #define LINUX_SYS_writev 20
 
+#define LINUX_SYS_execve 59
 #define LINUX_SYS_exit 60
 
 #define LINUX_SYS_arch_prctl 158
@@ -167,6 +168,18 @@ long linux_sys_close(int fd)
 	}
 	fds[fd].taken = false;
 	return 0;
+}
+
+#include <twz/thread.h>
+long linux_sys_execve(const char *path, char **argv, char *const *env)
+{
+	objid_t id = 0;
+	int r = twz_name_resolve(NULL, path, NULL, 0, &id);
+	if(r) {
+		return r;
+	}
+
+	return twz_exec(id, argv, env);
 }
 
 #include <twz/bstream.h>
@@ -408,6 +421,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_open] = linux_sys_open,
 	[LINUX_SYS_close] = linux_sys_close,
 	[LINUX_SYS_mmap] = linux_sys_mmap,
+	[LINUX_SYS_execve] = linux_sys_execve,
 };
 
 static size_t stlen = sizeof(syscall_table) / sizeof(syscall_table[0]);

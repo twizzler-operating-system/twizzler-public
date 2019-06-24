@@ -6,6 +6,7 @@
 #include <twz/name.h>
 #include <twz/obj.h>
 #include <twz/thread.h>
+#include <unistd.h>
 static int __name_bootstrap(void);
 
 void tmain(void *a)
@@ -18,8 +19,9 @@ void tmain(void *a)
 		twz_thread_exit();
 	}
 
-	twz_exec(id, (const char *const[]){ pg, NULL }, NULL);
-	debug_printf("failed to exec '%s'", pg);
+	// twz_exec(id, (const char *const[]){ pg, NULL }, NULL);
+	r = execv(pg, (char *[]){ pg, NULL });
+	debug_printf("failed to exec '%s': %d", pg, r);
 	twz_thread_exit();
 }
 
@@ -43,14 +45,14 @@ int main(int argc, char **argv)
 
 	objid_t stdinid, stdoutid;
 
-	if(twz_name_resolve(NULL, "dev:dfl:screen", NULL, 0, &stdoutid)) {
-		debug_printf("failed to resolve dfl screen");
-		abort();
+	/*if(twz_name_resolve(NULL, "dev:dfl:screen", NULL, 0, &stdoutid)) {
+	    debug_printf("failed to resolve dfl screen");
+	    abort();
 	}
 	if(twz_name_resolve(NULL, "dev:dfl:keyboard", NULL, 0, &stdinid)) {
-		debug_printf("failed to resolve dfl keyboard");
-		abort();
-	}
+	    debug_printf("failed to resolve dfl keyboard");
+	    abort();
+	}*/
 
 	int fd;
 	if((fd = open("dev:dfl:keyboard", O_RDONLY)) != 0) {
@@ -67,6 +69,15 @@ int main(int argc, char **argv)
 	}
 
 	printf("twzinit: starting\n");
+
+	struct thread shthr;
+	if((r = twz_thread_spawn(
+	      &shthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = "shell.text" }))) {
+		debug_printf("failed to spawn shell");
+		abort();
+	}
+
+	debug_printf("DONE");
 
 	for(;;)
 		;
