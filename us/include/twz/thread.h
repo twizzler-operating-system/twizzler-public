@@ -36,3 +36,10 @@ int twz_thread_ready(struct thread *thread, int sp, uint64_t info);
 #define TWZ_THREAD_STACK_SIZE 0x200000
 
 int twz_exec(objid_t id, char const *const *argv, char *const *env);
+
+int twz_exec_create_view(struct object *view, objid_t id, objid_t *vid);
+int twz_exec_view(struct object *view,
+  objid_t vid,
+  size_t entry,
+  char const *const *argv,
+  char *const *env);

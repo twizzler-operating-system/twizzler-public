@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 		abort();
 	}
 
-	debug_printf("DONE");
+	printf("DONE\n");
 
 	for(;;)
 		;

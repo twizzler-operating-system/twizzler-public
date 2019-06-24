@@ -92,6 +92,7 @@ struct file {
 	int fd;
 	bool valid;
 	bool taken;
+	int fcntl_fl;
 };
 
 #define MAX_FD 1024
@@ -100,15 +101,6 @@ static struct file fds[MAX_FD];
 #define DW_NONBLOCK 1
 
 #include <fcntl.h>
-
-static void __fd_sys_init(void)
-{
-	static bool fds_init = false;
-	if(fds_init) {
-		return;
-	}
-	fds_init = true;
-}
 
 static int __check_fd_valid(int fd)
 {
@@ -124,6 +116,17 @@ static int __check_fd_valid(int fd)
 		return -EBADF;
 	}
 	return 0;
+}
+
+static void __fd_sys_init(void)
+{
+	static bool fds_init = false;
+	if(fds_init) {
+		return;
+	}
+	fds_init = true;
+	for(size_t i = 0; i < MAX_FD; i++)
+		__check_fd_valid(i);
 }
 
 static int __alloc_fd(void)
@@ -171,6 +174,23 @@ long linux_sys_close(int fd)
 }
 
 #include <twz/thread.h>
+struct elf64_header {
+	uint8_t e_ident[16];
+	uint16_t e_type;
+	uint16_t e_machine;
+	uint32_t e_version;
+	uint64_t e_entry;
+	uint64_t e_phoff;
+	uint64_t e_shoff;
+	uint32_t e_flags;
+	uint16_t e_ehsize;
+	uint16_t e_phentsize;
+	uint16_t e_phnum;
+	uint16_t e_shentsize;
+	uint16_t e_shnum;
+	uint16_t e_shstrndx;
+};
+
 long linux_sys_execve(const char *path, char **argv, char *const *env)
 {
 	objid_t id = 0;
@@ -179,7 +199,28 @@ long linux_sys_execve(const char *path, char **argv, char *const *env)
 		return r;
 	}
 
-	return twz_exec(id, argv, env);
+	objid_t vid;
+	struct object view;
+	if((r = twz_exec_create_view(&view, id, &vid)) < 0) {
+		return r;
+	}
+
+	for(size_t i = 0; i < MAX_FD; i++) {
+		struct file *f = &fds[i];
+		/* TODO: CLOEXEC */
+		if(f->valid && f->taken) {
+			objid_t fi;
+			uint32_t fl;
+			twz_view_get(NULL, TWZSLOT_FILES_BASE + i, &fi, &fl);
+			twz_view_set(&view, TWZSLOT_FILES_BASE + i, fi, fl);
+		}
+	}
+
+	struct object exe;
+	twz_object_open(&exe, id, FE_READ);
+	struct elf64_header *hdr = twz_obj_base(&exe);
+
+	return twz_exec_view(&view, vid, hdr->e_entry, argv, env);
 }
 
 #include <twz/bstream.h>
