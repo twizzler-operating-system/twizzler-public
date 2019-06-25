@@ -17,10 +17,13 @@ struct scgates {
 
 enum SC_HASH_FNS {
 	SCHASH_BLAKE2,
+	SCHASH_NUM,
 };
 
 enum SC_ENC_FNS {
+	SCENC_TEST,
 	SCENC_RSA,
+	SCENC_NUM,
 };
 
 #define SCP_READ MIP_DFL_READ
