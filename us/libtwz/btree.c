@@ -250,8 +250,6 @@ int bt_insert(struct object *obj,
 	}
 	struct btree_node *pt = oa_hdr_alloc(obj, &hdr->oa, sizeof(struct btree_node));
 
-	// debug_printf("INSERTING === === === %p\n", obj->base);
-	// bt_print_tree(obj, hdr);
 	pt = __l(obj, pt);
 	pt->left = pt->right = pt->parent = NULL;
 	pt->color = 0;
@@ -262,33 +260,19 @@ int bt_insert(struct object *obj,
 
 	pt->md.mv_data = d->mv_data;
 
-	// debug_printf("%ld %ld %d\n", k->mv_size, d->mv_size, sizeof(struct btree_node));
-	// pt->md.mv_data = d->mv_data;
-
-	// int rc = twz_ptr_swizzle(obj, &pt->mk.mv_data, NULL, k->mv_data, FE_READ | FE_WRITE);
-	// debug_printf("SWIZ %p -> %p\n", k->mv_data, pt->mk.mv_data);
-	// if(rc == 0)
-	//	rc = twz_ptr_swizzle(obj, &pt->md.mv_data, NULL, d->mv_data, FE_READ | FE_WRITE);
-	// debug_printf("SWIZ %p -> %p\n", d->mv_data, pt->md.mv_data);
-	// if(rc)
-	//	return rc;
-
 	// Do a normal BST insert
 	struct btree_node *e = NULL;
 	hdr->root = __c(BSTInsert(obj, __l(obj, hdr->root), pt, &e, k));
 	if(e) {
 		if(nt)
 			*nt = e;
-		/* TODO: BREAKING */
-		// oa_hdr_free(obj, &hdr->oa, pt);
+		oa_hdr_free(obj, &hdr->oa, pt);
 		return 1;
 	}
 	if(nt)
 		*nt = pt;
 	pt = __c(pt);
 
-	// debug_printf("END INSERTING === === === %p\n", obj->base);
-	// bt_print_tree(obj, hdr);
 	// fix Red Black Tree violations
 	fixViolation(obj, &hdr->root, &pt);
 	return 0;

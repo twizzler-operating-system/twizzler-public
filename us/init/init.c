@@ -7,7 +7,7 @@
 #include <twz/obj.h>
 #include <twz/thread.h>
 #include <unistd.h>
-static int __name_bootstrap(void);
+int __name_bootstrap(void);
 
 void tmain(void *a)
 {
@@ -42,17 +42,6 @@ int main(int argc, char **argv)
 	}
 
 	twz_thread_wait(1, (struct thread *[]){ &tthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
-
-	objid_t stdinid, stdoutid;
-
-	/*if(twz_name_resolve(NULL, "dev:dfl:screen", NULL, 0, &stdoutid)) {
-	    debug_printf("failed to resolve dfl screen");
-	    abort();
-	}
-	if(twz_name_resolve(NULL, "dev:dfl:keyboard", NULL, 0, &stdinid)) {
-	    debug_printf("failed to resolve dfl keyboard");
-	    abort();
-	}*/
 
 	int fd;
 	if((fd = open("dev:dfl:keyboard", O_RDONLY)) != 0) {

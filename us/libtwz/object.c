@@ -13,7 +13,6 @@ int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 int twz_object_open(struct object *obj, objid_t id, int flags)
 {
 	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);
-	// debug_printf("OPEN: " IDFMT " %x -> %lx\n", id, flags, slot);
 	if(slot < 0)
 		return slot;
 
@@ -57,7 +56,6 @@ ssize_t twz_object_addfot(struct object *obj, objid_t id, uint64_t flags)
 	struct fotentry *fe = (void *)((char *)mi + mi->milen);
 	/* TODO: large FOTs */
 	for(size_t e = 1; e < 64; e++) {
-		/* TODO: reuse better */
 		if(fe[e].id == id && fe[e].flags == flags)
 			return e;
 		if(fe[e].id == 0) {
