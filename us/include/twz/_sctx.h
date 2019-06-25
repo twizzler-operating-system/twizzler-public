@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stddef.h>
 #include <twz/_obj.h>
 #include <twz/_objid.h>
 
@@ -61,5 +62,20 @@ struct scdlg {
 	char data[];
 };
 
+struct scbucket {
+	objid_t target;
+	void *data;
+	uint64_t flags;
+	struct scgates gatemask;
+	uint32_t pmask;
+	uint32_t chain;
+};
+
 struct secctx {
+	union {
+		char userdata[512];
+	};
+	size_t nbuckets;
+	size_t nchain;
+	struct scbucket buckets[];
 };
