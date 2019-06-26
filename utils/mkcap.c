@@ -29,6 +29,7 @@ int main(int argc, char **argv)
 {
 	int c;
 	struct sccap cap = { 0 };
+	cap.magic = SC_CAP_MAGIC;
 	while((c = getopt(argc, argv, "t:a:p:e:h:s:r:")) != EOF) {
 		switch(c) {
 			char *as, *bs, *cs;

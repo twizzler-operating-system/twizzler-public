@@ -29,6 +29,7 @@ int main(int argc, char **argv)
 {
 	int c;
 	struct scdlg dlg = { 0 };
+	dlg.magic = SC_DLG_MAGIC;
 	while((c = getopt(argc, argv, "dt:a:m:e:h:s:r:")) != EOF) {
 		switch(c) {
 			char *as, *bs, *cs;

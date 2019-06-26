@@ -36,17 +36,21 @@ enum SC_ENC_FNS {
 #define SCF_GATE 2
 #define SCF_REV 4
 
+#define SC_CAP_MAGIC 0xca55
+#define SC_DLG_MAGIC 0xdf55
+
 struct sccap {
 	objid_t target;
 	objid_t accessor;
 	struct screvoc rev;
 	struct scgates gates;
 	uint32_t perms;
-	uint32_t pad;
+	uint16_t magic;
 	uint16_t flags;
 	uint16_t htype;
 	uint16_t etype;
 	uint16_t slen;
+	uint16_t pad;
 	char sig[];
 };
 
@@ -56,14 +60,20 @@ struct scdlg {
 	struct screvoc rev;
 	struct scgates gates;
 	uint32_t mask;
+	uint16_t magic;
 	uint16_t flags;
 	uint16_t htype;
 	uint16_t etype;
-	uint16_t pad;
 	uint16_t slen;
 	uint16_t dlen;
 	char data[];
 };
+
+_Static_assert(sizeof(struct scdlg) == sizeof(struct sccap),
+  "CAP and DLG struct size must be the same");
+
+_Static_assert(offsetof(struct scdlg, magic) == offsetof(struct sccap, magic),
+  "CAP and DLG struct magic offset must be the same");
 
 struct scbucket {
 	objid_t target;
@@ -77,6 +87,9 @@ struct scbucket {
 struct secctx {
 	union {
 		char userdata[512];
+		struct {
+			size_t max;
+		} alloc;
 	};
 	size_t nbuckets;
 	size_t nchain;
