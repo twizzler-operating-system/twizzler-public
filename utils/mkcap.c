@@ -19,9 +19,10 @@ static const char *efns[] = {
 	[SCENC_RSA] = "rsa",
 };
 
+#define BITS_PER_BYTE 8
 size_t sigbits[SCENC_NUM][SCHASH_NUM] = {
 	[SCENC_TEST] = {
-		[SCHASH_BLAKE2] = 256,
+		[SCHASH_BLAKE2] = 256 / BITS_PER_BYTE,
 	},
 };
 
