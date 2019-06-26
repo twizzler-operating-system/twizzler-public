@@ -1,8 +1,8 @@
-#include <memory.h>
 #include <arch/x86_64-msr.h>
 #include <arch/x86_64-vmx.h>
-#include <processor.h>
+#include <memory.h>
 #include <object.h>
+#include <processor.h>
 #include <secctx.h>
 static uint32_t revision_id;
 static uintptr_t ept_root;
@@ -13,8 +13,7 @@ static bool support_virt_exception = false;
 
 static void x86_64_vmenter(struct processor *proc);
 
-static const char *vm_errs[] = {
-	"Success",
+static const char *vm_errs[] = { "Success",
 	"VMCALL in vmx-root",
 	"VMCLEAR with invalid address",
 	"VMCLEAR with VMXON ptr",
@@ -42,8 +41,7 @@ static const char *vm_errs[] = {
 	"VM entry with invalid VM execution control fields",
 	"VM entry with events blocked by mov ss",
 	"[reserved]",
-	"invalid operand to INVEPT/INVVPID"
-};
+	"invalid operand to INVEPT/INVVPID" };
 
 static inline unsigned long vmcs_readl(unsigned long field)
 {
@@ -104,9 +102,9 @@ static void x86_64_enable_vmx(void)
 	/* okay, now try to enable VMX instructions. */
 	uint64_t cr4;
 	asm volatile("mov %%cr4, %0" : "=r"(cr4));
-	cr4 |= (1 << 13); //enable VMX
+	cr4 |= (1 << 13); // enable VMX
 	uintptr_t vmxon_region = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
-	
+
 	/* get the revision ID. This is needed for several VM data structures. */
 	x86_64_rdmsr(X86_MSR_VMX_BASIC, &lo, &hi);
 	revision_id = lo & 0x7FFFFFFF;
@@ -115,11 +113,13 @@ static void x86_64_enable_vmx(void)
 
 	uint8_t error;
 	/* enable VT-x by setting the enable bit in cr4 and executing the 'on' vmx instr. */
-	asm volatile("mov %1, %%cr4; vmxon %2; setc %0" :"=g"(error): "r"(cr4), "m"(vmxon_region) : "cc");
+	asm volatile("mov %1, %%cr4; vmxon %2; setc %0"
+	             : "=g"(error)
+	             : "r"(cr4), "m"(vmxon_region)
+	             : "cc");
 	if(error) {
 		panic("failed to enter VMX operation");
 	}
-
 
 	x86_64_rdmsr(X86_MSR_VMX_PROCBASED_CTLS, &lo, &hi);
 	if(!(hi & (1ul << 31))) {
@@ -138,8 +138,11 @@ static void x86_64_enable_vmx(void)
 			support_ept_switch_vmfunc = true;
 		}
 	}
-	
-	printk("processor %d entered vmx-root (VE=%d, VMF=%d)\n", current_processor->id, support_virt_exception, support_ept_switch_vmfunc);
+
+	printk("processor %d entered vmx-root (VE=%d, VMF=%d)\n",
+	  current_processor->id,
+	  support_virt_exception,
+	  support_ept_switch_vmfunc);
 }
 
 __attribute__((used)) static void x86_64_vmentry_failed(struct processor *proc)
@@ -149,8 +152,8 @@ __attribute__((used)) static void x86_64_vmentry_failed(struct processor *proc)
 
 static void vmx_queue_exception(unsigned int nr)
 {
-	vmcs_writel(VMCS_ENTRY_INTR_INFO,
-			(nr & 0xff) | INTR_TYPE_HARD_EXCEPTION | INTR_INFO_VALID_MASK);
+	vmcs_writel(
+	  VMCS_ENTRY_INTR_INFO, (nr & 0xff) | INTR_TYPE_HARD_EXCEPTION | INTR_INFO_VALID_MASK);
 }
 
 /* Some vmexits leave the RIP pointing to the current instruction,
@@ -168,8 +171,8 @@ static void vmx_handle_rootcall(struct processor *proc)
 {
 	long fn = proc->arch.vcpu_state_regs[REG_RDI];
 	long a0 = proc->arch.vcpu_state_regs[REG_RSI];
-	//long a1 = proc->vcpu_state_regs[REG_RDX];
-	//long a2 = proc->vcpu_state_regs[REG_RCX];
+	// long a1 = proc->vcpu_state_regs[REG_RDX];
+	// long a2 = proc->vcpu_state_regs[REG_RCX];
 
 	/* Make sure we only accept calls from kernel-mode.
 	 * Linux looks at the AR bytes instead of the selector DPL.
@@ -196,22 +199,22 @@ static void vmx_handle_rootcall(struct processor *proc)
 static void vmx_handle_ept_violation(struct processor *proc)
 {
 	if(proc->arch.veinfo->lock != 0) {
-		panic("virtualization information area lock is not 0:\n(%lx %lx %lx) -> (%lx %lx %lx) at %ld:%lx",
-				proc->arch.veinfo->qual,
-				proc->arch.veinfo->physical,
-				proc->arch.veinfo->linear,
-				vmcs_readl(VMCS_EXIT_QUALIFICATION),
-				vmcs_readl(VMCS_GUEST_PHYSICAL_ADDRESS),
-				vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS),
-				current_thread->id,
-				vmcs_readl(VMCS_GUEST_RIP)
-				);
+		panic("virtualization information area lock is not 0:\n(%lx %lx %lx) -> (%lx %lx %lx) at "
+		      "%ld:%lx",
+		  proc->arch.veinfo->qual,
+		  proc->arch.veinfo->physical,
+		  proc->arch.veinfo->linear,
+		  vmcs_readl(VMCS_EXIT_QUALIFICATION),
+		  vmcs_readl(VMCS_GUEST_PHYSICAL_ADDRESS),
+		  vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS),
+		  current_thread->id,
+		  vmcs_readl(VMCS_GUEST_RIP));
 	}
-	proc->arch.veinfo->reason   = VMEXIT_REASON_EPT_VIOLATION;
-	proc->arch.veinfo->qual     = vmcs_readl(VMCS_EXIT_QUALIFICATION);
+	proc->arch.veinfo->reason = VMEXIT_REASON_EPT_VIOLATION;
+	proc->arch.veinfo->qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
 	proc->arch.veinfo->physical = vmcs_readl(VMCS_GUEST_PHYSICAL_ADDRESS);
-	proc->arch.veinfo->linear   = vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS);
-	proc->arch.veinfo->eptidx   = 0; /* TODO (minor) */
+	proc->arch.veinfo->linear = vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS);
+	proc->arch.veinfo->eptidx = 0; /* TODO (minor) */
 	proc->arch.veinfo->lock = 0xFFFFFFFF;
 	vmx_queue_exception(20); /* #VE */
 }
@@ -225,31 +228,32 @@ void x86_64_vmexit_handler(struct processor *proc)
 	unsigned long qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
 	unsigned long grip = vmcs_readl(VMCS_GUEST_RIP);
 	unsigned long iinfo = vmcs_readl(VMCS_VM_INSTRUCTION_INFO);
-/*
-	if(reason != VMEXIT_REASON_CPUID
-			&& reason != VMEXIT_REASON_VMCALL
-			&& reason != VMEXIT_REASON_EPT_VIOLATION
-			&& reason != VMEXIT_REASON_INVEPT)
-			*/
-	//printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual, iinfo);
+	/*
+	    if(reason != VMEXIT_REASON_CPUID
+	            && reason != VMEXIT_REASON_VMCALL
+	            && reason != VMEXIT_REASON_EPT_VIOLATION
+	            && reason != VMEXIT_REASON_INVEPT)
+	            */
+	// printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual,
+	// iinfo);
 
-	//uint32_t x, y;
-	//x86_64_rdmsr(X86_MSR_GS_BASE, &x, &y);
-	//printk("GS: %x %x\nPROC: %p", y, x, &proc->arch);
+	// uint32_t x, y;
+	// x86_64_rdmsr(X86_MSR_GS_BASE, &x, &y);
+	// printk("GS: %x %x\nPROC: %p", y, x, &proc->arch);
 
 	atomic_fetch_add(&vmexits_count, 1);
 	switch(reason) {
 		uintptr_t val;
 		case VMEXIT_REASON_CPUID:
 			/* just execute cpuid using the guest's registers */
-			asm volatile("push %%rbx; cpuid; mov %%rbx, %0; pop %%rbx":
-					"=a"(proc->arch.vcpu_state_regs[REG_RAX]),
-					"=g"(proc->arch.vcpu_state_regs[REG_RBX]),
-					"=c"(proc->arch.vcpu_state_regs[REG_RCX]),
-					"=d"(proc->arch.vcpu_state_regs[REG_RDX])
-					:"a"(proc->arch.vcpu_state_regs[REG_RAX]),
-					"c"(proc->arch.vcpu_state_regs[REG_RCX])
-					: "memory");
+			asm volatile(
+			  "push %%rbx; cpuid; mov %%rbx, %0; pop %%rbx"
+			  : "=a"(proc->arch.vcpu_state_regs[REG_RAX]),
+			  "=g"(proc->arch.vcpu_state_regs[REG_RBX]),
+			  "=c"(proc->arch.vcpu_state_regs[REG_RCX]),
+			  "=d"(proc->arch.vcpu_state_regs[REG_RDX])
+			  : "a"(proc->arch.vcpu_state_regs[REG_RAX]), "c"(proc->arch.vcpu_state_regs[REG_RCX])
+			  : "memory");
 			vm_instruction_advance();
 			break;
 		case VMEXIT_REASON_VMCALL:
@@ -264,8 +268,8 @@ void x86_64_vmexit_handler(struct processor *proc)
 			/* TODO (perf): don't invalidate all mappings */
 			val = vmcs_readl(VMCS_EPT_PTR);
 			unsigned __int128 eptp = val;
-			asm volatile("invept %0, %%rax"
-					:: "m"(eptp), "a"(proc->arch.vcpu_state_regs[REG_RAX]) : "memory");
+			asm volatile("invept %0, %%rax" ::"m"(eptp), "a"(proc->arch.vcpu_state_regs[REG_RAX])
+			             : "memory");
 			vm_instruction_advance();
 			break;
 		default:
@@ -276,122 +280,128 @@ void x86_64_vmexit_handler(struct processor *proc)
 	x86_64_vmenter(proc);
 }
 
-__noinstrument
-static void x86_64_vmenter(struct processor *proc)
+__noinstrument static void x86_64_vmenter(struct processor *proc)
 {
 	/* VMCS does not deal with CPU registers, so we must save and restore them. */
 
 	/* any time we trap back to the "hypervisor" we need this state reset */
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
 	asm volatile(
-			"pushf;"
-			"cli;"
-			"push %%rcx;"
-			"cmp $0, %0;"
-			/* load the "guest" registers into the cpu. We can trash the host regs because
-			 * we are also the guest. Wheee. */
-			"mov %c[cr2](%%rcx), %%rax;"
-			"mov %%rax, %%cr2;"         /* CR2 must be loaded from a register */
-			"mov %c[rax](%%rcx), %%rax;"
-			"mov %c[rbx](%%rcx), %%rbx;"
-			"mov %c[rdx](%%rcx), %%rdx;"
-			"mov %c[rdi](%%rcx), %%rdi;"
-			"mov %c[rsi](%%rcx), %%rsi;"
-			"mov %c[rbp](%%rcx), %%rbp;"
-			"mov %c[r8](%%rcx),  %%r8;"
-			"mov %c[r9](%%rcx),  %%r9;"
-			"mov %c[r10](%%rcx), %%r10;"
-			"mov %c[r11](%%rcx), %%r11;"
-			"mov %c[r12](%%rcx), %%r12;"
-			"mov %c[r13](%%rcx), %%r13;"
-			"mov %c[r14](%%rcx), %%r14;"
-			"mov %c[r15](%%rcx), %%r15;"
-			"mov %c[rcx](%%rcx), %%rcx;" /* this kills rcx */
-			/* okay, now try to start the "vm". This means either vmlaunch (if we're initializing), or vmresume otherwise. */
-			"jne launched;"
-			"vmlaunch; jmp failed;"
-			"launched: vmresume; failed:"
-			"pop %%rcx;"
-			"mov %c[procptr](%%rcx), %%rdi;" /* we destroyed our registers, so lets load a pointer to the proc structure. */
-			"popf;" /* restore our flags */
-			"call x86_64_vmentry_failed;"
-			/* okay, let's have an assembly stub for a VM exit */
-			".global vmexit_point;"
-			"vmexit_point:;"
-			/* save the guest registers for reloading later. Again, we don't need to reload host regs because we're treating
-			 * this like any other "kernel entry", so we can just start from a stack with a pointer to a processor. */
-			"mov %%rax, %c[rax](%%rsp);" /* help me im lost in assembly land */
-			"mov %%rbx, %c[rbx](%%rsp);"
-			"mov %%rcx, %c[rcx](%%rsp);"
-			"mov %%rdx, %c[rdx](%%rsp);"
-			"mov %%rdi, %c[rdi](%%rsp);"
-			"mov %%rsi, %c[rsi](%%rsp);"
-			"mov %%rbp, %c[rbp](%%rsp);"
-			"mov %%r8,  %c[r8](%%rsp);"
-			"mov %%r9,  %c[r9](%%rsp);"
-			"mov %%r10, %c[r10](%%rsp);"
-			"mov %%r11, %c[r11](%%rsp);"
-			"mov %%r12, %c[r12](%%rsp);"
-			"mov %%r13, %c[r13](%%rsp);"
-			"mov %%r14, %c[r14](%%rsp);"
-			"mov %%r15, %c[r15](%%rsp);"
-			/* okay, load the processor pointer and the _actual_ "host" stack pointer (hyper stack) */
-			"mov %c[procptr](%%rsp), %%rdi;"
-			"mov %c[hrsp](%%rsp), %%rsp;"
-			/* and go back to C */
-			"jmp x86_64_vmexit_handler;"
-			::
-			"r"(proc->arch.launched),
-			"c"(proc->arch.vcpu_state_regs),
-			[guest_cs_sel]"i"(VMCS_GUEST_CS_SEL),
-			[rax]"i"(REG_RAX*8),
-			[rbx]"i"(REG_RBX*8),
-			[rcx]"i"(REG_RCX*8),
-			[rdx]"i"(REG_RDX*8),
-			[rdi]"i"(REG_RDI*8),
-			[rsi]"i"(REG_RSI*8),
-			[rbp]"i"(REG_RBP*8),
-			[r8] "i"(REG_R8 *8),
-			[r9] "i"(REG_R9 *8),
-			[r10]"i"(REG_R10*8),
-			[r11]"i"(REG_R11*8),
-			[r12]"i"(REG_R12*8),
-			[r13]"i"(REG_R13*8),
-			[r14]"i"(REG_R14*8),
-			[r15]"i"(REG_R15*8),
-			[cr2]"i"(REG_CR2*8),
-			[hrsp]"i"(HOST_RSP*8),
-			[procptr]"i"(PROC_PTR*8));
+	  "pushf;"
+	  "cli;"
+	  "push %%rcx;"
+	  "cmp $0, %0;"
+	  /* load the "guest" registers into the cpu. We can trash the host regs because
+	   * we are also the guest. Wheee. */
+	  "mov %c[cr2](%%rcx), %%rax;"
+	  "mov %%rax, %%cr2;" /* CR2 must be loaded from a register */
+	  "mov %c[rax](%%rcx), %%rax;"
+	  "mov %c[rbx](%%rcx), %%rbx;"
+	  "mov %c[rdx](%%rcx), %%rdx;"
+	  "mov %c[rdi](%%rcx), %%rdi;"
+	  "mov %c[rsi](%%rcx), %%rsi;"
+	  "mov %c[rbp](%%rcx), %%rbp;"
+	  "mov %c[r8](%%rcx),  %%r8;"
+	  "mov %c[r9](%%rcx),  %%r9;"
+	  "mov %c[r10](%%rcx), %%r10;"
+	  "mov %c[r11](%%rcx), %%r11;"
+	  "mov %c[r12](%%rcx), %%r12;"
+	  "mov %c[r13](%%rcx), %%r13;"
+	  "mov %c[r14](%%rcx), %%r14;"
+	  "mov %c[r15](%%rcx), %%r15;"
+	  "mov %c[rcx](%%rcx), %%rcx;" /* this kills rcx */
+	  /* okay, now try to start the "vm". This means either vmlaunch (if we're initializing), or
+	     vmresume otherwise. */
+	  "jne launched;"
+	  "vmlaunch; jmp failed;"
+	  "launched: vmresume; failed:"
+	  "pop %%rcx;"
+	  "mov %c[procptr](%%rcx), %%rdi;" /* we destroyed our registers, so lets load a pointer to the
+	                                      proc structure. */
+	  "popf;"                          /* restore our flags */
+	  "call x86_64_vmentry_failed;"
+	  /* okay, let's have an assembly stub for a VM exit */
+	  ".global vmexit_point;"
+	  "vmexit_point:;"
+	  /* save the guest registers for reloading later. Again, we don't need to reload host regs
+	   * because we're treating this like any other "kernel entry", so we can just start from a
+	   * stack with a pointer to a processor. */
+	  "mov %%rax, %c[rax](%%rsp);" /* help me im lost in assembly land */
+	  "mov %%rbx, %c[rbx](%%rsp);"
+	  "mov %%rcx, %c[rcx](%%rsp);"
+	  "mov %%rdx, %c[rdx](%%rsp);"
+	  "mov %%rdi, %c[rdi](%%rsp);"
+	  "mov %%rsi, %c[rsi](%%rsp);"
+	  "mov %%rbp, %c[rbp](%%rsp);"
+	  "mov %%r8,  %c[r8](%%rsp);"
+	  "mov %%r9,  %c[r9](%%rsp);"
+	  "mov %%r10, %c[r10](%%rsp);"
+	  "mov %%r11, %c[r11](%%rsp);"
+	  "mov %%r12, %c[r12](%%rsp);"
+	  "mov %%r13, %c[r13](%%rsp);"
+	  "mov %%r14, %c[r14](%%rsp);"
+	  "mov %%r15, %c[r15](%%rsp);"
+	  /* okay, load the processor pointer and the _actual_ "host" stack pointer (hyper stack) */
+	  "mov %c[procptr](%%rsp), %%rdi;"
+	  "mov %c[hrsp](%%rsp), %%rsp;"
+	  /* and go back to C */
+	  "jmp x86_64_vmexit_handler;" ::"r"(proc->arch.launched),
+	  "c"(proc->arch.vcpu_state_regs),
+	  [ guest_cs_sel ] "i"(VMCS_GUEST_CS_SEL),
+	  [ rax ] "i"(REG_RAX * 8),
+	  [ rbx ] "i"(REG_RBX * 8),
+	  [ rcx ] "i"(REG_RCX * 8),
+	  [ rdx ] "i"(REG_RDX * 8),
+	  [ rdi ] "i"(REG_RDI * 8),
+	  [ rsi ] "i"(REG_RSI * 8),
+	  [ rbp ] "i"(REG_RBP * 8),
+	  [ r8 ] "i"(REG_R8 * 8),
+	  [ r9 ] "i"(REG_R9 * 8),
+	  [ r10 ] "i"(REG_R10 * 8),
+	  [ r11 ] "i"(REG_R11 * 8),
+	  [ r12 ] "i"(REG_R12 * 8),
+	  [ r13 ] "i"(REG_R13 * 8),
+	  [ r14 ] "i"(REG_R14 * 8),
+	  [ r15 ] "i"(REG_R15 * 8),
+	  [ cr2 ] "i"(REG_CR2 * 8),
+	  [ hrsp ] "i"(HOST_RSP * 8),
+	  [ procptr ] "i"(PROC_PTR * 8));
 }
 
 /* we cannot just specify a C function as an entry point, because
  * function preludes assume a mis-aligned stack (so they can push rbp). Thus we
  * need to enter to an assembly stub which calls the C code for correct
  * alignment. */
-__attribute__((used))
-static void vmx_entry_point_c(struct processor *proc)
+__attribute__((used)) static void vmx_entry_point_c(struct processor *proc)
 {
 	printk("processor %d entered vmx-non-root mode\n", proc->id);
 	x86_64_processor_post_vm_init(proc);
 }
 
-asm (
-		".global vmx_entry_point\n"
-		".extern vmx_entry_point_c\n"
-		"vmx_entry_point:\n"
-		"call vmx_entry_point_c\n"
-		);
+asm(".global vmx_entry_point\n"
+    ".extern vmx_entry_point_c\n"
+    "vmx_entry_point:\n"
+    "call vmx_entry_point_c\n");
 
 static uint64_t read_cr(int n)
 {
 	uint64_t v = 0;
 	switch(n) {
-		case 0: asm volatile("mov %%cr0, %%rax" : "=a"(v)); break;
+		case 0:
+			asm volatile("mov %%cr0, %%rax" : "=a"(v));
+			break;
 		/* cr1 is not accessible */
-		case 2: asm volatile("mov %%cr2, %%rax" : "=a"(v)); break;
-		case 3: asm volatile("mov %%cr3, %%rax" : "=a"(v)); break;
-		case 4: asm volatile("mov %%cr4, %%rax" : "=a"(v)); break;
-		default: panic("invalid control register");
+		case 2:
+			asm volatile("mov %%cr2, %%rax" : "=a"(v));
+			break;
+		case 3:
+			asm volatile("mov %%cr3, %%rax" : "=a"(v));
+			break;
+		case 4:
+			asm volatile("mov %%cr4, %%rax" : "=a"(v));
+			break;
+		default:
+			panic("invalid control register");
 	}
 	return v;
 }
@@ -414,12 +424,12 @@ bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int leve
 {
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
-	int pd_idx   = PD_IDX(virt);
-	int pt_idx   = PT_IDX(virt);
+	int pd_idx = PD_IDX(virt);
+	int pt_idx = PT_IDX(virt);
 
 	uintptr_t *pml4 = GET_VIRT_TABLE(ept_phys);
 	test_and_allocate(&pml4[pml4_idx], flags);
-	
+
 	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
 	if(level == 2) {
 		if(pdpt[pdpt_idx]) {
@@ -450,10 +460,14 @@ bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int leve
 bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags)
 {
 	uint64_t ef = 0;
-	if(flags & OBJSPACE_READ) ef |= EPT_READ;
-	if(flags & OBJSPACE_WRITE) ef |= EPT_WRITE;
-	if(flags & OBJSPACE_EXEC_U) ef |= EPT_EXEC;
-	ef |= EPT_MEMTYPE_WB | EPT_IGNORE_PAT; /* TODO (major): maybe we don't want this for all objects? */
+	if(flags & OBJSPACE_READ)
+		ef |= EPT_READ;
+	if(flags & OBJSPACE_WRITE)
+		ef |= EPT_WRITE;
+	if(flags & OBJSPACE_EXEC_U)
+		ef |= EPT_EXEC;
+	ef |=
+	  EPT_MEMTYPE_WB | EPT_IGNORE_PAT; /* TODO (major): maybe we don't want this for all objects? */
 	return x86_64_ept_map(current_thread->active_sc->arch.ept_root, v, p, level, ef);
 }
 
@@ -461,7 +475,7 @@ uintptr_t init_ept(void)
 {
 	/* identity map. TODO (major): map all physical memory */
 	uintptr_t pml4phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
-	for(uintptr_t phys = 0; phys < 8*1024*1024*1024ull; phys += 2*1024ul*1024) {
+	for(uintptr_t phys = 0; phys < 8 * 1024 * 1024 * 1024ull; phys += 2 * 1024ul * 1024) {
 		uint64_t flags = EPT_READ | EPT_WRITE | EPT_EXEC;
 		if((phys >= 0xC0000000 && phys < 0x100000000)) {
 			flags |= EPT_MEMTYPE_UC;
@@ -474,19 +488,19 @@ uintptr_t init_ept(void)
 	return pml4phys;
 }
 
-void arch_secctx_init(struct secctx *sc)
+void arch_secctx_init(struct sctx *sc)
 {
 	sc->arch.ept_root = init_ept();
 }
 
-void arch_secctx_destroy(struct secctx *sc)
+void arch_secctx_destroy(struct sctx *sc)
 {
 	/* TODO (major,mem) */
 	(void)sc;
 }
 
-__initializer
-static void __init_ept_root(void) {
+__initializer static void __init_ept_root(void)
+{
 	ept_root = init_ept();
 }
 
@@ -497,7 +511,6 @@ void vtx_setup_vcpu(struct processor *proc)
 {
 	/* we have to set-up the vcpu state to "mirror" our physical CPU.
 	 * Strap yourself in, it's gonna be a long ride. */
-
 
 	/* segment selectors */
 	vmcs_writel(VMCS_GUEST_CS_SEL, 0x8);
@@ -543,13 +556,13 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_GUEST_GDTR_LIM, sizeof(struct x86_64_gdt_entry) * 8 - 1);
 
 	vmcs_writel(VMCS_GUEST_IDTR_BASE, (uintptr_t)idt);
-	vmcs_writel(VMCS_GUEST_IDTR_LIM, 256*sizeof(struct idt_entry) - 1);
+	vmcs_writel(VMCS_GUEST_IDTR_LIM, 256 * sizeof(struct idt_entry) - 1);
 
 	/* CPU control info and stack */
 	vmcs_writel(VMCS_GUEST_RFLAGS, 0x02);
 	vmcs_writel(VMCS_GUEST_RIP, (uintptr_t)vmx_entry_point);
 	vmcs_writel(VMCS_GUEST_RSP, (uintptr_t)proc->arch.kernel_stack + KERNEL_STACK_SIZE);
-	
+
 	vmcs_writel(VMCS_GUEST_CR0, read_cr(0));
 	vmcs_writel(VMCS_GUEST_CR3, read_cr(3));
 	vmcs_writel(VMCS_GUEST_CR4, read_cr(4));
@@ -575,17 +588,18 @@ void vtx_setup_vcpu(struct processor *proc)
 	/* VM control fields. */
 
 	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PINBASED_CTLS, VMCS_PINBASED_CONTROLS, 0);
-	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS, VMCS_PROCBASED_CONTROLS,
-			(1ul << 31) 
-			| (1 << 28) /* Use MSR bitmaps */);
-	
+	vmcs_write32_fixed(X86_MSR_VMX_TRUE_PROCBASED_CTLS,
+	  VMCS_PROCBASED_CONTROLS,
+	  (1ul << 31) | (1 << 28) /* Use MSR bitmaps */);
+
 	vmcs_write32_fixed(X86_MSR_VMX_PROCBASED_CTLS2,
-			VMCS_PROCBASED_CONTROLS_SECONDARY, (1 << 1) /* EPT */
-			| (1 << 3) /* allow RDTSCP */
-			| (support_ept_switch_vmfunc ? (1 << 13) : 0) /* enable VMFUNC */
-			| (1 << 12) /* allow invpcid */
-			| (support_virt_exception ? (1 << 18) : 0) /* guest handles EPT violations */
-			);
+	  VMCS_PROCBASED_CONTROLS_SECONDARY,
+	  (1 << 1)                                        /* EPT */
+	    | (1 << 3)                                    /* allow RDTSCP */
+	    | (support_ept_switch_vmfunc ? (1 << 13) : 0) /* enable VMFUNC */
+	    | (1 << 12)                                   /* allow invpcid */
+	    | (support_virt_exception ? (1 << 18) : 0)    /* guest handles EPT violations */
+	);
 
 	vmcs_writel(VMCS_EXCEPTION_BITMAP, 0);
 	vmcs_writel(VMCS_PF_ERROR_CODE_MASK, 0);
@@ -610,20 +624,17 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_TR_BASE, (uintptr_t)&proc->arch.tss);
 	vmcs_writel(VMCS_HOST_IDTR_BASE, (uintptr_t)idt);
 
-	vmcs_write32_fixed(X86_MSR_VMX_TRUE_EXIT_CTLS, VMCS_EXIT_CONTROLS,
-			(1 << 9) /* IA-32e host */);
+	vmcs_write32_fixed(X86_MSR_VMX_TRUE_EXIT_CTLS, VMCS_EXIT_CONTROLS, (1 << 9) /* IA-32e host */);
 
-	vmcs_write32_fixed(X86_MSR_VMX_TRUE_ENTRY_CTLS, VMCS_ENTRY_CONTROLS,
-			(1 << 9) /* IA-32e guest */);
+	vmcs_write32_fixed(
+	  X86_MSR_VMX_TRUE_ENTRY_CTLS, VMCS_ENTRY_CONTROLS, (1 << 9) /* IA-32e guest */);
 
 	vmcs_writel(VMCS_ENTRY_INTR_INFO, 0);
 	vmcs_writel(VMCS_APIC_VIRT_ADDR, 0);
 	vmcs_writel(VMCS_TPR_THRESHOLD, 0);
 
-
 	/* we actually have to use these, and they should be all zero (none owned by host) */
-	vmcs_writel(VMCS_MSR_BITMAPS_ADDR,
-			(uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true));
+	vmcs_writel(VMCS_MSR_BITMAPS_ADDR, (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true));
 
 	if(support_ept_switch_vmfunc) {
 		vmcs_writel(VMCS_VMFUNC_CONTROLS, 1 /* enable EPT-switching */);
@@ -683,16 +694,16 @@ static long x86_64_rootcall(long fn, long a0, long a1, long a2)
 void x86_64_switch_ept(uintptr_t root)
 {
 	if(support_ept_switch_vmfunc) {
-		int index=-1;
+		int index = -1;
 		/* TODO (perf): better than just a loop, man! */
-		for(int i=0;i<512;i++) {
+		for(int i = 0; i < 512; i++) {
 			if(current_processor->arch.eptp_list[i] == root) {
 				index = i;
 				break;
 			}
 		}
 		if(index != -1) {
-			asm volatile("vmfunc" :: "a"(VM_FUNCTION_SWITCH_EPTP), "c"(index) : "memory");
+			asm volatile("vmfunc" ::"a"(VM_FUNCTION_SWITCH_EPTP), "c"(index) : "memory");
 		} else {
 			x86_64_rootcall(VMX_RC_SWITCHEPT, root, 0, 0);
 			/* TODO (perf): add to trusted list */
@@ -702,7 +713,7 @@ void x86_64_switch_ept(uintptr_t root)
 	}
 }
 
-void x86_64_secctx_switch(struct secctx *s)
+void x86_64_secctx_switch(struct sctx *s)
 {
 	if(s) {
 		x86_64_switch_ept(s->arch.ept_root);
@@ -724,8 +735,8 @@ void x86_64_virtualization_fault(struct processor *proc)
 		flags |= OBJSPACE_FAULT_EXEC;
 	}
 
-	kernel_objspace_fault_entry(current_thread->arch.exception.rip, proc->arch.veinfo->physical, flags);
+	kernel_objspace_fault_entry(
+	  current_thread->arch.exception.rip, proc->arch.veinfo->physical, flags);
 
 	proc->arch.veinfo->lock = 0;
 }
-

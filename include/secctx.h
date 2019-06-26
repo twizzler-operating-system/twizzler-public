@@ -5,14 +5,14 @@
 
 #include <twz/_objid.h>
 
-struct secctx {
-	struct arch_secctx arch;
+struct sctx {
+	struct arch_sctx arch;
 	objid_t repr;
 	struct krc refs;
 };
 
-void arch_secctx_init(struct secctx *sc);
-void arch_secctx_destroy(struct secctx *sc);
+void arch_secctx_init(struct sctx *sc);
+void arch_secctx_destroy(struct sctx *sc);
 
-struct secctx *secctx_alloc(objid_t repr);
-void secctx_free(struct secctx *s);
+struct sctx *secctx_alloc(objid_t repr);
+void secctx_free(struct sctx *s);

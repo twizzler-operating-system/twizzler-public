@@ -34,8 +34,8 @@ struct thread {
 	struct vm_context *ctx;
 
 	struct spinlock sc_lock;
-	struct secctx *active_sc;
-	struct secctx *attached_scs[MAX_SC];
+	struct sctx *active_sc;
+	struct sctx *attached_scs[MAX_SC];
 
 	struct kso_throbj *throbj;
 

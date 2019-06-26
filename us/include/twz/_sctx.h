@@ -12,7 +12,7 @@ struct screvoc {
 struct scgates {
 	uint32_t offset;
 	uint16_t length;
-	uint16_t align;
+	uint16_t align; /* 2^align, so align=3 means 8-byte alignment */
 };
 
 enum SC_HASH_FNS {
