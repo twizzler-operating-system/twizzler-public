@@ -159,6 +159,131 @@ static int __lookup_perms(struct object *obj,
 	return 0;
 }
 
+int secctx_fault_resolve(struct thread *t,
+  uintptr_t ip,
+  uintptr_t addr,
+  objid_t target,
+  uint32_t flags,
+  uint64_t *perms)
+{
+	uint32_t needed = 0;
+	if(flags & OBJSPACE_FAULT_READ) {
+		needed |= SCP_READ;
+	}
+	if(flags & OBJSPACE_FAULT_WRITE) {
+		needed |= SCP_WRITE;
+	}
+	if(flags & OBJSPACE_FAULT_EXEC) {
+		needed |= SCP_EXEC;
+	}
+
+	spinlock_acquire_save(&t->sc_lock);
+	if(!t->active_sc || t->active_sc->repr == 0) {
+		spinlock_release_restore(&t->sc_lock);
+		*perms = OBJSPACE_EXEC_U | OBJSPACE_WRITE | OBJSPACE_READ;
+		return 0;
+	}
+
+	struct object *obj = obj_lookup(t->active_sc->repr);
+	if(!obj) {
+		panic("no repr " IDFMT, IDPR(t->active_sc->repr));
+	}
+	uint32_t p;
+	__lookup_perms(obj, target, 0, &p, NULL);
+	if((p & needed) == needed) {
+		spinlock_release_restore(&t->sc_lock);
+
+		if(p & SCP_READ) {
+			*perms |= OBJSPACE_READ;
+		}
+		if(p & SCP_WRITE) {
+			*perms |= OBJSPACE_WRITE;
+		}
+		if(p & SCP_EXEC) {
+			*perms |= OBJSPACE_EXEC_U;
+		}
+		return 0;
+	}
+	obj_put(obj);
+
+	for(int i = 0; i < MAX_SC; i++) {
+		obj = obj_lookup(t->attached_scs[i]->repr);
+		if(!obj) {
+			panic("no repr " IDFMT, IDPR(t->attached_scs[i]->repr));
+		}
+		size_t ipoff = 0;
+		bool gok;
+		if(flags & OBJSPACE_FAULT_EXEC) {
+			assert(ip == addr);
+			ipoff = ip % OBJ_MAXSIZE;
+		}
+		/* also check ip */
+		objid_t id;
+		if(!vm_vaddr_lookup((void *)ip, &id, NULL)) {
+			struct fault_object_info info = {
+				.ip = ip,
+				.addr = ip,
+				.objid = target,
+				.flags = FAULT_OBJECT_NOMAP,
+			};
+			thread_raise_fault(t, FAULT_OBJECT, &info, sizeof(info));
+
+			obj_put(obj);
+			spinlock_release_restore(&t->sc_lock);
+			return -1;
+		}
+		struct object *eo = obj_lookup(id);
+		if(!eo) {
+			struct fault_object_info info = {
+				.ip = ip,
+				.addr = ip,
+				.objid = id,
+				.flags = FAULT_OBJECT_EXIST,
+			};
+			thread_raise_fault(t, FAULT_OBJECT, &info, sizeof(info));
+
+			obj_put(obj);
+			spinlock_release_restore(&t->sc_lock);
+			return -1;
+		}
+		uint32_t ep;
+		__lookup_perms(obj, eo->id, 0, &ep, NULL);
+		obj_put(eo);
+		if(!(ep & SCP_EXEC)) {
+			obj_put(obj);
+			continue;
+		}
+
+		__lookup_perms(obj, target, ipoff, &p, &gok);
+		if((p & needed) == needed) {
+			spinlock_release_restore(&t->sc_lock);
+
+			if(p & SCP_READ) {
+				*perms |= OBJSPACE_READ;
+			}
+			if(p & SCP_WRITE) {
+				*perms |= OBJSPACE_WRITE;
+			}
+			if(p & SCP_EXEC) {
+				*perms |= OBJSPACE_EXEC_U;
+			}
+			return 0;
+		}
+		obj_put(obj);
+	}
+	spinlock_release_restore(&t->sc_lock);
+	*perms = 0; // OBJSPACE_EXEC_U | OBJSPACE_WRITE | OBJSPACE_READ;
+	struct fault_sctx_info info = {
+		.ip = ip,
+		.addr = ip,
+		.target = target,
+		.pneed = needed,
+	};
+	thread_raise_fault(t, FAULT_OBJECT, &info, sizeof(info));
+
+	return 0;
+}
+
 bool secctx_thread_attach(struct sctx *s, struct thread *t)
 {
 	spinlock_acquire_save(&t->sc_lock);

@@ -134,7 +134,8 @@ bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off)
 	size_t slot = (uintptr_t)addr / mm_page_size(MAX_PGLEVEL);
 	uint64_t o = (uintptr_t)addr % mm_page_size(MAX_PGLEVEL);
 
-	*off = o;
+	if(off)
+		*off = o;
 	return lookup_by_slot(slot, id, NULL);
 }
 

@@ -16,3 +16,11 @@ void arch_secctx_destroy(struct sctx *sc);
 
 struct sctx *secctx_alloc(objid_t repr);
 void secctx_free(struct sctx *s);
+
+struct thread;
+int secctx_fault_resolve(struct thread *t,
+  uintptr_t ip,
+  uintptr_t addr,
+  objid_t target,
+  uint32_t flags,
+  uint64_t *perms);

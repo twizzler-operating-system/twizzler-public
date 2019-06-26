@@ -5,6 +5,7 @@ enum {
 	FAULT_OBJECT,
 	FAULT_NULL,
 	FAULT_EXCEPTION,
+	FAULT_SCTX,
 	NUM_FAULTS,
 };
 
@@ -19,6 +20,7 @@ struct faultinfo {
 #define FAULT_OBJECT_EXEC 4
 #define FAULT_OBJECT_NOMAP 8
 #define FAULT_OBJECT_EXIST 16
+#define FAULT_OBJECT_INVALID 32
 
 struct fault_object_info {
 	objid_t objid;
@@ -37,4 +39,12 @@ struct fault_exception_info {
 	uint64_t ip;
 	uint64_t code;
 	uint64_t arg0;
+} __attribute__((packed));
+
+struct fault_sctx_info {
+	objid_t target;
+	uint64_t ip;
+	uint64_t addr;
+	uint32_t pneed;
+	uint32_t pad;
 } __attribute__((packed));

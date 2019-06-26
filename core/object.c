@@ -235,6 +235,19 @@ void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 	obj_put_page(p);
 }
 
+bool obj_verify_id(struct object *obj, bool cache_result, bool uncache)
+{
+	bool result = false;
+	spinlock_acquire_save(&obj->lock);
+
+	result = true; // TODO (major,sec)
+
+	obj->idvercache = result && cache_result;
+	obj->idversafe = !uncache;
+	spinlock_release_restore(&obj->lock);
+	return result;
+}
+
 struct object *obj_lookup_slot(uintptr_t oaddr)
 {
 	/* TODO: this is allllll bullshit */
@@ -253,6 +266,7 @@ struct object *obj_lookup_slot(uintptr_t oaddr)
 
 bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags);
 #include <processor.h>
+#include <secctx.h>
 #include <thread.h>
 void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 {
@@ -274,10 +288,31 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 		panic("NO OBJ");
 	}
 
+	uint64_t perms;
+	if(secctx_fault_resolve(current_thread, ip, addr, o->id, flags, &perms) == -1) {
+		obj_put(o);
+		return;
+	}
+
+	bool w = (perms & OBJSPACE_WRITE);
+	if(!obj_verify_id(o, !w, w)) {
+		struct fault_object_info info = {
+			.ip = ip,
+			.addr = addr,
+			.objid = o->id,
+			.flags = FAULT_OBJECT_INVALID,
+		};
+		thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
+		obj_put(o);
+		return;
+	}
+
 	struct objpage *p = obj_get_page(o, idx);
 	obj_put(o);
 
-	arch_objspace_map(
-	  addr & ~(mm_page_size(0) - 1), p->phys, 0, OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U);
+	arch_objspace_map(addr & ~(mm_page_size(0) - 1),
+	  p->phys,
+	  0,
+	  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
 	/* TODO (major): deal with mapcounting */
 }

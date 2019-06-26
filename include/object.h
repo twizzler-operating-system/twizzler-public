@@ -54,6 +54,8 @@ struct object {
 	int pglevel;
 	int flags;
 	ssize_t slot;
+	bool idvercache;
+	bool idversafe;
 
 	enum kso_type kso_type;
 	union {
@@ -78,6 +80,7 @@ struct objpage {
 struct object *obj_create(uint128_t id, enum kso_type);
 struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot);
 struct object *obj_lookup(uint128_t id);
+bool obj_verify_id(struct object *obj, bool cache_result, bool uncache);
 void obj_alloc_slot(struct object *obj);
 struct object *obj_lookup_slot(uintptr_t oaddr);
 void obj_cache_page(struct object *obj, size_t idx, uintptr_t phys);
