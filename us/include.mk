@@ -111,7 +111,7 @@ $(BUILDDIR)/us/root.tar: $(TWZOBJS)
 		cp $$i $(BUILDDIR)/us/root/$$ID ;\
 		done ;\
 		echo $$NAMES > $(BUILDDIR)/us/names
-	@$(BUILDDIR)/utils/file2obj -i $(BUILDDIR)/us/names -o $(BUILDDIR)/us/names.obj -p RU
+	@$(BUILDDIR)/utils/file2obj -i $(BUILDDIR)/us/names -o $(BUILDDIR)/us/names.obj -p RWU
 	@cp $(BUILDDIR)/us/names.obj $(BUILDDIR)/us/root/$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/names.obj)
 	@echo "init=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/init/init.text.obj)" >> $(BUILDDIR)/us/kc
 	@echo "name=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/names.obj)" >> $(BUILDDIR)/us/kc

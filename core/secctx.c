@@ -1,4 +1,5 @@
 #include <object.h>
+#include <processor.h>
 #include <secctx.h>
 #include <slab.h>
 #include <thread.h>
@@ -151,8 +152,16 @@ static int __lookup_perms(struct object *obj,
 
 		slot = b.chain;
 	}
+	uint32_t dfl = 0;
+	struct metainfo mi;
+	struct object *t = obj_lookup(target);
+	if(t) {
+		obj_read_data(t, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
+		dfl = mi.p_flags & (MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE);
+		obj_put(t);
+	}
 	if(p)
-		*p = perms;
+		*p = perms | dfl;
 	if(ingate)
 		*ingate = gatesok;
 
@@ -267,6 +276,8 @@ int secctx_fault_resolve(struct thread *t,
 			if(p & SCP_EXEC) {
 				*perms |= OBJSPACE_EXEC_U;
 			}
+			if(t == current_thread)
+				secctx_switch(i);
 			return 0;
 		}
 		obj_put(obj);

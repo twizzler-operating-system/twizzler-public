@@ -272,7 +272,6 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 {
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
 	size_t idx = (addr % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
-	// printk("OSPACE FAULT: %lx %lx %x\n", ip, addr, flags);
 	if(idx == 0) {
 		struct fault_null_info info = {
 			.ip = ip,
@@ -288,10 +287,34 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 		panic("NO OBJ");
 	}
 
-	uint64_t perms;
-	if(secctx_fault_resolve(current_thread, ip, addr, o->id, flags, &perms) == -1) {
-		obj_put(o);
-		return;
+	// printk("OSPACE FAULT: %lx %lx %x :: " IDFMT "\n", ip, addr, flags, IDPR(o->id));
+	/* optimization: just check if default permissions are enough */
+	struct metainfo mi;
+	obj_read_data(o, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
+	uint32_t dfl = mi.p_flags & (MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE);
+	bool ok = true;
+	uint64_t perms = 0;
+	if(flags & OBJSPACE_FAULT_READ) {
+		ok = ok && (dfl & MIP_DFL_READ);
+	}
+	if(flags & OBJSPACE_FAULT_WRITE) {
+		ok = ok && (dfl & MIP_DFL_WRITE);
+	}
+	if(flags & OBJSPACE_FAULT_EXEC) {
+		ok = ok && (dfl & MIP_DFL_EXEC);
+	}
+	if(dfl & MIP_DFL_READ)
+		perms |= OBJSPACE_READ;
+	if(dfl & MIP_DFL_WRITE)
+		perms |= OBJSPACE_WRITE;
+	if(dfl & MIP_DFL_EXEC)
+		perms |= OBJSPACE_EXEC_U;
+	if(!ok) {
+		perms = 0;
+		if(secctx_fault_resolve(current_thread, ip, addr, o->id, flags, &perms) == -1) {
+			obj_put(o);
+			return;
+		}
 	}
 
 	bool w = (perms & OBJSPACE_WRITE);
@@ -310,6 +333,10 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 	struct objpage *p = obj_get_page(o, idx);
 	obj_put(o);
 
+	//	printk("--> %lx %d (%x)\n",
+	//	  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U),
+	//	  ok,
+	//	  mi.p_flags);
 	arch_objspace_map(addr & ~(mm_page_size(0) - 1),
 	  p->phys,
 	  0,

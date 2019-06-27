@@ -145,6 +145,12 @@ __noinstrument void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 	thread_schedule_resume();
 }
 
+void secctx_switch(int i)
+{
+	current_thread->active_sc = current_thread->attached_scs[i];
+	x86_64_secctx_switch(current_thread->active_sc);
+}
+
 extern void x86_64_resume_userspace(void *);
 extern void x86_64_resume_userspace_interrupt(void *);
 __noinstrument void arch_thread_resume(struct thread *thread)
