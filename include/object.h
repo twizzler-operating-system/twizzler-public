@@ -64,7 +64,7 @@ struct object {
 	};
 	struct kso_calls *kso_calls;
 
-	struct spinlock lock, tslock;
+	struct spinlock lock, tslock, verlock;
 	struct ihtable *pagecache, *tstable;
 
 	struct ihelem elem, slotelem;

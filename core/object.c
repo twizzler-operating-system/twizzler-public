@@ -1,4 +1,5 @@
 #include <lib/bitmap.h>
+#include <lib/blake2.h>
 #include <memory.h>
 #include <object.h>
 #include <slab.h>
@@ -20,6 +21,8 @@ static void _obj_ctor(void *_u, void *ptr)
 	(void)_u;
 	struct object *obj = ptr;
 	obj->lock = SPINLOCK_INIT;
+	obj->verlock = SPINLOCK_INIT;
+	obj->tslock = SPINLOCK_INIT;
 	obj->pagecache = slabcache_alloc(&sc_pctable);
 	obj->tstable = slabcache_alloc(&sc_tstable);
 }
@@ -235,16 +238,67 @@ void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 	obj_put_page(p);
 }
 
+objid_t obj_compute_id(struct object *obj)
+{
+	struct metainfo mi;
+	obj_read_data(obj, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
+
+	_Alignas(16) blake2b_state S;
+	blake2b_init(&S, 32);
+	blake2b_update(&S, &mi.nonce, sizeof(mi.nonce));
+	blake2b_update(&S, &mi.p_flags, sizeof(mi.p_flags));
+	blake2b_update(&S, &mi.kuid, sizeof(mi.kuid));
+	if(mi.p_flags & MIP_HASHDATA) {
+		for(size_t s = 0; s < mi.sz; s += mm_page_size(0)) {
+			size_t rem = mm_page_size(0);
+			if(s + mm_page_size(0) > mi.sz) {
+				rem = mi.sz - s;
+			}
+			assert(rem <= mm_page_size(0));
+
+			struct objpage *p = obj_get_page(obj, s / mm_page_size(0));
+			atomic_thread_fence(memory_order_seq_cst);
+			blake2b_update(&S, mm_ptov(p->phys), rem);
+			obj_put_page(p);
+		}
+		for(size_t s = 0; s < mi.mdbottom; s += mm_page_size(0)) {
+			size_t rem = mm_page_size(0);
+			if(s + mm_page_size(0) > mi.mdbottom) {
+				rem = mi.mdbottom - s;
+			}
+			assert(rem <= mm_page_size(0));
+
+			struct objpage *p = obj_get_page(
+			  obj, (OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + (mi.mdbottom - s))) / mm_page_size(0));
+			atomic_thread_fence(memory_order_seq_cst);
+			blake2b_update(&S, mm_ptov(p->phys), rem);
+			obj_put_page(p);
+		}
+	}
+
+	unsigned char tmp[32];
+	blake2b_final(&S, tmp, 32);
+	_Alignas(16) unsigned char out[16];
+	for(int i = 0; i < 16; i++) {
+		out[i] = tmp[i] ^ tmp[i + 16];
+	}
+	return *(objid_t *)out;
+}
+
 bool obj_verify_id(struct object *obj, bool cache_result, bool uncache)
 {
 	bool result = false;
-	spinlock_acquire_save(&obj->lock);
+	spinlock_acquire_save(&obj->verlock);
 
-	result = true; // TODO (major,sec)
-
-	obj->idvercache = result && cache_result;
+	if(obj->idversafe) {
+		result = obj->idvercache;
+	} else {
+		objid_t c = obj_compute_id(obj);
+		result = c == obj->id || (obj->id >> 64) == 0;
+		obj->idvercache = result && cache_result;
+	}
 	obj->idversafe = !uncache;
-	spinlock_release_restore(&obj->lock);
+	spinlock_release_restore(&obj->verlock);
 	return result;
 }
 

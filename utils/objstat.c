@@ -58,7 +58,7 @@ objid_t compute_objid(char *base)
 	blake2b_update(&S, &mi->p_flags, sizeof(mi->p_flags));
 	blake2b_update(&S, &mi->kuid, sizeof(mi->kuid));
 	if(mi->p_flags & MIP_HASHDATA) {
-		blake2b_update(&S, base, mi->sz);
+		blake2b_update(&S, base + OBJ_NULLPAGE_SIZE, mi->sz);
 		blake2b_update(&S, base + OBJ_MAXSIZE - mi->mdbottom, mi->mdbottom);
 	}
 	blake2b_final(&S, tmp, 32);
