@@ -1,5 +1,6 @@
 #include <object.h>
 #include <processor.h>
+#include <rand.h>
 #include <syscall.h>
 
 static bool __do_invalidate(struct object *obj, struct kso_invl_args *invl)
@@ -90,7 +91,6 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 	return ret;
 }
 
-objid_t objid_generate(void);
 long syscall_ocreate(uint64_t kulo,
   uint64_t kuhi,
   uint64_t slo,
@@ -100,30 +100,38 @@ long syscall_ocreate(uint64_t kulo,
 {
 	objid_t kuid = MKID(kuhi, kulo);
 	objid_t srcid = MKID(shi, slo);
-	objid_t id = objid_generate();
+	nonce_t nonce;
+	int r = rand_getbytes(&nonce, sizeof(nonce), 0);
+	if(r < 0) {
+		return r;
+	}
 	int ksot = (flags >> 8) & 0xF;
 	if(ksot >= KSO_MAX) {
 		return -1;
 	}
-	if(id == 0) {
-		return -1;
-	}
 	struct object *o;
 	if(srcid) {
-		o = obj_create_clone(id, srcid, ksot);
+		o = obj_create_clone(0, srcid, ksot);
 	} else {
-		o = obj_create(id, ksot);
+		o = obj_create(0, ksot);
 	}
-	o->flags |= OF_KERNELGEN; /* TODO: actually compute new objid and fill out mi */
 
 	struct metainfo mi = {
+		.p_flags =
+		  flags & (MIP_HASHDATA | MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE),
 		.flags = flags,
 		.milen = sizeof(mi) + 128,
+		.mdbottom = 0x1000, // TODO: not if we're copying?
 		.kuid = kuid,
+		.nonce = nonce,
 	};
+
 	obj_write_data(o, OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + OBJ_METAPAGE_SIZE), sizeof(mi), &mi);
 
+	objid_t id = obj_compute_id(o);
+	obj_assign_id(o, id);
 	obj_put(o);
+
 	if(retid)
 		*retid = id;
 	return 0;

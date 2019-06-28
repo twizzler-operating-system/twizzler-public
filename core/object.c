@@ -87,11 +87,24 @@ static inline struct object *__obj_alloc(enum kso_type ksot, objid_t id)
 struct object *obj_create(uint128_t id, enum kso_type ksot)
 {
 	struct object *obj = __obj_alloc(ksot, id);
-	spinlock_acquire_save(&objlock);
 	/* TODO (major): check for duplicates */
+	if(id) {
+		spinlock_acquire_save(&objlock);
+		ihtable_insert(&objtbl, &obj->elem, obj->id);
+		spinlock_release_restore(&objlock);
+	}
+	return obj;
+}
+
+void obj_assign_id(struct object *obj, objid_t id)
+{
+	spinlock_acquire_save(&objlock);
+	if(obj->id) {
+		panic("tried to reassign object ID");
+	}
+	obj->id = id;
 	ihtable_insert(&objtbl, &obj->elem, obj->id);
 	spinlock_release_restore(&objlock);
-	return obj;
 }
 
 struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
@@ -119,9 +132,11 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 	}
 	spinlock_release_restore(&src->lock);
 
-	spinlock_acquire_save(&objlock);
-	ihtable_insert(&objtbl, &obj->elem, obj->id);
-	spinlock_release_restore(&objlock);
+	if(id) {
+		spinlock_acquire_save(&objlock);
+		ihtable_insert(&objtbl, &obj->elem, obj->id);
+		spinlock_release_restore(&objlock);
+	}
 	return obj;
 }
 
@@ -238,6 +253,8 @@ void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 	obj_put_page(p);
 }
 
+/* TODO (major): with these, and the above, support obj_get_page returning "no page
+ * associated with this location, because there's no data here" */
 objid_t obj_compute_id(struct object *obj)
 {
 	struct metainfo mi;

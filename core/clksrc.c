@@ -11,15 +11,18 @@ static struct clksrc *best_countdown = NULL;
 void clksrc_register(struct clksrc *cs)
 {
 	printk("[clk]: registered '%s': flags=%lx, period=%ldps, prec=%ldns, rtime=%ldns\n",
-			cs->name, cs->flags, cs->period_ps, cs->precision, cs->read_time);
+	  cs->name,
+	  cs->flags,
+	  cs->period_ps,
+	  cs->precision,
+	  cs->read_time);
 	spinlock_acquire_save(&lock);
 	list_insert(&sources, &cs->entry);
 	if(best_monotonic == NULL && (cs->flags & CLKSRC_MONOTONIC)) {
 		best_monotonic = cs;
 		printk("[clk]: assigned 'best monotonic' to %s\n", cs->name);
 	} else {
-		if((cs->flags & CLKSRC_MONOTONIC)
-				&& (cs->read_time < best_monotonic->read_time)) {
+		if((cs->flags & CLKSRC_MONOTONIC) && (cs->read_time < best_monotonic->read_time)) {
 			best_monotonic = cs;
 			printk("[clk]: assigned 'best monotonic' to %s\n", cs->name);
 		}
@@ -29,8 +32,7 @@ void clksrc_register(struct clksrc *cs)
 		best_countdown = cs;
 		printk("[clk]: assigned 'best countdown' to %s\n", cs->name);
 	} else {
-		if((cs->flags & CLKSRC_INTERRUPT)
-				&& (cs->precision < best_countdown->precision)) {
+		if((cs->flags & CLKSRC_INTERRUPT) && (cs->precision < best_countdown->precision)) {
 			best_countdown = cs;
 			printk("[clk]: assigned 'best countdown' to %s\n", cs->name);
 		}
@@ -38,8 +40,7 @@ void clksrc_register(struct clksrc *cs)
 	spinlock_release_restore(&lock);
 }
 
-__noinstrument
-uint64_t clksrc_get_nanoseconds(void)
+__noinstrument uint64_t clksrc_get_nanoseconds(void)
 {
 	if(best_monotonic == NULL) {
 		panic("no monotonic clock source available");
@@ -57,7 +58,8 @@ void clksrc_set_interrupt_countdown(uint64_t ns, bool periodic)
 
 bool clksrc_set_timer(struct clksrc *cs, uint64_t ns, bool periodic)
 {
-	if(!(cs->flags & CLKSRC_INTERRUPT) || !((cs->flags & CLKSRC_ONESHOT) || (cs->flags & CLKSRC_PERIODIC))) {
+	if(!(cs->flags & CLKSRC_INTERRUPT)
+	   || !((cs->flags & CLKSRC_ONESHOT) || (cs->flags & CLKSRC_PERIODIC))) {
 		return false;
 	}
 	if(periodic && !(cs->flags & CLKSRC_PERIODIC)) {
@@ -72,6 +74,6 @@ bool clksrc_set_timer(struct clksrc *cs, uint64_t ns, bool periodic)
 
 void clksrc_set_active(struct clksrc *cs, bool active)
 {
-	if(cs->set_active) cs->set_active(cs, active);
+	if(cs->set_active)
+		cs->set_active(cs, active);
 }
-

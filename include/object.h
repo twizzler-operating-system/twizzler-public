@@ -87,6 +87,8 @@ void obj_cache_page(struct object *obj, size_t idx, uintptr_t phys);
 void obj_kso_init(struct object *obj, enum kso_type ksot);
 void obj_put_page(struct objpage *p);
 void obj_put(struct object *o);
+void obj_assign_id(struct object *obj, objid_t id);
+objid_t obj_compute_id(struct object *obj);
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);

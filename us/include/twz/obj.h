@@ -10,9 +10,11 @@ struct object {
 #define twz_slot_to_base(s) ({ (void *)((s)*OBJ_MAXSIZE + OBJ_NULLPAGE_SIZE); })
 #define twz_obj_base(s) ({ (void *)((uintptr_t)((s)->base) + OBJ_NULLPAGE_SIZE); })
 
-#define TWZ_OC_HASHDATA 1
-#define TWZ_OC_DFL_READ 2
-#define TWZ_OC_DFL_WRITE 4
+#define TWZ_OC_HASHDATA MIP_HASHDATA
+#define TWZ_OC_DFL_READ MIP_DFL_READ
+#define TWZ_OC_DFL_WRITE MIP_DFL_WRITE
+#define TWZ_OC_DFL_EXEC MIP_DFL_EXEC
+#define TWZ_OC_DFL_USE MIP_DFL_USE
 int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id);
 
 void *__twz_ptr_lea_foreign(const struct object *o, const void *p);

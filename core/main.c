@@ -121,12 +121,6 @@ static _Atomic unsigned int kernel_main_barrier = 0;
 #include <kc.h>
 #include <object.h>
 
-objid_t objid_generate(void)
-{
-	static objid_t _id = 8;
-	return _id++;
-}
-
 struct elf64_header {
 	uint8_t e_ident[16];
 	uint16_t e_type;
@@ -163,11 +157,6 @@ void kernel_main(struct processor *proc)
 		if(kc_init_id == 0) {
 			panic("No init specified");
 		}
-
-		objid_t kcid = 1;
-		struct object *kcobj = obj_create(kcid, 0);
-		obj_write_data(kcobj, 0, kc_len, kc_data);
-		obj_put(kcobj);
 
 		struct object *initobj = obj_lookup(kc_init_id);
 		if(!initobj) {
@@ -207,12 +196,22 @@ void kernel_main(struct processor *proc)
 			         //[1] = (long)thrd_obj + off + sizeof(vector) + 0x1000,
 		};
 
-		objid_t bthrid = objid_generate();
-		objid_t bstckid = objid_generate();
+		objid_t bthrid;
+		objid_t bstckid;
+
+		int r;
+		r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &bthrid);
+		if(r < 0)
+			panic("failed to create initial objects: %d", r);
+		r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &bstckid);
+		if(r < 0)
+			panic("failed to create initial objects: %d", r);
 		printk("Created bthrd = " IDFMT " and bstck = " IDFMT "\n", IDPR(bthrid), IDPR(bstckid));
-		struct object *bthr = obj_create(bthrid, KSO_THREAD);
-		struct object *bstck = obj_create(bstckid, 0);
+
+		struct object *bthr = obj_lookup(bthrid);
+		struct object *bstck = obj_lookup(bstckid);
 		struct object *bv = obj_lookup(kc_bsv_id);
+		assert(bthr && bstck && bv);
 
 		struct viewentry v_t = {
 			.id = bthrid,

@@ -118,7 +118,8 @@ int __name_bootstrap(void)
 
 	int r;
 	objid_t id;
-	r = twz_object_create(TWZ_OC_DFL_READ, 0, 0, &id);
+	/* TODO: make this read-only */
+	r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &id);
 	if(r < 0)
 		return r;
 

@@ -1,4 +1,3 @@
 #pragma once
 
-#define EINVAL 1
-
+#include <twz/_err.h>
