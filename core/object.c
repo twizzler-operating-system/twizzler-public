@@ -311,7 +311,7 @@ bool obj_verify_id(struct object *obj, bool cache_result, bool uncache)
 		result = obj->idvercache;
 	} else {
 		objid_t c = obj_compute_id(obj);
-		result = c == obj->id || (obj->id >> 64) == 0;
+		result = c == obj->id;
 		obj->idvercache = result && cache_result;
 	}
 	obj->idversafe = !uncache;
