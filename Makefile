@@ -78,6 +78,8 @@ endif
 
 -include $(addprefix $(BUILDDIR)/,$(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d))
 
+include third-party/include.mk
+
 test: $(BUILDDIR)/kernel $(BUILDDIR)/us/root.tar
 	$(QEMU) $(QEMU_FLAGS) -initrd $(BUILDDIR)/us/root.tar -serial stdio | tee serial.txt
 
