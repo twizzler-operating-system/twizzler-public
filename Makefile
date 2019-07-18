@@ -78,6 +78,8 @@ endif
 
 -include $(addprefix $(BUILDDIR)/,$(C_SOURCES:.c=.d) $(ASM_SOURCES:.S=.d))
 
+KLIBS=
+
 include third-party/include.mk
 
 test: $(BUILDDIR)/kernel $(BUILDDIR)/us/root.tar
@@ -86,10 +88,10 @@ test: $(BUILDDIR)/kernel $(BUILDDIR)/us/root.tar
 export TOOLCHAIN_PREFIX
 export BUILDDIR
 
-$(BUILDDIR)/kernel: $(BUILDDIR)/link.ld $(OBJECTS) $(BUILDDIR)/symbols.o
+$(BUILDDIR)/kernel: $(BUILDDIR)/link.ld $(OBJECTS) $(BUILDDIR)/symbols.o $(KLIBS)
 	@mkdir -p $(BUILDDIR)
 	@echo "[LD]  $@"
-	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(BUILDDIR)/symbols.o $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
+	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(KLIBS) $(BUILDDIR)/symbols.o $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
 
 $(BUILDDIR)/symbols.o: $(BUILDDIR)/symbols.c
 	@echo "[CC]  $@"
@@ -108,10 +110,10 @@ $(BUILDDIR)/kernel.sym.c: $(BUILDDIR)/kernel.stage1
 	@echo "[GEN] $@"
 	@$(TOOLCHAIN_PREFIX)objdump -t $(BUILDDIR)/kernel.stage1 | grep '^.* [lg]' | awk '{print $$1 " " $$(NF-1) " " $$NF}' | grep -v '.hidden' | sed -rn 's|([0-9a-f]+) ([0-9a-f]+) ([a-zA-Z0-9_/\.]+)|{.value=0x\1, .size=0x\2, .name="\3"},|p' > $(BUILDDIR)/kernel.sym.c
 
-$(BUILDDIR)/kernel.stage1: $(BUILDDIR)/link.ld $(OBJECTS)
+$(BUILDDIR)/kernel.stage1: $(BUILDDIR)/link.ld $(OBJECTS) $(KLIBS)
 	@echo "[LD]  $@"
 	@mkdir -p $(BUILDDIR)
-	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel.stage1 -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
+	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(KLIBS) $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel.stage1 -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
 
 $(BUILDDIR)/%.o : %.S $(CONFIGFILE)
 	@echo "[AS]  $@"
