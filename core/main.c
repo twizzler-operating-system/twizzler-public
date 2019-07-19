@@ -138,13 +138,48 @@ struct elf64_header {
 	uint16_t e_shstrndx;
 };
 
+void kalloc()
+{
+	panic("a");
+}
+void kcalloc()
+{
+	panic("c");
+}
+void kfree()
+{
+	panic("f");
+}
+
 #include <syscall.h>
+#include <tomcrypt.h>
 void kernel_main(struct processor *proc)
 {
 	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
 
 	printk("Waiting at kernel_main_barrier\n");
 	processor_barrier(&kernel_main_barrier);
+
+	char b64[128];
+	size_t bl;
+	size_t l = 1;
+	int e;
+	unsigned char buffer[1024];
+	dsa_key k;
+	if((e = base64_encode(buffer, l, b64, &bl)) != CRYPT_OK) {
+	}
+
+	unsigned char c[64];
+	for(int i = 0; i < 64; i++)
+		c[i] = i;
+	unsigned char sig[1024];
+	size_t sl = sizeof(sig);
+	if((e = dsa_sign_hash(c, sizeof(c), sig, &sl, NULL, find_prng("sprng"), &k)) != CRYPT_OK) {
+	}
+
+	int stat;
+	if((e = dsa_verify_hash(sig, sl, c, sizeof(c), &stat, &k)) != CRYPT_OK) {
+	}
 
 	if(proc->flags & PROCESSOR_BSP) {
 		arena_destroy(&post_init_call_arena);
