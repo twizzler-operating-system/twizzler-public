@@ -8,17 +8,14 @@
  */
 
 #include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 #include "tomcrypt_private.h"
 
 #ifdef LTC_HKDF
 
 /* This is mostly just a wrapper around hmac_memory */
-int hkdf_extract(int hash_idx, const unsigned char *salt, unsigned long  saltlen,
-                               const unsigned char *in,   unsigned long  inlen,
-                                     unsigned char *out,  unsigned long *outlen)
+int hkdf_extract(int hash_idx, const unsigned char *salt, unsigned long saltlen, const unsigned char *in,
+                 unsigned long inlen, unsigned char *out, unsigned long *outlen)
 {
    /* libtomcrypt chokes on a zero length HMAC key, so we need to check for
       that.  HMAC specifies that keys shorter than the hash's blocksize are
@@ -29,21 +26,20 @@ int hkdf_extract(int hash_idx, const unsigned char *salt, unsigned long  saltlen
       sense), we can use a single 0 byte as the HMAC key and still generate
       valid results for HKDF. */
    if (salt == NULL || saltlen == 0) {
-      return hmac_memory(hash_idx, (const unsigned char *)"",   1,       in, inlen, out, outlen);
+      return hmac_memory(hash_idx, (const unsigned char *)"", 1, in, inlen, out, outlen);
    }
    return hmac_memory(hash_idx, salt, saltlen, in, inlen, out, outlen);
 }
 
-int hkdf_expand(int hash_idx, const unsigned char *info, unsigned long infolen,
-                              const unsigned char *in,   unsigned long inlen,
-                                    unsigned char *out,  unsigned long outlen)
+int hkdf_expand(int hash_idx, const unsigned char *info, unsigned long infolen, const unsigned char *in,
+                unsigned long inlen, unsigned char *out, unsigned long outlen)
 {
    unsigned long hashsize;
    int err;
    unsigned char N;
    unsigned long Noutlen, outoff;
 
-   unsigned char *T,  *dat;
+   unsigned char *T, *dat;
    unsigned long Tlen, datlen;
 
    /* make sure hash descriptor is valid */
@@ -72,7 +68,7 @@ int hkdf_expand(int hash_idx, const unsigned char *info, unsigned long infolen,
    }
 
    /* HMAC data T(1) doesn't include a previous hash value */
-   dat    = T    + hashsize;
+   dat = T + hashsize;
    datlen = Tlen - hashsize;
 
    N = 0;
@@ -80,8 +76,7 @@ int hkdf_expand(int hash_idx, const unsigned char *info, unsigned long infolen,
    while (1) { /* an exit condition breaks mid-loop */
       Noutlen = MIN(hashsize, outlen - outoff);
       T[Tlen - 1] = ++N;
-      if ((err = hmac_memory(hash_idx, in, inlen, dat, datlen,
-                             out + outoff, &Noutlen)) != CRYPT_OK) {
+      if ((err = hmac_memory(hash_idx, in, inlen, dat, datlen, out + outoff, &Noutlen)) != CRYPT_OK) {
          zeromem(T, Tlen);
          XFREE(T);
          return err;
@@ -93,7 +88,7 @@ int hkdf_expand(int hash_idx, const unsigned char *info, unsigned long infolen,
       }
 
       /* All subsequent HMAC data T(N) DOES include the previous hash value */
-      XMEMCPY(T, out + hashsize * (N-1), hashsize);
+      XMEMCPY(T, out + hashsize * (N - 1), hashsize);
       if (N == 1) {
          dat = T;
          datlen = Tlen;
@@ -105,10 +100,8 @@ int hkdf_expand(int hash_idx, const unsigned char *info, unsigned long infolen,
 }
 
 /* all in one step */
-int hkdf(int hash_idx, const unsigned char *salt, unsigned long saltlen,
-                       const unsigned char *info, unsigned long infolen,
-                       const unsigned char *in,   unsigned long inlen,
-                             unsigned char *out,  unsigned long outlen)
+int hkdf(int hash_idx, const unsigned char *salt, unsigned long saltlen, const unsigned char *info,
+         unsigned long infolen, const unsigned char *in, unsigned long inlen, unsigned char *out, unsigned long outlen)
 {
    unsigned long hashsize;
    int err;
@@ -136,7 +129,6 @@ int hkdf(int hash_idx, const unsigned char *salt, unsigned long saltlen,
    return err;
 }
 #endif /* LTC_HKDF */
-
 
 /* vim: set ts=2 sw=2 et ai si: */
 

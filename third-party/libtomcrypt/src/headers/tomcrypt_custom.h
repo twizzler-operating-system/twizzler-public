@@ -12,130 +12,130 @@
 
 /* macros for various libc functions you can change for embedded targets */
 #ifndef XMALLOC
-#define XMALLOC  malloc
+#define XMALLOC malloc
 #endif
 #ifndef XREALLOC
 #define XREALLOC realloc
 #endif
 #ifndef XCALLOC
-#define XCALLOC  calloc
+#define XCALLOC calloc
 #endif
 #ifndef XFREE
-#define XFREE    free
+#define XFREE free
 #endif
 
 #ifndef XMEMSET
-#define XMEMSET  memset
+#define XMEMSET memset
 #endif
 #ifndef XMEMCPY
-#define XMEMCPY  memcpy
+#define XMEMCPY memcpy
 #endif
 #ifndef XMEMMOVE
 #define XMEMMOVE memmove
 #endif
 #ifndef XMEMCMP
-#define XMEMCMP  memcmp
+#define XMEMCMP memcmp
 #endif
 /* A memory compare function that has to run in constant time,
  * c.f. mem_neq() API summary.
  */
 #ifndef XMEM_NEQ
-#define XMEM_NEQ  mem_neq
+#define XMEM_NEQ mem_neq
 #endif
 #ifndef XSTRCMP
-#define XSTRCMP  strcmp
+#define XSTRCMP strcmp
 #endif
 #ifndef XSTRNCPY
 #define XSTRNCPY strncpy
 #endif
 
 #ifndef XCLOCK
-#define XCLOCK   clock
+#define XCLOCK clock
 #endif
 
 #ifndef XQSORT
 #define XQSORT qsort
 #endif
 
-#if ( defined(malloc) || defined(realloc) || defined(calloc) || defined(free) || \
-      defined(memset) || defined(memcpy) || defined(memcmp) || defined(strcmp) || \
-      defined(strncpy) || defined(clock) || defined(qsort) ) && !defined(LTC_NO_PROTOTYPES)
+#if (defined(malloc) || defined(realloc) || defined(calloc) || defined(free) || defined(memset) || defined(memcpy) ||  \
+     defined(memcmp) || defined(strcmp) || defined(strncpy) || defined(clock) || defined(qsort)) &&                    \
+    !defined(LTC_NO_PROTOTYPES)
 #define LTC_NO_PROTOTYPES
 #endif
 
 /* shortcut to disable automatic inclusion */
 #if defined LTC_NOTHING && !defined LTC_EASY
-  #define LTC_NO_CIPHERS
-  #define LTC_NO_MODES
-  #define LTC_NO_HASHES
-  #define LTC_NO_MACS
-  #define LTC_NO_PRNGS
-  #define LTC_NO_PK
-  #define LTC_NO_PKCS
-  #define LTC_NO_MISC
+#define LTC_NO_CIPHERS
+#define LTC_NO_MODES
+#define LTC_NO_HASHES
+#define LTC_NO_MACS
+#define LTC_NO_PRNGS
+#define LTC_NO_PK
+#define LTC_NO_PKCS
+#define LTC_NO_MISC
 #endif /* LTC_NOTHING */
 
 /* Easy button? */
 #ifdef LTC_EASY
-   #define LTC_NO_CIPHERS
-   #define LTC_RIJNDAEL
-   #define LTC_BLOWFISH
-   #define LTC_DES
-   #define LTC_CAST5
+#define LTC_NO_CIPHERS
+#define LTC_RIJNDAEL
+#define LTC_BLOWFISH
+#define LTC_DES
+#define LTC_CAST5
 
-   #define LTC_NO_MODES
-   #define LTC_ECB_MODE
-   #define LTC_CBC_MODE
-   #define LTC_CTR_MODE
+#define LTC_NO_MODES
+#define LTC_ECB_MODE
+#define LTC_CBC_MODE
+#define LTC_CTR_MODE
 
-   #define LTC_NO_HASHES
-   #define LTC_SHA1
-   #define LTC_SHA3
-   #define LTC_SHA512
-   #define LTC_SHA384
-   #define LTC_SHA256
-   #define LTC_SHA224
-   #define LTC_HASH_HELPERS
+#define LTC_NO_HASHES
+#define LTC_SHA1
+#define LTC_SHA3
+#define LTC_SHA512
+#define LTC_SHA384
+#define LTC_SHA256
+#define LTC_SHA224
+#define LTC_HASH_HELPERS
 
-   #define LTC_NO_MACS
-   #define LTC_HMAC
-   #define LTC_OMAC
-   #define LTC_CCM_MODE
+#define LTC_NO_MACS
+#define LTC_HMAC
+#define LTC_OMAC
+#define LTC_CCM_MODE
 
-   #define LTC_NO_PRNGS
-   #define LTC_SPRNG
-   #define LTC_YARROW
-   #define LTC_DEVRANDOM
-   #define LTC_TRY_URANDOM_FIRST
-   #define LTC_RNG_GET_BYTES
-   #define LTC_RNG_MAKE_PRNG
+#define LTC_NO_PRNGS
+#define LTC_SPRNG
+#define LTC_YARROW
+#define LTC_DEVRANDOM
+#define LTC_TRY_URANDOM_FIRST
+#define LTC_RNG_GET_BYTES
+#define LTC_RNG_MAKE_PRNG
 
-   #define LTC_NO_PK
-   #define LTC_MRSA
-   #define LTC_MECC
+#define LTC_NO_PK
+#define LTC_MRSA
+#define LTC_MECC
 
-   #define LTC_NO_MISC
-   #define LTC_BASE64
+#define LTC_NO_MISC
+#define LTC_BASE64
 #endif
 
 /* The minimal set of functionality to run the tests */
 #ifdef LTC_MINIMAL
-   #define LTC_RIJNDAEL
-   #define LTC_SHA256
-   #define LTC_YARROW
-   #define LTC_CTR_MODE
+#define LTC_RIJNDAEL
+#define LTC_SHA256
+#define LTC_YARROW
+#define LTC_CTR_MODE
 
-   #define LTC_RNG_MAKE_PRNG
-   #define LTC_RNG_GET_BYTES
-   #define LTC_DEVRANDOM
-   #define LTC_TRY_URANDOM_FIRST
+#define LTC_RNG_MAKE_PRNG
+#define LTC_RNG_GET_BYTES
+#define LTC_DEVRANDOM
+#define LTC_TRY_URANDOM_FIRST
 
-   #undef LTC_NO_FILE
+#undef LTC_NO_FILE
 #endif
 
 /* Enable self-test test vector checking */
 #ifndef LTC_NO_TEST
-   #define LTC_TEST
+#define LTC_TEST
 #endif
 /* Enable extended self-tests */
 /* #define LTC_TEST_EXT */
@@ -186,10 +186,10 @@
  * (saves 4KB of ram), _ALL_TABLES enables all tables during setup */
 #define LTC_TWOFISH
 #ifndef LTC_NO_TABLES
-   #define LTC_TWOFISH_TABLES
-   /* #define LTC_TWOFISH_ALL_TABLES */
+#define LTC_TWOFISH_TABLES
+/* #define LTC_TWOFISH_ALL_TABLES */
 #else
-   #define LTC_TWOFISH_SMALL
+#define LTC_TWOFISH_SMALL
 #endif
 /* #define LTC_TWOFISH_SMALL */
 /* LTC_DES includes EDE triple-DES */
@@ -219,7 +219,6 @@
 
 #endif /* LTC_NO_CIPHERS */
 
-
 /* ---> Block Cipher Modes of Operation <--- */
 #ifndef LTC_NO_MODES
 
@@ -235,10 +234,10 @@
 /* LRW mode */
 #define LTC_LRW_MODE
 #ifndef LTC_NO_TABLES
-   /* like GCM mode this will enable 16 8x128 tables [64KB] that make
-    * seeking very fast.
-    */
-   #define LTC_LRW_TABLES
+/* like GCM mode this will enable 16 8x128 tables [64KB] that make
+ * seeking very fast.
+ */
+#define LTC_LRW_TABLES
 #endif
 
 /* XTS mode */
@@ -275,7 +274,6 @@
 
 #endif /* LTC_NO_HASHES */
 
-
 /* ---> MAC functions <--- */
 #ifndef LTC_NO_MACS
 
@@ -301,7 +299,7 @@
 
 /* Use 64KiB tables */
 #ifndef LTC_NO_TABLES
-   #define LTC_GCM_TABLES
+#define LTC_GCM_TABLES
 #endif
 
 /* USE SSE2? requires GCC works on x86_32 and x86_64*/
@@ -310,7 +308,6 @@
 #endif
 
 #endif /* LTC_NO_MACS */
-
 
 /* --> Pseudo Random Number Generators <--- */
 #ifndef LTC_NO_PRNGS
@@ -353,17 +350,17 @@
 /* which descriptor of AES to use?  */
 /* 0 = rijndael_enc 1 = aes_enc, 2 = rijndael [full], 3 = aes [full] */
 #ifdef ENCRYPT_ONLY
-  #define LTC_YARROW_AES 0
+#define LTC_YARROW_AES 0
 #else
-  #define LTC_YARROW_AES 2
+#define LTC_YARROW_AES 2
 #endif
 
 #endif
 
 #ifdef LTC_FORTUNA
 
-#if !defined(LTC_FORTUNA_RESEED_RATELIMIT_STATIC) && \
-      ((defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L) || defined(_WIN32))
+#if !defined(LTC_FORTUNA_RESEED_RATELIMIT_STATIC) &&                                                                   \
+    ((defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L) || defined(_WIN32))
 
 /* time-based rate limit of the reseeding */
 #define LTC_FORTUNA_RESEED_RATELIMIT_TIMED
@@ -371,17 +368,17 @@
 /* with non-glibc or glibc 2.17+ prefer clock_gettime over gettimeofday */
 #if defined(__GLIBC__) && defined(__GLIBC_PREREQ)
 #if __GLIBC_PREREQ(2, 17)
-  #define LTC_CLOCK_GETTIME
+#define LTC_CLOCK_GETTIME
 #endif
 #elif defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L
-  #define LTC_CLOCK_GETTIME
+#define LTC_CLOCK_GETTIME
 #endif
 
 #else
 
 #ifndef LTC_FORTUNA_WD
 /* reseed every N calls to the read function */
-#define LTC_FORTUNA_WD    10
+#define LTC_FORTUNA_WD 10
 #endif
 
 #ifdef LTC_FORTUNA_RESEED_RATELIMIT_TIMED
@@ -403,7 +400,6 @@
 #endif
 
 #endif /* LTC_FORTUNA */
-
 
 /* ---> Public Key Crypto <--- */
 #ifndef LTC_NO_PK
@@ -441,7 +437,7 @@
 #define LTC_ECC_SHAMIR
 
 #if defined(TFM_DESC) && defined(LTC_MECC)
-   #define LTC_MECC_ACCEL
+#define LTC_MECC_ACCEL
 #endif
 
 /* do we want fixed point ECC */
@@ -452,12 +448,12 @@
 #if defined(LTC_MRSA) && !defined(LTC_NO_RSA_BLINDING)
 /* Enable RSA blinding when doing private key operations by default */
 #define LTC_RSA_BLINDING
-#endif  /* LTC_NO_RSA_BLINDING */
+#endif /* LTC_NO_RSA_BLINDING */
 
 #if defined(LTC_MRSA) && !defined(LTC_NO_RSA_CRT_HARDENING)
 /* Enable RSA CRT hardening when doing private key operations by default */
 #define LTC_RSA_CRT_HARDENING
-#endif  /* LTC_NO_RSA_CRT_HARDENING */
+#endif /* LTC_NO_RSA_CRT_HARDENING */
 
 #if defined(LTC_MECC) && !defined(LTC_NO_ECC_TIMING_RESISTANT)
 /* Enable ECC timing resistant version by default */
@@ -513,127 +509,127 @@
 #ifdef LTC_MECC
 /* Supported ECC Key Sizes */
 #ifndef LTC_NO_CURVES
-   #define LTC_ECC_BRAINPOOLP160R1
-   #define LTC_ECC_BRAINPOOLP160T1
-   #define LTC_ECC_BRAINPOOLP192R1
-   #define LTC_ECC_BRAINPOOLP192T1
-   #define LTC_ECC_BRAINPOOLP224R1
-   #define LTC_ECC_BRAINPOOLP224T1
-   #define LTC_ECC_BRAINPOOLP256R1
-   #define LTC_ECC_BRAINPOOLP256T1
-   #define LTC_ECC_BRAINPOOLP320R1
-   #define LTC_ECC_BRAINPOOLP320T1
-   #define LTC_ECC_BRAINPOOLP384R1
-   #define LTC_ECC_BRAINPOOLP384T1
-   #define LTC_ECC_BRAINPOOLP512R1
-   #define LTC_ECC_BRAINPOOLP512T1
-   #define LTC_ECC_PRIME192V2
-   #define LTC_ECC_PRIME192V3
-   #define LTC_ECC_PRIME239V1
-   #define LTC_ECC_PRIME239V2
-   #define LTC_ECC_PRIME239V3
-   #define LTC_ECC_SECP112R1
-   #define LTC_ECC_SECP112R2
-   #define LTC_ECC_SECP128R1
-   #define LTC_ECC_SECP128R2
-   #define LTC_ECC_SECP160K1
-   #define LTC_ECC_SECP160R1
-   #define LTC_ECC_SECP160R2
-   #define LTC_ECC_SECP192K1
-   #define LTC_ECC_SECP192R1
-   #define LTC_ECC_SECP224K1
-   #define LTC_ECC_SECP224R1
-   #define LTC_ECC_SECP256K1
-   #define LTC_ECC_SECP256R1
-   #define LTC_ECC_SECP384R1
-   #define LTC_ECC_SECP521R1
+#define LTC_ECC_BRAINPOOLP160R1
+#define LTC_ECC_BRAINPOOLP160T1
+#define LTC_ECC_BRAINPOOLP192R1
+#define LTC_ECC_BRAINPOOLP192T1
+#define LTC_ECC_BRAINPOOLP224R1
+#define LTC_ECC_BRAINPOOLP224T1
+#define LTC_ECC_BRAINPOOLP256R1
+#define LTC_ECC_BRAINPOOLP256T1
+#define LTC_ECC_BRAINPOOLP320R1
+#define LTC_ECC_BRAINPOOLP320T1
+#define LTC_ECC_BRAINPOOLP384R1
+#define LTC_ECC_BRAINPOOLP384T1
+#define LTC_ECC_BRAINPOOLP512R1
+#define LTC_ECC_BRAINPOOLP512T1
+#define LTC_ECC_PRIME192V2
+#define LTC_ECC_PRIME192V3
+#define LTC_ECC_PRIME239V1
+#define LTC_ECC_PRIME239V2
+#define LTC_ECC_PRIME239V3
+#define LTC_ECC_SECP112R1
+#define LTC_ECC_SECP112R2
+#define LTC_ECC_SECP128R1
+#define LTC_ECC_SECP128R2
+#define LTC_ECC_SECP160K1
+#define LTC_ECC_SECP160R1
+#define LTC_ECC_SECP160R2
+#define LTC_ECC_SECP192K1
+#define LTC_ECC_SECP192R1
+#define LTC_ECC_SECP224K1
+#define LTC_ECC_SECP224R1
+#define LTC_ECC_SECP256K1
+#define LTC_ECC_SECP256R1
+#define LTC_ECC_SECP384R1
+#define LTC_ECC_SECP521R1
 #endif
 #endif
 
 #if defined(LTC_DER)
-   #ifndef LTC_DER_MAX_RECURSION
-      /* Maximum recursion limit when processing nested ASN.1 types. */
-      #define LTC_DER_MAX_RECURSION 30
-   #endif
+#ifndef LTC_DER_MAX_RECURSION
+/* Maximum recursion limit when processing nested ASN.1 types. */
+#define LTC_DER_MAX_RECURSION 30
+#endif
 #endif
 
 #if defined(LTC_MECC) || defined(LTC_MRSA) || defined(LTC_MDSA) || defined(LTC_SSH)
-   /* Include the MPI functionality?  (required by the PK algorithms) */
-   #define LTC_MPI
+/* Include the MPI functionality?  (required by the PK algorithms) */
+#define LTC_MPI
 
-   #ifndef LTC_PK_MAX_RETRIES
-      /* iterations limit for retry-loops */
-      #define LTC_PK_MAX_RETRIES  20
-   #endif
+#ifndef LTC_PK_MAX_RETRIES
+/* iterations limit for retry-loops */
+#define LTC_PK_MAX_RETRIES 20
+#endif
 #endif
 
 #ifdef LTC_MRSA
-   #define LTC_PKCS_1
+#define LTC_PKCS_1
 #endif
 
 #if defined(LTC_MRSA) || defined(LTC_MECC)
-   #define LTC_PKCS_8
+#define LTC_PKCS_8
 #endif
 
 #ifdef LTC_PKCS_8
-   #define LTC_PADDING
-   #define LTC_PBES
+#define LTC_PADDING
+#define LTC_PBES
 #endif
 
 #if defined(LTC_PELICAN) && !defined(LTC_RIJNDAEL)
-   #error Pelican-MAC requires LTC_RIJNDAEL
+#error Pelican-MAC requires LTC_RIJNDAEL
 #endif
 
 #if defined(LTC_EAX_MODE) && !(defined(LTC_CTR_MODE) && defined(LTC_OMAC))
-   #error LTC_EAX_MODE requires CTR and LTC_OMAC mode
+#error LTC_EAX_MODE requires CTR and LTC_OMAC mode
 #endif
 
 #if defined(LTC_YARROW) && !defined(LTC_CTR_MODE)
-   #error LTC_YARROW requires LTC_CTR_MODE chaining mode to be defined!
+#error LTC_YARROW requires LTC_CTR_MODE chaining mode to be defined!
 #endif
 
 #if defined(LTC_DER) && !defined(LTC_MPI)
-   #error ASN.1 DER requires MPI functionality
+#error ASN.1 DER requires MPI functionality
 #endif
 
 #if (defined(LTC_MDSA) || defined(LTC_MRSA) || defined(LTC_MECC)) && !defined(LTC_DER)
-   #error PK requires ASN.1 DER functionality, make sure LTC_DER is enabled
+#error PK requires ASN.1 DER functionality, make sure LTC_DER is enabled
 #endif
 
 #if defined(LTC_CHACHA20POLY1305_MODE) && (!defined(LTC_CHACHA) || !defined(LTC_POLY1305))
-   #error LTC_CHACHA20POLY1305_MODE requires LTC_CHACHA + LTC_POLY1305
+#error LTC_CHACHA20POLY1305_MODE requires LTC_CHACHA + LTC_POLY1305
 #endif
 
 #if defined(LTC_CHACHA20_PRNG) && !defined(LTC_CHACHA)
-   #error LTC_CHACHA20_PRNG requires LTC_CHACHA
+#error LTC_CHACHA20_PRNG requires LTC_CHACHA
 #endif
 
 #if defined(LTC_XSALSA20) && !defined(LTC_SALSA20)
-   #error LTC_XSALSA20 requires LTC_SALSA20
+#error LTC_XSALSA20 requires LTC_SALSA20
 #endif
 
 #if defined(LTC_RC4) && !defined(LTC_RC4_STREAM)
-   #error LTC_RC4 requires LTC_RC4_STREAM
+#error LTC_RC4 requires LTC_RC4_STREAM
 #endif
 
 #if defined(LTC_SOBER128) && !defined(LTC_SOBER128_STREAM)
-   #error LTC_SOBER128 requires LTC_SOBER128_STREAM
+#error LTC_SOBER128 requires LTC_SOBER128_STREAM
 #endif
 
 #if defined(LTC_BLAKE2SMAC) && !defined(LTC_BLAKE2S)
-   #error LTC_BLAKE2SMAC requires LTC_BLAKE2S
+#error LTC_BLAKE2SMAC requires LTC_BLAKE2S
 #endif
 
 #if defined(LTC_BLAKE2BMAC) && !defined(LTC_BLAKE2B)
-   #error LTC_BLAKE2BMAC requires LTC_BLAKE2B
+#error LTC_BLAKE2BMAC requires LTC_BLAKE2B
 #endif
 
 #if defined(LTC_SPRNG) && !defined(LTC_RNG_GET_BYTES)
-   #error LTC_SPRNG requires LTC_RNG_GET_BYTES
+#error LTC_SPRNG requires LTC_RNG_GET_BYTES
 #endif
 
 #if defined(LTC_NO_MATH) && (defined(LTM_DESC) || defined(TFM_DESC) || defined(GMP_DESC))
-   #error LTC_NO_MATH defined, but also a math descriptor
+#error LTC_NO_MATH defined, but also a math descriptor
 #endif
 
 /* THREAD management */
@@ -641,13 +637,13 @@
 
 #include <pthread.h>
 
-#define LTC_MUTEX_GLOBAL(x)   pthread_mutex_t x = PTHREAD_MUTEX_INITIALIZER;
-#define LTC_MUTEX_PROTO(x)    extern pthread_mutex_t x;
-#define LTC_MUTEX_TYPE(x)     pthread_mutex_t x;
-#define LTC_MUTEX_INIT(x)     LTC_ARGCHK(pthread_mutex_init(x, NULL) == 0);
-#define LTC_MUTEX_LOCK(x)     LTC_ARGCHK(pthread_mutex_lock(x) == 0);
-#define LTC_MUTEX_UNLOCK(x)   LTC_ARGCHK(pthread_mutex_unlock(x) == 0);
-#define LTC_MUTEX_DESTROY(x)  LTC_ARGCHK(pthread_mutex_destroy(x) == 0);
+#define LTC_MUTEX_GLOBAL(x) pthread_mutex_t x = PTHREAD_MUTEX_INITIALIZER;
+#define LTC_MUTEX_PROTO(x) extern pthread_mutex_t x;
+#define LTC_MUTEX_TYPE(x) pthread_mutex_t x;
+#define LTC_MUTEX_INIT(x) LTC_ARGCHK(pthread_mutex_init(x, NULL) == 0);
+#define LTC_MUTEX_LOCK(x) LTC_ARGCHK(pthread_mutex_lock(x) == 0);
+#define LTC_MUTEX_UNLOCK(x) LTC_ARGCHK(pthread_mutex_unlock(x) == 0);
+#define LTC_MUTEX_DESTROY(x) LTC_ARGCHK(pthread_mutex_destroy(x) == 0);
 
 #else
 
@@ -670,10 +666,10 @@
 #endif
 
 #ifndef LTC_NO_FILE
-   /* buffer size for reading from a file via fread(..) */
-   #ifndef LTC_FILE_READ_BUFSIZE
-   #define LTC_FILE_READ_BUFSIZE 8192
-   #endif
+/* buffer size for reading from a file via fread(..) */
+#ifndef LTC_FILE_READ_BUFSIZE
+#define LTC_FILE_READ_BUFSIZE 8192
+#endif
 #endif
 
 /* ECC backwards compatibility */

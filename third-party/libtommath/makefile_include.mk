@@ -20,18 +20,18 @@ endif
 # We only need to go through this dance of determining the right compiler if we're using
 # cross compilation, otherwise $(CC) is fine as-is.
 ifneq (,$(CROSS_COMPILE))
-ifeq ($(origin CC),default)
-CSTR := "\#ifdef __clang__\nCLANG\n\#endif\n"
-ifeq ($(PLATFORM),FreeBSD)
-  # XXX: FreeBSD needs extra escaping for some reason
-  CSTR := $$$(CSTR)
-endif
-ifneq (,$(shell echo $(CSTR) | $(CC) -E - | grep CLANG))
-  CC := $(CROSS_COMPILE)clang
-else
+#ifeq ($(origin CC),default)
+#CSTR := "\#ifdef __clang__\nCLANG\n\#endif\n"
+#ifeq ($(PLATFORM),FreeBSD)
+#  # XXX: FreeBSD needs extra escaping for some reason
+#  CSTR := $$$(CSTR)
+#endif
+#ifneq (,$(shell echo $(CSTR) | $(CC) -E - | grep CLANG))
+#  CC := $(CROSS_COMPILE)clang
+#else
   CC := $(CROSS_COMPILE)gcc
-endif # Clang
-endif # cc is Make's default
+#endif # Clang
+#endif # cc is Make's default
 endif # CROSS_COMPILE non-empty
 
 LD=$(CROSS_COMPILE)ld
