@@ -30,6 +30,7 @@ enum SC_ENC_FNS {
 #define SCP_WRITE MIP_DFL_WRITE
 #define SCP_EXEC MIP_DFL_EXEC
 #define SCP_USE MIP_DFL_USE
+#define SCP_DEL MIP_DFL_DEL
 #define SCP_CD 0x1000
 
 #define SCF_TYPE_DLG 1

@@ -100,10 +100,13 @@ long syscall_ocreate(uint64_t kulo,
 {
 	objid_t kuid = MKID(kuhi, kulo);
 	objid_t srcid = MKID(shi, slo);
-	nonce_t nonce;
-	int r = rand_getbytes(&nonce, sizeof(nonce), 0);
-	if(r < 0) {
-		return r;
+	nonce_t nonce = 0;
+	int r;
+	if(!(flags & TWZ_SYS_OC_ZERONONCE)) {
+		r = rand_getbytes(&nonce, sizeof(nonce), 0);
+		if(r < 0) {
+			return r;
+		}
 	}
 	int ksot = (flags >> 8) & 0xF;
 	if(ksot >= KSO_MAX) {

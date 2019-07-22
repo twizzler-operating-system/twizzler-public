@@ -11,6 +11,8 @@
 #define SYS_THRD_CTL 10
 #define NUM_SYSCALLS 11
 
+#define TWZ_SYS_OC_ZERONONCE 0x1000
+
 struct sys_invalidate_op {
 	objid_t id;
 	uint64_t offset;

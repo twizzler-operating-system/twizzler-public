@@ -13,6 +13,7 @@
 #define MIP_DFL_WRITE 0x8
 #define MIP_DFL_EXEC 0x10
 #define MIP_DFL_USE 0x20
+#define MIP_DFL_DEL 0x40
 
 #define OBJ_NULLPAGE_SIZE 0x1000
 #define OBJ_METAPAGE_SIZE 0x1000

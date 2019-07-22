@@ -62,21 +62,21 @@ $(BUILDDIR)/us/%.data.obj $(BUILDDIR)/us/%.text.obj: $(BUILDDIR)/us/% $(BUILDDIR
 	@echo [SPLIT] $<
 	@$(BUILDDIR)/utils/elfsplit $<
 	@echo [OBJ] $<.data.obj
-	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p RD
+	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p RH
 	@echo [OBJ] $<.text.obj
 	@DATAID=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
 	FLAGS=$$(cat $<.flags);\
-	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXD -f 1:RWD:$$DATAID $$FLAGS
+	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXH -f 1:RWD:$$DATAID $$FLAGS
 
 $(BUILDDIR)/us/libtwz/libtwz.so.data.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.obj: $(BUILDDIR)/us/libtwz/libtwz.so $(BUILDDIR)/us/libtwz/libtwz.so.flags $(UTILS)
 	@echo [SPLIT] $<
 	@$(BUILDDIR)/utils/elfsplit $<
 	@echo [OBJ] $<.data.obj
-	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p RD
+	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p RH
 	@echo [OBJ] $<.text.obj
 	@DATAID=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
 	FLAGS=$$(cat $<.flags);\
-	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXD -f 1:RWD:$$DATAID $$FLAGS
+	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXH -f 1:RWD:$$DATAID $$FLAGS
 
 
 $(BUILDDIR)/us/%.o: us/%.c $(MUSL_READY)

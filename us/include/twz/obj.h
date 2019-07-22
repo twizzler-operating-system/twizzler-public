@@ -15,6 +15,9 @@ struct object {
 #define TWZ_OC_DFL_WRITE MIP_DFL_WRITE
 #define TWZ_OC_DFL_EXEC MIP_DFL_EXEC
 #define TWZ_OC_DFL_USE MIP_DFL_USE
+#define TWZ_OC_DFL_DEL MIP_DFL_DEL
+#define TWZ_OC_ZERONONCE 0x1000
+
 int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id);
 
 void *__twz_ptr_lea_foreign(const struct object *o, const void *p);

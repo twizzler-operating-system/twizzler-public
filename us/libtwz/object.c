@@ -7,6 +7,9 @@
 #include <twz/view.h>
 int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 {
+	if(flags & TWZ_OC_ZERONONCE) {
+		flags = (flags & ~TWZ_OC_ZERONONCE) | TWZ_SYS_OC_ZERONONCE;
+	}
 	return sys_ocreate(flags, kuid, src, id);
 }
 

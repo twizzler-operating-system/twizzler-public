@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -80,8 +81,10 @@ struct list {
 static void usage(void)
 {
 	fprintf(stderr,
-	  "usage: file2obj -i input-file -o output-file -p pflags [-k kuid] [-f FOT_SPEC]...\n");
-	fprintf(stderr, "valid pflags include R (dfl read), W, X, U (dfl use), D (hash data)\n");
+	  "usage: file2obj [-z] -i input-file -o output-file -p pflags [-k kuid] [-f FOT_SPEC]...\n");
+	fprintf(stderr, "-z: use zero for nonce\n");
+	fprintf(
+	  stderr, "valid pflags include R (dfl read), W, X, U (dfl use), H (hash data), D (delete)\n");
 	fprintf(stderr, "FOT_SPEC ::= <fotentry> ':' <flags> ':' IDNAME\n");
 	fprintf(stderr, "IDNAME ::= ID | NAME\n");
 	fprintf(
@@ -207,7 +210,8 @@ int main(int argc, char **argv)
 	uint16_t pflags = 0;
 	uint16_t fotcount = 0;
 	char *kuidstr = NULL;
-	while((c = getopt(argc, argv, "f:o:i:k:p:")) != EOF) {
+	bool zero_nonce = false;
+	while((c = getopt(argc, argv, "f:o:i:k:p:z")) != EOF) {
 		switch(c) {
 			struct list *l;
 			case 'f':
@@ -242,12 +246,19 @@ int main(int argc, char **argv)
 						case 'U':
 							pflags |= MIP_DFL_USE;
 							break;
+						case 'h':
+						case 'H':
+							pflags |= MIP_HASHDATA;
+							break;
 						case 'd':
 						case 'D':
-							pflags |= MIP_HASHDATA;
+							pflags |= MIP_DFL_DEL;
 							break;
 					}
 				}
+				break;
+			case 'z':
+				zero_nonce = true;
 				break;
 			case 'k':
 				kuidstr = strdup(optarg);
@@ -320,9 +331,13 @@ int main(int argc, char **argv)
 		.mdbottom = 0x1000,
 		.kuid = kuid,
 	};
-	if(getrandom(&mi.nonce, sizeof(mi.nonce), 0) < 0) {
-		perror("getrandom");
-		return 1;
+	if(zero_nonce) {
+		memset(&mi.nonce, 0, sizeof(mi.nonce));
+	} else {
+		if(getrandom(&mi.nonce, sizeof(mi.nonce), 0) < 0) {
+			perror("getrandom");
+			return 1;
+		}
 	}
 
 	off_t metapage_start = lseek(outfd, 0, SEEK_CUR);
