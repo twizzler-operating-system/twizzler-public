@@ -274,7 +274,7 @@ int main(int argc, char **argv)
 	}
 
 	int infd;
-	if(!strcmp(infd, "-")) {
+	if(!strcmp(infile, "-")) {
 		infd = 0;
 	} else {
 		infd = open(infile, O_RDONLY);
