@@ -16,7 +16,7 @@ static const char *hfns[] = {
 
 static const char *efns[] = {
 	[SCENC_TEST] = "test",
-	[SCENC_RSA] = "rsa",
+	[SCENC_DSA] = "dsa",
 };
 
 #define BITS_PER_BYTE 8

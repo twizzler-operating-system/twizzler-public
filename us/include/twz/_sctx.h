@@ -22,7 +22,7 @@ enum SC_HASH_FNS {
 
 enum SC_ENC_FNS {
 	SCENC_TEST,
-	SCENC_RSA,
+	SCENC_DSA,
 	SCENC_NUM,
 };
 

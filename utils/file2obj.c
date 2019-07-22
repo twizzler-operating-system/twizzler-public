@@ -273,10 +273,15 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	int infd = open(infile, O_RDONLY);
-	if(infd < 0) {
-		perror("open");
-		return 1;
+	int infd;
+	if(!strcmp(infd, "-")) {
+		infd = 0;
+	} else {
+		infd = open(infile, O_RDONLY);
+		if(infd < 0) {
+			perror("open");
+			return 1;
+		}
 	}
 
 	int outfd = open(outfile, O_RDWR | O_CREAT | O_TRUNC, 0644);

@@ -30,5 +30,10 @@ $(BUILDDIR)/utils/mkdlg: utils/mkdlg.c utils/blake2.h utils/blake2.c
 	mkdir -p $(BUILDDIR)/utils
 	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/mkdlg.c utils/blake2.c -Ius/include
 
+$(BUILDDIR)/utils/makekey: utils/makekey.c
+	mkdir -p $(BUILDDIR)/utils
+	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/makekey.c -Ius/include
 
-UTILS=$(addprefix $(BUILDDIR)/utils/,objstat file2obj elfsplit bsv appendobj sctx mkcap mkdlg)
+
+
+UTILS=$(addprefix $(BUILDDIR)/utils/,objstat file2obj elfsplit bsv appendobj sctx mkcap mkdlg makekey)
