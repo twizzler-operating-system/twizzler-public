@@ -53,3 +53,17 @@ $(BUILDDIR)/us/data/login.sctx: $(BUILDDIR)/us/data/_login.sctx.tmp $(BUILDDIR)/
 		$(BUILDDIR)/utils/mkcap -t $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/login/login.text.obj) -a $$LID -p RX -h sha1 -s dsa $(BUILDDIR)/us/data/login-rk.pem \
 		) | $(BUILDDIR)/utils/sctx $@
 
+$(BUILDDIR)/us/data/login-key.pub $(BUILDDIR)/us/data/login-key.pri: $(BUILDDIR)/us/data/login-rk.pem
+	@echo "[KEY] $@"
+	@mkdir -p $(BUILDDIR)/us/data
+	@$(BUILDDIR)/utils/makekey -i $< -r $(BUILDDIR)/us/data/login-key.pri -u $(BUILDDIR)/us/data/login-key.pub -t dsa
+
+$(BUILDDIR)/us/data/%-key.pub.obj: $(BUILDDIR)/us/data/%-key.pub
+	@echo "[OBJ] $@"
+	@mkdir -p $(BUILDDIR)/us/data
+	@$(BUILDDIR)/utils/file2obj -i $< -o $@ -p R
+
+$(BUILDDIR)/us/data/%-key.pri.obj: $(BUILDDIR)/us/data/%-key.pri
+	@echo "[OBJ] $@"
+	@mkdir -p $(BUILDDIR)/us/data
+	@$(BUILDDIR)/utils/file2obj -i $< -o $@
