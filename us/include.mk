@@ -1,4 +1,4 @@
-PROGS=test init term shell
+PROGS=test init term shell login
 TWZCC?=x86_64-pc-elf-gcc
 
 
