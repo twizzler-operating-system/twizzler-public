@@ -2,6 +2,8 @@ ifndef PROJECT
 $(error PROJECT is not set. Please choose one of ($(shell ls --format=commas projects)), or create a new one in projects/)
 endif
 
+.SHELLFLAGS = -o pipefail -c
+
 HOSTCC=$(CC)
 HOSTCFLAGS=-Wall -Wextra -O3 -Wshadow -g
 

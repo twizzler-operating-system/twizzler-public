@@ -22,13 +22,13 @@ $(BUILDDIR)/utils/sctx: utils/sctx.c
 	mkdir -p $(BUILDDIR)/utils
 	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ $< -Ius/include
 
-$(BUILDDIR)/utils/mkcap: utils/mkcap.c utils/blake2.h utils/blake2.c
+$(BUILDDIR)/utils/mkcap: utils/mkcap.c
 	mkdir -p $(BUILDDIR)/utils
-	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/mkcap.c utils/blake2.c -Ius/include
+	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/mkcap.c -Ius/include -ltomcrypt
 
-$(BUILDDIR)/utils/mkdlg: utils/mkdlg.c utils/blake2.h utils/blake2.c
+$(BUILDDIR)/utils/mkdlg: utils/mkdlg.c
 	mkdir -p $(BUILDDIR)/utils
-	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/mkdlg.c utils/blake2.c -Ius/include
+	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/mkdlg.c -Ius/include -ltomcrypt
 
 $(BUILDDIR)/utils/makekey: utils/makekey.c
 	mkdir -p $(BUILDDIR)/utils

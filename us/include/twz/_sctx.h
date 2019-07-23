@@ -16,12 +16,11 @@ struct scgates {
 };
 
 enum SC_HASH_FNS {
-	SCHASH_BLAKE2,
+	SCHASH_SHA1,
 	SCHASH_NUM,
 };
 
 enum SC_ENC_FNS {
-	SCENC_TEST,
 	SCENC_DSA,
 	SCENC_NUM,
 };

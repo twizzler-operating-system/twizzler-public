@@ -1,29 +1,31 @@
-#include "blake2.h"
 #include "common.h"
+#include "sign.h"
+#include <err.h>
+#include <fcntl.h>
 #include <libgen.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <twz/_sctx.h>
 #include <unistd.h>
+
+#define LTM_DESC
+#include <tomcrypt.h>
 
 /*
  * mkcap [-d] -a delegator -t delegatee -m mask -e gatemask -h htype -s etype -r expire kr-obj
  */
 static const char *hfns[] = {
-	[SCHASH_BLAKE2] = "blake2",
+	[SCHASH_SHA1] = "sha1",
 };
 
 static const char *efns[] = {
-	[SCENC_TEST] = "test",
 	[SCENC_DSA] = "dsa",
 };
 
-#define BITS_PER_BYTE 8
-size_t sigbits[SCENC_NUM][SCHASH_NUM] = {
-	[SCENC_TEST] = {
-		[SCHASH_BLAKE2] = 256 / BITS_PER_BYTE,
-	},
+size_t hashlen[SCHASH_NUM] = {
+	[SCHASH_SHA1] = 20,
 };
 
 int main(int argc, char **argv)
@@ -128,8 +130,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	dlg.slen = sigbits[dlg.etype][dlg.htype];
-
 	size_t bsz = 1024, count = 0;
 	char *buffer = malloc(bsz);
 	ssize_t r;
@@ -143,15 +143,51 @@ int main(int argc, char **argv)
 
 	dlg.dlen = count;
 
-	_Alignas(16) blake2b_state S;
-	blake2b_init(&S, 32);
-	blake2b_update(&S, &dlg, sizeof(dlg));
-	blake2b_update(&S, buffer, count);
-	char sig[32];
-	blake2b_final(&S, sig, 32);
+	char *pr = argv[optind];
+	if(!pr) {
+		errx(1, "no key!");
+	}
+
+	int fd = open(pr, O_RDONLY);
+	if(fd == -1)
+		err(1, "open");
+
+	struct stat st;
+	if(fstat(fd, &st) == -1)
+		err(1, "fstat");
+
+	char *fdata = calloc(1, st.st_size + 1);
+	size_t m = 0;
+	while((r = read(fd, fdata + m, st.st_size - m)) > 0) {
+		m += r;
+	}
+	if(r < 0) {
+		err(1, "read");
+	}
+
+	char *keystart = strchr(fdata, '\n') + 1;
+	char *keyend = strchr(keystart, '-');
+
+	size_t keylen = (keyend - keystart);
+
+	unsigned char sig[4096];
+	dlg.slen = 0;
+	size_t siglen = 0;
+	while(siglen > dlg.slen || siglen == 0) {
+		dlg.slen = siglen;
+		_Alignas(16) hash_state hs;
+		sha1_init(&hs);
+		sha1_process(&hs, (unsigned char *)&dlg, sizeof(dlg));
+		unsigned char out[128];
+		sha1_done(&hs, out);
+
+		siglen = sizeof(sig);
+		memset(sig, 0, siglen);
+		sign_dsa(out, 20, (unsigned char *)keystart, keylen, sig, &siglen);
+	}
 
 	write(1, &dlg, sizeof(dlg));
 	write(1, buffer, count);
-	write(1, sig, 32);
+	write(1, sig, dlg.slen);
 	return 0;
 }

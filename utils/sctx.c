@@ -1,3 +1,4 @@
+#include <err.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -85,10 +86,22 @@ int main(int argc, char **argv)
 
 	ssize_t r;
 	_Alignas(16) char buffer[sizeof(struct sccap)];
-	while((r = read(0, buffer, sizeof(buffer))) > 0) {
-		if(r != sizeof(buffer)) {
-			perror("incorrect read size");
-			exit(1);
+	// while((r = read(0, buffer, sizeof(buffer))) > 0) {
+	while(1) {
+		size_t m = 0;
+		while((r = read(0, buffer + m, sizeof(buffer) - m)) > 0) {
+			printf("read: %ld\n", r);
+			if(r == 0 && m == 0)
+				break;
+			m += r;
+		}
+		if(r < 0) {
+			err(1, "read");
+		}
+		if(m == 0)
+			break;
+		if(m != sizeof(buffer)) {
+			errx(1, "incorrect read size cap (%ld / %ld)", m, sizeof(buffer));
 		}
 		struct sccap *cap = (void *)buffer;
 		struct scdlg *dlg = (void *)buffer;
@@ -107,9 +120,16 @@ int main(int argc, char **argv)
 		char *ptr = end;
 		memcpy(end, buffer, sizeof(buffer));
 		end += sizeof(buffer);
-		if((r = read(0, end, rem)) != (ssize_t)rem) {
-			fprintf(stderr, "read: %ld / %ld", r, rem);
-			exit(1);
+		m = 0;
+		printf("reading %ld more\n", rem);
+		while((r = read(0, end + m, rem - m)) > 0) {
+			m += r;
+		}
+		if(r < 0) {
+			err(1, "read");
+		}
+		if(m != rem) {
+			errx(1, "incorrect read size (%ld / %ld) rem", m, rem);
 		}
 		end += rem;
 
