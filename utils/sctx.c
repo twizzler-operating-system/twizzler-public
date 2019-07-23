@@ -90,7 +90,6 @@ int main(int argc, char **argv)
 	while(1) {
 		size_t m = 0;
 		while((r = read(0, buffer + m, sizeof(buffer) - m)) > 0) {
-			printf("read: %ld\n", r);
 			if(r == 0 && m == 0)
 				break;
 			m += r;
@@ -121,7 +120,6 @@ int main(int argc, char **argv)
 		memcpy(end, buffer, sizeof(buffer));
 		end += sizeof(buffer);
 		m = 0;
-		printf("reading %ld more\n", rem);
 		while((r = read(0, end + m, rem - m)) > 0) {
 			m += r;
 		}
