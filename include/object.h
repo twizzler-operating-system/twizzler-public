@@ -6,15 +6,6 @@
 
 #include <twz/_obj.h>
 
-enum kso_type {
-	KSO_NONE,
-	KSO_VIEW,
-	KSO_SECCTX,
-	KSO_THREAD,
-	KSO_ROOT,
-	KSO_MAX,
-};
-
 #define OF_NOTYPECHECK 1
 #define OF_KERNELGEN 2
 
@@ -60,10 +51,11 @@ struct object {
 	bool idvercache;
 	bool idversafe;
 
-	enum kso_type kso_type;
+	_Atomic enum kso_type kso_type;
 	union {
 		struct kso_view view;
 		struct kso_throbj thr;
+		struct kso_sctx sctx;
 	};
 	struct kso_calls *kso_calls;
 

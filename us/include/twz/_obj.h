@@ -61,3 +61,12 @@ struct fotentry {
 	uint64_t flags;
 	uint64_t info;
 } __attribute__((packed));
+
+enum kso_type {
+	KSO_NONE,
+	KSO_VIEW,
+	KSO_SECCTX,
+	KSO_THREAD,
+	KSO_ROOT,
+	KSO_MAX,
+};

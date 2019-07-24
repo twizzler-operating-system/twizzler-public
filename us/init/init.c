@@ -27,7 +27,7 @@ void tmain(void *a)
 			twz_thread_exit();
 		}
 		debug_printf("ATTACH\n");
-		r = sys_attach(0, si, 0);
+		r = sys_attach(0, si, KSO_SECCTX);
 		if(r) {
 			debug_printf("failed to attach: %d", r);
 			twz_thread_exit();

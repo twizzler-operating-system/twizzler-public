@@ -31,9 +31,11 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 	return suc;
 }
 
-long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t flags)
+long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t ft)
 {
 	objid_t paid = MKID(pahi, palo), chid = MKID(chhi, chlo);
+	uint32_t type = (ft & 0xffffffff);
+	uint32_t flags = (ft >> 32) & 0xffffffff;
 	struct object *parent = paid == 0 ? kso_get_obj(current_thread->throbj, thr) : obj_lookup(paid);
 	struct object *child = obj_lookup(chid);
 
@@ -45,11 +47,18 @@ long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 		return -1;
 	}
 
-	if(parent->kso_type == KSO_NONE || child->kso_type == KSO_NONE) {
+	spinlock_acquire_save(&child->lock);
+	/* don't need lock on parent since kso_type is atomic, and once set cannot be unset */
+	if(parent->kso_type == KSO_NONE || (child->kso_type != KSO_NONE && child->kso_type != type)) {
+		spinlock_release_restore(&child->lock);
 		obj_put(child);
 		obj_put(parent);
 		return -1;
 	}
+	if(child->kso_type == KSO_NONE) {
+		obj_kso_init(child, type);
+	}
+	spinlock_release_restore(&child->lock);
 
 	int ret = -1;
 	if(child->kso_calls->attach) {

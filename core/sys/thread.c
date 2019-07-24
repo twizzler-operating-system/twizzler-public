@@ -20,6 +20,16 @@ long syscall_thread_spawn(uint64_t tidlo,
 		return -1;
 	}
 
+	spinlock_acquire_save(&repr->lock);
+	if(repr->kso_type != KSO_NONE && repr->kso_type != KSO_THREAD) {
+		obj_put(repr);
+		return -1;
+	}
+	if(repr->kso_type == KSO_NONE) {
+		obj_kso_init(repr, KSO_THREAD);
+	}
+	spinlock_release_restore(&repr->lock);
+
 	struct object *view = current_thread ? kso_get_obj(current_thread->ctx->view, view) : NULL;
 	if(tsa->target_view) {
 		view = obj_lookup(tsa->target_view);

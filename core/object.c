@@ -67,6 +67,9 @@ void obj_kso_init(struct object *obj, enum kso_type ksot)
 {
 	obj->kso_type = ksot;
 	obj->kso_calls = _kso_calls[ksot];
+	if(obj->kso_calls && obj->kso_calls->ctor) {
+		obj->kso_calls->ctor(obj);
+	}
 }
 
 static inline struct object *__obj_alloc(enum kso_type ksot, objid_t id)
