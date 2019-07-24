@@ -1,11 +1,12 @@
 #pragma once
 
+#include <twz/_key.h>
 #include <twz/_objid.h>
 #include <twz/btree.h>
 
 struct keyring_hdr {
-	objid_t dfl_pub;
-	objid_t dfl_pri;
+	struct key_hdr *dfl_pubkey;
+	struct key_hdr *dfl_prikey;
 
 	struct btree_hdr bt;
 };

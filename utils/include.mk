@@ -34,6 +34,11 @@ $(BUILDDIR)/utils/makekey: utils/makekey.c
 	mkdir -p $(BUILDDIR)/utils
 	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/makekey.c -Ius/include
 
+$(BUILDDIR)/utils/mkuser: utils/user.c
+	mkdir -p $(BUILDDIR)/utils
+	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/user.c -Ius/include
 
 
-UTILS=$(addprefix $(BUILDDIR)/utils/,objstat file2obj elfsplit bsv appendobj sctx mkcap mkdlg makekey)
+
+
+UTILS=$(addprefix $(BUILDDIR)/utils/,objstat file2obj elfsplit bsv appendobj sctx mkcap mkdlg makekey mkuser)

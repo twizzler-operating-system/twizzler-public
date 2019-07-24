@@ -9,7 +9,7 @@ int main(int argc, char **argv)
 {
 	char buffer[1024];
 	for(;;) {
-		printf("> ");
+		printf("LOGIN> ");
 		fflush(NULL);
 		fgets(buffer, 1024, stdin);
 		printf("got: %s\n", buffer);

@@ -310,3 +310,20 @@ bool secctx_thread_attach(struct sctx *s, struct thread *t)
 	spinlock_release_restore(&t->sc_lock);
 	return ok;
 }
+
+static bool __secctx_attach(struct object *parent, struct object *child, int flags)
+{
+	if(parent->kso_type != KSO_THREAD || child->kso_type != KSO_SECCTX)
+		return false;
+
+	return true;
+}
+
+static struct kso_calls __ksoc_sctx = {
+	.attach = __secctx_attach,
+};
+
+__initializer static void __init_kso_secctx(void)
+{
+	kso_register(KSO_SECCTX, &__ksoc_sctx);
+}

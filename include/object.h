@@ -24,6 +24,9 @@ struct kso_view {
 struct kso_throbj {
 };
 
+struct kso_sctx {
+};
+
 struct kso_invl_args {
 	objid_t id;
 	uint64_t offset;

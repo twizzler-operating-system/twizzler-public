@@ -19,6 +19,21 @@ void tmain(void *a)
 		twz_thread_exit();
 	}
 
+	if(!strcmp(pg, "login.text")) {
+		objid_t si;
+		int r = twz_name_resolve(NULL, "login.sctx", NULL, 0, &si);
+		if(r) {
+			debug_printf("failed to resolve 'login.sctx'");
+			twz_thread_exit();
+		}
+		debug_printf("ATTACH\n");
+		r = sys_attach(0, si, 0);
+		if(r) {
+			debug_printf("failed to attach: %d", r);
+			twz_thread_exit();
+		}
+	}
+
 	// twz_exec(id, (const char *const[]){ pg, NULL }, NULL);
 	r = execv(pg, (char *[]){ pg, NULL });
 	debug_printf("failed to exec '%s': %d", pg, r);
@@ -61,7 +76,7 @@ int main(int argc, char **argv)
 
 	struct thread shthr;
 	if((r = twz_thread_spawn(
-	      &shthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = "shell.text" }))) {
+	      &shthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = "login.text" }))) {
 		debug_printf("failed to spawn shell");
 		abort();
 	}

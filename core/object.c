@@ -404,10 +404,11 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 	struct objpage *p = obj_get_page(o, idx);
 	obj_put(o);
 
-	//	printk("--> %lx %d (%x)\n",
-	//	  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U),
-	//	  ok,
-	//	  mi.p_flags);
+	/*
+	printk("--> %lx %d (%x)\n",
+	  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U),
+	  ok,
+	  mi.p_flags);*/
 	arch_objspace_map(addr & ~(mm_page_size(0) - 1),
 	  p->phys,
 	  0,
