@@ -2,8 +2,8 @@
 
 #include <krc.h>
 #include <lib/inthash.h>
+#include <secctx.h>
 #include <spinlock.h>
-
 #include <twz/_obj.h>
 
 #define OF_NOTYPECHECK 1
@@ -16,6 +16,7 @@ struct kso_throbj {
 };
 
 struct kso_sctx {
+	struct sctx *sc;
 };
 
 struct kso_invl_args {
@@ -97,4 +98,4 @@ void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
 #define OBJSPACE_EXEC_U 4
 #define OBJSPACE_EXEC_S 8
 
-void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t phys, uint32_t flags);
+void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t phys, uintptr_t vaddr, uint32_t flags);

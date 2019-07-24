@@ -1,3 +1,5 @@
+HOSTCFLAGS+=-fsanitize=undefined -fsanitize=address
+
 $(BUILDDIR)/utils/file2obj: utils/file2obj.c
 	mkdir -p $(BUILDDIR)/utils
 	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ $<

@@ -22,7 +22,7 @@ objid_t get_target(char *data)
 
 void add_hash(struct secctx *ctx, objid_t target, char *ptr)
 {
-	printf("adding perm object for " IDFMT " %p\n", IDPR(target), ptr);
+	fprintf(stderr, "adding perm object for " IDFMT " %p\n", IDPR(target), ptr);
 	size_t slot = target % ctx->nbuckets;
 	while(1) {
 		struct scbucket *b = &ctx->buckets[slot];
@@ -76,12 +76,14 @@ int main(int argc, char **argv)
 	  0);
 	if(ctx == MAP_FAILED) {
 		perror("mmap");
+		ftruncate(fd, 0);
 		exit(1);
 	}
 
 	ctx->nbuckets = 1024;
 	ctx->nchain = 4096;
 	size_t max = sizeof(*ctx) + sizeof(struct scbucket) * (ctx->nbuckets + ctx->nchain);
+	max = ((max - 1) & ~15) + 16;
 	char *end = (char *)ctx + max;
 
 	ssize_t r;
@@ -89,17 +91,19 @@ int main(int argc, char **argv)
 	// while((r = read(0, buffer, sizeof(buffer))) > 0) {
 	while(1) {
 		size_t m = 0;
-		while((r = read(0, buffer + m, sizeof(buffer) - m)) > 0) {
+		while((sizeof(buffer) - m > 0) && (r = read(0, buffer + m, sizeof(buffer) - m)) > 0) {
 			if(r == 0 && m == 0)
 				break;
 			m += r;
 		}
 		if(r < 0) {
+			ftruncate(fd, 0);
 			err(1, "read");
 		}
 		if(m == 0)
 			break;
 		if(m != sizeof(buffer)) {
+			ftruncate(fd, 0);
 			errx(1, "incorrect read size cap (%ld / %ld)", m, sizeof(buffer));
 		}
 		struct sccap *cap = (void *)buffer;
@@ -113,23 +117,33 @@ int main(int argc, char **argv)
 				rem = dlg->slen + dlg->dlen;
 				break;
 			default:
-				fprintf(stderr, "unknown cap or dlg magic!\n");
+				fprintf(stderr, "unknown cap or dlg magic! (%x)\n", cap->magic);
+				fprintf(stderr, "Off: %d\n", offsetof(struct sccap, magic));
+				for(int i = 0; i < sizeof(buffer); i++) {
+					if(i % 16 == 0)
+						fprintf(stderr, "\n");
+					fprintf(stderr, "%2x ", (unsigned char)buffer[i]);
+				}
+				ftruncate(fd, 0);
 				exit(1);
 		}
 		char *ptr = end;
 		memcpy(end, buffer, sizeof(buffer));
 		end += sizeof(buffer);
 		m = 0;
-		while((r = read(0, end + m, rem - m)) > 0) {
+		while((rem - m > 0) && (r = read(0, end + m, rem - m)) > 0) {
 			m += r;
 		}
 		if(r < 0) {
+			ftruncate(fd, 0);
 			err(1, "read");
 		}
 		if(m != rem) {
+			ftruncate(fd, 0);
 			errx(1, "incorrect read size (%ld / %ld) rem", m, rem);
 		}
-		end += rem;
+		size_t inc = ((rem - 1) & ~15) + 16;
+		end += inc;
 
 		objid_t target = get_target(ptr);
 		add_hash(ctx, target, (char *)((ptr - (char *)ctx) + OBJ_NULLPAGE_SIZE));

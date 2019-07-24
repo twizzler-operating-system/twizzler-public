@@ -171,7 +171,28 @@ int main(int argc, char **argv)
 		sign_dsa(out, 20, (unsigned char *)keystart, keylen, sig, &siglen);
 	}
 
-	write(1, &cap, sizeof(cap));
-	write(1, sig, cap.slen);
+	fprintf(stderr,
+	  "constructed CAP (target=" IDFMT ", accessor=" IDFMT
+	  ", perms=%x, magic=%x, ofm=%d, slen=%d)\n",
+	  IDPR(cap.target),
+	  IDPR(cap.accessor),
+	  cap.perms,
+	  cap.magic,
+	  offsetof(struct sccap, magic),
+	  cap.slen);
+	m = 0;
+	while(m < sizeof(cap)) {
+		ssize_t r = write(1, &cap, sizeof(cap));
+		if(r < 0)
+			err(1, "write");
+		m += r;
+	}
+	m = 0;
+	while(m < cap.slen) {
+		ssize_t r = write(1, sig, cap.slen);
+		if(r < 0)
+			err(1, "write");
+		m += r;
+	}
 	return 0;
 }

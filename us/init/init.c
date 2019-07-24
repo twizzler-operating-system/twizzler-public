@@ -58,6 +58,19 @@ int main(int argc, char **argv)
 
 	twz_thread_wait(1, (struct thread *[]){ &tthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 
+	objid_t si;
+	r = twz_name_resolve(NULL, "init.sctx", NULL, 0, &si);
+	if(r) {
+		debug_printf("failed to resolve 'init.sctx'");
+		twz_thread_exit();
+	}
+	debug_printf("ATTACH\n");
+	r = sys_attach(0, si, KSO_SECCTX);
+	if(r) {
+		debug_printf("failed to attach: %d", r);
+		twz_thread_exit();
+	}
+
 	int fd;
 	if((fd = open("dev:dfl:keyboard", O_RDONLY)) != 0) {
 		debug_printf("err opening stdin");

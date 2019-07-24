@@ -45,9 +45,9 @@ static struct syncpoint *sp_lookup(struct object *obj, size_t off, bool create)
 	return sp;
 }
 
-static void _sp_release(struct krc *k)
+static void _sp_release(void *_sp)
 {
-	struct syncpoint *sp = container_of(k, struct syncpoint, refs);
+	struct syncpoint *sp = _sp;
 	spinlock_acquire_save(&sp->obj->tslock);
 	ihtable_remove(sp->obj->tstable, &sp->elem, sp->off);
 	spinlock_release_restore(&sp->obj->tslock);
@@ -80,7 +80,7 @@ static void sp_sleep_finish(struct syncpoint *sp, int stay_asleep)
 	}
 	spinlock_release_restore(&current_thread->lock);
 	spinlock_release_restore(&sp->lock);
-	krc_put_call(&sp->refs, _sp_release);
+	krc_put_call(sp, refs, _sp_release);
 }
 
 static int sp_sleep(struct syncpoint *sp, long *addr, long val, struct timespec *spec)
@@ -108,11 +108,11 @@ static int sp_wake(struct syncpoint *sp, long arg)
 
 		list_remove(&t->rq_entry);
 		thread_wake(t);
-		krc_put_call(&sp->refs, _sp_release);
+		krc_put_call(sp, refs, _sp_release);
 		count++;
 	}
 	spinlock_release_restore(&sp->lock);
-	krc_put_call(&sp->refs, _sp_release);
+	krc_put_call(sp, refs, _sp_release);
 	return count;
 }
 

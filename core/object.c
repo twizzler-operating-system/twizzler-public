@@ -211,26 +211,24 @@ struct objpage *obj_get_page(struct object *obj, size_t idx)
 	return page;
 }
 
-static void _objpage_release(struct krc *k)
+static void _objpage_release(void *page)
 {
-	struct objpage *page = container_of(k, struct objpage, refs);
 	(void)page; /* TODO (major): implement */
 }
 
-static void _obj_release(struct krc *k)
+static void _obj_release(void *obj)
 {
-	struct object *obj = container_of(k, struct object, refs);
 	(void)obj; /* TODO (major): implement */
 }
 
 void obj_put_page(struct objpage *p)
 {
-	krc_put_call(&p->refs, _objpage_release);
+	krc_put_call(p, refs, _objpage_release);
 }
 
 void obj_put(struct object *o)
 {
-	krc_put_call(&o->refs, _obj_release);
+	krc_put_call(o, refs, _obj_release);
 }
 
 /* TODO (major): these can probably fail */
@@ -342,21 +340,21 @@ bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags);
 #include <processor.h>
 #include <secctx.h>
 #include <thread.h>
-void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
+void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr, uint32_t flags)
 {
-	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
-	size_t idx = (addr % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
+	size_t slot = loaddr / mm_page_size(MAX_PGLEVEL);
+	size_t idx = (loaddr % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
 	if(idx == 0) {
 		struct fault_null_info info = {
 			.ip = ip,
-			.addr = addr,
+			.addr = vaddr,
 		};
 		thread_raise_fault(current_thread, FAULT_NULL, &info, sizeof(info));
 		return;
 	}
 	idx -= 1;
 
-	struct object *o = obj_lookup_slot(addr);
+	struct object *o = obj_lookup_slot(loaddr);
 	if(o == NULL) {
 		panic("NO OBJ");
 	}
@@ -385,7 +383,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 		perms |= OBJSPACE_EXEC_U;
 	if(!ok) {
 		perms = 0;
-		if(secctx_fault_resolve(current_thread, ip, addr, o->id, flags, &perms) == -1) {
+		if(secctx_fault_resolve(current_thread, ip, loaddr, vaddr, o->id, flags, &perms) == -1) {
 			obj_put(o);
 			return;
 		}
@@ -395,7 +393,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 	if(!obj_verify_id(o, !w, w)) {
 		struct fault_object_info info = {
 			.ip = ip,
-			.addr = addr,
+			.addr = vaddr,
 			.objid = o->id,
 			.flags = FAULT_OBJECT_INVALID,
 		};
@@ -412,7 +410,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t addr, uint32_t flags)
 	  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U),
 	  ok,
 	  mi.p_flags);*/
-	arch_objspace_map(addr & ~(mm_page_size(0) - 1),
+	arch_objspace_map(loaddr & ~(mm_page_size(0) - 1),
 	  p->phys,
 	  0,
 	  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));

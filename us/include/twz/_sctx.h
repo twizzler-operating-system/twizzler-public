@@ -52,7 +52,7 @@ struct sccap {
 	uint16_t slen;
 	uint16_t pad;
 	char sig[];
-};
+} __attribute__((packed));
 
 struct scdlg {
 	objid_t delegatee;
@@ -67,7 +67,7 @@ struct scdlg {
 	uint16_t slen;
 	uint16_t dlen;
 	char data[];
-};
+} __attribute__((packed));
 
 _Static_assert(sizeof(struct scdlg) == sizeof(struct sccap),
   "CAP and DLG struct size must be the same");

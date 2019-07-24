@@ -21,7 +21,8 @@ void secctx_switch(int i);
 struct thread;
 int secctx_fault_resolve(struct thread *t,
   uintptr_t ip,
-  uintptr_t addr,
+  uintptr_t loaddr,
+  uintptr_t vaddr,
   objid_t target,
   uint32_t flags,
   uint64_t *perms);

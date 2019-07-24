@@ -36,12 +36,14 @@ static inline bool krc_put(struct krc *k)
 	return atomic_fetch_sub(&k->count, 1) == 1;
 }
 
-static inline bool krc_put_call(struct krc *k, void (*_fn)(struct krc *k))
+#define krc_put_call(o, k_mname, fn) __krc_put_call(&((o)->k_mname), fn, o)
+
+static inline bool __krc_put_call(struct krc *k, void (*_fn)(void *k), void *o)
 {
 	assert(k->count > 0);
 	bool r = atomic_fetch_sub(&k->count, 1) == 1;
 	if(r) {
-		_fn(k);
+		_fn(o);
 	}
 	return r;
 }
@@ -55,4 +57,3 @@ static inline void krc_init_zero(struct krc *k)
 {
 	k->count = 0;
 }
-

@@ -47,4 +47,5 @@ struct fault_sctx_info {
 	uint64_t addr;
 	uint32_t pneed;
 	uint32_t pad;
+	uint64_t pad64;
 } __attribute__((packed));
