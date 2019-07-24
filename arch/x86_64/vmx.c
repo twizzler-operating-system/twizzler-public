@@ -77,6 +77,12 @@ static inline void vmcs_write32_fixed(uint32_t msr, uint32_t vmcs_field, uint32_
 	val |= msr_low;
 	vmcs_writel(vmcs_field, val);
 }
+static bool x86_64_ept_map(uintptr_t ept_phys,
+  uintptr_t virt,
+  uintptr_t phys,
+  int level,
+  uint64_t flags,
+  bool remap);
 
 static void x86_64_enable_vmx(void)
 {
@@ -420,7 +426,68 @@ static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
 	}
 }
 
-bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int level, uint64_t flags)
+static bool x86_64_ept_getmap(uintptr_t ept_phys,
+  uintptr_t virt,
+  uintptr_t *phys,
+  int *level,
+  uint64_t *flags)
+{
+	int pml4_idx = PML4_IDX(virt);
+	int pdpt_idx = PDPT_IDX(virt);
+	int pd_idx = PD_IDX(virt);
+	int pt_idx = PT_IDX(virt);
+
+	uintptr_t *pml4 = GET_VIRT_TABLE(ept_phys);
+	if(!pml4[pml4_idx])
+		return false;
+
+	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
+
+	if(!pdpt[pdpt_idx])
+		return false;
+	else if(pdpt[pdpt_idx] & PAGE_LARGE) {
+		if(phys)
+			*phys = pdpt[pdpt_idx] & VM_PHYS_MASK;
+		if(flags)
+			*flags = pdpt[pdpt_idx] & ~VM_PHYS_MASK;
+		if(level)
+			*level = 2;
+		return true;
+	}
+
+	uintptr_t *pd = GET_VIRT_TABLE(pdpt[pdpt_idx]);
+
+	if(!pd[pd_idx])
+		return false;
+	else if(pd[pd_idx] & PAGE_LARGE) {
+		if(phys)
+			*phys = pd[pd_idx] & VM_PHYS_MASK;
+		if(flags)
+			*flags = pd[pd_idx] & ~VM_PHYS_MASK;
+		if(level)
+			*level = 1;
+		return true;
+	}
+
+	uintptr_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
+
+	if(!pt[pt_idx])
+		return false;
+	if(phys)
+		*phys = pt[pt_idx] & VM_PHYS_MASK;
+	if(flags)
+		*flags = pt[pt_idx] & ~VM_PHYS_MASK;
+	if(level)
+		*level = 0;
+	return true;
+}
+
+static bool x86_64_ept_map(uintptr_t ept_phys,
+  uintptr_t virt,
+  uintptr_t phys,
+  int level,
+  uint64_t flags,
+  bool remap)
 {
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
@@ -432,7 +499,7 @@ bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int leve
 
 	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
 	if(level == 2) {
-		if(pdpt[pdpt_idx]) {
+		if(pdpt[pdpt_idx] && (!remap || phys != (pdpt[pdpt_idx] & VM_PHYS_MASK))) {
 			return false;
 		}
 		pdpt[pdpt_idx] = phys | flags | PAGE_LARGE;
@@ -441,14 +508,14 @@ bool x86_64_ept_map(uintptr_t ept_phys, uintptr_t virt, uintptr_t phys, int leve
 		uintptr_t *pd = GET_VIRT_TABLE(pdpt[pdpt_idx]);
 
 		if(level == 1) {
-			if(pd[pd_idx]) {
+			if(pd[pd_idx] && (!remap || phys != (pd[pd_idx] & VM_PHYS_MASK))) {
 				return false;
 			}
 			pd[pd_idx] = phys | flags | PAGE_LARGE;
 		} else {
 			test_and_allocate(&pd[pd_idx], flags);
 			uintptr_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
-			if(pt[pt_idx]) {
+			if(pt[pt_idx] && (!remap || phys != (pt[pt_idx] & VM_PHYS_MASK))) {
 				return false;
 			}
 			pt[pt_idx] = phys | flags;
@@ -468,7 +535,24 @@ bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags)
 		ef |= EPT_EXEC;
 	ef |=
 	  EPT_MEMTYPE_WB | EPT_IGNORE_PAT; /* TODO (major): maybe we don't want this for all objects? */
-	return x86_64_ept_map(current_thread->active_sc->arch.ept_root, v, p, level, ef);
+	return x86_64_ept_map(
+	  current_thread->active_sc->arch.ept_root, v, p, level, ef, flags & OBJSPACE_SET_FLAGS);
+}
+
+bool arch_objspace_getmap(uintptr_t v, uintptr_t *p, int *level, uint64_t *flags)
+{
+	uint64_t ef = 0;
+	bool r = x86_64_ept_getmap(current_thread->active_sc->arch.ept_root, v, p, level, &ef);
+	if(flags) {
+		*flags = 0;
+		if(ef & EPT_READ)
+			*flags |= OBJSPACE_READ;
+		if(ef & EPT_WRITE)
+			*flags |= OBJSPACE_WRITE;
+		if(ef & EPT_EXEC)
+			*flags |= OBJSPACE_EXEC_U;
+	}
+	return r;
 }
 
 uintptr_t init_ept(void)
@@ -482,7 +566,7 @@ uintptr_t init_ept(void)
 		} else {
 			flags |= EPT_MEMTYPE_WB;
 		}
-		x86_64_ept_map(pml4phys, phys, phys, 1, flags);
+		x86_64_ept_map(pml4phys, phys, phys, 1, flags, false);
 	}
 
 	return pml4phys;
@@ -693,6 +777,7 @@ static long x86_64_rootcall(long fn, long a0, long a1, long a2)
 
 void x86_64_switch_ept(uintptr_t root)
 {
+	printk("x86_64_switch_ept: %lx\n", root);
 	if(support_ept_switch_vmfunc) {
 		int index = -1;
 		/* TODO (perf): better than just a loop, man! */

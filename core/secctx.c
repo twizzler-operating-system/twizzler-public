@@ -237,6 +237,7 @@ int secctx_fault_resolve(struct thread *t,
 		if(p & SCP_EXEC) {
 			*perms |= OBJSPACE_EXEC_U;
 		}
+		obj_put(obj);
 		return 0;
 	}
 	obj_put(obj);

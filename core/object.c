@@ -359,7 +359,13 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		panic("NO OBJ");
 	}
 
-	// printk("OSPACE FAULT: %lx %lx %x :: " IDFMT "\n", ip, addr, flags, IDPR(o->id));
+	/*
+	printk("OSPACE FAULT: ip=%lx loaddr=%lx vaddr=%lx flags=%x :: " IDFMT "\n",
+	  ip,
+	  loaddr,
+	  vaddr,
+	  flags,
+	  IDPR(o->id));*/
 	/* optimization: just check if default permissions are enough */
 	struct metainfo mi;
 	obj_read_data(o, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
@@ -402,17 +408,25 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		return;
 	}
 
-	struct objpage *p = obj_get_page(o, idx);
-	obj_put(o);
-
 	/*
-	printk("--> %lx %d (%x)\n",
+	printk("--> %lx %lx %d (%x)\n",
+	  loaddr & ~(mm_page_size(0) - 1),
 	  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U),
 	  ok,
 	  mi.p_flags);*/
-	arch_objspace_map(loaddr & ~(mm_page_size(0) - 1),
+
+	struct objpage *p = obj_get_page(o, idx);
+	obj_put(o);
+	bool r = arch_objspace_map(loaddr & ~(mm_page_size(0) - 1),
 	  p->phys,
 	  0,
-	  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
+	  (perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U)) | OBJSPACE_SET_FLAGS);
+	if(!r) {
+		uintptr_t pa;
+		uint64_t fl;
+		int level;
+		arch_objspace_getmap(loaddr & ~(mm_page_size(0) - 1), &pa, &level, &fl);
+		panic("already mapped %lx %d %lx\n", pa, level, fl);
+	}
 	/* TODO (major): deal with mapcounting */
 }

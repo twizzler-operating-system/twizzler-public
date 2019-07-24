@@ -97,5 +97,9 @@ void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
 #define OBJSPACE_WRITE 2
 #define OBJSPACE_EXEC_U 4
 #define OBJSPACE_EXEC_S 8
+#define OBJSPACE_SET_FLAGS                                                                         \
+	0x1000 /* allow changing the permissions of a page, as long as phys matches */
 
 void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t phys, uintptr_t vaddr, uint32_t flags);
+bool arch_objspace_getmap(uintptr_t v, uintptr_t *p, int *level, uint64_t *flags);
+bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags);
