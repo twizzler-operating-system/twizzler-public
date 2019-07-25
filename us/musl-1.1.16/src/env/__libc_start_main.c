@@ -63,12 +63,24 @@ static void libc_start_init(void)
 
 weak_alias(libc_start_init, __libc_start_init);
 
+#include <string.h>
 int __libc_start_main(int (*main)(int,char **,char **), int argc, char **argv)
 {
 	char **envp = argv+argc+1;
 	
 	__init_libc(envp, argv[0]);
 	__libc_start_init();
+
+	size_t count, i;
+	for(count=0;envp[count];count++);
+
+	/* TODO (dbittman): is there a better way to copy these around? */
+	envp = calloc(count+1, sizeof(char *));
+	for(i=0;__environ[i];i++) {
+		envp[i] = strdup(__environ[i]);
+	}
+	__environ = envp;
+	
 
 	/* Pass control to the application */
 	exit(main(argc, argv, envp));

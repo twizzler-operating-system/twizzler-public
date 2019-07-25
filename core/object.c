@@ -234,6 +234,9 @@ void obj_put(struct object *o)
 /* TODO (major): these can probably fail */
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 {
+	if(len >= mm_page_size(0)) {
+		panic("NI - big KSO write");
+	}
 	if(start / mm_page_size(0) != (start + len) / mm_page_size(0)) {
 		panic("NI - cross-page KSO read");
 	}
@@ -245,6 +248,9 @@ void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 {
+	if(len >= mm_page_size(0)) {
+		panic("NI - big KSO write");
+	}
 	if(start / mm_page_size(0) != (start + len) / mm_page_size(0)) {
 		panic("NI - cross-page KSO read");
 	}

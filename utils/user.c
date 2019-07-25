@@ -64,6 +64,7 @@ int main(int argc, char **argv)
 
 	fwrite(&kh, sizeof(kh), 1, r);
 	fwrite(&uh, sizeof(uh), 1, u);
+	fwrite(username, 1, strlen(username) + 1, u);
 
 	fclose(u);
 	fclose(r);

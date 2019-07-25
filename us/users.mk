@@ -31,7 +31,7 @@ $(BUILDDIR)/us/data/%.kring.obj: $(BUILDDIR)/utils/file2obj $(BUILDDIR)/us/data/
 $(BUILDDIR)/us/data/%.user.obj: $(BUILDDIR)/utils/file2obj $(BUILDDIR)/us/data/%.user $(BUILDDIR)/us/data/%.kring.obj
 	@echo "[OBJ] $@"
 	@mkdir -p $(BUILDDIR)/us/data
-	$(BUILDDIR)/utils/file2obj -i $(BUILDDIR)/us/data/$*.kring -o $@ -p R -f 1:rw:$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/$*.kring.obj)
+	$(BUILDDIR)/utils/file2obj -i $(BUILDDIR)/us/data/$*.user -o $@ -p R -f 1:rw:$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/$*.kring.obj)
 
 $(BUILDDIR)/us/data/%.sctx: $(BUILDDIR)/utils/file2obj $(BUILDDIR)/us/data/%-key.pub.obj
 	@echo "[OBJ] $@"

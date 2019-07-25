@@ -94,7 +94,6 @@ long syscall_thrd_ctl(int op, long arg)
 			/* TODO (sec): check eptr */
 			eptr = (long *)arg;
 			if(eptr) {
-				*eptr = 1;
 				thread_sync_single(THREAD_SYNC_WAKE, eptr, INT_MAX, NULL);
 			}
 			thread_exit();
