@@ -26,23 +26,16 @@ void tmain(void *a)
 			debug_printf("failed to resolve 'login.sctx'");
 			twz_thread_exit();
 		}
+		r = sys_detach(0, 0, TWZ_DETACH_ONBECOME | TWZ_DETACH_ALL);
+		if(r) {
+			debug_printf("failed to detach: %d", r);
+			twz_thread_exit();
+		}
+
 		debug_printf("ATTACH\n");
 		r = sys_attach(0, si, KSO_SECCTX);
 		if(r) {
 			debug_printf("failed to attach: %d", r);
-			twz_thread_exit();
-		}
-
-		objid_t isi;
-		r = twz_name_resolve(NULL, "init.sctx", NULL, 0, &isi);
-		if(r) {
-			debug_printf("failed to resolve 'init.sctx'");
-			twz_thread_exit();
-		}
-		debug_printf("DETACH\n");
-		r = sys_detach(0, isi, TWZ_DETACH_ONBECOME);
-		if(r) {
-			debug_printf("failed to detach: %d", r);
 			twz_thread_exit();
 		}
 	}

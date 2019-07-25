@@ -419,6 +419,22 @@ void secctx_become_detach(struct thread *thr)
 	spinlock_release_restore(&thr->sc_lock);
 }
 
+bool secctx_detach_all(struct thread *thr, int flags)
+{
+	bool ok = true;
+	spinlock_acquire_save(&thr->sc_lock);
+	for(size_t i = 0; i < MAX_SC; i++) {
+		if(flags) {
+			thr->attached_scs_attrs[i] = flags;
+		} else {
+			bool r = secctx_thread_detach(thr->attached_scs[i], thr);
+			ok = ok && r;
+		}
+	}
+	spinlock_release_restore(&thr->sc_lock);
+	return ok;
+}
+
 static bool __secctx_detach(struct object *parent, struct object *child, int flags)
 {
 	if(parent->kso_type != KSO_THREAD || child->kso_type != KSO_SECCTX)

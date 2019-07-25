@@ -14,7 +14,6 @@ void tmain(void *a)
 	char *username = twz_ptr_lea(twz_stdstack, a);
 	struct metainfo *mi = twz_object_meta(twz_stdstack);
 	struct fotentry *fe = (void *)((char *)mi + mi->milen);
-	printf("::: %p %p %ld " IDFMT "\n", username, a, mi->fotentries, IDPR(fe[1].id));
 	char userpath[1024];
 	snprintf(userpath, 512, "%s.user", username);
 
@@ -37,21 +36,8 @@ void tmain(void *a)
 	setenv("TWZUSER", userstring, 1);
 	setenv("USER", username, 1);
 
+	r = sys_detach(0, 0, TWZ_DETACH_ONBECOME | TWZ_DETACH_ALL);
 	r = sys_attach(0, uh->dfl_secctx, KSO_SECCTX);
-
-	/* TODO: figure out a way to "detach from all" or something */
-	objid_t isi;
-	r = twz_name_resolve(NULL, "login.sctx", NULL, 0, &isi);
-	if(r) {
-		printf("failed to resolve 'login.sctx'");
-		twz_thread_exit();
-	}
-
-	r = sys_detach(0, isi, TWZ_DETACH_ONBECOME);
-	if(r) {
-		printf("failed to detach: %d", r);
-		twz_thread_exit();
-	}
 
 	// twz_exec(id, (const char *const[]){ pg, NULL }, NULL);
 	r = execv("shell.text", (char *[]){ "shell.text", NULL });

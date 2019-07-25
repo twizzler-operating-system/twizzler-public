@@ -74,9 +74,17 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 {
 	objid_t paid = MKID(pahi, palo), chid = MKID(chhi, chlo);
 	struct object *parent = paid == 0 ? kso_get_obj(current_thread->throbj, thr) : obj_lookup(paid);
-	struct object *child = obj_lookup(chid);
+	struct object *child = chid == 0 ? NULL : obj_lookup(chid);
+	if(!child && !(flags & TWZ_DETACH_ALL) && current_thread->active_sc) {
+		child = obj_lookup(current_thread->active_sc->repr);
+		if(!child) {
+			if(parent)
+				obj_put(parent);
+			return -1;
+		}
+	}
 
-	if(!parent || !child) {
+	if(!parent) {
 		if(child)
 			obj_put(child);
 		if(parent)
@@ -84,18 +92,22 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 		return -1;
 	}
 
-	if(parent->kso_type == KSO_NONE || child->kso_type == KSO_NONE) {
-		obj_put(child);
+	if(parent->kso_type == KSO_NONE || (child && child->kso_type == KSO_NONE)) {
+		if(child)
+			obj_put(child);
 		obj_put(parent);
 		return -1;
 	}
 
 	int ret = -1;
-	if(child->kso_calls && child->kso_calls->detach) {
+	if(child && child->kso_calls && child->kso_calls->detach) {
 		ret = child->kso_calls->detach(parent, child, flags) ? 0 : -1;
+	} else if(!child) {
+		ret = secctx_detach_all(current_thread, flags) ? 0 : -1;
 	}
 
-	obj_put(child);
+	if(child)
+		obj_put(child);
 	obj_put(parent);
 	return ret;
 }

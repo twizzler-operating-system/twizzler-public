@@ -19,6 +19,7 @@ void secctx_free(struct sctx *s);
 void secctx_switch(int i);
 struct thread;
 void secctx_become_detach(struct thread *thr);
+bool secctx_detach_all(struct thread *thr, int flags);
 int secctx_fault_resolve(struct thread *t,
   uintptr_t ip,
   uintptr_t loaddr,
