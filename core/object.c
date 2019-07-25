@@ -414,6 +414,10 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		return;
 	}
 
+	if(((perms & flags) & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U))
+	   != (flags & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U))) {
+		panic("Insufficient permissions for mapping (should be handled earlier)");
+	}
 	/*
 	printk("--> %lx %lx %d (%x)\n",
 	  loaddr & ~(mm_page_size(0) - 1),

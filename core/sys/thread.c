@@ -64,6 +64,7 @@ long syscall_thread_spawn(uint64_t tidlo,
 		spinlock_release_restore(&current_thread->sc_lock);
 	} else {
 		t->active_sc = secctx_alloc(0);
+		t->active_sc->superuser = true; /* we're the init thread */
 		krc_get(&t->active_sc->refs);
 		t->attached_scs[0] = t->active_sc;
 	}

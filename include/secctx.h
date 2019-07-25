@@ -9,6 +9,7 @@ struct sctx {
 	struct arch_sctx arch;
 	objid_t repr;
 	struct krc refs;
+	bool superuser;
 };
 
 void arch_secctx_init(struct sctx *sc);

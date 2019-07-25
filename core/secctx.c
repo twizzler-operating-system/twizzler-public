@@ -26,6 +26,7 @@ struct sctx *secctx_alloc(objid_t repr)
 	struct sctx *s = slabcache_alloc(&sc_sc);
 	krc_init(&s->refs);
 	s->repr = repr;
+	s->superuser = false;
 	return s;
 }
 
@@ -215,39 +216,41 @@ int secctx_fault_resolve(struct thread *t,
 	  IDPR(target),
 	  fls);
 	spinlock_acquire_save(&t->sc_lock);
-	if(t->active_sc && t->active_sc->repr == 0) {
+	if(t->active_sc->superuser) {
 		spinlock_release_restore(&t->sc_lock);
 		*perms = OBJSPACE_EXEC_U | OBJSPACE_WRITE | OBJSPACE_READ;
 		return 0;
 	}
 
+	if(t->active_sc->repr == 0) {
+		goto fault_noperm;
+	}
+
 	struct object *obj;
 	uint32_t p;
-	if(t->active_sc) {
-		obj = obj_lookup(t->active_sc->repr);
-		if(!obj) {
-			panic("no repr " IDFMT, IDPR(t->active_sc->repr));
-		}
-		printk("  - trying active context (" IDFMT ")\n", IDPR(obj->id));
-		__lookup_perms(obj, target, 0, &p, NULL);
-		printk("    - p = %x (%x): %s\n", p, needed, (p & needed) == needed ? "ok" : "FAIL");
-		if((p & needed) == needed) {
-			spinlock_release_restore(&t->sc_lock);
+	obj = obj_lookup(t->active_sc->repr);
+	if(!obj) {
+		panic("no repr " IDFMT, IDPR(t->active_sc->repr));
+	}
+	printk("  - trying active context (" IDFMT ")\n", IDPR(obj->id));
+	__lookup_perms(obj, target, 0, &p, NULL);
+	printk("    - p = %x (%x): %s\n", p, needed, (p & needed) == needed ? "ok" : "FAIL");
+	if((p & needed) == needed) {
+		spinlock_release_restore(&t->sc_lock);
 
-			if(p & SCP_READ) {
-				*perms |= OBJSPACE_READ;
-			}
-			if(p & SCP_WRITE) {
-				*perms |= OBJSPACE_WRITE;
-			}
-			if(p & SCP_EXEC) {
-				*perms |= OBJSPACE_EXEC_U;
-			}
-			obj_put(obj);
-			return 0;
+		if(p & SCP_READ) {
+			*perms |= OBJSPACE_READ;
+		}
+		if(p & SCP_WRITE) {
+			*perms |= OBJSPACE_WRITE;
+		}
+		if(p & SCP_EXEC) {
+			*perms |= OBJSPACE_EXEC_U;
 		}
 		obj_put(obj);
+		return 0;
 	}
+	obj_put(obj);
 
 	for(int i = 0; i < MAX_SC; i++) {
 		if(!t->attached_scs[i] || t->attached_scs[i] == t->active_sc)
@@ -322,17 +325,18 @@ int secctx_fault_resolve(struct thread *t,
 		}
 		obj_put(obj);
 	}
+fault_noperm:
 	spinlock_release_restore(&t->sc_lock);
-	*perms = 0; // OBJSPACE_EXEC_U | OBJSPACE_WRITE | OBJSPACE_READ;
+	*perms = 0;
 	struct fault_sctx_info info = {
 		.ip = ip,
 		.addr = ip,
 		.target = target,
 		.pneed = needed,
 	};
-	thread_raise_fault(t, FAULT_OBJECT, &info, sizeof(info));
+	thread_raise_fault(t, FAULT_SCTX, &info, sizeof(info));
 
-	return 0;
+	return -1;
 }
 
 bool secctx_thread_attach(struct sctx *s, struct thread *t)
@@ -387,9 +391,16 @@ static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 			thr->attached_scs[i] = NULL;
 			thr->attached_scs_attrs[i] = 0;
 			ok = true;
-		} else if(na == -1) {
+		} else if(na == -1 && thr->attached_scs[i]) {
 			na = i;
 		}
+	}
+	if(na == -1) {
+		/* detached from the last context. Create a dummy context */
+		assert(thr->attached_scs[0] == NULL);
+		thr->active_sc = secctx_alloc(0);
+		krc_get(&thr->active_sc->refs);
+		thr->attached_scs[0] = thr->active_sc;
 	}
 	/* TODO: maybe we could leave this? */
 	if(thr->active_sc == s) {

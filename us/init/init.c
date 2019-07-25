@@ -9,15 +9,16 @@
 #include <unistd.h>
 int __name_bootstrap(void);
 
+struct service_info {
+	objid_t sctx;
+	const char *name;
+};
+
 void tmain(void *a)
 {
+	// struct service_info *info = twz_ptr_lea(twz_stdstack, a);
 	char *pg = twz_ptr_lea(twz_stdstack, a);
-	objid_t id = 0;
-	int r = twz_name_resolve(NULL, pg, NULL, 0, &id);
-	if(r) {
-		debug_printf("failed to resolve '%s'", pg);
-		twz_thread_exit();
-	}
+	int r;
 
 	if(!strcmp(pg, "login.text")) {
 		objid_t si;
@@ -39,8 +40,6 @@ void tmain(void *a)
 			twz_thread_exit();
 		}
 	}
-
-	// twz_exec(id, (const char *const[]){ pg, NULL }, NULL);
 	r = execv(pg, (char *[]){ pg, NULL });
 	debug_printf("failed to exec '%s': %d", pg, r);
 	twz_thread_exit();
@@ -102,6 +101,7 @@ int main(int argc, char **argv)
 	}
 
 	printf("DONE\n");
+	twz_thread_exit();
 
 	for(;;)
 		;

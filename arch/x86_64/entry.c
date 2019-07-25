@@ -148,6 +148,9 @@ __noinstrument void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 void secctx_switch(int i)
 {
 	current_thread->active_sc = current_thread->attached_scs[i];
+	if(!current_thread->active_sc) {
+		return;
+	}
 	printk("SWTICH: " IDFMT "\n", IDPR(current_thread->active_sc->repr));
 	x86_64_secctx_switch(current_thread->active_sc);
 }

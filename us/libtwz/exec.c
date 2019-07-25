@@ -110,6 +110,8 @@ int twz_exec_view(struct object *view,
 		.flags = VE_READ | VE_WRITE | VE_VALID,
 	};
 
+	memset(repr->faults, 0, sizeof(repr->faults));
+
 	/* TODO: copy-in everything for the vector */
 	int ret;
 	uint64_t p = (uint64_t)SLOT_TO_VADDR(TWZSLOT_STACK) + (OBJ_NULLPAGE_SIZE + 0x200000);
