@@ -15,8 +15,9 @@ int main(int argc, char **argv)
 		printf("%s\n", thisEnv);
 	}
 
+	char *username = getenv("USER");
 	for(;;) {
-		printf("> ");
+		printf("%s@twz $ ", username);
 		fflush(NULL);
 		fgets(buffer, 1024, stdin);
 		printf("got: %s\n", buffer);

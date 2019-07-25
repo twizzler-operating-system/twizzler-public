@@ -11,7 +11,7 @@ int __name_bootstrap(void);
 
 void tmain(void *a)
 {
-	char *pg = a;
+	char *pg = twz_ptr_lea(twz_stdstack, a);
 	objid_t id = 0;
 	int r = twz_name_resolve(NULL, pg, NULL, 0, &id);
 	if(r) {
@@ -61,6 +61,7 @@ int main(int argc, char **argv)
 		abort();
 	}
 
+	unsetenv("BSNAME");
 	struct thread tthr;
 	int r;
 	if((r = twz_thread_spawn(

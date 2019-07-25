@@ -6,6 +6,7 @@
 #include <twz/_sctx.h>
 #include <twz/_sys.h>
 
+#define printk(...)
 static void _sc_ctor(void *_x __unused, void *ptr)
 {
 	struct sctx *sc = ptr;
@@ -205,6 +206,7 @@ int secctx_fault_resolve(struct thread *t,
 	}
 	fls[__flt] = 0;
 
+	(void)fls;
 	printk("[%ld] fault_resolve - loaddr=%lx, vaddr=%lx, ip=%lx, target=" IDFMT ", flags=%s\n",
 	  t->id,
 	  loaddr,

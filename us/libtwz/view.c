@@ -5,6 +5,7 @@
 #include <twz/_slots.h>
 #include <twz/obj.h>
 #include <twz/sys.h>
+#include <twz/thread.h>
 #include <twz/view.h>
 
 #include <twz/_err.h>
@@ -42,18 +43,32 @@ int twz_view_get(struct object *obj, size_t slot, objid_t *target, uint32_t *fla
 	if(slot > TWZSLOT_MAX_SLOT) {
 		return -EINVAL;
 	}
-	struct viewentry *ves = obj ? (struct viewentry *)twz_obj_base(obj)
-	                            : (struct viewentry *)twz_slot_to_base(TWZSLOT_CVIEW);
+	struct viewentry *ves;
+	if(obj) {
+		ves = &((struct viewentry *)twz_obj_base(obj))[slot];
+	} else {
+		struct twzthread_repr *tr = twz_thread_repr_base();
+		ves = &tr->fixed_points[slot];
+		if(!(ves->flags & VE_VALID)) {
+			ves = &((struct viewentry *)twz_slot_to_base(TWZSLOT_CVIEW))[slot];
+		}
+	}
 	if(flags)
-		*flags = atomic_load(&ves[slot].flags);
+		*flags = atomic_load(&ves->flags);
 	if(target)
-		*target = ves[slot].id;
+		*target = ves->id;
 	return 0;
 }
 
 int twz_vaddr_to_obj(const void *v, objid_t *id, uint32_t *fl)
 {
-	return twz_view_get(NULL, VADDR_TO_SLOT(v), id, fl);
+	uint32_t tf;
+	int r = twz_view_get(NULL, VADDR_TO_SLOT(v), id, &tf);
+	if(!r && !(tf & VE_VALID))
+		return ENOENT;
+	if(fl)
+		*fl = tf;
+	return r;
 }
 
 static struct __viewrepr_bucket *__lookup_bucket(struct twzview_repr *v, objid_t id, uint32_t flags)

@@ -119,6 +119,7 @@ void *__twz_ptr_lea_foreign(const struct object *o, const void *p)
 	if(ns < 0)
 		return NULL;
 
+	// debug_printf("---> %p : " IDFMT "\n", p, IDPR(id));
 	// if(twz_view_set(NULL, ns, id, fe[slot].flags & (FE_READ | FE_WRITE | FE_EXEC)))
 	//	return NULL;
 	return twz_ptr_rebase(ns, (void *)p);

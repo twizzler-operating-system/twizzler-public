@@ -54,6 +54,14 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 		sa.stack_size = TWZ_THREAD_STACK_SIZE;
 		sa.tls_base =
 		  (char *)SLOT_TO_VADDR(TWZSLOT_STACK) + OBJ_NULLPAGE_SIZE + TWZ_THREAD_STACK_SIZE;
+
+		struct object stack;
+		twz_object_open(&stack, sid, FE_READ | FE_WRITE);
+		/* TODO: can we reduce these permissions? */
+		r = twz_ptr_store(&stack, args->arg, FE_READ | FE_WRITE, &sa.arg);
+		if(r) {
+			return r;
+		}
 	}
 
 	return sys_thrd_spawn(thrd->tid, &sa, 0);

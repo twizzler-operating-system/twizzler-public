@@ -43,3 +43,5 @@ int twz_exec_view(struct object *view,
   size_t entry,
   char const *const *argv,
   char *const *env);
+
+#define twz_stdstack ({ &TWZ_OBJECT_INIT(TWZSLOT_STACK); })
