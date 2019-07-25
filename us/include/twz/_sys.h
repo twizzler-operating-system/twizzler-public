@@ -11,6 +11,9 @@
 #define SYS_THRD_CTL 10
 #define NUM_SYSCALLS 11
 
+#define TWZ_DETACH_NOINHERIT 1
+#define TWZ_DETACH_ONBECOME 2
+
 #define TWZ_SYS_OC_ZERONONCE 0x1000
 
 struct sys_invalidate_op {

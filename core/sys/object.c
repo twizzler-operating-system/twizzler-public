@@ -61,7 +61,7 @@ long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 	spinlock_release_restore(&child->lock);
 
 	int ret = -1;
-	if(child->kso_calls->attach) {
+	if(child->kso_calls && child->kso_calls->attach) {
 		ret = child->kso_calls->attach(parent, child, flags) ? 0 : -1;
 	}
 
@@ -91,7 +91,7 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 	}
 
 	int ret = -1;
-	if(child->kso_calls->detach) {
+	if(child->kso_calls && child->kso_calls->detach) {
 		ret = child->kso_calls->detach(parent, child, flags) ? 0 : -1;
 	}
 

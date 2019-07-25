@@ -4,6 +4,7 @@
 #include <slab.h>
 #include <thread.h>
 #include <twz/_sctx.h>
+#include <twz/_sys.h>
 
 static void _sc_ctor(void *_x __unused, void *ptr)
 {
@@ -204,43 +205,47 @@ int secctx_fault_resolve(struct thread *t,
 	}
 	fls[__flt] = 0;
 
-	printk("fault_resolve - loaddr=%lx, vaddr=%lx, ip=%lx, target=" IDFMT ", flags=%s\n",
+	printk("[%ld] fault_resolve - loaddr=%lx, vaddr=%lx, ip=%lx, target=" IDFMT ", flags=%s\n",
+	  t->id,
 	  loaddr,
 	  vaddr,
 	  ip,
 	  IDPR(target),
 	  fls);
 	spinlock_acquire_save(&t->sc_lock);
-	if(!t->active_sc || t->active_sc->repr == 0) {
+	if(t->active_sc && t->active_sc->repr == 0) {
 		spinlock_release_restore(&t->sc_lock);
 		*perms = OBJSPACE_EXEC_U | OBJSPACE_WRITE | OBJSPACE_READ;
 		return 0;
 	}
 
-	struct object *obj = obj_lookup(t->active_sc->repr);
-	if(!obj) {
-		panic("no repr " IDFMT, IDPR(t->active_sc->repr));
-	}
+	struct object *obj;
 	uint32_t p;
-	printk("  - trying active context (" IDFMT ")\n", IDPR(obj->id));
-	__lookup_perms(obj, target, 0, &p, NULL);
-	printk("    - p = %x (%x): %s\n", p, needed, (p & needed) == needed ? "ok" : "FAIL");
-	if((p & needed) == needed) {
-		spinlock_release_restore(&t->sc_lock);
+	if(t->active_sc) {
+		obj = obj_lookup(t->active_sc->repr);
+		if(!obj) {
+			panic("no repr " IDFMT, IDPR(t->active_sc->repr));
+		}
+		printk("  - trying active context (" IDFMT ")\n", IDPR(obj->id));
+		__lookup_perms(obj, target, 0, &p, NULL);
+		printk("    - p = %x (%x): %s\n", p, needed, (p & needed) == needed ? "ok" : "FAIL");
+		if((p & needed) == needed) {
+			spinlock_release_restore(&t->sc_lock);
 
-		if(p & SCP_READ) {
-			*perms |= OBJSPACE_READ;
-		}
-		if(p & SCP_WRITE) {
-			*perms |= OBJSPACE_WRITE;
-		}
-		if(p & SCP_EXEC) {
-			*perms |= OBJSPACE_EXEC_U;
+			if(p & SCP_READ) {
+				*perms |= OBJSPACE_READ;
+			}
+			if(p & SCP_WRITE) {
+				*perms |= OBJSPACE_WRITE;
+			}
+			if(p & SCP_EXEC) {
+				*perms |= OBJSPACE_EXEC_U;
+			}
+			obj_put(obj);
+			return 0;
 		}
 		obj_put(obj);
-		return 0;
 	}
-	obj_put(obj);
 
 	for(int i = 0; i < MAX_SC; i++) {
 		if(!t->attached_scs[i] || t->attached_scs[i] == t->active_sc)
@@ -330,6 +335,7 @@ int secctx_fault_resolve(struct thread *t,
 
 bool secctx_thread_attach(struct sctx *s, struct thread *t)
 {
+	printk("thread %ld attach to " IDFMT "\n", t->id, IDPR(s->repr));
 	spinlock_acquire_save(&t->sc_lock);
 	if(t->active_sc->repr == 0) {
 		/* bootstrap context. Get rid of it, we're a real security context now! */
@@ -341,20 +347,95 @@ bool secctx_thread_attach(struct sctx *s, struct thread *t)
 		krc_put_call(t->active_sc, refs, __secctx_krc_put);
 		t->active_sc = NULL;
 	}
-	bool ok = false;
+	bool ok = false, found = false;
 	size_t i;
+
 	for(i = 0; i < MAX_SC; i++) {
-		if(t->attached_scs[i] == NULL) {
-			krc_get(&s->refs);
-			t->attached_scs[i] = s;
+		if(t->attached_scs[i] == s) {
+			found = true;
+			break;
+		}
+	}
+	if(!found) {
+		for(i = 0; i < MAX_SC; i++) {
+			if(t->attached_scs[i] == NULL) {
+				krc_get(&s->refs);
+				t->attached_scs[i] = s;
+				t->attached_scs_attrs[i] = 0;
+				ok = true;
+				break;
+			}
+		}
+		if(ok && t->active_sc == NULL) {
+			secctx_switch(i);
+		}
+	}
+	spinlock_release_restore(&t->sc_lock);
+	return ok;
+}
+
+static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
+{
+	printk("thread %ld detach from " IDFMT "\n", thr->id, IDPR(s->repr));
+	bool ok = false;
+	for(size_t i = 0; i < MAX_SC; i++) {
+		if(thr->attached_scs[i] == s) {
+			krc_put_call(s, refs, __secctx_krc_put);
+			thr->attached_scs[i] = NULL;
+			thr->attached_scs_attrs[i] = 0;
 			ok = true;
 			break;
 		}
 	}
-	if(ok && t->active_sc == NULL) {
-		secctx_switch(i);
+	/* TODO: maybe we could leave this? */
+	if(thr->active_sc == s) {
+		thr->active_sc = NULL;
 	}
-	spinlock_release_restore(&t->sc_lock);
+	return ok;
+}
+
+bool secctx_thread_detach(struct sctx *s, struct thread *thr)
+{
+	bool ok;
+	spinlock_acquire_save(&thr->sc_lock);
+	ok = __secctx_thread_detach(s, thr);
+	spinlock_release_restore(&thr->sc_lock);
+	return ok;
+}
+
+void secctx_become_detach(struct thread *thr)
+{
+	spinlock_acquire_save(&thr->sc_lock);
+	for(size_t i = 0; i < MAX_SC; i++) {
+		if(thr->attached_scs[i] && (thr->attached_scs_attrs[i] & TWZ_DETACH_ONBECOME)) {
+			__secctx_thread_detach(thr->attached_scs[i], thr);
+		}
+	}
+	spinlock_release_restore(&thr->sc_lock);
+}
+
+static bool __secctx_detach(struct object *parent, struct object *child, int flags)
+{
+	if(parent->kso_type != KSO_THREAD || child->kso_type != KSO_SECCTX)
+		return false;
+	/* TODO: actually get the thread object */
+	struct thread *thr = current_thread;
+	struct sctx *s = child->sctx.sc;
+
+	if(flags == 0) {
+		/* detach now */
+		return secctx_thread_detach(s, thr);
+	}
+	bool ok = false;
+	spinlock_acquire_save(&thr->sc_lock);
+	for(size_t i = 0; i < MAX_SC; i++) {
+		if(thr->attached_scs[i] == s) {
+			thr->attached_scs_attrs[i] = flags;
+			ok = true;
+			break;
+		}
+	}
+	spinlock_release_restore(&thr->sc_lock);
 	return ok;
 }
 
@@ -374,6 +455,7 @@ static void __secctx_ctor(struct object *o)
 
 static struct kso_calls __ksoc_sctx = {
 	.attach = __secctx_attach,
+	.detach = __secctx_detach,
 	.ctor = __secctx_ctor,
 };
 
