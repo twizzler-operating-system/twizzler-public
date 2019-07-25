@@ -5,9 +5,16 @@
 #include <twz/obj.h>
 #include <twz/thread.h>
 
+extern char **environ;
 int main(int argc, char **argv)
 {
 	char buffer[1024];
+
+	for(char **env = environ; *env != 0; env++) {
+		char *thisEnv = *env;
+		printf("%s\n", thisEnv);
+	}
+
 	for(;;) {
 		printf("> ");
 		fflush(NULL);

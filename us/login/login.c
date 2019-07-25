@@ -12,10 +12,11 @@ extern char **environ;
 void tmain(void *a)
 {
 	char *userpath = a;
+	/*
 	for(char **env = environ; *env != 0; env++) {
-		char *thisEnv = *env;
-		printf("%s\n", thisEnv);
-	}
+	    char *thisEnv = *env;
+	    printf("%s\n", thisEnv);
+	}*/
 
 	objid_t uid;
 	int r;
@@ -25,12 +26,12 @@ void tmain(void *a)
 		twz_thread_exit();
 	}
 
-	printf("RESOL: " IDFMT "\n", IDPR(uid));
+	// printf("RESOL: " IDFMT "\n", IDPR(uid));
 	struct object user;
 	twz_object_open(&user, uid, FE_READ);
 	struct user_hdr *uh = twz_obj_base(&user);
 
-	printf(":: %s :: " IDFMT "\n", twz_ptr_lea(&user, uh->name), IDPR(uh->dfl_secctx));
+	// printf(":: %s :: " IDFMT "\n", twz_ptr_lea(&user, uh->name), IDPR(uh->dfl_secctx));
 
 	r = sys_attach(0, uh->dfl_secctx, KSO_SECCTX);
 

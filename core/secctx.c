@@ -378,18 +378,21 @@ static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 {
 	printk("thread %ld detach from " IDFMT "\n", thr->id, IDPR(s->repr));
 	bool ok = false;
+	ssize_t na = -1;
 	for(size_t i = 0; i < MAX_SC; i++) {
 		if(thr->attached_scs[i] == s) {
 			krc_put_call(s, refs, __secctx_krc_put);
 			thr->attached_scs[i] = NULL;
 			thr->attached_scs_attrs[i] = 0;
 			ok = true;
-			break;
+		} else if(na == -1) {
+			na = i;
 		}
 	}
 	/* TODO: maybe we could leave this? */
 	if(thr->active_sc == s) {
-		thr->active_sc = NULL;
+		// thr->active_sc = NULL;
+		secctx_switch(na);
 	}
 	return ok;
 }

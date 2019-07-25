@@ -41,14 +41,17 @@ ifeq ($(CONFIG_WERROR),y)
 CFLAGS+=-Werror
 endif
 
+C_SOURCES=
+ASM_SOURCES=
+
 ifeq ($(CONFIG_UBSAN),y)
-CFLAGS+=-fsanitize=undefined -fstack-check -fstack-protector-all
+CFLAGS+=-fsanitize=undefined -fstack-check -fstack-protector-all -fsanitize=kernel-address --param asan-instrument-allocas=1 --param asan-globals=1 -fsanitize-address-use-after-scope
+# TODO: support asan-stack
+C_SOURCES+=core/ubsan.c core/asan/asan.c
 endif
 
 CFLAGS+=-O$(CONFIG_OPTIMIZE)
 
-C_SOURCES=
-ASM_SOURCES=
 
 ifeq ($(CONFIG_INSTRUMENT),y)
 CFLAGS+=-finstrument-functions '-finstrument-functions-exclude-file-list=lib/vsprintk.c,core/panic.c,core/instrument.c,core/ksymbol.c'
