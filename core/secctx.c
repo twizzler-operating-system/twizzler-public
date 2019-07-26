@@ -6,7 +6,7 @@
 #include <twz/_sctx.h>
 #include <twz/_sys.h>
 
-#define printk(...)
+#define EPRINTK(...)
 static void _sc_ctor(void *_x __unused, void *ptr)
 {
 	struct sctx *sc = ptr;
@@ -44,11 +44,11 @@ static void __secctx_krc_put(void *_sc)
 
 static uint32_t __lookup_perm_cap(struct object *obj, struct sccap *cap, struct scgates *gs)
 {
-	printk("    - lookup perm cap sc=" IDFMT " : accessor=" IDFMT "\n",
+	EPRINTK("    - lookup perm cap sc=" IDFMT " : accessor=" IDFMT "\n",
 	  IDPR(obj->id),
 	  IDPR(cap->accessor));
 	if(cap->accessor != obj->id) {
-		printk("wrong accessor\n");
+		EPRINTK("wrong accessor\n");
 		return 0;
 	}
 	/* TODO: verify CAP, rev */
@@ -83,29 +83,29 @@ static void __limit_gates(struct scgates *gs, struct scgates *m)
 static uint32_t __lookup_perm_dlg(struct object *obj, struct scdlg *dlg, struct scgates *gs)
 {
 	if(dlg->delegatee != obj->id) {
-		printk("wrong delegatee\n");
+		EPRINTK("wrong delegatee\n");
 		return 0;
 	}
 	struct sccap *next = (void *)(dlg + 1);
 	uint32_t p = 0;
 	if(next->magic == SC_CAP_MAGIC) {
 		if(next->accessor != dlg->delegator) {
-			printk("broken chain\n");
+			EPRINTK("broken chain\n");
 			return 0;
 		}
 		p = __lookup_perm_cap(obj, next, gs);
 	} else if(next->magic == SC_DLG_MAGIC) {
 		struct scdlg *nd = (void *)(dlg + 1);
 		if(nd->delegatee != dlg->delegator) {
-			printk("broken chain\n");
+			EPRINTK("broken chain\n");
 			return 0;
 		}
 		p = __lookup_perm_dlg(obj, nd, gs);
 	} else {
-		printk("invalid magic in chain\n");
+		EPRINTK("invalid magic in chain\n");
 	}
 	if(!(p & SCP_CD)) {
-		printk("chain is not CD\n");
+		EPRINTK("chain is not CD\n");
 		return 0;
 	}
 	if(dlg->flags & SCF_GATE) {
@@ -126,7 +126,7 @@ static uint32_t __lookup_perm_bucket(struct object *obj, struct scbucket *b, str
 	} else if(cap.magic == SC_DLG_MAGIC) {
 		return __lookup_perm_dlg(obj, (void *)&cap, gs);
 	} else {
-		printk("error - invalid perm object magic number\n");
+		EPRINTK("error - invalid perm object magic number\n");
 		return 0;
 	}
 }
@@ -154,7 +154,7 @@ static int __lookup_perms(struct object *obj,
 		obj_read_data(obj, sizeof(ctx) + sizeof(b) * slot, sizeof(b), &b);
 
 		if(b.target == target) {
-			printk("    - lookup_perms: found!\n");
+			EPRINTK("    - lookup_perms: found!\n");
 			struct scgates gs = { 0 };
 			perms |= __lookup_perm_bucket(obj, &b, &gs) & b.pmask;
 			if(ipoff) {
@@ -208,7 +208,7 @@ int secctx_fault_resolve(struct thread *t,
 	fls[__flt] = 0;
 
 	(void)fls;
-	printk("[%ld] fault_resolve - loaddr=%lx, vaddr=%lx, ip=%lx, target=" IDFMT ", flags=%s\n",
+	EPRINTK("[%ld] fault_resolve - loaddr=%lx, vaddr=%lx, ip=%lx, target=" IDFMT ", flags=%s\n",
 	  t->id,
 	  loaddr,
 	  vaddr,
@@ -232,9 +232,9 @@ int secctx_fault_resolve(struct thread *t,
 	if(!obj) {
 		panic("no repr " IDFMT, IDPR(t->active_sc->repr));
 	}
-	printk("  - trying active context (" IDFMT ")\n", IDPR(obj->id));
+	EPRINTK("  - trying active context (" IDFMT ")\n", IDPR(obj->id));
 	__lookup_perms(obj, target, 0, &p, NULL);
-	printk("    - p = %x (%x): %s\n", p, needed, (p & needed) == needed ? "ok" : "FAIL");
+	EPRINTK("    - p = %x (%x): %s\n", p, needed, (p & needed) == needed ? "ok" : "FAIL");
 	if((p & needed) == needed) {
 		spinlock_release_restore(&t->sc_lock);
 
@@ -259,7 +259,7 @@ int secctx_fault_resolve(struct thread *t,
 		if(!obj) {
 			panic("no repr " IDFMT, IDPR(t->attached_scs[i]->repr));
 		}
-		printk("  - trying " IDFMT "\n", IDPR(obj->id));
+		EPRINTK("  - trying " IDFMT "\n", IDPR(obj->id));
 		size_t ipoff = 0;
 		bool gok;
 		if(flags & OBJSPACE_FAULT_EXEC) {
@@ -297,7 +297,7 @@ int secctx_fault_resolve(struct thread *t,
 		}
 		uint32_t ep;
 		__lookup_perms(obj, eo->id, 0, &ep, NULL);
-		printk("    - ep: %s\n", (ep & SCP_EXEC) ? "ok" : "FAIL");
+		EPRINTK("    - ep: %s\n", (ep & SCP_EXEC) ? "ok" : "FAIL");
 		obj_put(eo);
 		if(!(ep & SCP_EXEC)) {
 			obj_put(obj);
@@ -305,7 +305,7 @@ int secctx_fault_resolve(struct thread *t,
 		}
 
 		__lookup_perms(obj, target, ipoff, &p, &gok);
-		printk(
+		EPRINTK(
 		  "    - p = %x (%x): %s\n", p, needed, (p & needed) == needed ? "ok -- SWITCH" : "FAIL");
 		if((p & needed) == needed) {
 			spinlock_release_restore(&t->sc_lock);
@@ -339,9 +339,11 @@ fault_noperm:
 	return -1;
 }
 
+#undef EPRINTK
+#define EPRINTK(...) printk(__VA_ARGS__)
 bool secctx_thread_attach(struct sctx *s, struct thread *t)
 {
-	printk("thread %ld attach to " IDFMT "\n", t->id, IDPR(s->repr));
+	EPRINTK("thread %ld attach to " IDFMT "\n", t->id, IDPR(s->repr));
 	spinlock_acquire_save(&t->sc_lock);
 	if(t->active_sc->repr == 0) {
 		/* bootstrap context. Get rid of it, we're a real security context now! */
@@ -358,6 +360,7 @@ bool secctx_thread_attach(struct sctx *s, struct thread *t)
 
 	for(i = 0; i < MAX_SC; i++) {
 		if(t->attached_scs[i] == s) {
+			t->attached_scs_attrs[i] = 0;
 			found = true;
 			break;
 		}
@@ -382,7 +385,7 @@ bool secctx_thread_attach(struct sctx *s, struct thread *t)
 
 static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 {
-	printk("thread %ld detach from " IDFMT "\n", thr->id, IDPR(s->repr));
+	EPRINTK("thread %ld detach from " IDFMT "\n", thr->id, IDPR(s->repr));
 	bool ok = false;
 	ssize_t na = -1;
 	for(size_t i = 0; i < MAX_SC; i++) {
@@ -396,7 +399,6 @@ static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 		}
 	}
 	if(na == -1) {
-		printk("HERE\n");
 		/* detached from the last context. Create a dummy context */
 		assert(thr->attached_scs[0] == NULL);
 		thr->active_sc = secctx_alloc(0);
@@ -420,50 +422,87 @@ bool secctx_thread_detach(struct sctx *s, struct thread *thr)
 	return ok;
 }
 
-void secctx_become_detach(struct thread *thr)
+#define __TWZ_DETACH_DETACH 0x1000
+static bool __secctx_detach_event(struct thread *thr, bool entry, int sysc)
 {
 	spinlock_acquire_save(&thr->sc_lock);
 	for(size_t i = 0; i < MAX_SC; i++) {
-		if(thr->attached_scs[i] && (thr->attached_scs_attrs[i] & TWZ_DETACH_ONBECOME)) {
-			__secctx_thread_detach(thr->attached_scs[i], thr);
+		uint16_t as = thr->attached_scs_attrs[i] >> 16;
+		uint16_t flags = thr->attached_scs_attrs[i] & 0xffff;
+		if(!(flags & __TWZ_DETACH_DETACH)) {
+			continue;
+		}
+		/*
+		printk(":: %p %x %p %x\n",
+		  thr->attached_scs[i],
+		  thr->attached_scs_attrs[i],
+		  thr->attached_scs_backup[i],
+		  thr->attached_scs_attrs_backup[i]);
+*/
+		bool onen = !!(flags & TWZ_DETACH_ONENTRY);
+		bool onex = !!(flags & TWZ_DETACH_ONEXIT);
+		if(thr->attached_scs[i] && as == sysc) {
+			if(((entry && onen) || (!entry && onex))) {
+				__secctx_thread_detach(thr->attached_scs[i], thr);
+			}
+		}
+		if(!onen && !onex) {
+			assert(!onen && !onex);
+			if(entry && thr->attached_scs[i]) {
+				krc_get(&thr->attached_scs[i]->refs);
+				thr->attached_scs_backup[i] = thr->attached_scs[i];
+				thr->attached_scs_attrs_backup[i] = thr->attached_scs_attrs[i];
+				__secctx_thread_detach(thr->attached_scs[i], thr);
+			} else if(!entry && thr->attached_scs_backup[i]) {
+				thr->attached_scs[i] = thr->attached_scs_backup[i];
+				thr->attached_scs_attrs[i] = thr->attached_scs_attrs_backup[i];
+				thr->attached_scs_backup[i] = NULL;
+				if(!thr->active_sc->repr) {
+					/* once for attached[0] */
+					krc_put_call(thr->active_sc, refs, __secctx_krc_put);
+					/* and again for the active_sc */
+					krc_put_call(thr->active_sc, refs, __secctx_krc_put);
+
+					thr->active_sc = thr->attached_scs[i];
+					secctx_switch(i);
+				}
+			}
 		}
 	}
 	spinlock_release_restore(&thr->sc_lock);
+	return true;
 }
 
-bool secctx_detach_all(struct thread *thr, int flags)
+static bool secctx_detach_all(struct thread *thr, int sysc, int flags)
 {
 	bool ok = true;
 	spinlock_acquire_save(&thr->sc_lock);
 	for(size_t i = 0; i < MAX_SC; i++) {
 		if(flags) {
-			thr->attached_scs_attrs[i] = flags;
-		} else {
-			bool r = secctx_thread_detach(thr->attached_scs[i], thr);
-			ok = ok && r;
+			thr->attached_scs_attrs[i] = (flags & 0xffff) | (sysc << 16) | __TWZ_DETACH_DETACH;
 		}
 	}
 	spinlock_release_restore(&thr->sc_lock);
 	return ok;
 }
 
-static bool __secctx_detach(struct object *parent, struct object *child, int flags)
+static bool __secctx_detach(struct object *parent, struct object *child, int sysc, int flags)
 {
+	/* TODO: actually get the thread object */
+	if(!child)
+		return secctx_detach_all(current_thread, sysc, flags);
 	if(parent->kso_type != KSO_THREAD || child->kso_type != KSO_SECCTX)
 		return false;
-	/* TODO: actually get the thread object */
 	struct thread *thr = current_thread;
 	struct sctx *s = child->sctx.sc;
 
-	if(flags == 0) {
-		/* detach now */
-		return secctx_thread_detach(s, thr);
-	}
 	bool ok = false;
 	spinlock_acquire_save(&thr->sc_lock);
 	for(size_t i = 0; i < MAX_SC; i++) {
 		if(thr->attached_scs[i] == s) {
-			thr->attached_scs_attrs[i] = flags;
+			uint16_t oldflags = thr->attached_scs_attrs[i] & 0xffff;
+			thr->attached_scs_attrs[i] =
+			  ((flags | oldflags) & 0xffff) | (sysc << 16) | __TWZ_DETACH_DETACH;
 			ok = true;
 			break;
 		}
@@ -489,6 +528,7 @@ static void __secctx_ctor(struct object *o)
 static struct kso_calls __ksoc_sctx = {
 	.attach = __secctx_attach,
 	.detach = __secctx_detach,
+	.detach_event = __secctx_detach_event,
 	.ctor = __secctx_ctor,
 };
 

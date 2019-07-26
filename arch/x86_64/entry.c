@@ -133,8 +133,19 @@ __noinstrument void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 		printk("%ld: SYSCALL %ld (%lx)\n", current_thread->id, frame->rax, frame->rcx);
 #endif
 	if(frame->rax < NUM_SYSCALLS) {
-		frame->rax = syscall_table[frame->rax](
-		  frame->rdi, frame->rsi, frame->rdx, frame->r8, frame->r9, frame->r10);
+		if(syscall_table[frame->rax]) {
+			long r = syscall_prelude(frame->rax);
+			if(!r) {
+				frame->rax = syscall_table[frame->rax](
+				  frame->rdi, frame->rsi, frame->rdx, frame->r8, frame->r9, frame->r10);
+			} else {
+				frame->rax = r;
+			}
+			r = syscall_epilogue(frame->rax);
+			if(r) {
+				panic("NI - non-zero return code from syscall epilogue");
+			}
+		}
 		frame->rdx = 0;
 	} else {
 		frame->rax = -EINVAL;

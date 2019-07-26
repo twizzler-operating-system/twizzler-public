@@ -51,16 +51,13 @@ long syscall_thread_spawn(uint64_t tidlo,
 		spinlock_acquire_save(&current_thread->sc_lock);
 		bool active_noi = false;
 		for(int i = 0; i < MAX_SC; i++) {
-			active_noi = current_thread->active_sc == current_thread->attached_scs[i]
-			             && (current_thread->attached_scs_attrs[i] & TWZ_DETACH_NOINHERIT);
-			if(current_thread->attached_scs[i]
-			   && !(current_thread->attached_scs_attrs[i] & TWZ_DETACH_NOINHERIT)) {
+			if(current_thread->attached_scs[i]) {
 				krc_get(&current_thread->attached_scs[i]->refs);
 				t->attached_scs[i] = current_thread->attached_scs[i];
 			}
 		}
 		krc_get(&current_thread->active_sc->refs);
-		t->active_sc = active_noi ? NULL : current_thread->active_sc;
+		t->active_sc = current_thread->active_sc;
 		spinlock_release_restore(&current_thread->sc_lock);
 	} else {
 		t->active_sc = secctx_alloc(0);
@@ -120,7 +117,5 @@ long syscall_become(uint64_t sclo, uint64_t schi, struct arch_syscall_become_arg
 		obj_put(target_view);
 	}
 	arch_thread_become(&ba);
-	syscall_detach(0, 0, sclo, schi, 0);
-	secctx_become_detach(current_thread);
 	return 0;
 }

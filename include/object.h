@@ -32,13 +32,16 @@ struct kso_invl_args {
 struct object;
 struct kso_calls {
 	bool (*attach)(struct object *parent, struct object *child, int flags);
-	bool (*detach)(struct object *parent, struct object *child, int flags);
+	bool (*detach)(struct object *parent, struct object *child, int sysc, int flags);
+	bool (*detach_event)(struct thread *thr, bool, int);
 	void (*ctor)(struct object *);
 	void (*dtor)(struct object *);
 	bool (*invl)(struct object *, struct kso_invl_args *);
 };
 
 void kso_register(int t, struct kso_calls *);
+struct kso_calls *kso_lookup_calls(int t);
+void kso_detach_event(struct thread *thr, bool entry, int sysc);
 
 struct object {
 	uint128_t id;

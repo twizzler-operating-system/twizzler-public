@@ -34,7 +34,7 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t ft)
 {
 	objid_t paid = MKID(pahi, palo), chid = MKID(chhi, chlo);
-	uint32_t type = (ft & 0xffffffff);
+	uint16_t type = (ft & 0xffff);
 	uint32_t flags = (ft >> 32) & 0xffffffff;
 	struct object *parent = paid == 0 ? kso_get_obj(current_thread->throbj, thr) : obj_lookup(paid);
 	struct object *child = obj_lookup(chid);
@@ -70,40 +70,48 @@ long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 	return ret;
 }
 
-long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t flags)
+long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t ft)
 {
+	uint16_t type = ft & 0xffff;
+	uint16_t sysc = (ft >> 16) & 0xffff;
+	uint32_t flags = (ft >> 32) & 0xffffffff;
+
+	if(type >= KSO_MAX)
+		return -EINVAL;
+
 	objid_t paid = MKID(pahi, palo), chid = MKID(chhi, chlo);
 	struct object *parent = paid == 0 ? kso_get_obj(current_thread->throbj, thr) : obj_lookup(paid);
 	struct object *child = chid == 0 ? NULL : obj_lookup(chid);
-	if(!child && !(flags & TWZ_DETACH_ALL) && current_thread->active_sc) {
-		child = obj_lookup(current_thread->active_sc->repr);
-		if(!child) {
-			if(parent)
-				obj_put(parent);
-			return -1;
-		}
-	}
 
 	if(!parent) {
 		if(child)
 			obj_put(child);
 		if(parent)
 			obj_put(parent);
+		printk("A\n");
 		return -1;
 	}
 
-	if(parent->kso_type == KSO_NONE || (child && child->kso_type == KSO_NONE)) {
+	if(parent->kso_type == KSO_NONE || (child && child->kso_type == KSO_NONE)
+	   || (child && child->kso_type != type && type != KSO_NONE)) {
 		if(child)
 			obj_put(child);
 		obj_put(parent);
+		printk("B\n");
 		return -1;
 	}
 
 	int ret = -1;
+	if(sysc == SYS_NULL)
+		sysc = SYS_DETACH;
 	if(child && child->kso_calls && child->kso_calls->detach) {
-		ret = child->kso_calls->detach(parent, child, flags) ? 0 : -1;
+		ret = child->kso_calls->detach(parent, child, sysc, flags) ? 0 : -1;
 	} else if(!child) {
-		ret = secctx_detach_all(current_thread, flags) ? 0 : -1;
+		struct kso_calls *kc = kso_lookup_calls(type);
+		bool (*c)(struct object *, struct object *, int, int) = kc ? kc->detach : NULL;
+		if(c) {
+			ret = c(parent, child, sysc, flags) ? 0 : -1;
+		}
 	}
 
 	if(child)

@@ -25,14 +25,14 @@ void tmain(void *a)
 	char buffer[1024];
 	snprintf(buffer, 1024, "%s.text", info->name);
 
-	r = sys_detach(0, 0, TWZ_DETACH_ONBECOME | TWZ_DETACH_ALL);
+	r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
 	if(r) {
 		EPRINTF("failed to detach: %d\n", r);
 		twz_thread_exit();
 	}
 
 	if(info->sctx) {
-		r = sys_attach(0, info->sctx, KSO_SECCTX);
+		r = sys_attach(0, info->sctx, 0, KSO_SECCTX);
 		if(r) {
 			EPRINTF("failed to attach " IDFMT ": %d\n", IDPR(info->sctx), r);
 			twz_thread_exit();
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 		EPRINTF("failed to resolve 'init.sctx'");
 		twz_thread_exit();
 	}
-	r = sys_attach(0, si, KSO_SECCTX);
+	r = sys_attach(0, si, 0, KSO_SECCTX);
 	if(r) {
 		EPRINTF("failed to attach: %d", r);
 		twz_thread_exit();

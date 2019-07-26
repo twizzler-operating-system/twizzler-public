@@ -29,14 +29,19 @@ static inline long sys_ocreate(int flags, objid_t kuid, objid_t src, objid_t *id
 	  SYS_OCREATE, ID_LO(kuid), ID_HI(kuid), ID_LO(src), ID_HI(src), flags, (long)id);
 }
 
-static inline long sys_attach(objid_t pid, objid_t cid, int flags)
+static inline long sys_attach(objid_t pid, objid_t cid, int flags, int type)
 {
-	return __syscall6(SYS_ATTACH, ID_LO(pid), ID_HI(pid), ID_LO(cid), ID_HI(cid), flags, 0);
+	uint64_t sf = (uint64_t)(type & 0xffff) | (uint64_t)flags << 32;
+	return __syscall6(SYS_ATTACH, ID_LO(pid), ID_HI(pid), ID_LO(cid), ID_HI(cid), sf, 0);
 }
 
-static inline long sys_detach(objid_t pid, objid_t cid, int flags)
+static inline long sys_detach(objid_t pid, objid_t cid, int flags, int type)
 {
-	return __syscall6(SYS_DETACH, ID_LO(pid), ID_HI(pid), ID_LO(cid), ID_HI(cid), flags, 0);
+	int sysc = flags >> 16;
+	int fl = flags & 0xffff;
+	uint64_t sf =
+	  (uint64_t)(type & 0xffff) | (uint64_t)fl << 32 | (uint64_t)((sysc & 0xffff) << 16);
+	return __syscall6(SYS_DETACH, ID_LO(pid), ID_HI(pid), ID_LO(cid), ID_HI(cid), sf, 0);
 }
 
 static inline long sys_invalidate(struct sys_invalidate_op *invl, size_t count)

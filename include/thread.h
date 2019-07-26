@@ -36,7 +36,9 @@ struct thread {
 	struct spinlock sc_lock;
 	struct sctx *active_sc;
 	struct sctx *attached_scs[MAX_SC];
-	int attached_scs_attrs[MAX_SC];
+	uint32_t attached_scs_attrs[MAX_SC];
+	struct sctx *attached_scs_backup[MAX_SC];
+	uint32_t attached_scs_attrs_backup[MAX_SC];
 
 	struct kso_throbj *throbj;
 

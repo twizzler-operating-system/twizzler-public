@@ -12,6 +12,8 @@ long syscall_thread_spawn(uint64_t tidlo,
   int flags);
 
 long syscall_become(uint64_t sclo, uint64_t schi, struct arch_syscall_become_args *ba);
+long syscall_epilogue(int num);
+long syscall_prelude(int num);
 
 struct timespec {
 	uint64_t tv_sec;

@@ -63,6 +63,20 @@ void kso_register(int t, struct kso_calls *c)
 	_kso_calls[t] = c;
 }
 
+struct kso_calls *kso_lookup_calls(int t)
+{
+	return _kso_calls[t];
+}
+
+void kso_detach_event(struct thread *thr, bool entry, int sysc)
+{
+	for(size_t i = 0; i < KSO_MAX; i++) {
+		if(_kso_calls[i] && _kso_calls[i]->detach_event) {
+			_kso_calls[i]->detach_event(thr, entry, sysc);
+		}
+	}
+}
+
 void obj_kso_init(struct object *obj, enum kso_type ksot)
 {
 	obj->kso_type = ksot;

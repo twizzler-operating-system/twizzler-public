@@ -34,13 +34,13 @@ void tmain(void *a)
 	setenv("TWZUSER", userstring, 1);
 	setenv("USER", username, 1);
 
-	r = sys_detach(0, 0, TWZ_DETACH_ONBECOME | TWZ_DETACH_ALL);
+	r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
 	if(r) {
 		fprintf(stderr, "failed to detach from login context\n");
 		twz_thread_exit();
 	}
 	if(uh->dfl_secctx) {
-		r = sys_attach(0, uh->dfl_secctx, KSO_SECCTX);
+		r = sys_attach(0, uh->dfl_secctx, 0, KSO_SECCTX);
 		if(r) {
 			fprintf(stderr, "failed to attach to user context\n");
 			twz_thread_exit();
