@@ -422,14 +422,10 @@ long linux_sys_clone(struct twix_register_frame *frame,
   int *ctid,
   unsigned long newtls)
 {
-	debug_printf("CLONE2: fl=%lx, stack=%p, ptid=%p, ctid=%p, newtls=%lx\n",
-	  flags,
-	  child_stack,
-	  ptid,
-	  ctid,
-	  newtls);
+	if(flags != 0x7d0f00) {
+		return -ENOSYS;
+	}
 
-	child_stack = (void *)((uintptr_t)child_stack - 8);
 	memcpy((void *)((uintptr_t)child_stack - sizeof(struct twix_register_frame)),
 	  frame,
 	  sizeof(struct twix_register_frame));
@@ -440,12 +436,14 @@ long linux_sys_clone(struct twix_register_frame *frame,
 	      &(struct thrd_spawn_args){ .start_func = __return_from_clone,
 	        .arg = NULL,
 	        .stack_base = child_stack,
-	        .stack_size = 0,
+	        .stack_size = 8,
 	        .tls_base = (char *)newtls }))) {
 		return -r;
 	}
 
-	return -ENOSYS;
+	/* TODO */
+	static _Atomic int __static_thrid = 0;
+	return ++__static_thrid;
 }
 
 #include <sys/mman.h>

@@ -56,6 +56,7 @@ void tmain(void *a)
 void *_sf(void *a)
 {
 	debug_printf("Hello from pthread! %p\n", a);
+	debug_printf("--> %s\n", a);
 
 	return NULL;
 }
@@ -73,9 +74,6 @@ int main(int argc, char **argv)
 			*n = 0;
 		if(n == buffer)
 			continue;
-
-		pthread_t pt;
-		pthread_create(&pt, NULL, _sf, NULL);
 
 		struct thread tthr;
 		int r;

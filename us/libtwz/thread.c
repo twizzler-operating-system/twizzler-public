@@ -63,6 +63,11 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 		if(r) {
 			return r;
 		}
+	} else {
+		newrepr->fixed_points[TWZSLOT_STACK] = (struct viewentry){
+			.id = currepr->fixed_points[TWZSLOT_STACK].id,
+			.flags = VE_READ | VE_WRITE | VE_VALID,
+		};
 	}
 
 	return sys_thrd_spawn(thrd->tid, &sa, 0);
