@@ -52,7 +52,6 @@ int arch_syscall_thrd_ctl(int op, long arg)
 			current_thread->arch.fs = arg;
 			break;
 		case THRD_CTL_SET_GS:
-			printk("*** SETTING GS\n");
 			current_thread->arch.gs = arg;
 			break;
 		case THRD_CTL_SET_IOPL:

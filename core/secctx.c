@@ -396,14 +396,15 @@ static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 		}
 	}
 	if(na == -1) {
+		printk("HERE\n");
 		/* detached from the last context. Create a dummy context */
 		assert(thr->attached_scs[0] == NULL);
 		thr->active_sc = secctx_alloc(0);
 		krc_get(&thr->active_sc->refs);
 		thr->attached_scs[0] = thr->active_sc;
-	}
-	/* TODO: maybe we could leave this? */
-	if(thr->active_sc == s) {
+		secctx_switch(0);
+	} else if(thr->active_sc == s) {
+		/* TODO: maybe we could leave this? */
 		// thr->active_sc = NULL;
 		secctx_switch(na);
 	}

@@ -151,7 +151,6 @@ void secctx_switch(int i)
 	if(!current_thread->active_sc) {
 		return;
 	}
-	printk("SWTICH: " IDFMT "\n", IDPR(current_thread->active_sc->repr));
 	x86_64_secctx_switch(current_thread->active_sc);
 }
 

@@ -14,34 +14,32 @@ struct service_info {
 	const char *name;
 };
 
+bool term_ready = false;
+
+#define EPRINTF(...) ({ term_ready ? fprintf(stderr, ##__VA_ARGS__) : debug_printf(__VA_ARGS__); })
 void tmain(void *a)
 {
-	// struct service_info *info = twz_ptr_lea(twz_stdstack, a);
-	char *pg = twz_ptr_lea(twz_stdstack, a);
+	struct service_info *info = twz_ptr_lea(twz_stdstack, a);
 	int r;
 
-	if(!strcmp(pg, "login.text")) {
-		objid_t si;
-		int r = twz_name_resolve(NULL, "login.sctx", NULL, 0, &si);
-		if(r) {
-			debug_printf("failed to resolve 'login.sctx'");
-			twz_thread_exit();
-		}
-		r = sys_detach(0, 0, TWZ_DETACH_ONBECOME | TWZ_DETACH_ALL);
-		if(r) {
-			debug_printf("failed to detach: %d", r);
-			twz_thread_exit();
-		}
+	char buffer[1024];
+	snprintf(buffer, 1024, "%s.text", info->name);
 
-		debug_printf("ATTACH\n");
-		r = sys_attach(0, si, KSO_SECCTX);
+	r = sys_detach(0, 0, TWZ_DETACH_ONBECOME | TWZ_DETACH_ALL);
+	if(r) {
+		EPRINTF("failed to detach: %d\n", r);
+		twz_thread_exit();
+	}
+
+	if(info->sctx) {
+		r = sys_attach(0, info->sctx, KSO_SECCTX);
 		if(r) {
-			debug_printf("failed to attach: %d", r);
+			EPRINTF("failed to attach " IDFMT ": %d\n", IDPR(info->sctx), r);
 			twz_thread_exit();
 		}
 	}
-	r = execv(pg, (char *[]){ pg, NULL });
-	debug_printf("failed to exec '%s': %d", pg, r);
+	r = execv(buffer, (char *[]){ info->name, NULL });
+	EPRINTF("failed to exec '%s': %d\n", info->name, r);
 	twz_thread_exit();
 }
 
@@ -49,62 +47,76 @@ struct object bs;
 int main(int argc, char **argv)
 {
 	if(__name_bootstrap() == -1) {
-		debug_printf("Failed to bootstrap namer\n");
+		EPRINTF("Failed to bootstrap namer\n");
 		abort();
 	}
-
 	unsetenv("BSNAME");
+
 	struct thread tthr;
 	int r;
+
+	struct service_info term_info = {
+		.name = "term",
+		.sctx = 0,
+	};
+
 	if((r = twz_thread_spawn(
-	      &tthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = "term.text" }))) {
-		debug_printf("failed to spawn terminal");
+	      &tthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &term_info }))) {
+		EPRINTF("failed to spawn terminal");
 		abort();
 	}
-
 	twz_thread_wait(1, (struct thread *[]){ &tthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 
 	objid_t si;
 	r = twz_name_resolve(NULL, "init.sctx", NULL, 0, &si);
 	if(r) {
-		debug_printf("failed to resolve 'init.sctx'");
+		EPRINTF("failed to resolve 'init.sctx'");
 		twz_thread_exit();
 	}
-	debug_printf("ATTACH\n");
 	r = sys_attach(0, si, KSO_SECCTX);
 	if(r) {
-		debug_printf("failed to attach: %d", r);
+		EPRINTF("failed to attach: %d", r);
 		twz_thread_exit();
 	}
 
 	int fd;
 	if((fd = open("dev:dfl:keyboard", O_RDONLY)) != 0) {
-		debug_printf("err opening stdin");
+		EPRINTF("err opening stdin");
 		abort();
 	}
 	if((fd = open("dev:dfl:screen", O_RDWR)) != 1) {
-		debug_printf("err opening stdout");
+		EPRINTF("err opening stdout");
 		abort();
 	}
 	if((fd = open("dev:dfl:screen", O_RDWR)) != 2) {
-		debug_printf("err opening stderr");
+		EPRINTF("err opening stderr");
 		abort();
 	}
 
-	printf("twzinit: starting\n");
+	term_ready = true;
+	EPRINTF("twzinit: terminal ready\n");
+	objid_t lsi;
+	r = twz_name_resolve(NULL, "login.sctx", NULL, 0, &lsi);
+	if(r) {
+		EPRINTF("failed to resolve 'login.sctx'");
+		twz_thread_exit();
+	}
 
+	struct service_info login_info = {
+		.name = "login",
+		.sctx = lsi,
+	};
+
+	EPRINTF("twzinit: starting login program\n");
 	struct thread shthr;
 	if((r = twz_thread_spawn(
-	      &shthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = "login.text" }))) {
-		debug_printf("failed to spawn shell");
+	      &shthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &login_info }))) {
+		EPRINTF("failed to spawn shell");
 		abort();
 	}
 
-	printf("DONE\n");
+	EPRINTF("twzinit: init process completed\n");
 	twz_thread_exit();
-
-	for(;;)
-		;
 
 #if 0
 	struct object obj;

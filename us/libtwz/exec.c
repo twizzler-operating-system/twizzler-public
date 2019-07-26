@@ -1,4 +1,5 @@
 #include <string.h>
+#include <twz/debug.h>
 #include <twz/obj.h>
 #include <twz/sys.h>
 #include <twz/thread.h>

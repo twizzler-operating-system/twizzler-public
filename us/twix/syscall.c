@@ -191,6 +191,7 @@ struct elf64_header {
 	uint16_t e_shstrndx;
 };
 
+extern int *__errno_location();
 long linux_sys_execve(const char *path, char **argv, char *const *env)
 {
 	objid_t id = 0;
@@ -215,7 +216,6 @@ long linux_sys_execve(const char *path, char **argv, char *const *env)
 			twz_view_set(&view, TWZSLOT_FILES_BASE + i, fi, fl);
 		}
 	}
-
 	struct object exe;
 	twz_object_open(&exe, id, FE_READ);
 	struct elf64_header *hdr = twz_obj_base(&exe);

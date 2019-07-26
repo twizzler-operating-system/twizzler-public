@@ -8,6 +8,7 @@
 #include <twz/sys.h>
 #include <twz/thread.h>
 
+void *__copy_tls(char *);
 int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 {
 	struct twzthread_repr *currepr = twz_thread_repr_base();
