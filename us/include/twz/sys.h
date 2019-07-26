@@ -67,9 +67,9 @@ static inline long sys_thrd_spawn(objid_t tid, struct sys_thrd_spawn_args *tsa, 
 	return __syscall6(SYS_THRD_SPAWN, ID_LO(tid), ID_HI(tid), (long)tsa, flags, 0, 0);
 }
 
-static inline long sys_become(objid_t sid, struct sys_become_args *ba)
+static inline long sys_become(struct sys_become_args *ba)
 {
-	return __syscall6(SYS_BECOME, ID_LO(sid), ID_HI(sid), (long)ba, 0, 0, 0);
+	return __syscall6(SYS_BECOME, (long)ba, 0, 0, 0, 0, 0);
 }
 
 static inline long sys_thrd_ctl(int op, long arg)

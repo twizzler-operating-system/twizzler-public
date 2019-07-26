@@ -432,13 +432,6 @@ static bool __secctx_detach_event(struct thread *thr, bool entry, int sysc)
 		if(!(flags & __TWZ_DETACH_DETACH)) {
 			continue;
 		}
-		/*
-		printk(":: %p %x %p %x\n",
-		  thr->attached_scs[i],
-		  thr->attached_scs_attrs[i],
-		  thr->attached_scs_backup[i],
-		  thr->attached_scs_attrs_backup[i]);
-*/
 		bool onen = !!(flags & TWZ_DETACH_ONENTRY);
 		bool onex = !!(flags & TWZ_DETACH_ONEXIT);
 		if(thr->attached_scs[i] && as == sysc) {

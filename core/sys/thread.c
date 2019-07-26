@@ -102,9 +102,8 @@ long syscall_thrd_ctl(int op, long arg)
 	return ret;
 }
 
-long syscall_become(uint64_t sclo, uint64_t schi, struct arch_syscall_become_args *_ba)
+long syscall_become(struct arch_syscall_become_args *_ba)
 {
-	objid_t scid = MKID(schi, sclo);
 	struct arch_syscall_become_args ba;
 	memcpy(&ba, _ba, sizeof(ba));
 	if(ba.target_view) {

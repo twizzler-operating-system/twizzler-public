@@ -37,7 +37,7 @@ __attribute__((used)) static int __do_exec(uint64_t entry,
 		.rdi = (long)vector,
 		.rsp = (long)SLOT_TO_VADDR(TWZSLOT_STACK) + 0x200000,
 	};
-	sys_become(0, &ba);
+	sys_become(&ba);
 	twz_thread_exit();
 	return 0;
 }
