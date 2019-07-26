@@ -1,0 +1,5 @@
+* pick better sctx during switch
+* cache sctx results
+* can we reduce the number of redundant mapping structures in different EPTs?
+	- I think yes: make the top-level page structure perm to be the actual perms,
+	  and then lower-level mappings are RWX, so they can be shared?

@@ -52,6 +52,14 @@ void tmain(void *a)
 	twz_thread_exit();
 }
 
+#include <pthread.h>
+void *_sf(void *a)
+{
+	debug_printf("Hello from pthread! %p\n", a);
+
+	return NULL;
+}
+
 int main(int argc, char **argv)
 {
 	for(;;) {
@@ -65,6 +73,9 @@ int main(int argc, char **argv)
 			*n = 0;
 		if(n == buffer)
 			continue;
+
+		pthread_t pt;
+		pthread_create(&pt, NULL, _sf, NULL);
 
 		struct thread tthr;
 		int r;

@@ -19,6 +19,7 @@ struct twix_register_frame {
 	uint64_t rdx;
 	uint64_t rbx;
 	uint64_t rsp;
+	uint64_t return_addr;
 };
 
 #include <errno.h>
@@ -45,6 +46,7 @@ struct twix_register_frame {
 #define LINUX_SYS_readv 19
 #define LINUX_SYS_writev 20
 
+#define LINUX_SYS_clone 56
 #define LINUX_SYS_execve 59
 #define LINUX_SYS_exit 60
 
@@ -393,6 +395,59 @@ long linux_sys_ioctl(int fd, unsigned long request, unsigned long arg)
 	return 0;
 }
 
+asm(".global __return_from_clone\n"
+    "__return_from_clone:"
+    "popq %r15;"
+    "popq %r14;"
+    "popq %r13;"
+    "popq %r12;"
+    "popq %r11;"
+    "popq %r10;"
+    "popq %r9;"
+    "popq %r8;"
+    "popq %rbp;"
+    "popq %rsi;"
+    "popq %rdi;"
+    "popq %rdx;"
+    "popq %rbx;"
+    "popq %rax;" /* ignore the old rsp */
+    "movq $0, %rax;"
+    "ret;");
+
+extern uint64_t __return_from_clone(void);
+long linux_sys_clone(struct twix_register_frame *frame,
+  unsigned long flags,
+  void *child_stack,
+  int *ptid,
+  int *ctid,
+  unsigned long newtls)
+{
+	debug_printf("CLONE2: fl=%lx, stack=%p, ptid=%p, ctid=%p, newtls=%lx\n",
+	  flags,
+	  child_stack,
+	  ptid,
+	  ctid,
+	  newtls);
+
+	child_stack = (void *)((uintptr_t)child_stack - 8);
+	memcpy((void *)((uintptr_t)child_stack - sizeof(struct twix_register_frame)),
+	  frame,
+	  sizeof(struct twix_register_frame));
+	child_stack = (void *)((uintptr_t)child_stack - sizeof(struct twix_register_frame));
+	struct thread thr;
+	int r;
+	if((r = twz_thread_spawn(&thr,
+	      &(struct thrd_spawn_args){ .start_func = __return_from_clone,
+	        .arg = NULL,
+	        .stack_base = child_stack,
+	        .stack_size = 0,
+	        .tls_base = (char *)newtls }))) {
+		return -r;
+	}
+
+	return -ENOSYS;
+}
+
 #include <sys/mman.h>
 long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t off)
 {
@@ -463,25 +518,50 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_close] = linux_sys_close,
 	[LINUX_SYS_mmap] = linux_sys_mmap,
 	[LINUX_SYS_execve] = linux_sys_execve,
+	[LINUX_SYS_clone] = linux_sys_clone,
 };
 
 static size_t stlen = sizeof(syscall_table) / sizeof(syscall_table[0]);
 
 long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5)
 {
-	// debug_printf("TWIX entry: %ld\n", num);
 	__fd_sys_init();
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
 		debug_printf("Unimplemented UNIX system call: %ld", num);
 		return -ENOSYS;
+	}
+	if(num == LINUX_SYS_clone) {
+		/* needs frame */
+		return -ENOSYS;
+	}
+	return syscall_table[num](a0, a1, a2, a3, a4, a5);
+}
+
+static long twix_syscall_frame(struct twix_register_frame *frame,
+  long num,
+  long a0,
+  long a1,
+  long a2,
+  long a3,
+  long a4,
+  long a5)
+{
+	__fd_sys_init();
+	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
+		debug_printf("Unimplemented UNIX system call: %ld", num);
+		return -ENOSYS;
+	}
+	if(num == LINUX_SYS_clone) {
+		/* needs frame */
+		return syscall_table[num](frame, a0, a1, a2, a3, a4, a5);
 	}
 	return syscall_table[num](a0, a1, a2, a3, a4, a5);
 }
 
 long __twix_syscall_target_c(long num, struct twix_register_frame *frame)
 {
-	long ret =
-	  twix_syscall(num, frame->rdi, frame->rsi, frame->rdx, frame->r10, frame->r8, frame->r9);
+	long ret = twix_syscall_frame(
+	  frame, num, frame->rdi, frame->rsi, frame->rdx, frame->r10, frame->r8, frame->r9);
 	return ret;
 }
 

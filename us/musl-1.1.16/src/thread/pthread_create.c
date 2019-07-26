@@ -1,10 +1,10 @@
 #define _GNU_SOURCE
+#include "libc.h"
 #include "pthread_impl.h"
 #include "stdio_impl.h"
-#include "libc.h"
-#include <sys/mman.h>
-#include <string.h>
 #include <stddef.h>
+#include <string.h>
+#include <sys/mman.h>
 
 void *__mmap(void *, size_t, int, int, int, off_t);
 int __munmap(void *, size_t);
@@ -28,7 +28,7 @@ _Noreturn void __pthread_exit(void *result)
 	self->cancelasync = 0;
 	self->result = result;
 
-	while (self->cancelbuf) {
+	while(self->cancelbuf) {
 		void (*f)(void *) = self->cancelbuf->__f;
 		void *x = self->cancelbuf->__x;
 		self->cancelbuf = self->cancelbuf->__next;
@@ -61,7 +61,7 @@ _Noreturn void __pthread_exit(void *result)
 	 * could exit at the same time. For the last thread, revert the
 	 * decrement and unblock signals to give the atexit handlers and
 	 * stdio cleanup code a consistent state. */
-	if (a_fetch_add(&libc.threads_minus_1, -1)==0) {
+	if(a_fetch_add(&libc.threads_minus_1, -1) == 0) {
 		libc.threads_minus_1 = 0;
 		__restore_sigs(&set);
 		exit(0);
@@ -72,16 +72,15 @@ _Noreturn void __pthread_exit(void *result)
 	 * be invalid when the kernel would process it. */
 	__vm_lock();
 	volatile void *volatile *rp;
-	while ((rp=self->robust_list.head) && rp != &self->robust_list.head) {
-		pthread_mutex_t *m = (void *)((char *)rp
-			- offsetof(pthread_mutex_t, _m_next));
+	while((rp = self->robust_list.head) && rp != &self->robust_list.head) {
+		pthread_mutex_t *m = (void *)((char *)rp - offsetof(pthread_mutex_t, _m_next));
 		int waiters = m->_m_waiters;
 		int priv = (m->_m_type & 128) ^ 128;
 		self->robust_list.pending = rp;
 		self->robust_list.head = *rp;
 		int cont = a_swap(&m->_m_lock, 0x40000000);
 		self->robust_list.pending = 0;
-		if (cont < 0 || waiters)
+		if(cont < 0 || waiters)
 			__wake(&m->_m_lock, 1, priv);
 	}
 	__vm_unlock();
@@ -89,7 +88,7 @@ _Noreturn void __pthread_exit(void *result)
 	__do_orphaned_stdio_locks();
 	__dl_thread_cleanup();
 
-	if (self->detached && self->map_base) {
+	if(self->detached && self->map_base) {
 		/* Detached threads must avoid the kernel clear_child_tid
 		 * feature, since the virtual address will have been
 		 * unmapped and possibly already reused by a new mapping
@@ -97,12 +96,13 @@ _Noreturn void __pthread_exit(void *result)
 		 * the case of threads that started out detached, the
 		 * initial clone flags are correct, but if the thread was
 		 * detached later (== 2), we need to clear it here. */
-		if (self->detached == 2) __syscall(SYS_set_tid_address, 0);
+		if(self->detached == 2)
+			__syscall(SYS_set_tid_address, 0);
 
 		/* Robust list will no longer be valid, and was already
 		 * processed above, so unregister it with the kernel. */
-		if (self->robust_list.off)
-			__syscall(SYS_set_robust_list, 0, 3*sizeof(long));
+		if(self->robust_list.off)
+			__syscall(SYS_set_robust_list, 0, 3 * sizeof(long));
 
 		/* Since __unmapself bypasses the normal munmap code path,
 		 * explicitly wait for vmlock holders first. */
@@ -113,7 +113,8 @@ _Noreturn void __pthread_exit(void *result)
 		__unmapself(self->map_base, self->map_size);
 	}
 
-	for (;;) __syscall(SYS_exit, 0);
+	for(;;)
+		__syscall(SYS_exit, 0);
 }
 
 void __do_cleanup_push(struct __ptcb *cb)
@@ -131,17 +132,16 @@ void __do_cleanup_pop(struct __ptcb *cb)
 static int start(void *p)
 {
 	pthread_t self = p;
-	if (self->startlock[0]) {
+	if(self->startlock[0]) {
 		__wait(self->startlock, 0, 1, 1);
-		if (self->startlock[0]) {
+		if(self->startlock[0]) {
 			self->detached = 2;
 			pthread_exit(0);
 		}
 		__restore_sigs(self->sigmask);
 	}
-	if (self->unblock_cancel)
-		__syscall(SYS_rt_sigprocmask, SIG_UNBLOCK,
-			SIGPT_SET, 0, _NSIG/8);
+	if(self->unblock_cancel)
+		__syscall(SYS_rt_sigprocmask, SIG_UNBLOCK, SIGPT_SET, 0, _NSIG / 8);
 	__pthread_exit(self->start(self->start_arg));
 	return 0;
 }
@@ -149,12 +149,12 @@ static int start(void *p)
 static int start_c11(void *p)
 {
 	pthread_t self = p;
-	int (*start)(void*) = (int(*)(void*)) self->start;
+	int (*start)(void *) = (int (*)(void *))self->start;
 	__pthread_exit((void *)(uintptr_t)start(self->start_arg));
 	return 0;
 }
 
-#define ROUND(x) (((x)+PAGE_SIZE-1)&-PAGE_SIZE)
+#define ROUND(x) (((x) + PAGE_SIZE - 1) & -PAGE_SIZE)
 
 /* pthread_key_create.c overrides this */
 static volatile size_t dummy = 0;
@@ -173,47 +173,54 @@ weak_alias(dummy_file, __stderr_used);
 
 static void init_file_lock(FILE *f)
 {
-	if (f && f->lock<0) f->lock = 0;
+	if(f && f->lock < 0)
+		f->lock = 0;
 }
 
 void *__copy_tls(unsigned char *);
 
-int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict attrp, void *(*entry)(void *), void *restrict arg)
+int __pthread_create(pthread_t *restrict res,
+  const pthread_attr_t *restrict attrp,
+  void *(*entry)(void *),
+  void *restrict arg)
 {
 	int ret, c11 = (attrp == __ATTRP_C11_THREAD);
 	size_t size, guard;
 	struct pthread *self, *new;
 	unsigned char *map = 0, *stack = 0, *tsd = 0, *stack_limit;
-	unsigned flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND
-		| CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS
-		| CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID | CLONE_DETACHED;
+	unsigned flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | CLONE_THREAD
+	                 | CLONE_SYSVSEM | CLONE_SETTLS | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID
+	                 | CLONE_DETACHED;
 	int do_sched = 0;
 	pthread_attr_t attr = { 0 };
 
-	if (!libc.can_do_threads) return ENOSYS;
+	if(!libc.can_do_threads)
+		return ENOSYS;
 	self = __pthread_self();
-	if (!libc.threaded) {
-		for (FILE *f=*__ofl_lock(); f; f=f->next)
+	if(!libc.threaded) {
+		for(FILE *f = *__ofl_lock(); f; f = f->next)
 			init_file_lock(f);
 		__ofl_unlock();
 		init_file_lock(__stdin_used);
 		init_file_lock(__stdout_used);
 		init_file_lock(__stderr_used);
-		__syscall(SYS_rt_sigprocmask, SIG_UNBLOCK, SIGPT_SET, 0, _NSIG/8);
+		__syscall(SYS_rt_sigprocmask, SIG_UNBLOCK, SIGPT_SET, 0, _NSIG / 8);
 		self->tsd = (void **)__pthread_tsd_main;
 		libc.threaded = 1;
 	}
-	if (attrp && !c11) attr = *attrp;
+	if(attrp && !c11)
+		attr = *attrp;
 
 	__acquire_ptc();
-	if (!attrp || c11) {
+	if(!attrp || c11) {
 		attr._a_stacksize = __default_stacksize;
 		attr._a_guardsize = __default_guardsize;
 	}
 
-	if (__block_new_threads) __wait(&__block_new_threads, 0, 1, 1);
+	if(__block_new_threads)
+		__wait(&__block_new_threads, 0, 1, 1);
 
-	if (attr._a_stackaddr) {
+	if(attr._a_stackaddr) {
 		size_t need = libc.tls_size + __pthread_tsd_size;
 		size = attr._a_stacksize;
 		stack = (void *)(attr._a_stackaddr & -16);
@@ -221,7 +228,7 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 		/* Use application-provided stack for TLS only when
 		 * it does not take more than ~12% or 2k of the
 		 * application's stack space. */
-		if (need < size/8 && need < 2048) {
+		if(need < size / 8 && need < 2048) {
 			tsd = stack - __pthread_tsd_size;
 			stack = tsd - libc.tls_size;
 			memset(stack, 0, need);
@@ -231,25 +238,25 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 		}
 	} else {
 		guard = ROUND(attr._a_guardsize);
-		size = guard + ROUND(attr._a_stacksize
-			+ libc.tls_size +  __pthread_tsd_size);
+		size = guard + ROUND(attr._a_stacksize + libc.tls_size + __pthread_tsd_size);
 	}
 
-	if (!tsd) {
-		if (guard) {
-			map = __mmap(0, size, PROT_NONE, MAP_PRIVATE|MAP_ANON, -1, 0);
-			if (map == MAP_FAILED) goto fail;
-			if (__mprotect(map+guard, size-guard, PROT_READ|PROT_WRITE)
-			    && errno != ENOSYS) {
+	if(!tsd) {
+		if(guard) {
+			map = __mmap(0, size, PROT_NONE, MAP_PRIVATE | MAP_ANON, -1, 0);
+			if(map == MAP_FAILED)
+				goto fail;
+			if(__mprotect(map + guard, size - guard, PROT_READ | PROT_WRITE) && errno != ENOSYS) {
 				__munmap(map, size);
 				goto fail;
 			}
 		} else {
-			map = __mmap(0, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
-			if (map == MAP_FAILED) goto fail;
+			map = __mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+			if(map == MAP_FAILED)
+				goto fail;
 		}
 		tsd = map + size - __pthread_tsd_size;
-		if (!stack) {
+		if(!stack) {
 			stack = tsd - libc.tls_size;
 			stack_limit = map + guard;
 		}
@@ -265,11 +272,11 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 	new->self = new;
 	new->tsd = (void *)tsd;
 	new->locale = &libc.global_locale;
-	if (attr._a_detach) {
+	if(attr._a_detach) {
 		new->detached = 1;
 		flags -= CLONE_CHILD_CLEARTID;
 	}
-	if (attr._a_sched) {
+	if(attr._a_sched) {
 		do_sched = new->startlock[0] = 1;
 		__block_app_sigs(new->sigmask);
 	}
@@ -282,22 +289,23 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 
 	__release_ptc();
 
-	if (do_sched) {
+	if(do_sched) {
 		__restore_sigs(new->sigmask);
 	}
 
-	if (ret < 0) {
+	if(ret < 0) {
 		a_dec(&libc.threads_minus_1);
-		if (map) __munmap(map, size);
+		if(map)
+			__munmap(map, size);
 		return EAGAIN;
 	}
 
-	if (do_sched) {
-		ret = __syscall(SYS_sched_setscheduler, new->tid,
-			attr._a_policy, &attr._a_prio);
-		a_store(new->startlock, ret<0 ? 2 : 0);
+	if(do_sched) {
+		ret = __syscall(SYS_sched_setscheduler, new->tid, attr._a_policy, &attr._a_prio);
+		a_store(new->startlock, ret < 0 ? 2 : 0);
 		__wake(new->startlock, 1, 1);
-		if (ret < 0) return -ret;
+		if(ret < 0)
+			return -ret;
 	}
 
 	*res = new;
