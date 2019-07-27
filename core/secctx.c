@@ -401,6 +401,9 @@ bool secctx_thread_attach(struct sctx *s, struct thread *t)
 static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 {
 	EPRINTK("thread %ld detach from " IDFMT "\n", thr->id, IDPR(s->repr));
+	if(s->repr == 0) {
+		printk("THIS IS TOTALLY A BUG THAT NEEDS TO BE SOLVED!\n\n!!!!!!!!!!\n!!!!!!!\n!!!!!!\n");
+	}
 	bool ok = false;
 	ssize_t na = -1;
 	for(size_t i = 0; i < MAX_SC; i++) {
