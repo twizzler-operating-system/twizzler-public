@@ -162,6 +162,7 @@ bool vm_setview(struct thread *t, struct object *viewobj)
 	t->ctx = vm_context_create();
 	krc_get(&viewobj->refs);
 	t->ctx->view = &viewobj->view;
+
 	/* TODO: unmap things (or create a new context), destroy old, etc */
 	/* TODO: check object type */
 	return true;

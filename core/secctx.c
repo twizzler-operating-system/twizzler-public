@@ -341,6 +341,19 @@ fault_noperm:
 
 #undef EPRINTK
 #define EPRINTK(...) printk(__VA_ARGS__)
+
+static void __secctx_update_thrdrepr(struct thread *thr, int s, bool at)
+{
+	struct object *to = kso_get_obj(thr->throbj, thr);
+	struct kso_attachment k = {
+		.id = at ? thr->attached_scs[s]->repr : 0,
+		.flags = 0,
+		.info = at ? thr->attached_scs_attrs[s] : 0,
+		.type = KSO_SECCTX,
+	};
+	obj_write_data(to, offsetof(struct twzthread_repr, attached) + sizeof(k) * s, sizeof(k), &k);
+}
+
 bool secctx_thread_attach(struct sctx *s, struct thread *t)
 {
 	EPRINTK("thread %ld attach to " IDFMT "\n", t->id, IDPR(s->repr));
@@ -361,6 +374,7 @@ bool secctx_thread_attach(struct sctx *s, struct thread *t)
 	for(i = 0; i < MAX_SC; i++) {
 		if(t->attached_scs[i] == s) {
 			t->attached_scs_attrs[i] = 0;
+			__secctx_update_thrdrepr(t, i, true);
 			found = true;
 			break;
 		}
@@ -371,6 +385,7 @@ bool secctx_thread_attach(struct sctx *s, struct thread *t)
 				krc_get(&s->refs);
 				t->attached_scs[i] = s;
 				t->attached_scs_attrs[i] = 0;
+				__secctx_update_thrdrepr(t, i, true);
 				ok = true;
 				break;
 			}
@@ -390,6 +405,7 @@ static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 	ssize_t na = -1;
 	for(size_t i = 0; i < MAX_SC; i++) {
 		if(thr->attached_scs[i] == s) {
+			__secctx_update_thrdrepr(thr, i, false);
 			krc_put_call(s, refs, __secctx_krc_put);
 			thr->attached_scs[i] = NULL;
 			thr->attached_scs_attrs[i] = 0;

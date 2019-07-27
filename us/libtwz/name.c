@@ -91,7 +91,18 @@ static void copy_names(const char *bsname, struct object *nobj)
 		objid_parse(eq, strlen(eq), &thisid);
 		struct btree_val dv = { .mv_data = &thisid, .mv_size = sizeof(thisid) };
 
-		bt_put(nobj, twz_obj_base(nobj), &kv, &dv, NULL);
+		int r = bt_put(nobj, twz_obj_base(nobj), &kv, &dv, NULL);
+		if(r)
+			abort();
+
+		char buf[64];
+		snprintf(buf, 64, IDFMT, IDPR(thisid));
+		struct btree_val rdv = { .mv_data = names, .mv_size = strlen(names) + 1 };
+		struct btree_val rkv = { .mv_data = buf, .mv_size = strlen(buf) + 1 };
+		r = bt_put(nobj, twz_obj_base(nobj), &rkv, &rdv, NULL);
+		if(r) {
+			abort();
+		}
 
 		if(!next)
 			break;
@@ -107,7 +118,16 @@ int twz_name_assign(objid_t id, const char *name)
 	struct btree_val kv = { .mv_data = name, .mv_size = strlen(name) + 1 };
 	struct btree_val dv = { .mv_data = &id, .mv_size = sizeof(id) };
 
-	return bt_put(&nameobj, twz_obj_base(&nameobj), &kv, &dv, NULL);
+	int r = bt_put(&nameobj, twz_obj_base(&nameobj), &kv, &dv, NULL);
+	if(r)
+		return r;
+
+	char buf[64];
+	snprintf(buf, 64, IDFMT, IDPR(id));
+	struct btree_val rdv = { .mv_data = name, .mv_size = strlen(name) + 1 };
+	struct btree_val rkv = { .mv_data = buf, .mv_size = strlen(buf) + 1 };
+	bt_put(&nameobj, twz_obj_base(&nameobj), &rkv, &rdv, NULL);
+	return 0;
 }
 
 int __name_bootstrap(void)
@@ -134,6 +154,29 @@ int __name_bootstrap(void)
 	if(setenv("TWZNAME", tmp, 1) == -1)
 		return -EGENERIC;
 	return 0;
+}
+
+static int __twz_name_dfl_reverse(objid_t id, char *name, size_t *nl, int flags)
+{
+	if(!__name_init())
+		return -ENOTSUP;
+	char buf[64];
+	snprintf(buf, 64, IDFMT, IDPR(id));
+	struct btree_val kv = { .mv_data = buf, .mv_size = strlen(buf) + 1 };
+	struct btree_val dv;
+
+	struct btree_node *n = bt_lookup(&nameobj, twz_obj_base(&nameobj), &kv);
+	if(!n)
+		return -ENOENT;
+	bt_node_get(&nameobj, twz_obj_base(&nameobj), n, &dv);
+
+	if(*nl >= dv.mv_size) {
+		memcpy(name, dv.mv_data, dv.mv_size);
+		return 0;
+	} else {
+		*nl = dv.mv_size;
+		return -ENOSPC;
+	}
 }
 
 static int __twz_name_dfl_resolve(struct object *obj, const char *name, int flags, objid_t *id)
@@ -168,4 +211,15 @@ int twz_name_resolve(struct object *obj,
 	if(fn)
 		return fn(obj, name, flags, id);
 	return __twz_name_dfl_resolve(obj, name, flags, id);
+}
+
+int twz_name_reverse_lookup(objid_t id,
+  char *name,
+  size_t *nl,
+  ssize_t (*fn)(objid_t id, char *name, size_t *nl, int flags),
+  int flags)
+{
+	if(fn)
+		return fn(id, name, nl, flags);
+	return __twz_name_dfl_reverse(id, name, nl, flags);
 }

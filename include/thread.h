@@ -8,6 +8,7 @@
 #include <workqueue.h>
 
 #include <twz/_fault.h>
+#include <twz/_thrd.h>
 
 struct processor;
 
@@ -18,7 +19,7 @@ enum thread_state {
 	THREADSTATE_INITING,
 };
 
-#define MAX_SC 32
+#define MAX_SC TWZ_THRD_MAX_SCS
 
 struct thread {
 	struct arch_thread arch;

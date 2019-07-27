@@ -45,7 +45,10 @@ long syscall_thread_spawn(uint64_t tidlo,
 	t->thrid = tid;
 	t->throbj = &repr->thr; /* krc: move */
 	vm_setview(t, view);
+
 	obj_put(view);
+
+	kso_root_attach(repr, 0, KSO_THREAD);
 
 	if(current_thread) {
 		spinlock_acquire_save(&current_thread->sc_lock);
@@ -112,6 +115,7 @@ long syscall_become(struct arch_syscall_become_args *_ba)
 			return -1;
 		}
 		vm_setview(current_thread, target_view);
+
 		arch_mm_switch_context(current_thread->ctx);
 		obj_put(target_view);
 	}

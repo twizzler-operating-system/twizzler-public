@@ -162,6 +162,23 @@ void kernel_main(struct processor *proc)
 	if(proc->flags & PROCESSOR_BSP) {
 		arena_destroy(&post_init_call_arena);
 		post_init_call_head = NULL;
+
+		/* create the root object. TODO: load an old one? */
+		struct object *root = obj_create(KSO_ROOT_ID, KSO_ROOT);
+		struct metainfo mi = {
+			.p_flags = MIP_DFL_READ,
+			.flags = 0,
+			.milen = sizeof(mi) + 128,
+			.mdbottom = 0x1000,
+			.kuid = 0,
+			.nonce = 0,
+		};
+		root->idversafe = true;
+		root->idvercache = true;
+
+		obj_write_data(
+		  root, OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + OBJ_METAPAGE_SIZE), sizeof(mi), &mi);
+
 		// bench();
 		if(kc_bsv_id == 0) {
 			panic("No bsv specified");

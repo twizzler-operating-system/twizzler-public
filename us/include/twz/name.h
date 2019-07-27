@@ -1,5 +1,6 @@
 #pragma once
 #include <twz/_objid.h>
+#include <twz/_types.h>
 struct object;
 int twz_name_resolve(struct object *obj,
   const char *name,
@@ -7,3 +8,9 @@ int twz_name_resolve(struct object *obj,
   int flags,
   objid_t *id);
 int twz_name_assign(objid_t id, const char *name);
+
+int twz_name_reverse_lookup(objid_t id,
+  char *name,
+  size_t *nl,
+  ssize_t (*fn)(objid_t id, char *name, size_t *nl, int flags),
+  int flags);
