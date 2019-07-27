@@ -38,6 +38,12 @@ void tmain(void *a)
 			twz_thread_exit();
 		}
 	}
+
+	/* TODO: better way to do this?*/
+	char reprname[1024];
+	snprintf(reprname, 1024, "[instance] %s", info->name);
+	twz_name_assign(twz_thread_repr_base()->reprid, reprname);
+
 	r = execv(buffer, (char *[]){ info->name, NULL });
 	EPRINTF("failed to exec '%s': %d\n", info->name, r);
 	twz_thread_exit();
@@ -51,6 +57,10 @@ int main(int argc, char **argv)
 		abort();
 	}
 	unsetenv("BSNAME");
+
+	char reprname[1024];
+	snprintf(reprname, 1024, "[instance] init");
+	twz_name_assign(twz_thread_repr_base()->reprid, reprname);
 
 	struct thread tthr;
 	int r;

@@ -30,7 +30,7 @@ int twz_thread_ready(struct thread *thread, int sp, uint64_t info);
 	({                                                                                             \
 		uint64_t a;                                                                                \
 		asm volatile("rdgsbase %%rax" : "=a"(a));                                                  \
-		(void *)(a + OBJ_NULLPAGE_SIZE);                                                           \
+		(struct twzthread_repr *)(a + OBJ_NULLPAGE_SIZE);                                          \
 	})
 
 #define TWZ_THREAD_STACK_SIZE 0x200000
