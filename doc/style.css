@@ -1,0 +1,70 @@
+body {
+    margin: 0in;
+    color: black;
+    font-family: "Source Sans Pro", sans-serif;
+    font-size: 10pt;
+    line-height: 100%;
+    color: #333; 
+}
+pre {
+    border: 1px dotted gray;
+    background-color: #ececec;
+    color: #1111111;
+    padding: 0.5em;
+}
+code {
+    font-family: monospace;
+}
+h1 a, h2 a, h3 a, h4 a, h5 a { 
+    text-decoration: none;
+}
+h1, h2, h3, h4, h5 {
+	font-family: "Source Sans Pro";
+                     font-weight: bold;
+				 }
+h1 {
+        font-size: 130%;
+                     border-bottom: 1px solid black;
+}
+
+h2 {
+        font-size: 110%;
+                     border-bottom: 1px dotted grey;
+}
+
+h3 {
+        font-size: 95%;
+}
+
+h4 {
+        font-size: 80%;
+        font-style: italic;
+}
+
+h5 {
+        font-size: 70%;
+        font-style: italic;
+}
+
+h1.title {
+        font-size: 200%;
+        font-weight: bold;
+        padding-top: 0.2em;
+        padding-bottom: 0.2em;
+        text-align: left;
+        border: none;
+}
+
+dt code {
+        font-weight: bold;
+}
+dd p {
+        margin-top: 0;
+}
+
+#footer {
+        padding-top: 1em;
+        font-size: 70%;
+        color: gray;
+        text-align: center;
+        }

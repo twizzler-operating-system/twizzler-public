@@ -15,11 +15,10 @@ variable, like so: `make PROJECT=riscv`. A project can be tested via the 'test' 
 
 Toolchains
 ----------
-Pre-built toolchains are available from http://googoo-16.ssrc.ucsc.edu/dbittman/twizzler/toolchains.
-They're password protected (username 'ssrc', password 'nvram'). Once downloaded, they can be
-decompressed and unpacked. They contain compiled versions of gcc and binutils for a particular target.
-For example, the twizzler-toolchain-riscv64-1.tar.xz file provides the toolchain for riscv64,
-and is version 1. Toolchains will get updated over time, so try to stay current.
+The toolchain for the target system must be built in order to compile the kernel and userspace
+programs. Fortunately, I have provided a _totally tested_ script to build them:
+
+TARGET=x86_64-pc-elf PREFIX=/opt/toolchains/twz-x86_64 ./tools/toolchain.sh
 
 Once you have a particular toolchain extracted to say, /opt/toolchains/riscv64, you will need to
 update the project file to include that path. For the project that needs the toolchain, say

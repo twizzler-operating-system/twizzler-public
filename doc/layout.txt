@@ -12,6 +12,7 @@ machine  - Machine dependent code
 projects - All build configurations and outputs here.
            +- <name>: Each project has a directory here.
               +- build: Built files for the kernel.
+us       - Userspace for Twizzler
 
 There is a separation between machine and architecture because it is possible for
 a single architecture to be present on multiple machines, and vice versa.
