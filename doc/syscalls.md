@@ -1,4 +1,4 @@
-Twizzler System Calls
+Twizzler System Calls (us/syscalls.md)
 =====================
 
 All pointers passed to Twizzler system calls are d-ptrs (see Pointer Manipulation).
@@ -44,6 +44,7 @@ the `id` argument. The `id` argument is unchanged on failure.
 * `-ENOENT`: The `src` argument is non-zero and the object cannot be found.
 * `-ENOMEM`: Not enough memory to fulfill the request.
 * `-ENOSPC`: Object is persistent and there is not enough persistent storage.
+
 
 ## sys_odelete
 
@@ -235,7 +236,7 @@ The `result` field in each valid op can take the following error codes:
 
 ``` {.c}
 #include <twz/sys.h>
-int sys_thrd_sync(size_t count, struct sys_thrd_sync_op ops[]);
+int sys_thrd_sync(struct sys_thrd_sync_op ops[], size_t count);
 ```
 
 Perform a synchronization operation on a number of sync addresses. A sync address is an address used
@@ -244,7 +245,7 @@ address or wake sleeping threads on a sync address. This call operates on multip
 once, allowing operations to be specified for each one.
 
 The `sys_thrd_sync_op` structure has the following format:
-```{.c}
+``` {.c}
 struct sys_thrd_sync_op {
 	long *addr;
 	long arg;
@@ -323,9 +324,38 @@ Error codes for the `res` field:
 int sys_thrd_spawn(objid_t tid, struct sys_thrd_spawn_args *args, int flags);
 ```
 
+Spawn a new kernel-thread using `tid` as the thread control object. The thread's initial state is
+specified by `args`. The `flags` argument is for future expansion and must be set to 0.
+
+The `sys_thrd_spawn_args` structure has the following format:
+``` {.c}
+struct sys_thrd_spawn_args {
+	objid_t target_view;
+	void (*start_func)(void *);
+	void *arg;
+	char *stack_base;
+	size_t stack_size;
+	char *tls_base;
+	size_t thrd_ctrl;
+};
+```
+
+The `target_view` field sets the new thread's view to the object specified. The new thread starts
+executing in the `start_func` function with `arg` as the argument. The stack pointer is set to an
+architecturally dependent value depending on `stack_base` and `stack_size` (eg. their sum, etc.).
+The TLS base for the thread is set to `tls_base`. The `thrd_ctrl` argument is for future expansion.
+
 ### Return Value
 
+Returns 0 on success, error code on error.
+
 ### Errors
+
+* `-EINVAL`: Invalid argument.
+* `-ENOMEM`: Not enough memory to spawn thread.
+* `-ENOENT`: The `tid` object or the `target_view` object could not be found.
+* `-EFAULT`: One of the addresses in `args` referred to an invalid address, or the `args` argument
+  was an invalid address.
 
 ## sys_become
 
@@ -397,8 +427,60 @@ struct sys_become_args {
 int sys_thrd_ctl(int op, long arg);
 ```
 
+Control kernel-thread related functions. The particular command is specified by `op`, as followed:
+
+* `THRD_CTL_EXIT`: Exit the current thread. The `arg` argument, reinterpreted as `(long *)`, refers
+  to a sync address (see `sys_thrd_sync`). If a valid address, the kernel will perform a wakeup
+  event on all threads waiting on this address. If _not_ a valid address, it is ignored. When
+  specifying this operation, this function will _never_ return and the kernel-thread will _always_
+  exit.
+
+There are additional commands depending on the architecture:
+
+#### x86_64
+
+* `THRD_CTL_SET_FS`: Set the user-space `fs` segment to the specified value in `arg`.
+* `THRD_CTL_SET_GS`: Set the user-space `gs` segment to the specified value in `arg`.
+
 ### Return Value
 
+Returns 0 on success, error code on error. Not all operations return.
+
 ### Errors
+
+* `-EFAULT`: When `arg` refers to an address, and the address is an invalid address (except for
+  `THRD_CTL_EXIT).
+* `-EINVAL`: Invalid argument.
+
+
+## Differences between kernel interface and C function wrappers
+The actual interface to the kernel differs from that of the C function wrapper for some system
+calls. Most of the reason for this is that arguments are passed in registers, and object IDs are
+too big, thus they are split into high and low parts (denoted `_hi` and `_lo` respectively).
+
+The actual interfaces are listed below:
+``` {.c}
+int sys_ocreate(long kuid_lo, long kuid_hi, long src_lo, long src_hi,
+                int flags, objid_t *id);
+```
+
+``` {.c}
+int sys_attach(long parent_lo, long parent_hi, long child_lo, long child_hi, long xflags);
+```
+The lower 32 bits of `xflags` contains the `type` argument, and the upper 32 bits contains the
+`flags` argument.
+
+``` {.c}
+int sys_detach(long parent_lo, long parent_hi, long child_lo, long child_hi, long xflags);
+```
+The upper 32 bits of `xflags` contains the `flags` argument, minus the `TWZ_DETACH_ONSYSCALL(s)`
+data. The lower 32 bits contains the type and the `TWZ_DETACH_ONSYSCALL(s)` data.
+
+``` {.c}
+int sys_thrd_spawn(long tid_lo, long tid_hi, struct sys_thrd_spawn_args *tsa, int flags);
+```
+
+
+
 
 
