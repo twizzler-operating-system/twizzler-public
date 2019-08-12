@@ -33,6 +33,7 @@ structure can be imposed on objects in userspace, but the core system provides o
   * Basic object manipulation. Objects are flat memory spaces of data, with a meta-data page at the
 	end. The kernel understands some of the meta-data page, as it is used for ID derivation and
 	security purposes. Objects can be created, deleted, and configured. See doc/us/objects.md.
+  * Pointer manipulation. Loading, resolving, storing, etc. See doc/us/pointers.md.
   * Kernel State Objects (KSOs). A KSO is an object whose format has a specified internal layout
 	that the kernel understands. These are used to configure the running kernel, or reload a
 	previous running state. These include:
@@ -41,6 +42,7 @@ structure can be imposed on objects in userspace, but the core system provides o
 	  * Root KSOs
 	  * Threads
 	  * Devices
+
 	See doc/core/kso.md for details.
   * Thread control. Threads can be created, waited on, can exit, can signal other threads, and can
 	synchronize. See doc/us/threads.md.
