@@ -1,5 +1,5 @@
 
-DOC_SRCS=$(addprefix doc/,overview.md us/pointers.md syscalls.md)
+DOC_SRCS=$(addprefix doc/,overview.md us/object_ids.md us/objects.md us/pointers.md us/threads.md us/names.md syscalls.md us/structured_objects.md us/events.md)
 
 TEXOPTS=--variable mainfont="Source Sans Pro" --variable sansfont="Source Sans Pro" --variable fontsize=10pt --variable version=2.0
 

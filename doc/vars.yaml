@@ -5,3 +5,6 @@ geometry:
 linkcolor: blue
 
 pagestyle: plain
+
+title: Twizzler Documentation
+subtitle: Documentation version 0.9; Twizzler version 1.0
