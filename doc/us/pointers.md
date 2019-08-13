@@ -64,6 +64,12 @@ None.
 T *twz_ptr_store(struct object *obj, T *ptr, uint32_t flags);
 ```
 
+Convert an existing d-ptr to a p-ptr from the perspective of object `obj`. This will (potentially)
+insert a new FOT entry with flags `flags`.
+
+### Return Value
+Returns a p-ptr on success. This function always succeeds or throws an exception.
+
 ## twz_ptr_rebase
 
 ``` {.c}
@@ -83,7 +89,13 @@ None.
 
 ``` {.c}
 #include <twz/obj.h>
-T *twz_ptr_make(TODO);
+T *twz_ptr_make(struct object *obj, objid_t id, T *ptr, uint32_t flags);
 ```
+
+Similar to `twz_ptr_store`, except take a local pointer `ptr` and an object ID `id` for creating the
+p-ptr.
+
+### Return Value
+Returns a p-ptr on success. This function always succeeds or throws an exception.
 
 
