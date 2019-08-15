@@ -24,6 +24,7 @@ bitfield with the following bits:
 * `FE_READ`: Read access requested
 * `FE_WRITE`: Write access requested
 * `FE_EXEC`: Execute access requested
+* `FE_DERIVE`: Open a copy of this object, not the object itself.
 
 If the calling thread does not have the permissions requested, the function may still succeed.
 
