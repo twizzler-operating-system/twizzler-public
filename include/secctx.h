@@ -26,3 +26,5 @@ int secctx_fault_resolve(struct thread *t,
   objid_t target,
   uint32_t flags,
   uint64_t *perms);
+struct object;
+int secctx_check_permissions(struct thread *t, uintptr_t ip, struct object *to, uint64_t flags);

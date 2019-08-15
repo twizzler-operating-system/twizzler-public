@@ -50,12 +50,12 @@ $(BUILDDIR)/us/data/%.sctx.tmp: $(BUILDDIR)/utils/file2obj $(BUILDDIR)/us/data/%
 	@mkdir -p $(BUILDDIR)/us/data
 	@$(BUILDDIR)/utils/file2obj -i /dev/null -o $@ -p R -k $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/$*-key.pub.obj)
 
-$(BUILDDIR)/us/data/login.sctx: $(BUILDDIR)/us/data/login.sctx.tmp $(BUILDDIR)/us/data/bob.sctx $(BUILDDIR)/utils/sctx $(BUILDDIR)/utils/mkcap $(BUILDDIR)/utils/appendobj $(BUILDDIR)/us/data/login-rk.pem $(BUILDDIR)/us/login/login.text.obj
+$(BUILDDIR)/us/data/login.sctx: $(BUILDDIR)/us/data/login.sctx.tmp $(BUILDDIR)/us/data/bob.sctx.obj $(BUILDDIR)/utils/sctx $(BUILDDIR)/utils/mkcap $(BUILDDIR)/utils/appendobj $(BUILDDIR)/us/data/login-rk.pem $(BUILDDIR)/us/login/login.text.obj
 	@echo "[SCTX] $@"
 	@mkdir -p $(BUILDDIR)/us/data
 	LID=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/login.sctx.tmp);\
 	( \
-		$(BUILDDIR)/utils/mkcap -t $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/bob.user.obj) -a $$LID -p RU -h sha1 -s dsa $(BUILDDIR)/us/data/login-rk.pem &&\
+		$(BUILDDIR)/utils/mkcap -t $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/bob.sctx.obj) -a $$LID -p RU -h sha1 -s dsa $(BUILDDIR)/us/data/login-rk.pem &&\
 		$(BUILDDIR)/utils/mkcap -t $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/login/login.text.obj) -a $$LID -p RX -h sha1 -s dsa $(BUILDDIR)/us/data/login-rk.pem \
 		) | $(BUILDDIR)/utils/sctx $@
 

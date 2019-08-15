@@ -92,6 +92,7 @@ objid_t obj_compute_id(struct object *obj);
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
+int obj_check_permission(struct object *obj, uint64_t flags);
 
 #define OBJSPACE_FAULT_READ 1
 #define OBJSPACE_FAULT_WRITE 2

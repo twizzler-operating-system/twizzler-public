@@ -2,6 +2,7 @@
 #include <processor.h>
 #include <rand.h>
 #include <syscall.h>
+#include <twz/_sctx.h>
 
 static bool __do_invalidate(struct object *obj, struct kso_invl_args *invl)
 {
@@ -47,6 +48,15 @@ long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 		return -1;
 	}
 
+	int e;
+	if(paid && (e = obj_check_permission(parent, SCP_USE | SCP_WRITE)) != 0) {
+		return e;
+	}
+
+	if((e = obj_check_permission(child, SCP_USE)) != 0) {
+		return e;
+	}
+
 	spinlock_acquire_save(&child->lock);
 	/* don't need lock on parent since kso_type is atomic, and once set cannot be unset */
 	if(parent->kso_type == KSO_NONE || (child->kso_type != KSO_NONE && child->kso_type != type)) {
@@ -86,10 +96,16 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 	if(!parent) {
 		if(child)
 			obj_put(child);
-		if(parent)
-			obj_put(parent);
-		printk("A\n");
 		return -1;
+	}
+
+	int e;
+	if(paid && (e = obj_check_permission(parent, SCP_USE | SCP_WRITE)) != 0) {
+		return e;
+	}
+
+	if(child && (e = obj_check_permission(child, SCP_USE)) != 0) {
+		return e;
 	}
 
 	if(parent->kso_type == KSO_NONE || (child && child->kso_type == KSO_NONE)
@@ -143,7 +159,16 @@ long syscall_ocreate(uint64_t kulo,
 	}
 	struct object *o;
 	if(srcid) {
+		struct object *so = obj_lookup(srcid);
+		if(!so) {
+			return -ENOENT;
+		}
+		if((r = obj_check_permission(so, SCP_READ))) {
+			obj_put(so);
+			return r;
+		}
 		o = obj_create_clone(0, srcid, ksot);
+		obj_put(so);
 	} else {
 		o = obj_create(0, ksot);
 	}

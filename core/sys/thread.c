@@ -5,6 +5,7 @@
 #include <syscall.h>
 #include <thread.h>
 
+#include <twz/_sctx.h>
 #include <twz/_thrd.h>
 
 /* TODO (major): verify all incoming pointers from syscalls */
@@ -18,6 +19,12 @@ long syscall_thread_spawn(uint64_t tidlo,
 	struct object *repr = obj_lookup(tid);
 	if(!repr) {
 		return -1;
+	}
+
+	int r;
+	if((r = obj_check_permission(repr, SCP_WRITE))) {
+		obj_put(repr);
+		return r;
 	}
 
 	spinlock_acquire_save(&repr->lock);
@@ -36,6 +43,10 @@ long syscall_thread_spawn(uint64_t tidlo,
 		if(view == NULL) {
 			obj_put(repr);
 			return -1;
+		}
+		if((r = obj_check_permission(view, SCP_WRITE))) {
+			obj_put(view);
+			return r;
 		}
 	}
 
@@ -114,6 +125,12 @@ long syscall_become(struct arch_syscall_become_args *_ba)
 		if(!target_view) {
 			return -1;
 		}
+		int r;
+		if((r = obj_check_permission(target_view, SCP_WRITE))) {
+			obj_put(target_view);
+			return r;
+		}
+
 		vm_setview(current_thread, target_view);
 
 		arch_mm_switch_context(current_thread->ctx);

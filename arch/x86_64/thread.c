@@ -2,6 +2,15 @@
 #include <syscall.h>
 #include <thread.h>
 
+uintptr_t arch_thread_instruction_pointer(void)
+{
+	if(current_thread->arch.was_syscall) {
+		return current_thread->arch.syscall.rcx;
+	} else {
+		return current_thread->arch.exception.rip;
+	}
+}
+
 void arch_thread_become(struct arch_syscall_become_args *ba)
 {
 	if(current_thread->arch.was_syscall) {

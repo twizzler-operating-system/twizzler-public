@@ -62,6 +62,7 @@ static int sp_sleep_prep(struct syncpoint *sp, long *addr, long val, struct time
 	thread_sleep(current_thread, 0, ns);
 	list_insert(&sp->waiters, &current_thread->rq_entry);
 
+	/* TODO: verify that addr is a valid address that we can access */
 	int r = atomic_load(addr) == val;
 	spinlock_release_restore(&current_thread->lock);
 	spinlock_release_restore(&sp->lock);

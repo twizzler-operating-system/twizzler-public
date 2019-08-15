@@ -355,11 +355,28 @@ struct object *obj_lookup_slot(uintptr_t oaddr)
 	spinlock_release_restore(&slotlock);
 	return obj;
 }
-
-bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags);
 #include <processor.h>
 #include <secctx.h>
 #include <thread.h>
+
+int obj_check_permission(struct object *obj, uint64_t flags)
+{
+	bool w = (flags & MIP_DFL_WRITE);
+	if(!obj_verify_id(obj, !w, w)) {
+		return -EINVAL;
+	}
+
+	struct metainfo mi;
+	obj_read_data(obj, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
+	uint32_t dfl = mi.p_flags & (MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE);
+
+	if((dfl & flags) == flags) {
+		return 0;
+	}
+	return secctx_check_permissions(current_thread, arch_thread_instruction_pointer(), obj, flags);
+}
+
+bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags);
 void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr, uint32_t flags)
 {
 	size_t slot = loaddr / mm_page_size(MAX_PGLEVEL);

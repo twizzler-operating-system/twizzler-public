@@ -71,3 +71,4 @@ void thread_initialize_processor(struct processor *proc);
 void thread_schedule_resume(void);
 void thread_schedule_resume_proc(struct processor *proc);
 void arch_thread_resume(struct thread *thread);
+uintptr_t arch_thread_instruction_pointer(void);
