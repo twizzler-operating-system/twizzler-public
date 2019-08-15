@@ -50,7 +50,7 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 	return true;
 }
 
-static bool __verify_dlg(struct scdlg *dlg, char *sig)
+static bool __verify_dlg(struct scdlg *dlg, char *data)
 {
 	return true;
 }
@@ -116,7 +116,7 @@ static uint32_t __lookup_perm_dlg(struct object *obj,
 		return 0;
 	}
 
-	if(!__verify_dlg(dlg, data + dlg->dlen)) {
+	if(!__verify_dlg(dlg, data)) {
 		EPRINTK("DLG verify failed\n");
 		return 0;
 	}
