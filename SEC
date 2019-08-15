@@ -2,7 +2,7 @@
 - verify caps & dlgs
 - verify code correctness
 - check overflow, etc
-- ensure all syscalls that ref objects check perms
++ ensure all syscalls that ref objects check perms
 - stack verification for secctx switching
 - make sure kernel is affected by VM perm restrictions
 

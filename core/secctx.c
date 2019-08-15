@@ -43,13 +43,37 @@ static void __secctx_krc_put(void *_sc)
 	/* TODO */
 }
 
-static uint32_t __lookup_perm_cap(struct object *obj, struct sccap *cap, struct scgates *gs)
+/* TODO: cache results for faster future lookups */
+
+static bool __verify_cap(struct sccap *cap, char *sig)
+{
+	return true;
+}
+
+static bool __verify_dlg(struct scdlg *dlg, char *sig)
+{
+	return true;
+}
+
+static uint32_t __lookup_perm_cap(struct object *obj,
+  struct sccap *cap,
+  struct scgates *gs,
+  objid_t target,
+  char *sig)
 {
 	EPRINTK("    - lookup perm cap sc=" IDFMT " : accessor=" IDFMT "\n",
 	  IDPR(obj->id),
 	  IDPR(cap->accessor));
 	if(cap->accessor != obj->id) {
 		EPRINTK("wrong accessor\n");
+		return 0;
+	}
+	if(cap->target != target) {
+		EPRINTK("wrong target\n");
+		return 0;
+	}
+	if(!__verify_cap(cap, sig)) {
+		EPRINTK("CAP verify failed\n");
 		return 0;
 	}
 	/* TODO: verify CAP, rev */
@@ -81,27 +105,37 @@ static void __limit_gates(struct scgates *gs, struct scgates *m)
 	gs->align = gs->align > m->align ? gs->align : m->align;
 }
 
-static uint32_t __lookup_perm_dlg(struct object *obj, struct scdlg *dlg, struct scgates *gs)
+static uint32_t __lookup_perm_dlg(struct object *obj,
+  struct scdlg *dlg,
+  struct scgates *gs,
+  objid_t target,
+  char *data)
 {
 	if(dlg->delegatee != obj->id) {
 		EPRINTK("wrong delegatee\n");
 		return 0;
 	}
-	struct sccap *next = (void *)(dlg + 1);
+
+	if(!__verify_dlg(dlg, data + dlg->dlen)) {
+		EPRINTK("DLG verify failed\n");
+		return 0;
+	}
+	struct sccap *next = (struct sccap *)data;
+	//= (void *)(dlg + 1);
 	uint32_t p = 0;
 	if(next->magic == SC_CAP_MAGIC) {
 		if(next->accessor != dlg->delegator) {
 			EPRINTK("broken chain\n");
 			return 0;
 		}
-		p = __lookup_perm_cap(obj, next, gs);
+		p = __lookup_perm_cap(obj, next, gs, target, data + sizeof(struct sccap));
 	} else if(next->magic == SC_DLG_MAGIC) {
-		struct scdlg *nd = (void *)(dlg + 1);
+		struct scdlg *nd = (void *)data;
 		if(nd->delegatee != dlg->delegator) {
 			EPRINTK("broken chain\n");
 			return 0;
 		}
-		p = __lookup_perm_dlg(obj, nd, gs);
+		p = __lookup_perm_dlg(obj, nd, gs, target, data + sizeof(struct scdlg));
 	} else {
 		EPRINTK("invalid magic in chain\n");
 	}
@@ -115,7 +149,10 @@ static uint32_t __lookup_perm_dlg(struct object *obj, struct scdlg *dlg, struct 
 	return p & dlg->mask;
 }
 
-static uint32_t __lookup_perm_bucket(struct object *obj, struct scbucket *b, struct scgates *gs)
+static uint32_t __lookup_perm_bucket(struct object *obj,
+  struct scbucket *b,
+  struct scgates *gs,
+  objid_t target)
 {
 	uintptr_t off = (uintptr_t)b->data;
 	off -= OBJ_NULLPAGE_SIZE;
@@ -123,9 +160,27 @@ static uint32_t __lookup_perm_bucket(struct object *obj, struct scbucket *b, str
 	struct sccap cap;
 	obj_read_data(obj, off, sizeof(cap), &cap);
 	if(cap.magic == SC_CAP_MAGIC) {
-		return __lookup_perm_cap(obj, &cap, gs);
+		if(cap.slen > 4096) {
+			EPRINTK("CAP length too long\n");
+			/* TODO */
+			return 0;
+		}
+		char data[cap.slen];
+		obj_read_data(obj, off + sizeof(struct sccap), cap.slen, data);
+
+		return __lookup_perm_cap(obj, &cap, gs, target, data);
 	} else if(cap.magic == SC_DLG_MAGIC) {
-		return __lookup_perm_dlg(obj, (void *)&cap, gs);
+		struct scdlg dlg;
+		obj_read_data(obj, off, sizeof(dlg), &dlg);
+		size_t rem = dlg.slen + dlg.dlen;
+		if(rem > 4096) {
+			EPRINTK("DLG length too long\n");
+			/* TODO */
+			return 0;
+		}
+		char data[rem];
+		obj_read_data(obj, off + sizeof(struct scdlg), rem, data);
+		return __lookup_perm_dlg(obj, (void *)&cap, gs, target, data);
 	} else {
 		EPRINTK("error - invalid perm object magic number\n");
 		return 0;
@@ -157,7 +212,7 @@ static int __lookup_perms(struct object *obj,
 		if(b.target == target) {
 			EPRINTK("    - lookup_perms: found!\n");
 			struct scgates gs = { 0 };
-			perms |= __lookup_perm_bucket(obj, &b, &gs) & b.pmask;
+			perms |= __lookup_perm_bucket(obj, &b, &gs, target) & b.pmask;
 			if(ipoff) {
 				__limit_gates(&gs, &b.gatemask);
 				if(__in_gate(&gs, ipoff))
