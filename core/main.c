@@ -160,7 +160,7 @@ void *kalloc(size_t sz)
 		spinlock_release_restore(&wait);
 	}
 	void *p = arena_allocate(&kalloc_arena, sz);
-	printk("kalloc: %ld -> %p\n", sz, p);
+	// printk("kalloc: %ld -> %p\n", sz, p);
 	return p;
 }
 
@@ -175,7 +175,7 @@ void *kcalloc(size_t num, size_t sz)
 
 void kfree(void *p)
 {
-	printk("[ni] kfree (%p)\n", p);
+	// printk("[ni] kfree (%p)\n", p);
 }
 
 #include <syscall.h>
