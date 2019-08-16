@@ -137,21 +137,45 @@ struct elf64_header {
 	uint16_t e_shnum;
 	uint16_t e_shstrndx;
 };
-void krealloc()
+
+#include <kalloc.h>
+/* TODO: a real allocator */
+static struct arena kalloc_arena;
+
+void *krealloc(void *p, size_t sz)
 {
 	panic("r");
 }
-void kalloc()
+
+void *kalloc(size_t sz)
 {
-	panic("a");
+	static _Atomic bool _init = false;
+	static struct spinlock wait = SPINLOCK_INIT;
+	if(!_init) {
+		spinlock_acquire_save(&wait);
+		if(!_init) {
+			arena_create(&kalloc_arena);
+			_init = true;
+		}
+		spinlock_release_restore(&wait);
+	}
+	void *p = arena_allocate(&kalloc_arena, sz);
+	printk("kalloc: %ld -> %p\n", sz, p);
+	return p;
 }
-void kcalloc()
+
+void *kcalloc(size_t num, size_t sz)
 {
-	panic("c");
+	/* TODO: overflow check */
+	void *p = kalloc(num * sz);
+	if(p)
+		memset(p, 0, num * sz);
+	return p;
 }
-void kfree()
+
+void kfree(void *p)
 {
-	panic("f");
+	printk("[ni] kfree (%p)\n", p);
 }
 
 #include <syscall.h>

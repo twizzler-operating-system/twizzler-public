@@ -129,11 +129,17 @@
 /* default to libc stuff */
 #ifndef __KERNEL__
 #include <stdlib.h>
-#endif
+#define MP_MALLOC(size) malloc(size)
+#define MP_REALLOC(mem, oldsize, newsize) realloc((mem), (newsize))
+#define MP_CALLOC(nmemb, size) calloc((nmemb), (size))
+#define MP_FREE(mem, size) free(mem)
+#else
+#include <kalloc.h>
 #define MP_MALLOC(size) kalloc(size)
 #define MP_REALLOC(mem, oldsize, newsize) krealloc((mem), (newsize))
 #define MP_CALLOC(nmemb, size) kcalloc((nmemb), (size))
 #define MP_FREE(mem, size) kfree(mem)
+#endif
 #else
 /* prototypes for our heap functions */
 extern void *MP_MALLOC(size_t size);
