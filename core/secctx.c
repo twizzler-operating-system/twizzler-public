@@ -6,8 +6,8 @@
 #include <twz/_sctx.h>
 #include <twz/_sys.h>
 
-//#define EPRINTK(...) printk(__VA_ARGS__)
-#define EPRINTK(...)
+#define EPRINTK(...) printk(__VA_ARGS__)
+//#define EPRINTK(...)
 static void _sc_ctor(void *_x __unused, void *ptr)
 {
 	struct sctx *sc = ptr;
@@ -126,7 +126,11 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 				ret = false;
 				break;
 			}
-			printk("RESULT: %d\n", stat);
+			if(!stat) {
+				EPRINTK("verification failed\n");
+				ret = false;
+			}
+			printk("RESULT: %d ;;; %d\n", stat, cap->slen);
 			break;
 		default:
 			ret = false;
