@@ -45,9 +45,58 @@ static void __secctx_krc_put(void *_sc)
 
 /* TODO: cache results for faster future lookups */
 
+#include <tomcrypt.h>
 static bool __verify_cap(struct sccap *cap, char *sig)
 {
-	return true;
+	hash_state hs;
+	unsigned char hash[1024];
+	switch(cap->htype) {
+		case SCHASH_SHA1:
+			sha1_init(&hs);
+			sha1_process(&hs, (unsigned char *)cap, sizeof(*cap));
+			sha1_done(&hs, hash);
+			break;
+		default:
+			return false;
+	}
+
+	struct object *to = obj_lookup(cap->target);
+	struct metainfo mi;
+	obj_read_data(to, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
+	obj_put(to);
+
+	if(!mi.kuid) {
+		/* TODO: should we know this earlier? */
+		return false;
+	}
+	struct object *ko = obj_lookup(mi.kuid);
+	printk("VERIFY via " IDFMT ": %p\n", IDPR(mi.kuid), ko);
+
+	if(!ko) {
+		EPRINTK("COULD NOT LOCATE KU OBJ\n");
+		return false;
+	}
+
+	/* TODO: support public key objects with keys bigger than a page */
+	struct objpage *p = obj_get_page(ko, 0);
+
+	bool ret = true;
+	dsa_key dk;
+	switch(cap->etype) {
+		int e;
+		case SCENC_DSA:
+			if((e = dsa_import(mm_ptov(p->phys), 4096, &dk)) != CRYPT_OK) {
+				printk("dsa import error: %d\n", e);
+				ret = false;
+				break;
+			}
+			break;
+		default:
+			ret = false;
+			break;
+	}
+	obj_put_page(p);
+	return ret;
 }
 
 static bool __verify_dlg(struct scdlg *dlg, char *data)
