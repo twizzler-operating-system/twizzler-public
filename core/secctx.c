@@ -52,11 +52,13 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 {
 	hash_state hs;
 	unsigned char hash[1024];
+	size_t hashlen;
 	switch(cap->htype) {
 		case SCHASH_SHA1:
 			sha1_init(&hs);
 			sha1_process(&hs, (unsigned char *)cap, sizeof(*cap));
 			sha1_done(&hs, hash);
+			hashlen = 20;
 			break;
 		default:
 			return false;
@@ -72,7 +74,7 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 		return false;
 	}
 	struct object *ko = obj_lookup(mi.kuid);
-	printk("VERIFY via " IDFMT ": %p\n", IDPR(mi.kuid), ko);
+	// printk("VERIFY via " IDFMT ": %p\n", IDPR(mi.kuid), ko);
 
 	if(!ko) {
 		EPRINTK("COULD NOT LOCATE KU OBJ\n");
@@ -107,8 +109,6 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 		goto done;
 	}
 
-	printk("decoded %ld -> %ld bytes\n", sz, kdout);
-
 	dsa_key dk;
 	ltc_mp = ltm_desc;
 	switch(cap->etype) {
@@ -118,6 +118,15 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 				ret = false;
 				break;
 			}
+
+			int stat = 0;
+			if((e = dsa_verify_hash((unsigned char *)sig, cap->slen, hash, hashlen, &stat, &dk))
+			   != CRYPT_OK) {
+				printk("dsa verify error: %s\n", error_to_string(e));
+				ret = false;
+				break;
+			}
+			printk("RESULT: %d\n", stat);
 			break;
 		default:
 			ret = false;
