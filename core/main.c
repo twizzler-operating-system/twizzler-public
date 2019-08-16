@@ -144,7 +144,14 @@ static struct arena kalloc_arena;
 
 void *krealloc(void *p, size_t sz)
 {
-	panic("r");
+	size_t *s = (void *)((char *)p - sizeof(size_t));
+	if(*s >= sz)
+		return p;
+
+	void *n = kalloc(sz);
+	memcpy(n, p, *s);
+	kfree(p);
+	return n;
 }
 
 void *kalloc(size_t sz)
@@ -159,7 +166,10 @@ void *kalloc(size_t sz)
 		}
 		spinlock_release_restore(&wait);
 	}
+	sz += sizeof(size_t);
 	void *p = arena_allocate(&kalloc_arena, sz);
+	*(size_t *)p = sz;
+	p = (char *)p + sizeof(size_t);
 	// printk("kalloc: %ld -> %p\n", sz, p);
 	return p;
 }

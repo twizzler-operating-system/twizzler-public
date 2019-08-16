@@ -47,6 +47,7 @@ static void __secctx_krc_put(void *_sc)
 
 #include <tomcrypt.h>
 #include <tommath.h>
+#include <twz/_key.h>
 static bool __verify_cap(struct sccap *cap, char *sig)
 {
 	hash_state hs;
@@ -81,14 +82,39 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 	/* TODO: support public key objects with keys bigger than a page */
 	struct objpage *p = obj_get_page(ko, 0);
 
+	struct key_hdr *hdr = mm_ptov(p->phys);
+	if(hdr->type != cap->etype) {
+		EPRINTK("hdr->type != cap->etype\n");
+		return false;
+	}
+
+	/* TODO: keydata??? */
+	void *kd = (char *)hdr + sizeof(*hdr);
+	char *k = kd;
+	char *nl = strnchr(k, '\n', 4096 /* TODO */);
+	char *end = strnchr(nl, '-', 4096 /* TODO */);
+	nl++;
+	size_t sz = end - nl;
+	k = nl;
+
+	unsigned char keydata[4096];
+	size_t kdout = 4096;
 	bool ret = true;
+	int e;
+	if((e = base64_decode(k, sz, keydata, &kdout)) != CRYPT_OK) {
+		printk("base64 decode error: %s\n", error_to_string(e));
+		ret = false;
+		goto done;
+	}
+
+	printk("decoded %ld -> %ld bytes\n", sz, kdout);
+
 	dsa_key dk;
 	ltc_mp = ltm_desc;
 	switch(cap->etype) {
-		int e;
 		case SCENC_DSA:
-			if((e = dsa_import(mm_ptov(p->phys), 4096, &dk)) != CRYPT_OK) {
-				printk("dsa import error: %d\n", e);
+			if((e = dsa_import(keydata, kdout, &dk)) != CRYPT_OK) {
+				printk("dsa import error: %s\n", error_to_string(e));
 				ret = false;
 				break;
 			}
@@ -97,6 +123,7 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 			ret = false;
 			break;
 	}
+done:
 	obj_put_page(p);
 	return ret;
 }
