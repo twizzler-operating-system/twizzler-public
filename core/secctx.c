@@ -46,6 +46,7 @@ static void __secctx_krc_put(void *_sc)
 /* TODO: cache results for faster future lookups */
 
 #include <tomcrypt.h>
+#include <tommath.h>
 static bool __verify_cap(struct sccap *cap, char *sig)
 {
 	hash_state hs;
@@ -82,6 +83,7 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 
 	bool ret = true;
 	dsa_key dk;
+	ltc_mp = ltm_desc;
 	switch(cap->etype) {
 		int e;
 		case SCENC_DSA:

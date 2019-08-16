@@ -137,7 +137,10 @@ struct elf64_header {
 	uint16_t e_shnum;
 	uint16_t e_shstrndx;
 };
-
+void krealloc()
+{
+	panic("r");
+}
 void kalloc()
 {
 	panic("a");
