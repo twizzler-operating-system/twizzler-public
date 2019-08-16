@@ -173,7 +173,7 @@ int main(int argc, char **argv)
 	unsigned char sig[4096];
 	dlg.slen = 0;
 	size_t siglen = 0;
-	while(siglen > dlg.slen || siglen == 0) {
+	while(siglen != dlg.slen || siglen == 0) {
 		dlg.slen = siglen;
 		_Alignas(16) hash_state hs;
 		sha1_init(&hs);

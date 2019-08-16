@@ -1,4 +1,5 @@
 #include "common.h"
+
 #include "sign.h"
 #include <err.h>
 #include <fcntl.h>
@@ -158,7 +159,7 @@ int main(int argc, char **argv)
 	unsigned char sig[4096];
 	cap.slen = 0;
 	size_t siglen = 0;
-	while(siglen > cap.slen || siglen == 0) {
+	while(siglen != cap.slen || siglen == 0) {
 		cap.slen = siglen;
 		_Alignas(16) hash_state hs;
 		sha1_init(&hs);
