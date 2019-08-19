@@ -76,8 +76,11 @@ int main(int argc, char **argv)
 		char *n = strchr(buffer, '\n');
 		if(n)
 			*n = 0;
-		if(n == buffer)
-			continue;
+		if(n == buffer) {
+			printf("AUTO LOGIN: bob\n");
+			strcpy(buffer, "bob");
+			//			continue;
+		}
 
 		struct thread tthr;
 		int r;

@@ -1,4 +1,5 @@
-PROGS=test init term shell login
+PROGS=test init term shell login nls
+SUBDIRS=test init term shell login nls
 TWZCC?=x86_64-pc-elf-gcc
 
 
@@ -47,7 +48,7 @@ TWZCFLAGS=-Ius/include $(MUSL_INCL) -Wall -Wextra -O$(CONFIG_OPTIMIZE) -g -Ius/l
 US_LIBDEPS=$(BUILDDIR)/us/libtwz/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a $(BUILDDIR)/us/twix/libtwix.a us/elf.ld
 US_LDFLAGS=-static -Wl,-z,max-page-size=0x1000 -Tus/elf.ld -g
 
-include $(addprefix us/,$(addsuffix /include.mk,$(PROGS)))
+include $(addprefix us/,$(addsuffix /include.mk,$(SUBDIRS)))
 
 include us/libtwz/include.mk
 include us/twix/include.mk
