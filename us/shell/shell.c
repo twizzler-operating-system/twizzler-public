@@ -74,15 +74,19 @@ void kls(void)
 #include <twz/fault.h>
 static jmp_buf buf;
 
-void __nls_fault_handler(int f, struct fault_sctx_info *info)
+void __nls_fault_handler(int f, void *info)
 {
 	longjmp(buf, 1);
 }
 
-void nls_print(struct twz_nament *ne, bool info, bool read)
+void nls_print(struct twz_nament *ne, bool info, bool read, bool id)
 {
 	if(!info) {
-		printf("%s\n", ne->name);
+		if(id) {
+			printf(IDFMT " %s\n", IDPR(ne->id), ne->name);
+		} else {
+			printf("%s\n", ne->name);
+		}
 	} else {
 		if(read) {
 			struct object obj;
@@ -147,11 +151,15 @@ void nls_print(struct twz_nament *ne, bool info, bool read)
 		} else {
 			printf("!------               ?          ? ");
 		}
-		printf(IDFMT " %-40s\n", IDPR(ne->id), ne->name);
+		if(id) {
+			printf(IDFMT " %s\n", IDPR(ne->id), ne->name);
+		} else {
+			printf("%s\n", ne->name);
+		}
 	}
 }
 
-void nls(void)
+void nls(bool id, bool l)
 {
 	static _Alignas(_Alignof(struct twz_nament)) char buffer[1024];
 	twz_fault_set(FAULT_SCTX, __nls_fault_handler);
@@ -160,14 +168,19 @@ void nls(void)
 	ssize_t r;
 	static size_t i;
 	static struct twz_nament *ne;
-	printf(" PFLAGS         PUB KEY       SIZE                                ID NAME\n");
+	if(l) {
+		if(id)
+			printf(" PFLAGS         PUB KEY       SIZE                                ID NAME\n");
+		else
+			printf(" PFLAGS         PUB KEY       SIZE NAME\n");
+	}
 	while((r = twz_name_dfl_getnames(startname, (void *)buffer, sizeof(buffer))) > 0) {
 		ne = (void *)buffer;
 		for(i = 0; i < (size_t)r; ne = (void *)((uintptr_t)ne + ne->reclen), i++) {
 			if(!setjmp(buf)) {
-				nls_print(ne, true, true);
+				nls_print(ne, l, true, id);
 			} else {
-				nls_print(ne, true, false);
+				nls_print(ne, l, false, id);
 			}
 			startname = ne->name;
 		}
@@ -201,8 +214,19 @@ int main(int argc, char **argv)
 		if(!strcmp(buffer, "kls")) {
 			kls();
 		}
-		if(!strcmp(buffer, "nls")) {
-			nls();
+		char *s = strtok(buffer, " ");
+		if(!strcmp(s, "nls")) {
+			bool l = false;
+			bool id = false;
+			while((s = strtok(NULL, " "))) {
+				for(char *i = s; *i; i++) {
+					if(*i == 'l')
+						l = true;
+					if(*i == 'i')
+						id = true;
+				}
+			}
+			nls(id, l);
 		}
 	}
 }
