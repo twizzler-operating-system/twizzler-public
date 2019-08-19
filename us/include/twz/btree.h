@@ -41,6 +41,11 @@ int bt_node_get(struct object *obj,
   struct btree_node *n,
   struct btree_val *v);
 
+int bt_node_getkey(struct object *obj,
+  struct btree_hdr *hdr,
+  struct btree_node *n,
+  struct btree_val *v);
+
 int bt_put(struct object *obj,
   struct btree_hdr *hdr,
   struct btree_val *k,

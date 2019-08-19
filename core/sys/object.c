@@ -174,6 +174,7 @@ long syscall_ocreate(uint64_t kulo,
 	}
 
 	struct metainfo mi = {
+		.magic = MI_MAGIC,
 		.p_flags =
 		  flags & (MIP_HASHDATA | MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE),
 		.flags = flags,

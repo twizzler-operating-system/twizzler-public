@@ -394,6 +394,16 @@ int bt_node_get(struct object *obj,
 	return 0;
 }
 
+int bt_node_getkey(struct object *obj,
+  struct btree_hdr *hdr,
+  struct btree_node *n,
+  struct btree_val *v)
+{
+	v->mv_size = n->mk.mv_size;
+	v->mv_data = twz_ptr_lea(obj, n->mk.mv_data);
+	return 0;
+}
+
 int bt_put(struct object *obj,
   struct btree_hdr *hdr,
   struct btree_val *k,

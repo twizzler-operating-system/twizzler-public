@@ -1,5 +1,5 @@
 + verify object IDs
-- verify caps & dlgs
++ verify caps & dlgs
 - verify code correctness
 - check overflow, etc
 + ensure all syscalls that ref objects check perms

@@ -252,12 +252,24 @@ void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 		panic("NI - big KSO write");
 	}
 	if(start / mm_page_size(0) != (start + len) / mm_page_size(0)) {
-		panic("NI - cross-page KSO read");
+		//	panic("NI - cross-page KSO read (%ld %ld ; %lx %lx)", start, len, start, len);
 	}
-	struct objpage *p = obj_get_page(obj, start / mm_page_size(0));
-	atomic_thread_fence(memory_order_seq_cst);
-	memcpy(ptr, mm_ptov(p->phys + (start % mm_page_size(0))), len);
-	obj_put_page(p);
+	char *data = ptr;
+	while(len > 0) {
+		struct objpage *p = obj_get_page(obj, start / mm_page_size(0));
+		atomic_thread_fence(memory_order_seq_cst);
+
+		size_t off = start % mm_page_size(0);
+		size_t thislen = len;
+		if(thislen > (mm_page_size(0) - off))
+			thislen = mm_page_size(0) - off;
+
+		memcpy(data, mm_ptov(p->phys + off), thislen);
+		obj_put_page(p);
+		len -= thislen;
+		start += thislen;
+		data += thislen;
+	}
 }
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
@@ -266,7 +278,7 @@ void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 		panic("NI - big KSO write");
 	}
 	if(start / mm_page_size(0) != (start + len) / mm_page_size(0)) {
-		panic("NI - cross-page KSO read");
+		panic("NI - cross-page KSO write");
 	}
 	struct objpage *p = obj_get_page(obj, start / mm_page_size(0));
 	memcpy(mm_ptov(p->phys + (start % mm_page_size(0))), ptr, len);

@@ -116,7 +116,6 @@ int __fault_obj_default(int fault, struct fault_object_info *info)
 {
 	return twz_handle_fault(info->addr, info->flags, info->ip);
 }
-
 static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
 {
 	if(fault == FAULT_OBJECT) {
@@ -199,5 +198,18 @@ void __twz_fault_init(void)
 
 	repr->faults[FAULT_OBJECT] = (struct faultinfo){
 		.addr = (void *)__twz_fault_entry,
+	};
+}
+
+int twz_fault_set(int fault, void (*fn)(int, void *))
+{
+	_fault_table[fault].fn = fn;
+	struct twzthread_repr *repr = twz_thread_repr_base();
+
+	/* have to do this manually, because fault handling during init
+	 * may not use any global data (since the data object may not be mapped) */
+
+	repr->faults[fault] = (struct faultinfo){
+		.addr = fn ? (void *)__twz_fault_entry : NULL,
 	};
 }
