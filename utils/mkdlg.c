@@ -178,6 +178,7 @@ int main(int argc, char **argv)
 		_Alignas(16) hash_state hs;
 		sha1_init(&hs);
 		sha1_process(&hs, (unsigned char *)&dlg, sizeof(dlg));
+		sha1_process(&hs, (unsigned char *)buffer, count);
 		unsigned char out[128];
 		sha1_done(&hs, out);
 

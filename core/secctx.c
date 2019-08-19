@@ -48,15 +48,25 @@ static void __secctx_krc_put(void *_sc)
 #include <tomcrypt.h>
 #include <tommath.h>
 #include <twz/_key.h>
-static bool __verify_cap(struct sccap *cap, char *sig)
+static bool __verify_region(void *item,
+  void *data,
+  char *sig,
+  size_t ilen,
+  size_t dlen,
+  size_t slen,
+  uint32_t htype,
+  uint32_t etype,
+  objid_t target)
 {
 	hash_state hs;
 	unsigned char hash[1024];
 	size_t hashlen;
-	switch(cap->htype) {
+	switch(htype) {
 		case SCHASH_SHA1:
 			sha1_init(&hs);
-			sha1_process(&hs, (unsigned char *)cap, sizeof(*cap));
+			sha1_process(&hs, (unsigned char *)item, ilen);
+			if(data)
+				sha1_process(&hs, (unsigned char *)data, dlen);
 			sha1_done(&hs, hash);
 			hashlen = 20;
 			break;
@@ -64,7 +74,7 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 			return false;
 	}
 
-	struct object *to = obj_lookup(cap->target);
+	struct object *to = obj_lookup(target);
 	struct metainfo mi;
 	obj_read_data(to, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
 	obj_put(to);
@@ -85,7 +95,7 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 	struct objpage *p = obj_get_page(ko, 0);
 
 	struct key_hdr *hdr = mm_ptov(p->phys);
-	if(hdr->type != cap->etype) {
+	if(hdr->type != etype) {
 		EPRINTK("hdr->type != cap->etype\n");
 		return false;
 	}
@@ -124,7 +134,7 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 
 	dsa_key dk;
 	ltc_mp = ltm_desc;
-	switch(cap->etype) {
+	switch(etype) {
 		case SCENC_DSA:
 			if((e = dsa_import(keydata, kdout, &dk)) != CRYPT_OK) {
 				printk("dsa import error: %s\n", error_to_string(e));
@@ -133,7 +143,7 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 			}
 
 			int stat = 0;
-			if((e = dsa_verify_hash((unsigned char *)sig, cap->slen, hash, hashlen, &stat, &dk))
+			if((e = dsa_verify_hash((unsigned char *)sig, slen, hash, hashlen, &stat, &dk))
 			   != CRYPT_OK) {
 				printk("dsa verify error: %s\n", error_to_string(e));
 				ret = false;
@@ -153,8 +163,23 @@ done:
 	return ret;
 }
 
+static bool __verify_cap(struct sccap *cap, char *sig)
+{
+	return __verify_region(
+	  cap, NULL, sig, sizeof(*cap), 0, cap->slen, cap->htype, cap->etype, cap->target);
+}
+
 static bool __verify_dlg(struct scdlg *dlg, char *data)
 {
+	return __verify_region(dlg,
+	  data,
+	  data + dlg->dlen,
+	  sizeof(*dlg),
+	  dlg->dlen,
+	  dlg->slen,
+	  dlg->htype,
+	  dlg->etype,
+	  dlg->delegator);
 	return true;
 }
 
