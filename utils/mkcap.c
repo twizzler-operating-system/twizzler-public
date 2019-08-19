@@ -159,12 +159,12 @@ int main(int argc, char **argv)
 	unsigned char sig[4096];
 	cap.slen = 0;
 	size_t siglen = 0;
+	unsigned char out[128];
 	while(siglen != cap.slen || siglen == 0) {
 		cap.slen = siglen;
 		_Alignas(16) hash_state hs;
 		sha1_init(&hs);
 		sha1_process(&hs, (unsigned char *)&cap, sizeof(cap));
-		unsigned char out[128];
 		sha1_done(&hs, out);
 
 		siglen = sizeof(sig);
@@ -181,6 +181,19 @@ int main(int argc, char **argv)
 	  cap.magic,
 	  offsetof(struct sccap, magic),
 	  cap.slen);
+
+	/*
+	fprintf(stderr, "    SIG: ");
+	for(int i = 0; i < cap.slen; i++) {
+	    fprintf(stderr, "%x ", sig[i]);
+	}
+	fprintf(stderr, "\n    HASH: ");
+	for(int i = 0; i < 20; i++) {
+	    fprintf(stderr, "%x ", out[i]);
+	}
+	fprintf(stderr, "\n");
+	*/
+
 	m = 0;
 	while(m < sizeof(cap)) {
 		ssize_t r = write(1, &cap, sizeof(cap));

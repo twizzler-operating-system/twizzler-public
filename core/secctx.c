@@ -6,8 +6,8 @@
 #include <twz/_sctx.h>
 #include <twz/_sys.h>
 
-#define EPRINTK(...) printk(__VA_ARGS__)
-//#define EPRINTK(...)
+//#define EPRINTK(...) printk(__VA_ARGS__)
+#define EPRINTK(...)
 static void _sc_ctor(void *_x __unused, void *ptr)
 {
 	struct sctx *sc = ptr;
@@ -109,6 +109,19 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 		goto done;
 	}
 
+	/*
+	printk("SIG: ");
+	for(int i = 0; i < cap->slen; i++) {
+	    printk("%x ", (unsigned char)sig[i]);
+	}
+
+	printk("\nHASH (%ld): ", hashlen);
+	for(unsigned int i = 0; i < hashlen; i++) {
+	    printk("%x ", (unsigned char)hash[i]);
+	}
+	printk("\n");
+	*/
+
 	dsa_key dk;
 	ltc_mp = ltm_desc;
 	switch(cap->etype) {
@@ -130,7 +143,6 @@ static bool __verify_cap(struct sccap *cap, char *sig)
 				EPRINTK("verification failed\n");
 				ret = false;
 			}
-			printk("RESULT: %d ;;; %d\n", stat, cap->slen);
 			break;
 		default:
 			ret = false;
