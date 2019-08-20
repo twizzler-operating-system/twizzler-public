@@ -114,6 +114,44 @@ struct thread *thread_create(void)
 #include <debug.h>
 #include <object.h>
 #include <twz/_thrd.h>
+
+static void __print_fault_info(struct thread *t, int fault, void *info)
+{
+	printk("unhandled fault: %ld: %d\n", t->id, fault);
+	debug_print_backtrace();
+	switch(fault) {
+		struct fault_object_info *foi;
+		struct fault_null_info *fni;
+		struct fault_exception_info *fei;
+		struct fault_sctx_info *fsi;
+		case FAULT_OBJECT:
+			foi = info;
+			printk("foi->objid " IDFMT "\n", IDPR(foi->objid));
+			printk("foi->ip    %lx\n", foi->ip);
+			printk("foi->addr  %lx\n", foi->addr);
+			printk("foi->flags %lx\n", foi->flags);
+			break;
+		case FAULT_NULL:
+			fni = info;
+			printk("fni->ip    %lx\n", fni->ip);
+			printk("fni->addr  %lx\n", fni->addr);
+			break;
+		case FAULT_EXCEPTION:
+			fei = info;
+			printk("fei->ip    %lx\n", fei->ip);
+			printk("fei->code  %lx\n", fei->code);
+			printk("fei->arg0  %lx\n", fei->arg0);
+			break;
+		case FAULT_SCTX:
+			fsi = info;
+			printk("fsi->target " IDFMT "\n", IDPR(fsi->target));
+			printk("fsi->ip     %lx\n", fsi->ip);
+			printk("fsi->addr   %lx\n", fsi->addr);
+			printk("fsi->pneed  %x\n", fsi->pneed);
+			break;
+	}
+}
+
 void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 {
 	struct object *to = kso_get_obj(t->throbj, thr);
@@ -129,39 +167,7 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 	if(fi.addr) {
 		arch_thread_raise_call(t, fi.addr, fault, info, infolen);
 	} else {
-		printk("unhandled fault: %ld: %d\n", t->id, fault);
-		debug_print_backtrace();
-		switch(fault) {
-			struct fault_object_info *foi;
-			struct fault_null_info *fni;
-			struct fault_exception_info *fei;
-			struct fault_sctx_info *fsi;
-			case FAULT_OBJECT:
-				foi = info;
-				printk("foi->objid " IDFMT "\n", IDPR(foi->objid));
-				printk("foi->ip    %lx\n", foi->ip);
-				printk("foi->addr  %lx\n", foi->addr);
-				printk("foi->flags %lx\n", foi->flags);
-				break;
-			case FAULT_NULL:
-				fni = info;
-				printk("fni->ip    %lx\n", fni->ip);
-				printk("fni->addr  %lx\n", fni->addr);
-				break;
-			case FAULT_EXCEPTION:
-				fei = info;
-				printk("fei->ip    %lx\n", fei->ip);
-				printk("fei->code  %lx\n", fei->code);
-				printk("fei->arg0  %lx\n", fei->arg0);
-				break;
-			case FAULT_SCTX:
-				fsi = info;
-				printk("fsi->target " IDFMT "\n", IDPR(fsi->target));
-				printk("fsi->ip     %lx\n", fsi->ip);
-				printk("fsi->addr   %lx\n", fsi->addr);
-				printk("fsi->pneed  %x\n", fsi->pneed);
-				break;
-		}
+		__print_fault_info(t, fault, info);
 		/* TODO (major): raise unhandled fault exception? */
 		thread_exit();
 	}

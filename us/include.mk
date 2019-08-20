@@ -6,7 +6,7 @@ TWZCC?=x86_64-pc-elf-gcc
 MUSL=musl-1.1.16
 
 $(BUILDDIR)/us/musl-config.mk: $(BUILDDIR)/us/$(MUSL)/configure $(BUILDDIR)/us
-	cd $(BUILDDIR)/us/$(MUSL) && ./configure --host=$(CONFIG_TRIPLET) CROSS_COMPILER=$(TOOLCHAIN_PREFIX)
+	cd $(BUILDDIR)/us/$(MUSL) && ./configure --host=$(CONFIG_TRIPLET) CROSS_COMPILER=$(TOOLCHAIN_PREFIX) --prefix=/usr --syslibdir=/lib
 	mv $(BUILDDIR)/us/$(MUSL)/config.mak $@
 
 MUSL_H_GEN=obj/include/bits/alltypes.h obj/include/bits/syscall.h
@@ -20,8 +20,14 @@ MUSL_SRCS=$(shell find us/$(MUSL))
 
 $(BUILDDIR)/us/$(MUSL)/lib/libc.a: $(MUSL_SRCS) $(BUILDDIR)/us/libtwz/libtwz.a $(BUILDDIR)/us/twix/libtwix.a $(MUSL_READY)
 	@mkdir -p $(BUILDDIR)/us
+	@mkdir -p $(BUILDDIR)/us/sysroot
 	cp -a us/$(MUSL) $(BUILDDIR)/us
 	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL)
+	@touch $@
+
+$(BUILDDIR)/us/sysroot/usr/lib/libc.a: $(BUILDDIR)/us/$(MUSL)/lib/libc.a
+	@mkdir -p $(BUILDDIR)/us/sysroot
+	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
 	@touch $@
 
 MUSL_INCL=$(addprefix -I$(BUILDDIR)/us/$(MUSL)/,include obj/include src/internal obj/src/internal arch/generic arch/$(ARCH))
@@ -79,6 +85,16 @@ $(BUILDDIR)/us/libtwz/libtwz.so.data.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.ob
 	FLAGS=$$(cat $<.flags);\
 	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXH -f 1:RWD:$$DATAID $$FLAGS
 
+$(BUILDDIR)/us/sysroot/usr/lib/libtwz.a: $(BUILDDIR)/us/libtwz/libtwz.a
+	cp $< $@
+
+$(BUILDDIR)/us/sysroot/usr/lib/libtwz.so: $(BUILDDIR)/us/libtwz/libtwz.so
+	cp $< $@
+
+$(BUILDDIR)/us/sysroot/usr/lib/libtwix.a: $(BUILDDIR)/us/twix/libtwix.a
+	cp $< $@
+
+SYSLIBS=$(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/libtwz.so $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a $(BUILDDIR)/us/sysroot/usr/lib/libc.a
 
 $(BUILDDIR)/us/%.o: us/%.c $(MUSL_READY)
 	@mkdir -p $(dir $@)
@@ -89,6 +105,8 @@ $(BUILDDIR)/us/%.o: us/%.c $(MUSL_READY)
 
 TWZOBJS=$(addprefix $(BUILDDIR)/us/,$(addsuffix .text.obj,$(foreach x,$(PROGS),$(x)/$(x))))
 TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),$(x)/$(x))))
+
+TWZOBJS+=$(BUILDDIR)/us/foo.text.obj $(BUILDDIR)/us/foo.data.obj
 
 $(BUILDDIR)/us/bsv.data: $(BUILDDIR)/us/init/init.text.obj
 	@echo "[BSV] $@"
@@ -103,7 +121,7 @@ TWZOBJS+=$(BUILDDIR)/us/bsv.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.obj $(BUILD
 
 include us/users.mk
 
-$(BUILDDIR)/us/root.tar: $(TWZOBJS)
+$(BUILDDIR)/us/root.tar: $(TWZOBJS) $(SYSLIBS)
 	@-rm -r $(BUILDDIR)/us/root
 	@mkdir -p $(BUILDDIR)/us/root
 	@NAMES=;\
