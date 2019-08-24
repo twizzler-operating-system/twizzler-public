@@ -6,6 +6,7 @@
 #define VE_WRITE FE_WRITE
 #define VE_EXEC FE_EXEC
 #define VE_VALID 0x1000
+#define VE_FIXED 0x2000
 struct viewentry {
 	objid_t id;
 	uint64_t res0;

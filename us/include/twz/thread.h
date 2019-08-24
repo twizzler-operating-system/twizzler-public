@@ -18,6 +18,7 @@ struct thrd_spawn_args {
 	char *tls_base; /* tls base address. */
 };
 
+int twz_thread_create(struct thread *thrd);
 int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args);
 ssize_t twz_thread_wait(size_t count,
   struct thread **threads,

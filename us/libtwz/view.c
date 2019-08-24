@@ -38,23 +38,53 @@ int twz_view_set(struct object *obj, size_t slot, objid_t target, uint32_t flags
 	return 0;
 }
 
+int twz_view_fixedset(struct object *obj, size_t slot, objid_t target, uint32_t flags)
+{
+	if(slot > TWZSLOT_MAX_SLOT) {
+		return -EINVAL;
+	}
+	flags &= ~VE_FIXED;
+	struct viewentry *ves = obj ? ((struct twzthread_repr *)twz_obj_base(obj))->fixed_points
+	                            : (struct viewentry *)twz_thread_repr_base()->fixed_points;
+	uint32_t old = atomic_fetch_and(&ves[slot].flags, ~VE_VALID);
+	ves[slot].id = target;
+	ves[slot].res0 = 0;
+	ves[slot].res1 = 0;
+	atomic_store(&ves[slot].flags, flags | VE_VALID);
+
+	if(old & VE_VALID) {
+		struct sys_invalidate_op op = {
+			.offset = slot * OBJ_MAXSIZE,
+			.length = 1,
+			.flags = KSOI_VALID | KSOI_CURRENT,
+			.id = KSO_CURRENT_VIEW,
+		};
+		return sys_invalidate(&op, 1);
+	}
+
+	return 0;
+}
+
 int twz_view_get(struct object *obj, size_t slot, objid_t *target, uint32_t *flags)
 {
 	if(slot > TWZSLOT_MAX_SLOT) {
 		return -EINVAL;
 	}
 	struct viewentry *ves;
+	uint32_t extra_flags = 0;
 	if(obj) {
 		ves = &((struct viewentry *)twz_obj_base(obj))[slot];
 	} else {
 		struct twzthread_repr *tr = twz_thread_repr_base();
 		ves = &tr->fixed_points[slot];
+		extra_flags |= VE_FIXED;
 		if(!(ves->flags & VE_VALID)) {
 			ves = &((struct viewentry *)twz_slot_to_base(TWZSLOT_CVIEW))[slot];
+			extra_flags = 0;
 		}
 	}
 	if(flags)
-		*flags = atomic_load(&ves->flags);
+		*flags = atomic_load(&ves->flags) | extra_flags;
 	if(target)
 		*target = ves->id;
 	return 0;

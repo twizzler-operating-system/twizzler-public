@@ -120,8 +120,26 @@ int main(int argc, char **argv)
 
 	for(char **env = environ; *env != 0; env++) {
 		char *thisEnv = *env;
-		printf("%s\n", thisEnv);
+		// printf("%s\n", thisEnv);
 	}
+
+	/*
+	debug_printf("Okay, trying to fork\n");
+	int p = fork();
+	debug_printf("Hello from: %d\n", p);
+
+	if(!p) {
+	    exit(0);
+	}
+	debug_printf("WAIT\n");
+
+	int s;
+	int x = wait(&s);
+	debug_printf("WAITED: %d %x\n", x, s);
+
+	for(;;)
+	    ;
+	    */
 
 	char *username = getenv("USER");
 	for(;;) {

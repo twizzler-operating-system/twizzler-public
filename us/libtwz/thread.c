@@ -9,6 +9,32 @@
 #include <twz/thread.h>
 
 void *__copy_tls(char *);
+
+int twz_thread_create(struct thread *thrd)
+{
+	struct twzthread_repr *currepr = twz_thread_repr_base();
+	int r;
+	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &thrd->tid))) {
+		return r;
+	}
+	if((r = twz_object_open(&thrd->obj, thrd->tid, FE_READ | FE_WRITE))) {
+		return r;
+	}
+
+	struct twzthread_repr *newrepr = twz_obj_base(&thrd->obj);
+
+	newrepr->reprid = thrd->tid;
+	for(size_t i = 0; i < NUM_FAULTS; i++) {
+		newrepr->faults[i] = currepr->faults[i];
+	}
+
+	newrepr->fixed_points[TWZSLOT_THRD] = (struct viewentry){
+		.id = thrd->tid,
+		.flags = VE_READ | VE_WRITE | VE_VALID,
+	};
+	return 0;
+}
+
 int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 {
 	struct twzthread_repr *currepr = twz_thread_repr_base();

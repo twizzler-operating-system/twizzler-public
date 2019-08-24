@@ -107,6 +107,7 @@ TWZOBJS=$(addprefix $(BUILDDIR)/us/,$(addsuffix .text.obj,$(foreach x,$(PROGS),$
 TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),$(x)/$(x))))
 
 TWZOBJS+=$(BUILDDIR)/us/foo.text.obj $(BUILDDIR)/us/foo.data.obj
+TWZOBJS+=$(BUILDDIR)/us/bash.text.obj $(BUILDDIR)/us/bash.data.obj
 
 $(BUILDDIR)/us/bsv.data: $(BUILDDIR)/us/init/init.text.obj
 	@echo "[BSV] $@"
