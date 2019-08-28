@@ -1,9 +1,9 @@
-#include <system.h>
 #include <arch/x86_64-acpi.h>
-#include <string.h>
-#include <stdint.h>
-#include <memory.h>
 #include <debug.h>
+#include <memory.h>
+#include <stdint.h>
+#include <string.h>
+#include <system.h>
 #define RSDP_SIG "RSD PTR " /* yes, there is an extra space here */
 
 struct __attribute__((packed)) rsdp_desc {
@@ -53,7 +53,7 @@ void *acpi_find_table(const char *sig)
 	if(rsdp->rsdp.rev == 0) {
 		struct rsdt_desc *rsdt = get_rsdt_addr();
 		int entries = (rsdt->header.length - sizeof(rsdt->header)) / 4;
-		for(int i=0;i<entries;i++) {
+		for(int i = 0; i < entries; i++) {
 			struct sdt_header *head = mm_ptov(rsdt->sdts[i]);
 			if(!strncmp(head->sig, sig, 4))
 				return head;
@@ -61,7 +61,7 @@ void *acpi_find_table(const char *sig)
 	} else {
 		struct xsdt_desc *xsdt = get_xsdt_addr();
 		int entries = (xsdt->header.length - sizeof(xsdt->header)) / 8;
-		for(int i=0;i<entries;i++) {
+		for(int i = 0; i < entries; i++) {
 			struct sdt_header *head = mm_ptov(xsdt->sdts[i]);
 			if(!strncmp(head->sig, sig, 4))
 				return head;
@@ -95,4 +95,3 @@ __orderedinitializer(ACPI_INITIALIZER_ORDER) static void acpi_init(void)
 	}
 	printk("warning - couldn't find ACPI tables\n");
 }
-
