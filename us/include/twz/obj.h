@@ -19,6 +19,7 @@ struct object {
 #define TWZ_OC_ZERONONCE 0x1000
 
 int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id);
+_Bool objid_parse(const char *name, size_t len, objid_t *id);
 
 void *__twz_ptr_lea_foreign(const struct object *o, const void *p);
 

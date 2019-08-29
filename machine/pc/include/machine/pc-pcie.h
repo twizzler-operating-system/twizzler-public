@@ -1,4 +1,17 @@
 #pragma once
+#include <twz/_kso.h>
+
+#define PCIE_BUS_HEADER_MAGIC 0x88582323
+
+struct pcie_bus_header {
+	struct kso_hdr hdr;
+	uint32_t magic;
+	uint32_t start_bus;
+	uint32_t end_bus;
+	uint32_t segnr;
+	uint32_t flags;
+	struct pcie_config_space *spaces;
+};
 
 /* PCIe extends the PCI configuration space in a backwards compatible way:
  *   - The first 256 bytes of the configuration space is identical to the PCI config space.

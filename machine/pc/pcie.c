@@ -138,17 +138,6 @@ static struct pcie_function *pcie_register_device(struct mcfg_desc_entry *space,
 	return pf;
 }
 
-#define PCIE_BUS_HEADER_MAGIC 0x88582323
-
-struct pcie_bus_header {
-	struct kso_hdr hdr;
-	uint32_t magic;
-	uint32_t start_bus;
-	uint32_t end_bus;
-	uint32_t segnr;
-	uint32_t flags;
-};
-
 static void pcie_init_space(struct mcfg_desc_entry *space)
 {
 	printk("[pcie] initializing PCIe configuration space at %lx covering %.4d:%.2x-%.2x\n",
@@ -164,52 +153,22 @@ static void pcie_init_space(struct mcfg_desc_entry *space)
 	if(r < 0)
 		panic("failed to create PCIe space object: %d", r);
 
-	/* brute-force scan. We _could_ detect areas to look in based on bridges and stuff, but this
-	 * doesn't take much longer and is still fast. */
-	uintptr_t start_addr = ~0, end_addr = 0;
-	for(unsigned bus = space->start_bus_nr; bus < space->end_bus_nr; bus++) {
-		for(unsigned device = 0; device < 32; device++) {
-			uintptr_t addr =
-			  (uintptr_t)mm_ptov(space->ba + ((bus - space->start_bus_nr) << 20 | device << 15));
-			if(start_addr > addr)
-				start_addr = addr;
-			if(end_addr < addr)
-				end_addr = addr;
-			struct pcie_config_space *config = (void *)addr;
-			/* if a device isn't plugged in, the lines go high */
-			if(config->header.vendor_id == 0xffff) {
-				continue;
-			}
-			if(config->header.header_type & HEADER_MULTIFUNC) {
-				/* for a multi-function device, brute-force scan all functions. We check for this
-				 * before brute-force scanning all functions to reduce time by a factor of 8 */
-				for(unsigned function = 0; function < 8; function++) {
-					config = mm_ptov(
-					  space->ba
-					  + ((bus - space->start_bus_nr) << 20 | device << 15 | function << 12));
-					if(config->header.vendor_id != 0xffff) {
-						struct pcie_function *f =
-						  pcie_register_device(space, config, bus, device, function);
-						list_insert(&pcief_list, &f->entry);
-					}
-				}
-			} else {
-				/* not multi-function (function 0 is the only valid function) */
-				struct pcie_function *f = pcie_register_device(space, config, bus, device, 0);
-				list_insert(&pcief_list, &f->entry);
-			}
-		}
-	}
+	uintptr_t start_addr = space->ba;
+	uintptr_t end_addr =
+	  space->ba + ((space->end_bus_nr - space->start_bus_nr) << 20 | 32 << 15 | 8 << 12);
 
 	struct object *obj = obj_lookup(psid);
 	assert(obj != NULL);
-	size_t idx = 1;
-	for(uintptr_t p = start_addr; p < end_addr; p += mm_page_size(0)) {
+	size_t idx = mm_page_size(1) / mm_page_size(0);
+
+	for(uintptr_t p = start_addr; p < end_addr; p += mm_page_size(1)) {
 		struct page *pg = page_alloc_nophys();
 		pg->addr = p;
 		pg->type = PAGE_TYPE_MMIO;
 		pg->flags |= PAGE_CACHE_UC;
+		pg->level = 1;
 		obj_cache_page(obj, idx, pg);
+		idx += mm_page_size(1) / mm_page_size(0);
 	}
 
 	struct pcie_bus_header hdr = {
@@ -217,6 +176,7 @@ static void pcie_init_space(struct mcfg_desc_entry *space)
 		.start_bus = space->start_bus_nr,
 		.end_bus = space->end_bus_nr,
 		.segnr = space->pci_seg_group_nr,
+		.spaces = (void *)(mm_page_size(1)),
 	};
 	snprintf(hdr.hdr.name,
 	  KSO_NAME_MAXLEN,
@@ -226,6 +186,8 @@ static void pcie_init_space(struct mcfg_desc_entry *space)
 	  hdr.end_bus);
 	obj_write_data(obj, 0, sizeof(struct pcie_bus_header), &hdr);
 	kso_root_attach(obj, 0, KSO_DEVBUS);
+
+	printk("[pcie] attached PCIe bus KSO: " IDFMT "\n", IDPR(psid));
 }
 
 static void __pcie_init(void *arg __unused)

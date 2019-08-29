@@ -107,10 +107,10 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 		size_t reclen = (len + 511) & ~511;
 		size_t nl = strlen(name);
 
-		size_t idx = 0;
+		size_t idx = 1;
 		if(!strncmp(name, "data", nl) && nl == 4) {
 		} else if(!strncmp(name, "meta", nl) && nl == 4) {
-			idx = (mm_page_size(MAX_PGLEVEL) - (mm_page_size(0) + len)) / mm_page_size(0);
+			idx = (mm_page_size(MAX_PGLEVEL) - (len)) / mm_page_size(0);
 		} else {
 			printk("Malformed object data\n");
 		}

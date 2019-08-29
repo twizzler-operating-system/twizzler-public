@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdint.h>
 #include <twz/_objid.h>
 enum {
 	FAULT_OBJECT,

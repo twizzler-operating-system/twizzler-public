@@ -8,7 +8,7 @@
 #include <twz/obj.h>
 
 #include <twz/debug.h>
-static bool objid_parse(const char *name, size_t len, objid_t *id)
+bool objid_parse(const char *name, size_t len, objid_t *id)
 {
 	int i;
 	*id = 0;

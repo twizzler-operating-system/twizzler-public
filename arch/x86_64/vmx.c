@@ -571,6 +571,7 @@ uintptr_t init_ept(void)
 	uintptr_t pml4phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 	for(uintptr_t phys = 0; phys < 8 * 1024 * 1024 * 1024ull; phys += 2 * 1024ul * 1024) {
 		uint64_t flags = EPT_READ | EPT_WRITE | EPT_EXEC;
+		/* TODO: this is ugly */
 		if((phys >= 0xC0000000 && phys < 0x100000000)) {
 			flags |= EPT_MEMTYPE_UC;
 		} else {

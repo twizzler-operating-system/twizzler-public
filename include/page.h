@@ -9,7 +9,7 @@ struct page {
 	uint32_t flags;
 	uint16_t resv;
 	uint8_t type;
-	uint8_t recv0;
+	uint8_t level;
 	struct krc rc;
 	struct spinlock lock;
 };

@@ -12,6 +12,7 @@ int __name_bootstrap(void);
 struct service_info {
 	objid_t sctx;
 	const char *name;
+	char arg[1024];
 };
 
 bool term_ready = false;
@@ -40,7 +41,7 @@ void tmain(void *a)
 	}
 
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] %s", info->name);
-	r = execv(buffer, (char *[]){ info->name, NULL });
+	r = execv(buffer, (char *[]){ info->name, info->arg[0] ? info->arg : NULL, NULL });
 	EPRINTF("failed to exec '%s': %d\n", info->name, r);
 	twz_thread_exit();
 }
@@ -99,6 +100,38 @@ int main(int argc, char **argv)
 
 	term_ready = true;
 	EPRINTF("twzinit: terminal ready\n");
+
+	/* start devices */
+	struct object root;
+	twz_object_open(&root, 1, FE_READ);
+
+	struct kso_root_repr *rr = twz_obj_base(&root);
+	struct service_info drv_info = {
+		.name = "pcie",
+		.sctx = 0,
+	};
+
+	for(size_t i = 0; i < rr->count; i++) {
+		struct kso_attachment *k = &rr->attached[i];
+		if(!k->id || !k->type)
+			continue;
+		switch(k->type) {
+			struct thread dt;
+			case KSO_DEVBUS:
+				sprintf(drv_info.arg, IDFMT, IDPR(k->id));
+				/* TODO: determine the type of bus, and start something appropriate */
+				if((r = twz_thread_spawn(
+				      &dt, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &drv_info }))) {
+					EPRINTF("failed to spawn driver");
+					abort();
+				}
+				twz_thread_wait(
+				  1, (struct thread *[]){ &dt }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+
+				break;
+		}
+	}
+
 	objid_t lsi;
 	r = twz_name_resolve(NULL, "login.sctx", NULL, 0, &lsi);
 	if(r) {

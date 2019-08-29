@@ -212,6 +212,14 @@ void obj_cache_page(struct object *obj, size_t idx, struct page *p)
 struct objpage *obj_get_page(struct object *obj, size_t idx, bool alloc)
 {
 	spinlock_acquire_save(&obj->lock);
+	size_t li = idx & ~(mm_page_size(1) / mm_page_size(0) - 1);
+	struct objpage *lpage = ihtable_find(obj->pagecache, li, struct objpage, elem, idx);
+	if(lpage && lpage->page->level == 1) {
+		/* found a large page */
+		krc_get(&lpage->refs);
+		spinlock_release_restore(&obj->lock);
+		return lpage;
+	}
 	struct objpage *page = ihtable_find(obj->pagecache, idx, struct objpage, elem, idx);
 	if(page == NULL) {
 		if(!alloc) {
@@ -265,10 +273,13 @@ void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 		if(thislen > (mm_page_size(0) - off))
 			thislen = mm_page_size(0) - off;
 
-		struct objpage *p = obj_get_page(obj, start / mm_page_size(0), false);
+		struct objpage *p = obj_get_page(obj, start / mm_page_size(0) + 1, false);
 		if(p) {
 			atomic_thread_fence(memory_order_seq_cst);
 
+			if(p->page->level == 1) {
+				off += (p->idx - start / mm_page_size(0)) * mm_page_size(0);
+			}
 			memcpy(data, mm_ptov(p->page->addr + off), thislen);
 			obj_put_page(p);
 		} else {
@@ -288,7 +299,9 @@ void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 	if(start / mm_page_size(0) != (start + len) / mm_page_size(0)) {
 		panic("NI - cross-page KSO write");
 	}
-	struct objpage *p = obj_get_page(obj, start / mm_page_size(0), true);
+	struct objpage *p = obj_get_page(obj, start / mm_page_size(0) + 1, true);
+	if(p->page->level)
+		panic("NI - KSO write to 2MB page");
 	memcpy(mm_ptov(p->page->addr + (start % mm_page_size(0))), ptr, len);
 	atomic_thread_fence(memory_order_seq_cst);
 	obj_put_page(p);
@@ -314,7 +327,7 @@ objid_t obj_compute_id(struct object *obj)
 			}
 			assert(rem <= mm_page_size(0));
 
-			struct objpage *p = obj_get_page(obj, s / mm_page_size(0), false);
+			struct objpage *p = obj_get_page(obj, s / mm_page_size(0) + 1, false);
 			atomic_thread_fence(memory_order_seq_cst);
 			blake2b_update(&S, mm_ptov(p->page->addr), rem);
 			obj_put_page(p);
@@ -327,7 +340,7 @@ objid_t obj_compute_id(struct object *obj)
 			assert(rem <= mm_page_size(0));
 
 			struct objpage *p = obj_get_page(obj,
-			  (OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + (mi.mdbottom - s))) / mm_page_size(0),
+			  (OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + (mi.mdbottom - s))) / mm_page_size(0) + 1,
 			  false);
 			atomic_thread_fence(memory_order_seq_cst);
 			blake2b_update(&S, mm_ptov(p->page->addr), rem);
@@ -410,7 +423,6 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		thread_raise_fault(current_thread, FAULT_NULL, &info, sizeof(info));
 		return;
 	}
-	idx -= 1;
 
 	struct object *o = obj_lookup_slot(loaddr);
 	if(o == NULL) {
@@ -496,16 +508,21 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			break;
 	}
 
-	bool r = arch_objspace_map(loaddr & ~(mm_page_size(0) - 1),
+	/*
+	printk("mapping: %lx -> %lx (%d)\n",
+	  loaddr & ~(mm_page_size(p->page->level) - 1),
 	  p->page->addr,
-	  0,
+	  p->page->level);*/
+	bool r = arch_objspace_map(loaddr & ~(mm_page_size(p->page->level) - 1),
+	  p->page->addr,
+	  p->page->level,
 	  (perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U)) | OBJSPACE_SET_FLAGS
 	    | caching_flags);
 	if(!r) {
 		uintptr_t pa;
 		uint64_t fl;
 		int level;
-		arch_objspace_getmap(loaddr & ~(mm_page_size(0) - 1), &pa, &level, &fl);
+		arch_objspace_getmap(loaddr & ~(mm_page_size(p->page->level) - 1), &pa, &level, &fl);
 		panic("already mapped %lx %d %lx\n", pa, level, fl);
 	}
 	/* TODO (major): deal with mapcounting */

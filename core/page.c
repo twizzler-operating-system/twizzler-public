@@ -13,6 +13,7 @@ static void _page_unal_ctor(void *_u, void *ptr)
 	krc_init(&p->rc);
 	p->lock = SPINLOCK_INIT;
 	p->mapcount = 0;
+	p->level = 0;
 }
 
 static void _page_ctor(void *_u, void *ptr)

@@ -1,5 +1,5 @@
-PROGS=test init term shell login nls
-SUBDIRS=test init term shell login nls
+PROGS=test init term shell login nls pcie
+SUBDIRS=test init term shell login nls pcie
 TWZCC?=x86_64-pc-elf-gcc
 
 
