@@ -141,6 +141,7 @@ static struct pcie_function *pcie_register_device(struct mcfg_desc_entry *space,
 #define PCIE_BUS_HEADER_MAGIC 0x88582323
 
 struct pcie_bus_header {
+	struct kso_hdr hdr;
 	uint32_t magic;
 	uint32_t start_bus;
 	uint32_t end_bus;
@@ -216,6 +217,12 @@ static void pcie_init_space(struct mcfg_desc_entry *space)
 		.end_bus = space->end_bus_nr,
 		.segnr = space->pci_seg_group_nr,
 	};
+	snprintf(hdr.hdr.name,
+	  KSO_NAME_MAXLEN,
+	  "PCIe bus %.2x::%.2x-%.2x",
+	  hdr.segnr,
+	  hdr.start_bus,
+	  hdr.end_bus);
 	obj_write_data(obj, 0, sizeof(struct pcie_bus_header), &hdr);
 	kso_root_attach(obj, 0, KSO_DEVBUS);
 }
