@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <twz/_kso.h>
 #include <twz/_obj.h>
 #include <twz/_objid.h>
 
@@ -89,6 +90,7 @@ struct scbucket {
 };
 
 struct secctx {
+	struct kso_hdr hdr;
 	union {
 		char userdata[512];
 		struct {

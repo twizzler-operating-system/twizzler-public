@@ -70,9 +70,10 @@ struct object {
 	struct ihelem elem, slotelem;
 };
 
+struct page;
 struct objpage {
 	size_t idx;
-	uintptr_t phys;
+	struct page *page;
 	struct krc refs;
 	struct ihelem elem;
 };
@@ -83,10 +84,10 @@ struct object *obj_lookup(uint128_t id);
 bool obj_verify_id(struct object *obj, bool cache_result, bool uncache);
 void obj_alloc_slot(struct object *obj);
 struct object *obj_lookup_slot(uintptr_t oaddr);
-void obj_cache_page(struct object *obj, size_t idx, uintptr_t phys);
+void obj_cache_page(struct object *obj, size_t idx, struct page *);
 void obj_kso_init(struct object *obj, enum kso_type ksot);
 void obj_put_page(struct objpage *p);
-struct objpage *obj_get_page(struct object *obj, size_t idx);
+struct objpage *obj_get_page(struct object *obj, size_t idx, bool);
 void obj_put(struct object *o);
 void obj_assign_id(struct object *obj, objid_t id);
 objid_t obj_compute_id(struct object *obj);
@@ -105,6 +106,11 @@ int obj_check_permission(struct object *obj, uint64_t flags);
 #define OBJSPACE_EXEC_S 8
 #define OBJSPACE_SET_FLAGS                                                                         \
 	0x1000 /* allow changing the permissions of a page, as long as phys matches */
+#define OBJSPACE_UC 0x2000
+#define OBJSPACE_WB 0
+#define OBJSPACE_WT 0x4000
+#define OBJSPACE_WC 0x8000
+#define OBJSPACE_WP 0x10000
 
 void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t phys, uintptr_t vaddr, uint32_t flags);
 bool arch_objspace_getmap(uintptr_t v, uintptr_t *p, int *level, uint64_t *flags);

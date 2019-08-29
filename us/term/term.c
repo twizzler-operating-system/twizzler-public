@@ -134,9 +134,7 @@ objid_t kid, sid;
 struct object kobj, sobj;
 void kbmain(void *a)
 {
-	char reprname[1024];
-	snprintf(reprname, 1024, "[instance] term.input");
-	twz_name_assign(twz_thread_repr_base()->reprid, reprname);
+	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term.input");
 
 	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
 	int r;

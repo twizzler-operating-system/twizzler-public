@@ -14,12 +14,16 @@ struct __viewrepr_bucket {
 };
 
 struct twzview_repr {
+	struct kso_hdr hdr;
 	struct viewentry ves[TWZSLOT_MAX_SLOT + 1];
 	struct mutex lock;
 	uint8_t bitmap[(TWZSLOT_MAX_SLOT + 1) / 8];
 	struct __viewrepr_bucket buckets[TWZSLOT_MAX_SLOT + 1];
 	struct __viewrepr_bucket chain[TWZSLOT_MAX_SLOT + 1];
 };
+
+_Static_assert(offsetof(struct twzview_repr, ves) == __VE_OFFSET,
+  "Offset of ves must be equal to __VE_OFFSET");
 
 struct object;
 int twz_view_get(struct object *obj, size_t slot, objid_t *target, uint32_t *flags);

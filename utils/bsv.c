@@ -60,6 +60,9 @@ int main(int argc, char **argv)
 #endif
 		ve[num_slot] = (struct viewentry){ .id = num_id, .flags = flags, .res0 = 0, .res1 = 0 };
 	}
+	const char *bn = "bootstrap view";
+	fwrite(bn, strlen(bn) + 1, 1, outf);
+	fseek(outf, __VE_OFFSET, SEEK_SET);
 	fwrite(ve, sizeof(struct viewentry), 0x20000, outf);
 	fclose(outf);
 }

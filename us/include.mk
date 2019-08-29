@@ -86,12 +86,15 @@ $(BUILDDIR)/us/libtwz/libtwz.so.data.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.ob
 	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXH -f 1:RWD:$$DATAID $$FLAGS
 
 $(BUILDDIR)/us/sysroot/usr/lib/libtwz.a: $(BUILDDIR)/us/libtwz/libtwz.a
+	mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
 	cp $< $@
 
 $(BUILDDIR)/us/sysroot/usr/lib/libtwz.so: $(BUILDDIR)/us/libtwz/libtwz.so
+	mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
 	cp $< $@
 
 $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a: $(BUILDDIR)/us/twix/libtwix.a
+	mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
 	cp $< $@
 
 SYSLIBS=$(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/libtwz.so $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a $(BUILDDIR)/us/sysroot/usr/lib/libc.a
@@ -106,8 +109,8 @@ $(BUILDDIR)/us/%.o: us/%.c $(MUSL_READY)
 TWZOBJS=$(addprefix $(BUILDDIR)/us/,$(addsuffix .text.obj,$(foreach x,$(PROGS),$(x)/$(x))))
 TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),$(x)/$(x))))
 
-TWZOBJS+=$(BUILDDIR)/us/foo.text.obj $(BUILDDIR)/us/foo.data.obj
-TWZOBJS+=$(BUILDDIR)/us/bash.text.obj $(BUILDDIR)/us/bash.data.obj
+#TWZOBJS+=$(BUILDDIR)/us/foo.text.obj $(BUILDDIR)/us/foo.data.obj
+#TWZOBJS+=$(BUILDDIR)/us/bash.text.obj $(BUILDDIR)/us/bash.data.obj
 
 $(BUILDDIR)/us/bsv.data: $(BUILDDIR)/us/init/init.text.obj
 	@echo "[BSV] $@"

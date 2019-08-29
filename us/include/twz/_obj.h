@@ -68,5 +68,6 @@ enum kso_type {
 	KSO_SECCTX,
 	KSO_THREAD,
 	KSO_ROOT,
+	KSO_DEVBUS,
 	KSO_MAX,
 };

@@ -39,11 +39,7 @@ void tmain(void *a)
 		}
 	}
 
-	/* TODO: better way to do this?*/
-	char reprname[1024];
-	snprintf(reprname, 1024, "[instance] %s", info->name);
-	twz_name_assign(twz_thread_repr_base()->reprid, reprname);
-
+	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] %s", info->name);
 	r = execv(buffer, (char *[]){ info->name, NULL });
 	EPRINTF("failed to exec '%s': %d\n", info->name, r);
 	twz_thread_exit();
@@ -58,10 +54,6 @@ int main(int argc, char **argv)
 	}
 	unsetenv("BSNAME");
 
-	char reprname[1024];
-	snprintf(reprname, 1024, "[instance] init");
-	twz_name_assign(twz_thread_repr_base()->reprid, reprname);
-
 	struct thread tthr;
 	int r;
 
@@ -69,6 +61,8 @@ int main(int argc, char **argv)
 		.name = "term",
 		.sctx = 0,
 	};
+
+	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] init");
 
 	if((r = twz_thread_spawn(
 	      &tthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &term_info }))) {

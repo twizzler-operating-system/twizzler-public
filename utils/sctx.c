@@ -54,8 +54,12 @@ void add_hash(struct secctx *ctx, objid_t target, char *ptr)
 int main(int argc, char **argv)
 {
 	int c;
-	while((c = getopt(argc, argv, "h")) != EOF) {
+	char *name;
+	while((c = getopt(argc, argv, "hn:")) != EOF) {
 		switch(c) {
+			case 'n':
+				name = optarg;
+				break;
 			default:
 				fprintf(stderr, "invalid option %c\n", c);
 				exit(1);
@@ -74,6 +78,7 @@ int main(int argc, char **argv)
 	  MAP_SHARED,
 	  fd,
 	  0);
+	strncpy(ctx->hdr.name, name, KSO_NAME_MAXLEN);
 	if(ctx == MAP_FAILED) {
 		perror("mmap");
 		ftruncate(fd, 0);

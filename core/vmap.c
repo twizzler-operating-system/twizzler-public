@@ -84,14 +84,16 @@ struct vmap *vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, 
 
 void kso_view_write(struct object *obj, size_t slot, struct viewentry *v)
 {
-	obj_write_data(obj, slot * sizeof(struct viewentry), sizeof(struct viewentry), v);
+	obj_write_data(obj, __VE_OFFSET + slot * sizeof(struct viewentry), sizeof(struct viewentry), v);
 }
 
 struct viewentry kso_view_lookup(struct vm_context *ctx, size_t slot)
 {
 	struct viewentry v;
-	obj_read_data(
-	  kso_get_obj(ctx->view, view), slot * sizeof(struct viewentry), sizeof(struct viewentry), &v);
+	obj_read_data(kso_get_obj(ctx->view, view),
+	  __VE_OFFSET + slot * sizeof(struct viewentry),
+	  sizeof(struct viewentry),
+	  &v);
 	return v;
 }
 

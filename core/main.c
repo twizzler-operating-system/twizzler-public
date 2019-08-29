@@ -191,15 +191,7 @@ void kfree(void *p)
 #include <syscall.h>
 void kernel_main(struct processor *proc)
 {
-	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
-
-	printk("Waiting at kernel_main_barrier\n");
-	processor_barrier(&kernel_main_barrier);
-
 	if(proc->flags & PROCESSOR_BSP) {
-		arena_destroy(&post_init_call_arena);
-		post_init_call_head = NULL;
-
 		/* create the root object. TODO: load an old one? */
 		struct object *root = obj_create(KSO_ROOT_ID, KSO_ROOT);
 		struct metainfo mi = {
@@ -215,6 +207,15 @@ void kernel_main(struct processor *proc)
 
 		obj_write_data(
 		  root, OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + OBJ_METAPAGE_SIZE), sizeof(mi), &mi);
+	}
+	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
+
+	printk("Waiting at kernel_main_barrier\n");
+	processor_barrier(&kernel_main_barrier);
+
+	if(proc->flags & PROCESSOR_BSP) {
+		arena_destroy(&post_init_call_arena);
+		post_init_call_head = NULL;
 
 		// bench();
 		if(kc_bsv_id == 0) {

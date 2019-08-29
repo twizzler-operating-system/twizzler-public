@@ -14,6 +14,7 @@
 #define TWZ_THRD_MAX_SCS 32
 
 struct twzthread_repr {
+	struct kso_hdr hdr;
 	objid_t reprid;
 	_Atomic uint64_t syncs[THRD_SYNCPOINTS];
 	uint64_t syncinfos[THRD_SYNCPOINTS];

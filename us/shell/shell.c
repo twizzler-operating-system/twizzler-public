@@ -12,18 +12,11 @@ const char *kso_names[] = {
 	[KSO_THREAD] = "thread",
 	[KSO_VIEW] = "view",
 	[KSO_SECCTX] = "secctx",
+	[KSO_DEVBUS] = "devbus",
 };
 
 void print_kat(struct kso_attachment *k, int indent)
 {
-	char name[128];
-	size_t namelen = sizeof(name);
-	const char *reason = "";
-	int r = twz_name_reverse_lookup(k->id, name, &namelen, NULL, 0);
-	if(r == -ENOSPC) {
-		reason = " (name too long)";
-	}
-
 	printf("%*s", indent, "");
 	if(k->type >= KSO_MAX) {
 		printf("[unknown] ");
@@ -31,11 +24,11 @@ void print_kat(struct kso_attachment *k, int indent)
 		printf("[%s] ", kso_names[k->type]);
 	}
 
-	if(r) {
-		printf(IDFMT "%s", IDPR(k->id), reason);
-	} else {
-		printf("%s", name);
-	}
+	struct object obj;
+	twz_object_open(&obj, k->id, FE_READ);
+	struct kso_hdr *hdr = twz_obj_base(&obj);
+
+	printf("%s", hdr->name);
 	printf("\n");
 }
 

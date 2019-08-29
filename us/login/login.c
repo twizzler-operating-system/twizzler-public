@@ -47,10 +47,8 @@ void tmain(void *a)
 		}
 	}
 
-	char reprname[1024];
-	snprintf(reprname, 1024, "[instance] shell [user %s]", username);
-	twz_name_assign(twz_thread_repr_base()->reprid, reprname);
-
+	snprintf(
+	  twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] shell [user %s]", username);
 	r = execv("shell.text", (char *[]){ "shell.text", NULL });
 	fprintf(stderr, "failed to exec shell: %d", r);
 	twz_thread_exit();
