@@ -5,6 +5,24 @@
 #include <memory.h>
 #include <slab.h>
 #include <system.h>
+
+/* The PCI subsystem. We make some simplifying assumptions:
+ *   - Our system bus is PCIe. Thus everything is memory-mapped. We do not support IO-based access.
+ *   - Devices that we want to work on support MSI or MSI-X. Thus we don't need to worry about
+ *     old-style pin-based interrupts and all that complexity.
+ *
+ * Each PCIe function has a configuration space (a region of memory that controls the PCI-side of
+ * the device) and a set of memory-mapped registers that are device-specific (which control the
+ * device itself). The configuration space for each segment of the PCIe system is mapped into a
+ * single object that can be controlled from userspace. However, there are things we need to do
+ * here:
+ *   - Some initialization per-device
+ *
+ * The goal is to have as little PCI configuration in here as possible.
+ */
+
+/* ACPI MCFG table contains an array of entries that describe information for a particular segment
+ * of PCIe devices */
 __packed struct mcfg_desc_entry {
 	uint64_t ba;
 	uint16_t pci_seg_group_nr;
@@ -13,6 +31,7 @@ __packed struct mcfg_desc_entry {
 	uint32_t _resv;
 };
 
+/* ACPI table for configuring PCIe memory-mapped config space */
 struct __packed mcfg_desc {
 	struct sdt_header header;
 	uint64_t _resv;
@@ -125,14 +144,19 @@ static void pcie_init_space(struct mcfg_desc_entry *space)
 	  space->start_bus_nr,
 	  space->end_bus_nr);
 
+	/* brute-force scan. We _could_ detect areas to look in based on bridges and stuff, but this
+	 * doesn't take much longer and is still fast. */
 	for(unsigned bus = space->start_bus_nr; bus < space->end_bus_nr; bus++) {
 		for(unsigned device = 0; device < 32; device++) {
 			struct pcie_config_space *config =
 			  mm_ptov(space->ba + ((bus - space->start_bus_nr) << 20 | device << 15));
+			/* if a device isn't plugged in, the lines go high */
 			if(config->header.vendor_id == 0xffff) {
 				continue;
 			}
 			if(config->header.header_type & HEADER_MULTIFUNC) {
+				/* for a multi-function device, brute-force scan all functions. We check for this
+				 * before brute-force scanning all functions to reduce time by a factor of 8 */
 				for(unsigned function = 0; function < 8; function++) {
 					config = mm_ptov(
 					  space->ba
@@ -144,6 +168,7 @@ static void pcie_init_space(struct mcfg_desc_entry *space)
 					}
 				}
 			} else {
+				/* not multi-function (function 0 is the only valid function) */
 				struct pcie_function *f = pcie_register_device(space, config, bus, device, 0);
 				list_insert(&pcief_list, &f->entry);
 			}

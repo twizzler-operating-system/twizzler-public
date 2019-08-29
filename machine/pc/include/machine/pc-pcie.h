@@ -1,5 +1,17 @@
 #pragma once
 
+/* PCIe extends the PCI configuration space in a backwards compatible way:
+ *   - The first 256 bytes of the configuration space is identical to the PCI config space.
+ *     - Note that some fields have new restrictions and requirements.
+ *   - The configuration space _must_ be memory-mapped. This is really nice for us, because we
+ *     require this.
+ *
+ * The configuration space is broken into two pieces: the header, which is common to all config
+ * spaces, and the rest, which can be either a device function (header type 0) or a PCI-PCI bridge
+ * (header type 1). The fields are defined in the PCI base specification, retrieved from version
+ * 3.0.
+ */
+
 struct __packed pcie_config_space_header {
 	/* 0x00 */
 	uint16_t vendor_id;
@@ -71,10 +83,17 @@ struct __packed pcie_config_space {
 	};
 };
 
+/* The cap_ptr field is an offset into the configuration space starting a linked list of additional
+ * capabilities the device has. Each capability starts with a header that contains an ID identifying
+ * it and a next pointer (also an offset into the config space) indicating the next capability.
+ * next=0 indicates the last link. */
+
 struct __packed pcie_capability_header {
 	uint8_t capid;
 	uint8_t next;
 };
+
+/* power management support: this is detailed in the PCI power management specification */
 
 #define PCIE_POWER_CAPABILITY_ID 1
 
@@ -107,6 +126,8 @@ struct __packed pcie_power_capability {
 	uint8_t data;
 };
 
+/* Message Signaled Interrupt support. Detailed in the PCI 3.0 base specification */
+
 #define PCIE_MSI_CAPABILITY_ID 5
 
 struct __packed pcie_msi_capability {
@@ -127,6 +148,7 @@ struct __packed pcie_msi_capability {
 	uint32_t pending_bits;
 };
 
+/* Message Signaled Interrupt-X support. Detailed in the PCI 3.0 base specification */
 #define PCIE_MSIX_CAPABILITY_ID 11
 
 struct __packed pcie_msix_capability {
