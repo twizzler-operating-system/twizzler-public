@@ -2,7 +2,10 @@
 #include <lib/blake2.h>
 #include <memory.h>
 #include <object.h>
+#include <page.h>
 #include <slab.h>
+
+/* TODO: do we need a separate objpage abstraction in addition to a page abstraction */
 
 DECLARE_IHTABLE(objtbl, 12);
 DECLARE_IHTABLE(objslots, 10);
@@ -139,11 +142,11 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 		    e != ihtable_bucket_iter_end(src->pagecache);
 		    e = ihtable_bucket_iter_next(e)) {
 			struct objpage *pg = container_of(e, struct objpage, elem);
-			if(pg->phys) {
-				void *np = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, false);
+			if(pg->page) {
+				struct page *np = page_alloc(pg->page->type);
 				/* TODO (perf): copy-on-write */
-				memcpy(np, mm_ptov(pg->phys), 0x1000);
-				obj_cache_page(obj, pg->idx, mm_vtop(np));
+				memcpy(mm_ptov(np->addr), mm_ptov(pg->page->addr), mm_page_size(0));
+				obj_cache_page(obj, pg->idx, np);
 			}
 		}
 	}
@@ -191,7 +194,7 @@ void obj_alloc_slot(struct object *obj)
 	//		PR128(obj->id), es, es * mm_page_size(obj->pglevel));
 }
 
-void obj_cache_page(struct object *obj, size_t idx, uintptr_t phys)
+void obj_cache_page(struct object *obj, size_t idx, struct page *p)
 {
 	spinlock_acquire_save(&obj->lock);
 	struct objpage *page = ihtable_find(obj->pagecache, idx, struct objpage, elem, idx);
@@ -200,23 +203,24 @@ void obj_cache_page(struct object *obj, size_t idx, uintptr_t phys)
 		page = slabcache_alloc(&sc_objpage);
 		page->idx = idx;
 		krc_init(&page->refs);
-		if(phys == 0) {
-			phys = mm_physical_alloc(mm_page_size(0), PM_TYPE_DRAM, true);
-		}
 	}
-	page->phys = phys;
+	page->page = p;
 	ihtable_insert(obj->pagecache, &page->elem, page->idx);
 	spinlock_release_restore(&obj->lock);
 }
 
-struct objpage *obj_get_page(struct object *obj, size_t idx)
+struct objpage *obj_get_page(struct object *obj, size_t idx, bool alloc)
 {
 	spinlock_acquire_save(&obj->lock);
 	struct objpage *page = ihtable_find(obj->pagecache, idx, struct objpage, elem, idx);
 	if(page == NULL) {
+		if(!alloc) {
+			spinlock_release_restore(&obj->lock);
+			return NULL;
+		}
 		page = slabcache_alloc(&sc_objpage);
 		page->idx = idx;
-		page->phys = mm_physical_alloc(mm_page_size(0), PM_TYPE_DRAM, true);
+		page->page = page_alloc(PAGE_TYPE_VOLATILE);
 		krc_init_zero(&page->refs);
 		ihtable_insert(obj->pagecache, &page->elem, page->idx);
 	}
@@ -256,16 +260,20 @@ void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 	}
 	char *data = ptr;
 	while(len > 0) {
-		struct objpage *p = obj_get_page(obj, start / mm_page_size(0));
-		atomic_thread_fence(memory_order_seq_cst);
-
 		size_t off = start % mm_page_size(0);
 		size_t thislen = len;
 		if(thislen > (mm_page_size(0) - off))
 			thislen = mm_page_size(0) - off;
 
-		memcpy(data, mm_ptov(p->phys + off), thislen);
-		obj_put_page(p);
+		struct objpage *p = obj_get_page(obj, start / mm_page_size(0), false);
+		if(p) {
+			atomic_thread_fence(memory_order_seq_cst);
+
+			memcpy(data, mm_ptov(p->page->addr + off), thislen);
+			obj_put_page(p);
+		} else {
+			memset(data, 0, thislen);
+		}
 		len -= thislen;
 		start += thislen;
 		data += thislen;
@@ -280,8 +288,8 @@ void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 	if(start / mm_page_size(0) != (start + len) / mm_page_size(0)) {
 		panic("NI - cross-page KSO write");
 	}
-	struct objpage *p = obj_get_page(obj, start / mm_page_size(0));
-	memcpy(mm_ptov(p->phys + (start % mm_page_size(0))), ptr, len);
+	struct objpage *p = obj_get_page(obj, start / mm_page_size(0), true);
+	memcpy(mm_ptov(p->page->addr + (start % mm_page_size(0))), ptr, len);
 	atomic_thread_fence(memory_order_seq_cst);
 	obj_put_page(p);
 }
@@ -306,9 +314,9 @@ objid_t obj_compute_id(struct object *obj)
 			}
 			assert(rem <= mm_page_size(0));
 
-			struct objpage *p = obj_get_page(obj, s / mm_page_size(0));
+			struct objpage *p = obj_get_page(obj, s / mm_page_size(0), false);
 			atomic_thread_fence(memory_order_seq_cst);
-			blake2b_update(&S, mm_ptov(p->phys), rem);
+			blake2b_update(&S, mm_ptov(p->page->addr), rem);
 			obj_put_page(p);
 		}
 		for(size_t s = 0; s < mi.mdbottom; s += mm_page_size(0)) {
@@ -318,10 +326,11 @@ objid_t obj_compute_id(struct object *obj)
 			}
 			assert(rem <= mm_page_size(0));
 
-			struct objpage *p = obj_get_page(
-			  obj, (OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + (mi.mdbottom - s))) / mm_page_size(0));
+			struct objpage *p = obj_get_page(obj,
+			  (OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + (mi.mdbottom - s))) / mm_page_size(0),
+			  false);
 			atomic_thread_fence(memory_order_seq_cst);
-			blake2b_update(&S, mm_ptov(p->phys), rem);
+			blake2b_update(&S, mm_ptov(p->page->addr), rem);
 			obj_put_page(p);
 		}
 	}
@@ -468,10 +477,10 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	  ok,
 	  mi.p_flags);*/
 
-	struct objpage *p = obj_get_page(o, idx);
+	struct objpage *p = obj_get_page(o, idx, true);
 	obj_put(o);
 	bool r = arch_objspace_map(loaddr & ~(mm_page_size(0) - 1),
-	  p->phys,
+	  p->page->addr,
 	  0,
 	  (perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U)) | OBJSPACE_SET_FLAGS);
 	if(!r) {

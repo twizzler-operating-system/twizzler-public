@@ -533,8 +533,18 @@ bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags)
 		ef |= EPT_WRITE;
 	if(flags & OBJSPACE_EXEC_U)
 		ef |= EPT_EXEC;
-	ef |=
-	  EPT_MEMTYPE_WB | EPT_IGNORE_PAT; /* TODO (major): maybe we don't want this for all objects? */
+
+	if(flags & OBJSPACE_WT)
+		ef |= EPT_MEMTYPE_WT;
+	else if(flags & OBJSPACE_UC)
+		ef |= EPT_MEMTYPE_UC;
+	else if(flags & OBJSPACE_WC)
+		ef |= EPT_MEMTYPE_WC;
+	else if(flags & OBJSPACE_WP)
+		ef |= EPT_MEMTYPE_WP;
+	else
+		ef |= EPT_MEMTYPE_WB;
+	ef |= EPT_IGNORE_PAT;
 	return x86_64_ept_map(
 	  current_thread->active_sc->arch.ept_root, v, p, level, ef, flags & OBJSPACE_SET_FLAGS);
 }

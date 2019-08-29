@@ -86,6 +86,7 @@ struct ustar_header {
 #define PHYS(x) ((x)-PHYS_ADDR_DELTA)
 extern int kernel_end;
 #include <object.h>
+#include <page.h>
 
 extern objid_t kc_init_id;
 
@@ -115,12 +116,13 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 		}
 
 		for(size_t s = 0; s < len; s += mm_page_size(0), idx++) {
-			uintptr_t phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+			struct page *page = page_alloc(PAGE_TYPE_VOLATILE);
+
 			size_t thislen = 0x1000;
 			if((len - s) < thislen)
 				thislen = len - s;
-			memcpy(mm_ptov(phys), data + s, thislen);
-			obj_cache_page(obj, idx, phys);
+			memcpy(mm_ptov(page->addr), data + s, thislen);
+			obj_cache_page(obj, idx, page);
 		}
 
 		h = (struct ustar_header *)((char *)h + 512 + reclen);

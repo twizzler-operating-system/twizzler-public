@@ -135,6 +135,9 @@ void x86_64_virtualization_fault(struct processor *proc);
 #define EPT_EXEC (4ull | (1ull << 10)) /* TODO (sec): separate exec_user and exec_kernel */
 
 #define EPT_MEMTYPE_WB (6 << 3)
+#define EPT_MEMTYPE_WC (1 << 3)
+#define EPT_MEMTYPE_WT (4 << 3)
+#define EPT_MEMTYPE_WP (5 << 3)
 #define EPT_MEMTYPE_UC (0)
 #define EPT_IGNORE_PAT (1 << 6)
 #define EPT_LARGEPAGE (1 << 7)

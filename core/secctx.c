@@ -1,4 +1,5 @@
 #include <object.h>
+#include <page.h>
 #include <processor.h>
 #include <secctx.h>
 #include <slab.h>
@@ -92,9 +93,9 @@ static bool __verify_region(void *item,
 	}
 
 	/* TODO: support public key objects with keys bigger than a page */
-	struct objpage *p = obj_get_page(ko, 0);
+	struct objpage *p = obj_get_page(ko, 0, false);
 
-	struct key_hdr *hdr = mm_ptov(p->phys);
+	struct key_hdr *hdr = mm_ptov(p->page->addr);
 	if(hdr->type != etype) {
 		EPRINTK("hdr->type != cap->etype\n");
 		return false;
