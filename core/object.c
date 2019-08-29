@@ -479,10 +479,28 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 
 	struct objpage *p = obj_get_page(o, idx, true);
 	obj_put(o);
+
+	uint64_t caching_flags = 0;
+	switch(PAGE_CACHE_TYPE(p->page)) {
+		case PAGE_CACHE_UC:
+			caching_flags = OBJSPACE_UC;
+			break;
+		case PAGE_CACHE_WT:
+			caching_flags = OBJSPACE_WT;
+			break;
+		case PAGE_CACHE_WC:
+			caching_flags = OBJSPACE_WC;
+			break;
+		case PAGE_CACHE_WB:
+			caching_flags = OBJSPACE_WB;
+			break;
+	}
+
 	bool r = arch_objspace_map(loaddr & ~(mm_page_size(0) - 1),
 	  p->page->addr,
 	  0,
-	  (perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U)) | OBJSPACE_SET_FLAGS);
+	  (perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U)) | OBJSPACE_SET_FLAGS
+	    | caching_flags);
 	if(!r) {
 		uintptr_t pa;
 		uint64_t fl;

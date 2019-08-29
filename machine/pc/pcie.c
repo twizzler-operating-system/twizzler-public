@@ -159,6 +159,7 @@ static void pcie_init_space(struct mcfg_desc_entry *space)
 
 	int r;
 	objid_t psid;
+	/* TODO: restrict write access. In fact, do this for ALL KSOs. */
 	r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &psid);
 	if(r < 0)
 		panic("failed to create PCIe space object: %d", r);
