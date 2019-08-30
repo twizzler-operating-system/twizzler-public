@@ -63,6 +63,7 @@ struct object {
 		struct kso_sctx sctx;
 	};
 	struct kso_calls *kso_calls;
+	long (*kaction)(struct object *, long, long);
 
 	struct spinlock lock, tslock, verlock;
 	struct ihtable *pagecache, *tstable;

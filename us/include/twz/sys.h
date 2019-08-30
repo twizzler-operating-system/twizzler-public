@@ -76,3 +76,8 @@ static inline long sys_thrd_ctl(int op, long arg)
 {
 	return __syscall6(SYS_THRD_CTL, op, arg, 0, 0, 0, 0);
 }
+
+static inline long sys_kaction(size_t count, struct sys_kaction_args *args)
+{
+	return __syscall6(SYS_KACTION, count, (long)args, 0, 0, 0, 0);
+}

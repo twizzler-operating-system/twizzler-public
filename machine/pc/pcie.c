@@ -167,7 +167,7 @@ __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void mcfg_in
 	mcfg_entries =
 	  (mcfg->header.length - sizeof(struct mcfg_desc)) / sizeof(struct mcfg_desc_entry);
 
-	printk("[pcie] found MCFG table with %ld entries\n", mcfg_entries);
+	printk("[pcie] found MCFG table (%p) with %ld entries\n", mcfg, mcfg_entries);
 
 	post_init_call_register(false, __pcie_init, NULL);
 }

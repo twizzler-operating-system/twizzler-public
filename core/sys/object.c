@@ -32,6 +32,28 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 	return suc;
 }
 
+long syscall_kaction(size_t count, struct sys_kaction_args *args)
+{
+	size_t t = 0;
+	if(count > 4096 || !args)
+		return -EINVAL;
+	for(size_t i = 0; i < count; i++) {
+		if(args[i].flags & KACTION_VALID) {
+			struct object *obj = obj_lookup(args->id);
+			if(!obj) {
+				args[i].result = -ENOENT;
+				continue;
+			}
+			if(obj->kaction) {
+				args[i].result = obj->kaction(obj, args[i].cmd, args[i].arg);
+				t++;
+			}
+			obj_put(obj);
+		}
+	}
+	return t;
+}
+
 long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, uint64_t ft)
 {
 	objid_t paid = MKID(pahi, palo), chid = MKID(chhi, chlo);

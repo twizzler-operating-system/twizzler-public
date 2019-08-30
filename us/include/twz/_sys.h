@@ -9,7 +9,8 @@
 #define SYS_OCREATE 8
 #define SYS_ODELETE 9
 #define SYS_THRD_CTL 10
-#define NUM_SYSCALLS 11
+#define SYS_KACTION 11
+#define NUM_SYSCALLS 12
 
 #define TWZ_DETACH_ONSYSCALL(s) ((s) << 16)
 #define TWZ_DETACH_REATTACH 0
@@ -78,3 +79,13 @@ struct sys_thrd_spawn_args {
 #define THRD_CTL_SET_GS 2
 #define THRD_CTL_SET_IOPL 3
 #define THRD_CTL_EXIT 0x100
+
+#define KACTION_VALID 1
+
+struct sys_kaction_args {
+	objid_t id;
+	long result;
+	long cmd;
+	long arg;
+	long flags;
+};
