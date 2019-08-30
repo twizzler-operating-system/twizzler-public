@@ -98,6 +98,145 @@ static bool pcief_capability_get(struct pcie_function *pf, int id, union pcie_ca
 	return false;
 }
 
+static void __alloc_bar(struct object *obj,
+  size_t start,
+  size_t sz,
+  int pref,
+  int wc,
+  uintptr_t addr)
+{
+	size_t idx = start / mm_page_size(0);
+	while(sz > 0) {
+		struct page *pg = page_alloc_nophys();
+		pg->addr = addr;
+		pg->type = PAGE_TYPE_MMIO;
+		pg->flags |= (pref ? (wc ? PAGE_CACHE_WC : PAGE_CACHE_WT) : PAGE_CACHE_UC);
+		if(sz >= mm_page_size(1)) {
+			pg->level = 1;
+			sz -= mm_page_size(1);
+			addr += mm_page_size(1);
+			idx += mm_page_size(1) / mm_page_size(0);
+		} else {
+			sz -= mm_page_size(0);
+			addr += mm_page_size(0);
+			idx++;
+		}
+		obj_cache_page(obj, idx, pg);
+	}
+}
+
+static long pcie_function_init(struct object *pbobj,
+  uint16_t segment,
+  int bus,
+  int device,
+  int function,
+  int wc)
+{
+	uintptr_t ba = 0;
+	for(size_t i = 0; i < mcfg_entries; i++) {
+		if(mcfg->spaces[i].pci_seg_group_nr == segment) {
+			ba = mcfg->spaces[i].ba
+			     + ((bus - mcfg->spaces[i].start_bus_nr) << 20 | device << 15 | function << 12);
+			break;
+		}
+	}
+	if(!ba) {
+		return -ENOENT;
+	}
+	int r;
+	objid_t psid;
+	/* TODO: restrict write access. In fact, do this for ALL KSOs. */
+	r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &psid);
+	if(r < 0)
+		panic("failed to create PCIe object: %d", r);
+
+	struct object *fobj = obj_lookup(psid);
+	assert(fobj != NULL);
+
+	struct pcie_function_header hdr = {
+		.bus = bus,
+		.device = device,
+		.function = function,
+	};
+
+	struct pcie_config_space *space = mm_ptov(ba);
+
+	size_t start = mm_page_size(1);
+	for(int i = 0; i < 6; i++) {
+		uint32_t bar = space->device.bar[i];
+		if(!bar)
+			continue;
+		/* learn size */
+		space->device.bar[i] = 0xffffffff;
+		/* TODO: the proper way to do this is correctly map all this memory as UC */
+		asm volatile("clflush %0" ::"m"(space->device.bar[i]) : "memory");
+		uint32_t encsz = space->device.bar[i] & 0xfffffff0;
+		space->device.bar[i] = bar;
+		asm volatile("clflush %0" ::"m"(space->device.bar[i]) : "memory");
+		size_t sz = ~encsz + 1;
+		if(sz > 0x10000000) {
+			panic("NI - large bar");
+		}
+		if(bar & 1) {
+			/* TODO: I/O spaces? */
+			continue;
+		}
+		int type = (bar >> 1) & 3;
+		int pref = (bar >> 3) & 1;
+		uint64_t addr = bar & 0xfffffff0;
+		if(type == 2) {
+			addr |= ((uint64_t)space->device.bar[i + 1]) << 32;
+		}
+
+		__alloc_bar(fobj, start, sz, pref, (wc >> i) & 1, addr);
+		hdr.bars[i] = (volatile void *)start;
+		hdr.prefetch[i] = pref;
+		hdr.barsz[i] = sz;
+		/*
+		printk("init bar %d for addr %lx at %lx len=%ld, type=%d (p=%d,wc=%d)\n",
+		  i,
+		  addr,
+		  start,
+		  sz,
+		  type,
+		  pref,
+		  (wc >> i) & 1);*/
+
+		start += sz;
+		start = ((start - 1) & ~(mm_page_size(1) - 1)) + mm_page_size(1);
+
+		if(type == 2)
+			i++; /* skip the next bar because we used it in this one to make a 64-bit register */
+	}
+	obj_write_data(fobj, 0, sizeof(hdr), &hdr);
+
+	unsigned int fnid = function | device << 3 | bus << 8;
+	obj_write_data(pbobj, offsetof(struct pcie_bus_header, functions[fnid]), sizeof(psid), &psid);
+
+	return 0;
+}
+
+static long __pcie_kaction(struct object *obj, long cmd, long arg)
+{
+	switch(cmd) {
+		int bus, device, function;
+		uint16_t segment;
+		uint16_t wc;
+		case KACTION_CMD_PCIE_INIT_DEVICE:
+			/* arg specifies which bus, device, and function */
+			wc = arg >> 32;
+			segment = (arg >> 16) & 0xffff;
+			bus = (arg >> 8) & 0xff;
+			device = (arg >> 3) & 0x1f;
+			function = arg & 7;
+			return pcie_function_init(obj, segment, bus, device, function, wc);
+			break;
+		default:
+			return -EINVAL;
+	}
+	return 0;
+}
+
 static void pcie_init_space(struct mcfg_desc_entry *space)
 {
 	printk("[pcie] initializing PCIe configuration space at %lx covering %.4d:%.2x-%.2x\n",
@@ -146,6 +285,7 @@ static void pcie_init_space(struct mcfg_desc_entry *space)
 	  hdr.end_bus);
 	obj_write_data(obj, 0, sizeof(struct pcie_bus_header), &hdr);
 	kso_root_attach(obj, 0, KSO_DEVBUS);
+	obj->kaction = __pcie_kaction;
 
 	printk("[pcie] attached PCIe bus KSO: " IDFMT "\n", IDPR(psid));
 }

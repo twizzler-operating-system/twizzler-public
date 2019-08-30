@@ -7,6 +7,26 @@
 
 #define PCIE_BUS_HEADER_MAGIC 0x88582323
 
+#define KACTION_CMD_PCIE_INIT_DEVICE 1
+
+struct pcie_function_header {
+	struct kso_hdr hdr;
+	uint16_t deviceid;
+	uint16_t vendorid;
+	uint16_t classid;
+	uint16_t subclassid;
+	uint16_t progif;
+	uint16_t flags;
+	uint16_t bus;
+	uint16_t device;
+	uint16_t function;
+	uint16_t segment;
+	uint32_t resv;
+	uint32_t prefetch[6];
+	volatile void *bars[6];
+	size_t barsz[6];
+};
+
 struct pcie_config_space;
 struct pcie_bus_header {
 	struct kso_hdr hdr;
@@ -14,8 +34,9 @@ struct pcie_bus_header {
 	uint32_t start_bus;
 	uint32_t end_bus;
 	uint32_t segnr;
-	uint32_t flags;
+	uint64_t flags;
 	struct pcie_config_space *spaces;
+	objid_t functions[];
 };
 
 /* PCIe extends the PCI configuration space in a backwards compatible way:

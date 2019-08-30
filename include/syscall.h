@@ -44,3 +44,4 @@ long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags);
 
 int arch_syscall_thrd_ctl(int op, long arg);
 long syscall_thrd_ctl(int op, long arg);
+long syscall_kaction(size_t count, struct sys_kaction_args *args);

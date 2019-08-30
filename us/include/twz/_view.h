@@ -9,7 +9,7 @@
 #define VE_VALID 0x1000
 #define VE_FIXED 0x2000
 
-#define __VE_OFFSET (KSO_NAME_MAXLEN + 8)
+#define __VE_OFFSET (KSO_NAME_MAXLEN + 16)
 
 struct viewentry {
 	objid_t id;

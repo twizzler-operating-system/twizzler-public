@@ -16,6 +16,7 @@ struct kso_hdr {
 	char name[KSO_NAME_MAXLEN];
 	uint32_t version;
 	uint32_t resv;
+	uint64_t resv2;
 };
 
 struct kso_root_repr {

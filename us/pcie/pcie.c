@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include <twz/debug.h>
+#include <twz/sys.h>
 #include <twz/thread.h>
 
 #include "pcie.h"
@@ -153,6 +154,24 @@ void pcie_print_function(struct pcie_function *pf, bool nums)
 
 void pcie_init_function(struct pcie_function *pf)
 {
+	uint64_t wc = 0;
+	if(pf->config->header.vendor_id == 0x1234 && pf->config->header.device_id == 0x1111) {
+		/* TODO: generalize */
+		wc = 1;
+	}
+	struct sys_kaction_args args = {
+		.id = pcie_cs_oid,
+		.cmd = KACTION_CMD_PCIE_INIT_DEVICE,
+		.arg = pf->segment << 16 | pf->bus << 8 | pf->device << 3 | pf->function | (wc << 32),
+		.flags = KACTION_VALID,
+	};
+	int r;
+	if((r = sys_kaction(1, &args)) < 0) {
+		fprintf(stderr, "kaction: %d\n", r);
+	}
+	if(args.result) {
+		fprintf(stderr, "kaction-result: %d\n", args.result);
+	}
 }
 
 static struct pcie_function *pcie_register_device(struct pcie_bus_header *space,
@@ -258,6 +277,7 @@ int main(int argc, char **argv)
 
 	for(struct pcie_function *pf = pcie_list; pf; pf = pf->next) {
 		pcie_print_function(pf, false);
+		pcie_init_function(pf);
 	}
 
 	int r;
