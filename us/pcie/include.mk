@@ -11,4 +11,10 @@ $(BUILDDIR)/us/pcie/pcie: $(pcie_objs) $(US_LIBDEPS)
 
 -include $(pcie_deps)
 
+$(BUILDDIR)/us/data/pcieids.obj: /usr/share/hwdata/pci.ids $(BUILDDIR)/utils/file2obj
+	@echo [OBJ] $@
+	@$(BUILDDIR)/utils/file2obj -i $< -o $@ -p rh
+
+TWZOBJS+=$(BUILDDIR)/us/data/pcieids.obj
+
 .PHONY: pcie_all

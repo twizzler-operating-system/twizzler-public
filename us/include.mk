@@ -2,6 +2,7 @@ PROGS=test init term shell login nls pcie
 SUBDIRS=test init term shell login nls pcie
 TWZCC?=x86_64-pc-elf-gcc
 
+TWZOBJS=$(addprefix $(BUILDDIR)/us/,$(addsuffix .text.obj,$(foreach x,$(PROGS),$(x)/$(x))))
 
 MUSL=musl-1.1.16
 
@@ -106,7 +107,6 @@ $(BUILDDIR)/us/%.o: us/%.c $(MUSL_READY)
 
 -include $(BUILDDIR)/us/*/*.d
 
-TWZOBJS=$(addprefix $(BUILDDIR)/us/,$(addsuffix .text.obj,$(foreach x,$(PROGS),$(x)/$(x))))
 TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),$(x)/$(x))))
 
 #TWZOBJS+=$(BUILDDIR)/us/foo.text.obj $(BUILDDIR)/us/foo.data.obj

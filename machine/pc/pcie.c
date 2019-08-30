@@ -98,46 +98,6 @@ static bool pcief_capability_get(struct pcie_function *pf, int id, union pcie_ca
 	return false;
 }
 
-static struct pcie_function *pcie_register_device(struct mcfg_desc_entry *space,
-  struct pcie_config_space *config,
-  unsigned int bus,
-  unsigned int device,
-  unsigned int function)
-{
-	printk("[pcie] found %.2x:%.2x.%.2x\n", bus, device, function);
-
-	struct pcie_function *pf = slabcache_alloc(&sc_pcief);
-	pf->config = config;
-	pf->segment = space->pci_seg_group_nr;
-	pf->bus = bus;
-	pf->device = device;
-	pf->function = function;
-
-	printk("  vendor=%x, device=%x, subclass=%x, class=%x, progif=%x, type=%d\n",
-	  config->header.vendor_id,
-	  config->header.device_id,
-	  config->header.subclass,
-	  config->header.class_code,
-	  config->header.progif,
-	  HEADER_TYPE(config->header.header_type));
-
-	if(HEADER_TYPE(config->header.header_type)) {
-		printk("[pcie] WARNING -- unimplemented: header_type 1\n");
-		return pf;
-	}
-
-	printk("  cap_ptr: %x, bar0: %x bar1: %x bar2: %x bar3: %x bar4: %x bar5: %x\n",
-	  config->device.cap_ptr,
-	  config->device.bar[0],
-	  config->device.bar[1],
-	  config->device.bar[2],
-	  config->device.bar[3],
-	  config->device.bar[4],
-	  config->device.bar[5]);
-
-	return pf;
-}
-
 static void pcie_init_space(struct mcfg_desc_entry *space)
 {
 	printk("[pcie] initializing PCIe configuration space at %lx covering %.4d:%.2x-%.2x\n",

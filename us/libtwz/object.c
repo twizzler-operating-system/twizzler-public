@@ -23,6 +23,20 @@ int twz_object_open(struct object *obj, objid_t id, int flags)
 	return 0;
 }
 
+int twz_object_open_name(struct object *obj, const char *name, int flags)
+{
+	objid_t id;
+	int r = twz_name_resolve(NULL, name, NULL, 0, &id);
+	if(r < 0)
+		return r;
+	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);
+	if(slot < 0)
+		return slot;
+
+	obj->base = (void *)(OBJ_MAXSIZE * (slot));
+	return 0;
+}
+
 void *twz_object_getext(struct object *obj, uint64_t tag)
 {
 	struct metainfo *mi = twz_object_meta(obj);
