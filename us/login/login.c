@@ -65,6 +65,19 @@ void *_sf(void *a)
 
 int main(int argc, char **argv)
 {
+	debug_printf("::::: here\n");
+	if(!strcmp(argv[1], "screen")) {
+		debug_printf("::::: here (screen)\n");
+		close(0);
+		close(1);
+		close(2);
+		if(open("dev:dfl:keyboard") != 0)
+			debug_printf("ERR\n");
+		if(open("dev:dfl:screen") != 1)
+			debug_printf("ERR\n");
+		if(open("dev:dfl:screen") != 2)
+			debug_printf("ERR\n");
+	}
 	for(;;) {
 		char buffer[1024];
 		printf("Twizzler Login: ");

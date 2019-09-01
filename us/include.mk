@@ -103,7 +103,7 @@ SYSLIBS=$(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/l
 $(BUILDDIR)/us/%.o: us/%.c $(MUSL_READY)
 	@mkdir -p $(dir $@)
 	@echo "[CCC] $@"
-	@$(TWZCC) $(TWZCFLAGS) -fpic -c -MD -MF $(BUILDDIR)/us/$*.d -o $@ $<
+	$(TWZCC) $(TWZCFLAGS) -fpic -c -MD -MF $(BUILDDIR)/us/$*.d -o $@ $<
 
 -include $(BUILDDIR)/us/*/*.d
 

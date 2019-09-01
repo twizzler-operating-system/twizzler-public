@@ -1,16 +1,15 @@
-#include <processor.h>
-#include <system.h>
-#include <slab.h>
-#include <memory.h>
-#include <init.h>
 #include <guard.h>
+#include <init.h>
+#include <memory.h>
+#include <processor.h>
+#include <slab.h>
+#include <system.h>
 
 void kernel_main(struct processor *);
 
 static struct processor processors[PROCESSOR_MAX_CPUS];
 
-__noinstrument
-struct processor *processor_get_current(void)
+__noinstrument struct processor *processor_get_current(void)
 {
 	return &processors[arch_processor_current_id()];
 }
@@ -29,7 +28,7 @@ void processor_register(bool bsp, unsigned int id)
 		printk("[kernel]: not registering cpu %d: increase MAX_CPUS\n", id);
 		return;
 	}
-	
+
 	struct processor *proc = &processors[id];
 	proc->id = id;
 	if(bsp) {
@@ -49,7 +48,7 @@ void processor_register(bool bsp, unsigned int id)
 
 __orderedinitializer(PROCESSOR_INITIALIZER_ORDER) static void processor_init(void)
 {
-	for(unsigned int i=0;i<PROCESSOR_MAX_CPUS;i++) {
+	for(unsigned int i = 0; i < PROCESSOR_MAX_CPUS; i++) {
 		processors[i].id = 0;
 		processors[i].flags = 0;
 	}
@@ -61,10 +60,10 @@ void processor_barrier(_Atomic unsigned int *here)
 	unsigned int backoff = 1;
 	(*here)++;
 	while(*here != processor_count) {
-		for(unsigned int i=0;i<backoff;i++) {
+		for(unsigned int i = 0; i < backoff; i++) {
 			arch_processor_relax();
 		}
-		backoff = backoff < 1000 ? backoff+1 : backoff;
+		backoff = backoff < 1000 ? backoff + 1 : backoff;
 	}
 }
 
@@ -114,10 +113,10 @@ void processor_init_secondaries(void)
 {
 	printk("Initializing secondary processors...\n");
 	processor_count++; /* BSP */
-	for(int i=0;i<PROCESSOR_MAX_CPUS;i++) {
+	for(int i = 0; i < PROCESSOR_MAX_CPUS; i++) {
 		struct processor *proc = &processors[i];
 		if(!(proc->flags & PROCESSOR_BSP) && !(proc->flags & PROCESSOR_UP)
-				&& (proc->flags & PROCESSOR_REGISTERED)) {
+		   && (proc->flags & PROCESSOR_REGISTERED)) {
 			/* TODO (major): check for failure */
 			arch_processor_boot(proc);
 			processor_count++;
@@ -158,7 +157,7 @@ void processor_attach_thread(struct processor *proc, struct thread *thread)
 {
 	if(proc == NULL) {
 		proc = current_processor;
-		for(int i=0;i<PROCESSOR_MAX_CPUS;i++) {
+		for(int i = 0; i < PROCESSOR_MAX_CPUS; i++) {
 			if((processors[i].flags & PROCESSOR_UP) && processors[i].load < proc->load) {
 				proc = &processors[i];
 			}
@@ -167,13 +166,11 @@ void processor_attach_thread(struct processor *proc, struct thread *thread)
 	__do_processor_attach_thread(proc, thread);
 }
 
-
 void processor_percpu_regions_init(void)
 {
 	size_t percpu_length = (size_t)&kernel_data_percpu_length;
-	printk("loading percpu data from %p, length %ld bytes\n",
-			&kernel_data_percpu_load, percpu_length);
+	printk(
+	  "loading percpu data from %p, length %ld bytes\n", &kernel_data_percpu_load, percpu_length);
 	bsp_percpu_region = (void *)mm_virtual_alloc(percpu_length, PM_TYPE_DRAM, true);
 	memcpy(bsp_percpu_region, &kernel_data_percpu_load, percpu_length);
 }
-

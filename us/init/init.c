@@ -48,6 +48,7 @@ void tmain(void *a)
 
 void logmain(void *arg)
 {
+	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] init-logger");
 	objid_t *lid = twz_ptr_lea(twz_stdstack, arg);
 	struct object sobj;
 	twz_object_open(&sobj, *lid, FE_READ | FE_WRITE);
@@ -185,15 +186,15 @@ int main(int argc, char **argv)
 	close(1);
 	close(2);
 
-	if((fd = open("dev:dfl:keyboard", O_RDONLY)) != 0) {
+	if((fd = open("dev:dfl:serial-input", O_RDONLY)) != 0) {
 		EPRINTF("err opening stdin: %d\n", fd);
 		abort();
 	}
-	if((fd = open("dev:dfl:screen", O_RDWR)) != 1) {
+	if((fd = open("dev:dfl:serial-output", O_RDWR)) != 1) {
 		EPRINTF("err opening stdout\n");
 		abort();
 	}
-	if((fd = open("dev:dfl:screen", O_RDWR)) != 2) {
+	if((fd = open("dev:dfl:serial-output", O_RDWR)) != 2) {
 		EPRINTF("err opening stderr\n");
 		abort();
 	}
@@ -211,6 +212,7 @@ int main(int argc, char **argv)
 	struct service_info login_info = {
 		.name = "login",
 		.sctx = lsi,
+		.arg = "serial",
 	};
 
 	EPRINTF("twzinit: starting login program\n");
@@ -222,6 +224,63 @@ int main(int argc, char **argv)
 		abort();
 	}
 
+	struct service_info login2_info = {
+		.name = "login",
+		.sctx = lsi,
+		.arg = "screen",
+	};
+
+	EPRINTF("twzinit: starting login program2\n");
+
+	struct thread sh2thr;
+	if((r = twz_thread_spawn(
+	      &sh2thr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &login2_info }))) {
+		EPRINTF("failed to spawn shell2");
+		abort();
+	}
+
+	struct thread sh3thr;
+	if((r = twz_thread_spawn(
+	      &sh3thr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &login2_info }))) {
+		EPRINTF("failed to spawn shell2");
+		abort();
+	}
+
+#if 0
+	close(0);
+	close(1);
+	close(2);
+
+	if((fd = open("dev:dfl:keyboard", O_RDONLY)) != 0) {
+		EPRINTF("err opening stdin: %d\n", fd);
+		abort();
+	}
+	if((fd = open("dev:dfl:screen", O_RDWR)) != 1) {
+		EPRINTF("err opening stdout\n");
+		abort();
+	}
+	if((fd = open("dev:dfl:screen", O_RDWR)) != 2) {
+		EPRINTF("err opening stderr\n");
+		abort();
+	}
+
+	/*
+	objid_t lsi;
+	r = twz_name_resolve(NULL, "login.sctx", NULL, 0, &lsi);
+	if(r) {
+	    EPRINTF("failed to resolve 'login.sctx'");
+	    twz_thread_exit();
+	}*/
+
+	EPRINTF("twzinit: starting login program\n");
+
+	struct thread shthr2;
+	if((r = twz_thread_spawn(
+	      &shthr2, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &login_info }))) {
+		EPRINTF("failed to spawn shell");
+		abort();
+	}
+#endif
 	EPRINTF("twzinit: init process completed\n");
 	twz_thread_exit();
 

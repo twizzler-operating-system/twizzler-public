@@ -130,6 +130,23 @@ char serial_getc()
 	return uart_read(&com1, UART_REG_DATA);
 }
 
+int pckbd_getc(void)
+{
+	while(!((inb(0x64) & 1)))
+		;
+	return inb(0x60);
+}
+
+char serial_ready()
+{
+	return (uart_read(&com1, UART_REG_LSR) & UART_LSR_RX_READY) != 0;
+}
+
+int pckbd_ready(void)
+{
+	return ((inb(0x64) & 1));
+}
+
 #include "../pcie/ssfn.h"
 struct fb {
 	struct object obj;
@@ -146,11 +163,12 @@ struct fb {
 struct fb fb = { 0 };
 
 void fb_putc(struct fb *fb, int c);
-objid_t kid, sid;
-struct object kobj, sobj;
+objid_t kid, sid, siid, soid;
+struct object kobj, sobj, siobj, soobj;
+
 void kbmain(void *a)
 {
-	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term.input");
+	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term.input-serial");
 
 	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
 	int r;
@@ -161,22 +179,25 @@ void kbmain(void *a)
 
 	// bstream_write(&sobj, twz_obj_base(&sobj), "Hello, World", 12, 0);
 	for(;;) {
-		int x = serial_getc();
-		switch(x) {
-			case 0x4:
-				//	bstream_mark_eof(&ko);
-				break;
-			case '\r':
-				bstream_write(&sobj, &x, 1, 0);
-				x = '\n';
-				// serial_putc('\r'); /* fall through */
-				// fb_putc(&fb, '\r');
-			default:
-				// serial_putc(x);
-				// fb_putc(&fb, x);
-				bstream_write(&sobj, &x, 1, 0);
+		int x;
+		if(serial_ready()) {
+			int x = serial_getc();
+			switch(x) {
+				case 0x4:
+					//	bstream_mark_eof(&ko);
+					break;
+				case '\r':
+					x = '\n';
+					serial_putc('\r'); /* fall through */
+				default:
+					serial_putc(x);
+			}
+			bstream_write(&siobj, &x, 1, 0);
 		}
-		bstream_write(&kobj, &x, 1, 0);
+		if(pckbd_ready()) {
+			debug_printf("kbd: %x\n", pckbd_getc());
+		}
+		debug_printf("");
 	}
 }
 
@@ -198,13 +219,16 @@ struct __packed bga_regs {
 
 static inline uint32_t ARGB_TO_BGR(uint32_t x)
 {
-	float a = ((x >> 24) & 0xff) / 0xff;
+	uint32_t a = (x >> 24) & 0xff;
 	uint32_t r = (x >> 16) & 0xff;
 	uint32_t g = (x >> 8) & 0xff;
 	uint32_t b = x & 0xff;
 	r *= a;
+	r /= 0xff;
 	g *= a;
+	g /= 0xff;
 	b *= a;
+	b /= 0xff;
 	return (r << 16 | g << 8 | b);
 }
 
@@ -215,9 +239,12 @@ static __inline__ unsigned long long rdtsc(void)
 	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }
 
-static void draw_glyph(const struct fb *fb, ssfn_glyph_t *glyph, uint32_t fgcolor, int c)
+static void draw_glyph(const struct fb *restrict fb,
+  ssfn_glyph_t *restrict glyph,
+  uint32_t fgcolor,
+  int c)
 {
-	int x, y, i, m;
+	unsigned int x, y, i, m;
 	uint32_t pen_x = fb->fbx;
 	uint32_t pen_y = fb->fby;
 	/* align glyph properly, we may have received a vertical letter */
@@ -275,14 +302,29 @@ static void draw_glyph(const struct fb *fb, ssfn_glyph_t *glyph, uint32_t fgcolo
 			debug_printf("Unsupported mode for %x: %d\n", c, glyph->mode);
 	}
 	uint64_t end = rdtsc();
-	debug_printf("TSC: %ld\n", end - start);
+	// debug_printf("TSC: %ld\n", end - start);
+}
+
+#include <immintrin.h>
+/* ... */
+void fastMemcpy(void *pvDest, void *pvSrc, size_t nBytes)
+{
+	const __m256i *pSrc = (const __m256i *)(pvSrc);
+	__m256i *pDest = (__m256i *)(pvDest);
+	int64_t nVects = nBytes / sizeof(*pSrc);
+	for(; nVects > 0; nVects--, pSrc++, pDest++) {
+		const __m256i loaded = _mm256_stream_load_si256(pSrc);
+		_mm256_stream_si256(pDest, loaded);
+	}
+	_mm_sfence();
 }
 
 void fb_scroll(struct fb *fb, int nlines)
 {
 	// memmove(&fb->char_buffer[0], &fb->char_buffer[fb->cw], fb->cw * (fb->ch - 1));
 	// memset(&fb->char_buffer[fb->cw * (fb->ch - 1)], 0, fb->cw);
-	memmove(fb->back_buffer, fb->back_buffer + fb->pitch * nlines, fb->pitch * (fb->fbh - nlines));
+	fastMemcpy(
+	  fb->back_buffer, fb->back_buffer + fb->pitch * nlines, fb->pitch * (fb->fbh - nlines));
 	memset(fb->back_buffer + fb->pitch * (fb->fbh - nlines), 0, fb->pitch * nlines);
 	fb->flip = 1;
 }
@@ -400,8 +442,36 @@ void fb_putc(struct fb *fb, int c)
 		fb->char_buffer[fb->cw * fb->cy + fb->cx] = c;
 	fb_render(fb, c);
 
+	uint64_t s = rdtsc();
 	if(fb->flip) {
-		memcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
+		fastMemcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
+	}
+	uint64_t e = rdtsc();
+	// debug_printf("flip: %ld\n", e - s);
+}
+
+void smain(void *a)
+{
+	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term.framebuffer");
+	int r;
+	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
+		debug_printf("failed to mark ready");
+		abort();
+	}
+
+	for(;;) {
+		char buf[128];
+		memset(buf, 0, sizeof(buf));
+		ssize_t r = bstream_read(&sobj, buf, 127, 0);
+		if(r > 0) {
+			for(ssize_t i = 0; i < r; i++) {
+				if(fb.init) {
+					if(buf[i] == '\n')
+						fb_putc(&fb, '\r');
+					fb_putc(&fb, buf[i]);
+				}
+			}
+		}
 	}
 }
 
@@ -418,6 +488,24 @@ int main(int argc, char **argv)
 		abort();
 	}
 
+	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &siid))) {
+		debug_printf("failed to create serial in object");
+		abort();
+	}
+	if((r = twz_object_open(&siobj, siid, FE_READ | FE_WRITE))) {
+		debug_printf("failed to open serial in object");
+		abort();
+	}
+
+	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &soid))) {
+		debug_printf("failed to create serial out object");
+		abort();
+	}
+	if((r = twz_object_open(&soobj, soid, FE_READ | FE_WRITE))) {
+		debug_printf("failed to open serial out object");
+		abort();
+	}
+
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
 		debug_printf("failed to create screen object");
 		abort();
@@ -431,8 +519,18 @@ int main(int argc, char **argv)
 		debug_printf("failed to init keyboard bstream");
 		abort();
 	}
+
 	if((r = bstream_obj_init(&sobj, twz_obj_base(&sobj), 16))) {
 		debug_printf("failed to init screen bstream");
+		abort();
+	}
+
+	if((r = bstream_obj_init(&soobj, twz_obj_base(&soobj), 16))) {
+		debug_printf("failed to init serial out bstream");
+		abort();
+	}
+	if((r = bstream_obj_init(&siobj, twz_obj_base(&siobj), 16))) {
+		debug_printf("failed to init serial in bstream");
 		abort();
 	}
 
@@ -444,6 +542,16 @@ int main(int argc, char **argv)
 		debug_printf("failed to assign screen object name");
 		abort();
 	}
+
+	if((r = twz_name_assign(siid, "dev:dfl:serial-input"))) {
+		debug_printf("failed to assign keyboard object name");
+		abort();
+	}
+	if((r = twz_name_assign(soid, "dev:dfl:serial-output"))) {
+		debug_printf("failed to assign screen object name");
+		abort();
+	}
+
 	fb.init = 1;
 	if((r = twz_object_open_name(&fb.obj, "dev:framebuffer", FE_READ | FE_WRITE))) {
 		debug_printf("term: failed to open framebuffer: %d\n", r);
@@ -459,6 +567,15 @@ int main(int argc, char **argv)
 
 	twz_thread_wait(1, (struct thread *[]){ &kthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 
+	struct thread sthr;
+	if((r =
+	       twz_thread_spawn(&sthr, &(struct thrd_spawn_args){ .start_func = smain, .arg = &bs }))) {
+		debug_printf("failed to spawn framebuffer thread");
+		abort();
+	}
+
+	twz_thread_wait(1, (struct thread *[]){ &sthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
 		debug_printf("failed to mark ready");
 		abort();
@@ -467,17 +584,12 @@ int main(int argc, char **argv)
 	for(;;) {
 		char buf[128];
 		memset(buf, 0, sizeof(buf));
-		ssize_t r = bstream_read(&sobj, buf, 127, 0);
+		ssize_t r = bstream_read(&soobj, buf, 127, 0);
 		if(r > 0) {
 			for(ssize_t i = 0; i < r; i++) {
 				if(buf[i] == '\n')
 					serial_putc('\r');
 				serial_putc(buf[i]);
-				if(fb.init) {
-					if(buf[i] == '\n')
-						fb_putc(&fb, '\r');
-					fb_putc(&fb, buf[i]);
-				}
 			}
 		}
 	}
