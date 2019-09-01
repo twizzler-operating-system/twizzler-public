@@ -198,16 +198,13 @@ struct __packed bga_regs {
 
 static inline uint32_t ARGB_TO_BGR(uint32_t x)
 {
-	uint32_t a = (x >> 24) & 0xff;
+	float a = ((x >> 24) & 0xff) / 0xff;
 	uint32_t r = (x >> 16) & 0xff;
 	uint32_t g = (x >> 8) & 0xff;
 	uint32_t b = x & 0xff;
 	r *= a;
-	r /= 0xff;
 	g *= a;
-	g /= 0xff;
 	b *= a;
-	b /= 0xff;
 	return (r << 16 | g << 8 | b);
 }
 
