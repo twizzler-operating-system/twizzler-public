@@ -46,9 +46,24 @@ void tmain(void *a)
 	twz_thread_exit();
 }
 
+void logmain(void *arg)
+{
+	objid_t *lid = twz_ptr_lea(twz_stdstack, arg);
+	struct object sobj;
+	twz_object_open(&sobj, *lid, FE_READ | FE_WRITE);
+	twz_thread_ready(NULL, THRD_SYNC_READY, 1);
+	for(;;) {
+		char buf[128];
+		memset(buf, 0, sizeof(buf));
+		ssize_t r = bstream_read(&sobj, buf, 127, 0);
+		__sys_debug_print(buf, r);
+	}
+}
+
 struct object bs;
 int main(int argc, char **argv)
 {
+	debug_printf("Bootstrapping naming system\n");
 	if(__name_bootstrap() == -1) {
 		EPRINTF("Failed to bootstrap namer\n");
 		abort();
@@ -65,13 +80,43 @@ int main(int argc, char **argv)
 
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] init");
 
-	if((r = twz_thread_spawn(
-	      &tthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &term_info }))) {
-		EPRINTF("failed to spawn terminal");
+	objid_t lid;
+	struct object lobj;
+	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &lid))) {
+		debug_printf("failed to create log object");
 		abort();
 	}
-	twz_thread_wait(1, (struct thread *[]){ &tthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+	if((r = twz_object_open(&lobj, lid, FE_READ | FE_WRITE))) {
+		debug_printf("failed to open log object");
+		abort();
+	}
+	if((r = twz_name_assign(lid, "dev:dfl:log"))) {
+		debug_printf("failed to assign log object name");
+		abort();
+	}
 
+	if((r = bstream_obj_init(&lobj, twz_obj_base(&lobj), 16))) {
+		debug_printf("failed to init log bstream");
+		abort();
+	}
+
+	objid_t nid;
+	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &nid))) {
+		debug_printf("failed to create null object");
+		abort();
+	}
+	if((r = twz_name_assign(nid, "dev:null"))) {
+		debug_printf("failed to assign null object name");
+		abort();
+	}
+
+	struct thread lthr;
+	if((r = twz_thread_spawn(
+	      &lthr, &(struct thrd_spawn_args){ .start_func = logmain, .arg = &lid }))) {
+		EPRINTF("failed to spawn logger");
+		abort();
+	}
+	twz_thread_wait(1, (struct thread *[]){ &lthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 	objid_t si;
 	r = twz_name_resolve(NULL, "init.sctx", NULL, 0, &si);
 	if(r) {
@@ -85,21 +130,18 @@ int main(int argc, char **argv)
 	}
 
 	int fd;
-	if((fd = open("dev:dfl:keyboard", O_RDONLY)) != 0) {
+	if((fd = open("dev:null", O_RDONLY)) != 0) {
 		EPRINTF("err opening stdin");
 		abort();
 	}
-	if((fd = open("dev:dfl:screen", O_RDWR)) != 1) {
+	if((fd = open("dev:dfl:log", O_RDWR)) != 1) {
 		EPRINTF("err opening stdout");
 		abort();
 	}
-	if((fd = open("dev:dfl:screen", O_RDWR)) != 2) {
+	if((fd = open("dev:dfl:log", O_RDWR)) != 2) {
 		EPRINTF("err opening stderr");
 		abort();
 	}
-
-	term_ready = true;
-	EPRINTF("twzinit: terminal ready\n");
 
 	/* start devices */
 	struct object root;
@@ -132,6 +174,33 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if((r = twz_thread_spawn(
+	      &tthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &term_info }))) {
+		EPRINTF("failed to spawn terminal");
+		abort();
+	}
+	twz_thread_wait(1, (struct thread *[]){ &tthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+
+	close(0);
+	close(1);
+	close(2);
+
+	if((fd = open("dev:dfl:keyboard", O_RDONLY)) != 0) {
+		EPRINTF("err opening stdin: %d\n", fd);
+		abort();
+	}
+	if((fd = open("dev:dfl:screen", O_RDWR)) != 1) {
+		EPRINTF("err opening stdout\n");
+		abort();
+	}
+	if((fd = open("dev:dfl:screen", O_RDWR)) != 2) {
+		EPRINTF("err opening stderr\n");
+		abort();
+	}
+
+	term_ready = true;
+	EPRINTF("twzinit: terminal ready\n");
+
 	objid_t lsi;
 	r = twz_name_resolve(NULL, "login.sctx", NULL, 0, &lsi);
 	if(r) {
@@ -145,6 +214,7 @@ int main(int argc, char **argv)
 	};
 
 	EPRINTF("twzinit: starting login program\n");
+
 	struct thread shthr;
 	if((r = twz_thread_spawn(
 	      &shthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &login_info }))) {

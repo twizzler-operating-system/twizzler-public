@@ -15,7 +15,8 @@ long syscall_debug_print(const char *data, size_t len)
 		len = 1024;
 	char buf[len + 1];
 	strncpy(buf, data, len);
-	printk("[us:%ld]: %s\n", current_thread ? current_thread->id : 0, data);
+	// printk("[us:%ld]: %s\n", current_thread ? current_thread->id : 0, data);
+	printk("%s", data);
 
 	return len;
 }

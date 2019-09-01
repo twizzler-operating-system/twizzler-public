@@ -704,7 +704,7 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 {
 	__fd_sys_init();
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
-		debug_printf("Unimplemented UNIX system call: %ld", num);
+		debug_printf("Unimplemented UNIX system call: %ld\n", num);
 		return -ENOSYS;
 	}
 	if(num == LINUX_SYS_clone) {

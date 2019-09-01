@@ -12,4 +12,6 @@ struct pcie_function {
 	uint8_t flags;
 	size_t bar_sizes[6];
 	struct pcie_function *next;
+	objid_t cid;
+	struct object cobj;
 };

@@ -23,7 +23,7 @@ static void _vmctx_dtor(void *_p, void *obj)
 
 __initializer static void _init_vmctx(void)
 {
-	slabcache_init(&sc_iht, ihtable_size(4), _iht_ctor, NULL, (void *)4ul);
+	slabcache_init(&sc_iht, ihtable_size(8), _iht_ctor, NULL, (void *)8ul);
 	slabcache_init(&sc_vmap, sizeof(struct vmap), NULL, NULL, NULL);
 	slabcache_init(&sc_vmctx, sizeof(struct vm_context), _vmctx_ctor, _vmctx_dtor, NULL);
 }

@@ -111,17 +111,19 @@ static void __alloc_bar(struct object *obj,
 		pg->addr = addr;
 		pg->type = PAGE_TYPE_MMIO;
 		pg->flags |= (pref ? (wc ? PAGE_CACHE_WC : PAGE_CACHE_WT) : PAGE_CACHE_UC);
-		if(sz >= mm_page_size(1)) {
+		size_t nix;
+		if(sz >= mm_page_size(1) && !(addr & (mm_page_size(1) - 1))) {
 			pg->level = 1;
 			sz -= mm_page_size(1);
 			addr += mm_page_size(1);
-			idx += mm_page_size(1) / mm_page_size(0);
+			nix = mm_page_size(1) / mm_page_size(0);
 		} else {
 			sz -= mm_page_size(0);
 			addr += mm_page_size(0);
-			idx++;
+			nix = 1;
 		}
 		obj_cache_page(obj, idx, pg);
+		idx += nix;
 	}
 }
 
@@ -157,6 +159,7 @@ static long pcie_function_init(struct object *pbobj,
 		.bus = bus,
 		.device = device,
 		.function = function,
+		.segment = segment,
 	};
 
 	struct pcie_config_space *space = mm_ptov(ba);
@@ -192,7 +195,7 @@ static long pcie_function_init(struct object *pbobj,
 		hdr.bars[i] = (volatile void *)start;
 		hdr.prefetch[i] = pref;
 		hdr.barsz[i] = sz;
-		/*
+#if 0
 		printk("init bar %d for addr %lx at %lx len=%ld, type=%d (p=%d,wc=%d)\n",
 		  i,
 		  addr,
@@ -200,7 +203,8 @@ static long pcie_function_init(struct object *pbobj,
 		  sz,
 		  type,
 		  pref,
-		  (wc >> i) & 1);*/
+		  (wc >> i) & 1);
+#endif
 
 		start += sz;
 		start = ((start - 1) & ~(mm_page_size(1) - 1)) + mm_page_size(1);

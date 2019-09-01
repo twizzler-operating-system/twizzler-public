@@ -9,6 +9,8 @@
 
 #include "pcie.h"
 
+//#define printf debug_printf
+
 struct object pcie_cs_obj;
 objid_t pcie_cs_oid;
 static struct object pids;
@@ -146,13 +148,13 @@ void pcie_print_function(struct pcie_function *pf, bool nums)
 	}
 
 	// printf("%x %x %x : %x %x\n", class, subclass, progif, vendor, device);
-	printf("  %s ", sname ? sname : cname);
+	printf("[pcie]  %s ", sname ? sname : cname);
 	if(pname)
 		printf("[%s] ", pname);
 	printf(":: %s %s\n", vname, dname);
 }
 
-void pcie_init_function(struct pcie_function *pf)
+int pcie_init_function(struct pcie_function *pf)
 {
 	uint64_t wc = 0;
 	if(pf->config->header.vendor_id == 0x1234 && pf->config->header.device_id == 0x1111) {
@@ -168,10 +170,25 @@ void pcie_init_function(struct pcie_function *pf)
 	int r;
 	if((r = sys_kaction(1, &args)) < 0) {
 		fprintf(stderr, "kaction: %d\n", r);
+		return r;
 	}
 	if(args.result) {
 		fprintf(stderr, "kaction-result: %d\n", args.result);
+		return r;
 	}
+
+	struct pcie_bus_header *hdr = twz_obj_base(&pcie_cs_obj);
+	uint32_t fid = pf->bus << 8 | pf->device << 3 | pf->function;
+	if((pf->cid = hdr->functions[fid])) {
+		twz_object_open(&pf->cobj, pf->cid, FE_READ | FE_WRITE);
+		struct pcie_function_header *fh = twz_obj_base(&pf->cobj);
+		fh->deviceid = pf->config->header.device_id;
+		fh->vendorid = pf->config->header.vendor_id;
+		fh->classid = pf->config->header.class_code;
+		fh->subclassid = pf->config->header.subclass;
+		fh->progif = pf->config->header.progif;
+	}
+	return pf->cid ? 0 : -1;
 }
 
 static struct pcie_function *pcie_register_device(struct pcie_bus_header *space,
@@ -186,33 +203,6 @@ static struct pcie_function *pcie_register_device(struct pcie_bus_header *space,
 	pf->bus = bus;
 	pf->device = device;
 	pf->function = function;
-
-	/*
-	printf("[pcie] found %.2x:%.2x.%.2x\n", bus, device, function);
-	printf("  vendor=%x, device=%x, subclass=%x, class=%x, progif=%x, type=%d\n",
-	  config->header.vendor_id,
-	  config->header.device_id,
-	  config->header.subclass,
-	  config->header.class_code,
-	  config->header.progif,
-	  HEADER_TYPE(config->header.header_type));
-
-	if(HEADER_TYPE(config->header.header_type)) {
-	    printf("[pcie] WARNING -- unimplemented: header_type 1\n");
-	    return pf;
-	}
-
-	printf("  cap_ptr: %x, bar0: %x bar1: %x bar2: %x bar3: %x bar4: %x bar5: %x\n",
-	  config->device.cap_ptr,
-	  config->device.bar[0],
-	  config->device.bar[1],
-	  config->device.bar[2],
-	  config->device.bar[3],
-	  config->device.bar[4],
-	  config->device.bar[5]);
-
-	  */
-
 	return pf;
 }
 
@@ -262,9 +252,204 @@ static void pcie_init_space(struct pcie_bus_header *space)
 	}
 }
 
+#define VBE_DISPI_INDEX_ID (0)
+#define VBE_DISPI_INDEX_XRES (1)
+#define VBE_DISPI_INDEX_YRES (2)
+#define VBE_DISPI_INDEX_BPP (3)
+#define VBE_DISPI_INDEX_ENABLE (4)
+#define VBE_DISPI_INDEX_BANK (5)
+#define VBE_DISPI_INDEX_VIRT_WIDTH (6)
+#define VBE_DISPI_INDEX_VIRT_HEIGHT (7)
+#define VBE_DISPI_INDEX_X_OFFSET (8)
+#define VBE_DISPI_INDEX_Y_OFFSET (9)
+
+struct __packed bga_regs {
+	uint16_t index;
+	uint16_t xres;
+	uint16_t yres;
+	uint16_t bpp;
+	uint16_t enable;
+	uint16_t bank;
+	uint16_t vwidth;
+	uint16_t vheight;
+	uint16_t xoff;
+	uint16_t yoff;
+};
+
+#include "ssfn.h"
+
+void wpix(unsigned char *fb, int x, int y, uint8_t r, uint8_t g, uint8_t b)
+{
+	long off = (y * 1024 + x) * 4;
+	fb[off] = b;
+	fb[off + 1] = g;
+	fb[off + 2] = r;
+}
+
+size_t pitch;
+
+#define SDL_PIXEL ((uint32_t *)(fb))[(pen_y + y) * pitch / 4 + (pen_x + x)]
+
+static inline uint32_t ARGB_TO_BGR(uint32_t x)
+{
+	uint32_t a = (x >> 24) & 0xff;
+	uint32_t r = (x >> 16) & 0xff;
+	uint32_t g = (x >> 8) & 0xff;
+	uint32_t b = x & 0xff;
+	r *= a;
+	r /= 0xff;
+	g *= a;
+	g /= 0xff;
+	b *= a;
+	b /= 0xff;
+	return (r << 16 | g << 8 | b);
+}
+
+void my_draw_glyph(void *fb, ssfn_glyph_t *glyph, int pen_x, int pen_y, uint32_t fgcolor)
+{
+	int x, y, i, m;
+	/* align glyph properly, we may have received a vertical letter */
+
+	if(glyph->adv_y)
+		pen_x -= glyph->baseline;
+	else
+		pen_y -= glyph->baseline;
+
+	switch(glyph->mode) {
+		case SSFN_MODE_BITMAP:
+			for(y = 0; y < glyph->h; y++) {
+				for(x = 0, i = 0, m = 1; x < glyph->w; x++, m <<= 1) {
+					if(m > 0x80) {
+						m = 1;
+						i++;
+					}
+#if 0
+					printf(":: %d %d -> %d %d : %d ==> %x :: %x\n",
+					  x,
+					  y,
+					  (pen_y + y) * pitch / 4,
+					  pen_x + x,
+					  (pen_y + y) * pitch / 4 + (pen_x + x),
+					  glyph->data[y * glyph->pitch + i] & m,
+					  (glyph->data[y * glyph->pitch + i] & m) ? 0xFF000000 | fgcolor : 0);
+#endif
+					SDL_PIXEL = (glyph->data[y * glyph->pitch + i] & m) ? 0xFF000000 | fgcolor : 0;
+				}
+			}
+			break;
+
+		case SSFN_MODE_ALPHA:
+			for(y = 0; y < glyph->h; y++)
+				for(x = 0; x < glyph->w; x++) {
+					uint32_t pix = (fgcolor & 0xff);
+					pix *= glyph->data[y * glyph->pitch + x];
+					pix /= 0xff;
+					pix |= pix << 8;
+					pix |= pix << 8;
+					SDL_PIXEL = pix;
+					// SDL_PIXEL = (uint32_t)((glyph->data[y * glyph->pitch + x] << 24) | fgcolor);
+				}
+			break;
+
+		case SSFN_MODE_CMAP:
+			for(y = 0; y < glyph->h; y++)
+				for(x = 0; x < glyph->w; x++) {
+					SDL_PIXEL = ARGB_TO_BGR(
+					  SSFN_CMAP_TO_ARGB(glyph->data[y * glyph->pitch + x], glyph->cmap, fgcolor));
+				}
+			break;
+		default:
+			printf("Unsupported mode\n");
+	}
+}
+
+void pcie_load_driver(struct pcie_function *pf)
+{
+	struct pcie_function_header *hdr = twz_obj_base(&pf->cobj);
+	if(hdr->vendorid == 0x1234 && hdr->deviceid == 0x1111) {
+		twz_name_assign(pf->cid, "dev:framebuffer");
+		return;
+		printf("VGA!\n");
+		printf("%lx\n", hdr->bars[0]);
+		volatile struct bga_regs *regs = twz_ptr_lea(&pf->cobj, (void *)hdr->bars[2] + 0x500);
+		regs->index = 0xb0c5;
+		regs->enable = 0;
+		regs->xres = 1024;
+		regs->yres = 768;
+		regs->bpp = 0x20;
+		regs->enable = 1 | 0x40;
+		pitch = 1024 * 4;
+		unsigned char *fb = twz_ptr_lea(&pf->cobj, (void *)hdr->bars[0]);
+
+		struct object font;
+		int r;
+		if((r = twz_object_open_name(&font, "inconsolata.sfn", FE_READ))) {
+			printf("ERR opening font: %d\n", r);
+			return;
+		}
+
+		ssfn_t ctx; /* the renderer context */
+		memset(&ctx, 0, sizeof(ctx));
+
+		ssfn_glyph_t *glyph; /* the returned rasterized bitmap */
+
+		ssfn_font_t *_font_start = twz_obj_base(&font);
+
+		if((r = ssfn_load(&ctx, _font_start))) {
+			printf("load:%d\n", r);
+			return;
+		}
+
+		/* select the typeface to use */
+
+		if((r = ssfn_select(&ctx,
+		      SSFN_FAMILY_ANY,
+		      NULL, /* family */
+		      SSFN_STYLE_REGULAR,
+		      20,            /* style and size */
+		      SSFN_MODE_CMAP /* rendering mode */
+		      ))) {
+			printf("select: %d\n", r);
+			return;
+		}
+
+		glyph = ssfn_render(&ctx, 0x41);
+		if(!glyph) {
+			printf("glyph\n");
+			return;
+		}
+
+		for(int i = 0; i < glyph->pitch * glyph->h; i++) {
+			//		printf("%x\n", glyph->data[i]);
+		}
+
+		/* display the bitmap on your screen */
+
+		unsigned pen_x = 0, pen_y = glyph->baseline + 2;
+		my_draw_glyph(fb, glyph, pen_x, pen_y, 0x00ffffff);
+		pen_x += glyph->adv_x;
+		pen_y += glyph->adv_y;
+		my_draw_glyph(fb, glyph, pen_x, pen_y, 0x00ffffff);
+		pen_y += glyph->h;
+		pen_x = 0;
+		my_draw_glyph(fb, glyph, pen_x, pen_y, 0x00ffffff);
+
+		printf("DONE\n");
+#if 0
+		my_draw_glyph(pen_x,
+		  pen_y - glyph->baseline, /* coordinates to draw to */
+		  glyph->w,
+		  glyph->h,
+		  glyph->pitch, /* bitmap dimensions */
+		  &glyph->data  /* bitmap data */
+		);
+#endif
+	}
+}
+
 int main(int argc, char **argv)
 {
-	printf("PCIE init:: %s\n", argv[1]);
+	printf("[pcie] loading PCIe bus %s\n", argv[1]);
 
 	if(!objid_parse(argv[1], strlen(argv[1]), &pcie_cs_oid)) {
 		printf("invalid object ID: %s\n", argv[1]);
@@ -277,7 +462,8 @@ int main(int argc, char **argv)
 
 	for(struct pcie_function *pf = pcie_list; pf; pf = pf->next) {
 		pcie_print_function(pf, false);
-		pcie_init_function(pf);
+		if(pcie_init_function(pf) == 0)
+			pcie_load_driver(pf);
 	}
 
 	int r;

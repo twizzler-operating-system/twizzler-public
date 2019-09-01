@@ -123,6 +123,12 @@ $(BUILDDIR)/us/root/kc $(BUILDDIR)/us/bsv.obj: $(BUILDDIR)/us/bsv.data
 
 TWZOBJS+=$(BUILDDIR)/us/bsv.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.obj $(BUILDDIR)/us/libtwz/libtwz.so.data.obj
 
+TWZOBJS+=$(BUILDDIR)/us/inconsolata.sfn.obj
+
+$(BUILDDIR)/us/inconsolata.sfn.obj: us/inconsolata.sfn $(BUILDDIR)/utils/file2obj
+	@echo [OBJ] $@
+	@$(BUILDDIR)/utils/file2obj -p rh -i $< -o $@
+
 include us/users.mk
 
 $(BUILDDIR)/us/root.tar: $(TWZOBJS) $(SYSLIBS)

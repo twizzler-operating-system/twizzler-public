@@ -130,6 +130,22 @@ char serial_getc()
 	return uart_read(&com1, UART_REG_DATA);
 }
 
+#include "../pcie/ssfn.h"
+struct fb {
+	struct object obj;
+	struct object font;
+	size_t fsz;
+	ssfn_glyph_t *glyph_cache[256];
+	unsigned char *back_buffer, *front_buffer;
+	unsigned char *char_buffer;
+	size_t cw, ch, cx, cy, fbx, fby;
+	size_t fbw, fbh, pitch, bpp;
+	ssfn_t ctx;
+	int init, flip;
+};
+struct fb fb = { 0 };
+
+void fb_putc(struct fb *fb, int c);
 objid_t kid, sid;
 struct object kobj, sobj;
 void kbmain(void *a)
@@ -151,12 +167,224 @@ void kbmain(void *a)
 				//	bstream_mark_eof(&ko);
 				break;
 			case '\r':
+				bstream_write(&sobj, &x, 1, 0);
 				x = '\n';
-				serial_putc('\r'); /* fall through */
+				// serial_putc('\r'); /* fall through */
+				// fb_putc(&fb, '\r');
 			default:
-				serial_putc(x);
+				// serial_putc(x);
+				// fb_putc(&fb, x);
+				bstream_write(&sobj, &x, 1, 0);
 		}
 		bstream_write(&kobj, &x, 1, 0);
+	}
+}
+
+#include <driver/pcie.h>
+
+struct __packed bga_regs {
+	uint16_t index;
+	uint16_t xres;
+	uint16_t yres;
+	uint16_t bpp;
+	uint16_t enable;
+	uint16_t bank;
+	uint16_t vwidth;
+	uint16_t vheight;
+	uint16_t xoff;
+	uint16_t yoff;
+};
+#define SDL_PIXEL ((uint32_t *)(fb->back_buffer))[(pen_y + y) * fb->pitch / 4 + (pen_x + x)]
+
+static inline uint32_t ARGB_TO_BGR(uint32_t x)
+{
+	uint32_t a = (x >> 24) & 0xff;
+	uint32_t r = (x >> 16) & 0xff;
+	uint32_t g = (x >> 8) & 0xff;
+	uint32_t b = x & 0xff;
+	r *= a;
+	r /= 0xff;
+	g *= a;
+	g /= 0xff;
+	b *= a;
+	b /= 0xff;
+	return (r << 16 | g << 8 | b);
+}
+
+static void draw_glyph(struct fb *fb, ssfn_glyph_t *glyph, uint32_t fgcolor, int c)
+{
+	int x, y, i, m;
+	uint32_t pen_x = fb->fbx;
+	uint32_t pen_y = fb->fby;
+	/* align glyph properly, we may have received a vertical letter */
+
+	if(glyph->adv_y)
+		pen_x -= (int8_t)glyph->baseline;
+	else
+		pen_y -= (int8_t)glyph->baseline;
+
+	switch(glyph->mode) {
+		case SSFN_MODE_BITMAP:
+			for(y = 0; y < glyph->h; y++) {
+				for(x = 0, i = 0, m = 1; x < glyph->w; x++, m <<= 1) {
+					if(m > 0x80) {
+						m = 1;
+						i++;
+					}
+					SDL_PIXEL = (glyph->data[y * glyph->pitch + i] & m) ? 0xFF000000 | fgcolor : 0;
+				}
+			}
+			break;
+
+		case SSFN_MODE_ALPHA:
+			for(y = 0; y < glyph->h; y++)
+				for(x = 0; x < glyph->w; x++) {
+					uint32_t pix = (fgcolor & 0xff);
+					pix *= glyph->data[y * glyph->pitch + x];
+					pix /= 0xff;
+					pix |= pix << 8;
+					pix |= pix << 8;
+					SDL_PIXEL = pix;
+					// SDL_PIXEL = (uint32_t)((glyph->data[y * glyph->pitch + x] << 24) | fgcolor);
+				}
+			break;
+
+		case SSFN_MODE_CMAP:
+			for(y = 0; y < glyph->h; y++)
+				for(x = 0; x < glyph->w; x++) {
+					SDL_PIXEL = ARGB_TO_BGR(
+					  SSFN_CMAP_TO_ARGB(glyph->data[y * glyph->pitch + x], glyph->cmap, fgcolor));
+				}
+			break;
+		default:
+			debug_printf("Unsupported mode for %x: %d\n", c, glyph->mode);
+	}
+}
+
+void fb_scroll(struct fb *fb, int nlines)
+{
+	// memmove(&fb->char_buffer[0], &fb->char_buffer[fb->cw], fb->cw * (fb->ch - 1));
+	// memset(&fb->char_buffer[fb->cw * (fb->ch - 1)], 0, fb->cw);
+	memmove(fb->back_buffer, fb->back_buffer + fb->pitch * nlines, fb->pitch * (fb->fbh - nlines));
+	memset(fb->back_buffer + fb->pitch * (fb->fbh - nlines), 0, fb->pitch * nlines);
+	fb->flip = 1;
+}
+
+void fb_render(struct fb *fb, int c)
+{
+	switch(c) {
+		ssfn_glyph_t *glyph;
+		case '\n':
+			fb->fby += fb->fsz;
+			break;
+		case '\r':
+			fb->fbx = 0;
+			break;
+		default:
+			glyph = fb->glyph_cache[c];
+			if(!glyph) {
+				glyph = fb->glyph_cache[c] = ssfn_render(&fb->ctx, c);
+			}
+
+			if(!glyph) {
+				if(ssfn_lasterr(&fb->ctx)) {
+					debug_printf("render %x: %d\n", c, ssfn_lasterr(&fb->ctx));
+				}
+				return;
+			}
+
+			if(fb->fbx + glyph->adv_x >= fb->fbw) {
+				fb->fbx = 0;
+				fb->fby += fb->fsz;
+			}
+
+			long lines = fb->fbh;
+			lines -= (fb->fby + fb->fsz);
+			if(lines < 0) {
+				fb_scroll(fb, -lines);
+				fb->fby += lines;
+			}
+
+			/* display the bitmap on your screen */
+			draw_glyph(fb, glyph, 0x00ffffff, c);
+			fb->fbx += glyph->adv_x;
+			fb->flip = 1;
+			break;
+	}
+}
+
+void fb_putc(struct fb *fb, int c)
+{
+	if(fb->init == 0)
+		return;
+	struct pcie_function_header *hdr = twz_obj_base(&fb->obj);
+	if(fb->init == 1) {
+		fb->front_buffer = twz_ptr_lea(&fb->obj, (void *)hdr->bars[0]);
+		volatile struct bga_regs *regs = twz_ptr_lea(&fb->obj, (void *)hdr->bars[2] + 0x500);
+		regs->index = 0xb0c5;
+		regs->enable = 0;
+		regs->xres = 1024;
+		regs->yres = 768;
+		regs->bpp = 0x20;
+		regs->enable = 1 | 0x40;
+
+		fb->fbw = 1024;
+		fb->fbh = 768;
+		fb->bpp = 4;
+		fb->pitch = fb->fbw * fb->bpp;
+		fb->fsz = 16;
+		fb->cw = fb->fbw / (fb->fsz / 4);
+		fb->ch = fb->fbh / fb->fsz * 32;
+		fb->fbx = 0;
+		fb->fby = fb->fsz / 2;
+		for(int i = 0; i < 256; i++)
+			fb->glyph_cache[i] = NULL;
+
+		fb->char_buffer = calloc(sizeof(fb->char_buffer[0]), fb->cw * fb->ch);
+		fb->back_buffer = malloc(fb->pitch * fb->fbh);
+		memset(fb->back_buffer, 0, fb->pitch * fb->fbh);
+
+		struct object font;
+		int r;
+		if((r = twz_object_open_name(&font, "inconsolata.sfn", FE_READ))) {
+			printf("ERR opening font: %d\n", r);
+			fb->init = 0;
+			return;
+		}
+		memset(&fb->ctx, 0, sizeof(fb->ctx));
+		ssfn_font_t *_font_start = twz_obj_base(&font);
+
+		if((r = ssfn_load(&fb->ctx, _font_start))) {
+			debug_printf("load:%d\n", r);
+			fb->init == 0;
+			return;
+		}
+
+		if((r = ssfn_select(&fb->ctx,
+		      SSFN_FAMILY_ANY,
+		      NULL, /* family */
+		      SSFN_STYLE_REGULAR,
+		      fb->fsz,       /* style and size */
+		      SSFN_MODE_CMAP /* rendering mode */
+		      ))) {
+			debug_printf("select: %d\n", r);
+			fb->init = 0;
+			return;
+		}
+		fb->init = 2;
+	}
+
+	fb->flip = 0;
+	if(c > 0xff) {
+		return;
+	}
+
+	if(c != '\n' && c != '\r')
+		fb->char_buffer[fb->cw * fb->cy + fb->cx] = c;
+	fb_render(fb, c);
+
+	if(fb->flip) {
+		memcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
 	}
 }
 
@@ -199,6 +427,11 @@ int main(int argc, char **argv)
 		debug_printf("failed to assign screen object name");
 		abort();
 	}
+	fb.init = 1;
+	if((r = twz_object_open_name(&fb.obj, "dev:framebuffer", FE_READ | FE_WRITE))) {
+		debug_printf("term: failed to open framebuffer: %d\n", r);
+		fb.init = 0;
+	}
 
 	struct thread kthr;
 	if((r = twz_thread_spawn(
@@ -223,6 +456,11 @@ int main(int argc, char **argv)
 				if(buf[i] == '\n')
 					serial_putc('\r');
 				serial_putc(buf[i]);
+				if(fb.init) {
+					if(buf[i] == '\n')
+						fb_putc(&fb, '\r');
+					fb_putc(&fb, buf[i]);
+				}
 			}
 		}
 	}
