@@ -7,8 +7,7 @@ term_all: $(BUILDDIR)/us/term/term
 
 $(BUILDDIR)/us/term/term: $(term_objs) $(US_LIBDEPS)
 	@echo "[CLD] $@"
-	@$(TWZCC) $(US_LDFLAGS) $(US_CFLAGS) -o $@ -nostdlib $(US_PRELINK) $< $(US_POSTLINK) -MD
-
+	$(TWZCC) $(US_LDFLAGS) $(US_CFLAGS) -o $@ -nostdlib $(US_PRELINK) $< $(US_POSTLINK) -MD
 -include $(term_deps)
 
 .PHONY: term_all

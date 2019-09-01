@@ -51,7 +51,7 @@ CRTBEGIN=$(shell env PATH=$(PATH) $(TOOLCHAIN_PREFIX)gcc -print-file-name=crtbeg
 
 US_PRELINK=$(MUSL_STATIC_LIBC_PRE_i) $(CRTBEGIN) $(MUSL_STATIC_LIBC_PRE_1)
 US_POSTLINK=-Wl,--start-group $(BUILDDIR)/us/libtwz/libtwz.a $(MUSL_STATIC_LIBC) $(BUILDDIR)/us/twix/libtwix.a -Wl,--as-needed $(BUILDDIR)/us/libtwz/libtwz.a -Wl,--end-group $(LIBGCC) $(CRTEND) $(MUSL_STATIC_LIBC_POST)
-TWZCFLAGS=-Ius/include $(MUSL_INCL) -Wall -Wextra -O$(CONFIG_OPTIMIZE) -g -Ius/libtwz/include
+TWZCFLAGS=-Ius/include $(MUSL_INCL) -Wall -Wextra -O3 -msse2 -msse -mavx -march=native -ffast-math -g -Ius/libtwz/include
 US_LIBDEPS=$(BUILDDIR)/us/libtwz/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a $(BUILDDIR)/us/twix/libtwix.a us/elf.ld
 US_LDFLAGS=-static -Wl,-z,max-page-size=0x1000 -Tus/elf.ld -g
 

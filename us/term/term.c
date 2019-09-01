@@ -211,7 +211,14 @@ static inline uint32_t ARGB_TO_BGR(uint32_t x)
 	return (r << 16 | g << 8 | b);
 }
 
-static void draw_glyph(struct fb *fb, ssfn_glyph_t *glyph, uint32_t fgcolor, int c)
+static __inline__ unsigned long long rdtsc(void)
+{
+	unsigned hi, lo;
+	__asm__ __volatile__("rdtscp" : "=a"(lo), "=d"(hi));
+	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
+}
+
+static void draw_glyph(const struct fb *fb, ssfn_glyph_t *glyph, uint32_t fgcolor, int c)
 {
 	int x, y, i, m;
 	uint32_t pen_x = fb->fbx;
@@ -223,15 +230,23 @@ static void draw_glyph(struct fb *fb, ssfn_glyph_t *glyph, uint32_t fgcolor, int
 	else
 		pen_y -= (int8_t)glyph->baseline;
 
+	uint32_t *buffer = (void *)fb->back_buffer;
+
+	uint32_t bpmul = fb->pitch / 4;
+	uint32_t set = 0xff | fgcolor;
+	uint64_t start = rdtsc();
+
 	switch(glyph->mode) {
 		case SSFN_MODE_BITMAP:
 			for(y = 0; y < glyph->h; y++) {
+				uint32_t ys = (pen_y + y) * bpmul;
+				uint32_t ygs = y * glyph->pitch;
 				for(x = 0, i = 0, m = 1; x < glyph->w; x++, m <<= 1) {
 					if(m > 0x80) {
 						m = 1;
 						i++;
 					}
-					SDL_PIXEL = (glyph->data[y * glyph->pitch + i] & m) ? 0xFF000000 | fgcolor : 0;
+					buffer[ys + pen_x + x] = (glyph->data[ygs + i] & m) ? set : 0;
 				}
 			}
 			break;
@@ -250,15 +265,20 @@ static void draw_glyph(struct fb *fb, ssfn_glyph_t *glyph, uint32_t fgcolor, int
 			break;
 
 		case SSFN_MODE_CMAP:
-			for(y = 0; y < glyph->h; y++)
+			for(y = 0; y < glyph->h; y++) {
+				uint32_t ys = (pen_y + y) * bpmul;
+				uint32_t ygs = y * glyph->pitch;
 				for(x = 0; x < glyph->w; x++) {
-					SDL_PIXEL = ARGB_TO_BGR(
-					  SSFN_CMAP_TO_ARGB(glyph->data[y * glyph->pitch + x], glyph->cmap, fgcolor));
+					buffer[ys + pen_x + x] =
+					  ARGB_TO_BGR(SSFN_CMAP_TO_ARGB(glyph->data[ygs + x], glyph->cmap, fgcolor));
 				}
+			}
 			break;
 		default:
 			debug_printf("Unsupported mode for %x: %d\n", c, glyph->mode);
 	}
+	uint64_t end = rdtsc();
+	debug_printf("TSC: %ld\n", end - start);
 }
 
 void fb_scroll(struct fb *fb, int nlines)

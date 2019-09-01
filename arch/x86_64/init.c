@@ -26,21 +26,25 @@ static void proc_init(void)
 	uint64_t cr0, cr4;
 	asm volatile("finit");
 	asm volatile("mov %%cr0, %0" : "=r"(cr0));
-	cr0 |= (1 << 2);
+	// cr0 |= (1 << 2);
 	cr0 |= (1 << 5);
 	cr0 |= (1 << 1);
 	cr0 |= (1 << 16);
 	cr0 &= ~(1 << 30); // make sure caching is on
 	cr0 &= ~(1 << 29); // make sure caching is on
+	cr0 &= ~(1 << 2);  // make sure caching is on
 	asm volatile("mov %0, %%cr0" ::"r"(cr0));
 
 	asm volatile("mov %%cr4, %0" : "=r"(cr4));
 	cr4 |= (1 << 7);  // enable page global
 	cr4 |= (1 << 10); // enable fast fxsave etc, sse
 	cr4 |= (1 << 16); // rdgsbase
-	cr4 &= ~(1 << 9);
+	cr4 |= (1 << 9);
+	cr4 |= (1 << 18);
+	// cr4 &= ~(1 << 9);
 	asm volatile("mov %0, %%cr4" ::"r"(cr4));
 
+	asm volatile("xor %%rcx, %%rcx; xgetbv; or $7, %%rax; xsetbv;" ::: "rax", "rcx", "rdx");
 	/* enable fast syscall extension */
 	uint32_t lo, hi;
 	x86_64_rdmsr(X86_MSR_EFER, &lo, &hi);

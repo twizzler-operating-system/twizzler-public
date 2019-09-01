@@ -24,16 +24,18 @@ void x86_64_ipi_halt(void)
 	asm volatile("cli; jmp .;" ::: "memory");
 }
 
+/*
 static void x86_64_change_fpusse_allow(bool enable)
 {
-	register uint64_t tmp;
-	asm volatile("mov %%cr0, %0" : "=r"(tmp));
-	tmp = enable ? (tmp & ~(1 << 2)) : (tmp | (1 << 2));
-	asm volatile("mov %0, %%cr0" ::"r"(tmp));
-	asm volatile("mov %%cr4, %0" : "=r"(tmp));
-	tmp = enable ? (tmp | (1 << 9)) : (tmp & ~(1 << 9));
-	asm volatile("mov %0, %%cr4" ::"r"(tmp));
+    register uint64_t tmp;
+    asm volatile("mov %%cr0, %0" : "=r"(tmp));
+    tmp = enable ? (tmp & ~(1 << 2)) : (tmp | (1 << 2));
+    asm volatile("mov %0, %%cr0" ::"r"(tmp));
+    asm volatile("mov %%cr4, %0" : "=r"(tmp));
+    tmp = enable ? (tmp | (1 << 9)) : (tmp & ~(1 << 9));
+    asm volatile("mov %0, %%cr4" ::"r"(tmp));
 }
+*/
 
 __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
   bool was_userspace,
@@ -52,11 +54,6 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
 			if(!was_userspace) {
 				panic("floating-point operations used in kernel-space");
 			}
-			/* we're emulating FPU instructions / disallowing SSE. Set a flag,
-			 * and allow the thread to do its thing */
-			current_thread->arch.usedfpu = true;
-			x86_64_change_fpusse_allow(true);
-			asm volatile("finit"); /* also, we may need to clear the FPU state */
 		} else if(frame->int_no == 14) {
 			/* page fault */
 			uint64_t cr2;
@@ -195,15 +192,17 @@ __noinstrument void arch_thread_resume(struct thread *thread)
 	 *    then we can 're-disable' the FPU for that thread, and possibly
 	 *    even free the allocated FPU state space.
 	 */
-	if(old && old->arch.usedfpu) {
+	if(old) {
 		/* store FPU state */
 		asm volatile("fxsave (%0)" ::"r"(old->arch.fpu_data) : "memory");
 	}
 
-	x86_64_change_fpusse_allow(thread->arch.usedfpu);
 	if(thread->arch.usedfpu) {
 		/* restore FPU state */
 		asm volatile("fxrstor (%0)" ::"r"(thread->arch.fpu_data) : "memory");
+	} else {
+		asm volatile("finit;");
+		thread->arch.usedfpu = true;
 	}
 	if((!old || old->ctx != thread->ctx) && thread->ctx) {
 		arch_mm_switch_context(thread->ctx);
