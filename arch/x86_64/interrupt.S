@@ -109,7 +109,6 @@ x86_64_isr_resume:
 	pushq $PROCESSOR_IPI_RESUME
 	jmp isr_common
 
-.extern x86_64_signal_eoi
 ignore_handler:
 	cld
 	PUSH_CONTEXT

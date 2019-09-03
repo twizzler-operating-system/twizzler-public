@@ -112,7 +112,8 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
 		}
 	}
 
-	x86_64_signal_eoi();
+	if(frame->int_no >= 32)
+		x86_64_signal_eoi();
 	if(was_userspace) {
 		thread_schedule_resume();
 	}

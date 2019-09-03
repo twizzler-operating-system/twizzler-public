@@ -3,11 +3,26 @@
 #include <processor.h>
 #include <thread.h>
 
+#define TIMESLICE 1000000
+
 __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 {
 	while(true) {
 		/* TODO (major): allow current thread to run again */
 		spinlock_acquire(&proc->sched_lock);
+
+		if(current_thread && current_thread->timeslice
+		   && current_thread->state == THREADSTATE_RUNNING) {
+			if(proc->id == 3) {
+				printk(
+				  "resuming current: %ld (%ld)\n", current_thread->id, current_thread->timeslice);
+			}
+			clksrc_set_interrupt_countdown(current_thread->timeslice, false);
+			spinlock_release(&proc->sched_lock, 0);
+
+			arch_thread_resume(current_thread);
+		}
+
 		//	if(current_thread && current_thread->state == THREADSTATE_RUNNING) {
 		//		list_insert(&proc->runqueue, &current_thread->rq_entry);
 		//	} else if(current_thread && current_thread->state == THREADSTATE_BLOCKING) {
@@ -20,7 +35,14 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			list_insert(&proc->runqueue, &next->rq_entry);
 			spinlock_release(&proc->sched_lock, 0);
 
-			next->timeslice = 100000 + next->priority * 100000;
+			next->timeslice = TIMESLICE; // + next->priority * 100000;
+			if(proc->id == 3) {
+				printk("%ld: %ld (%d) %ld\n",
+				  next->id,
+				  next->timeslice,
+				  empty,
+				  current_thread ? current_thread->arch.exception.int_no : 0);
+			}
 			if(!empty) {
 				clksrc_set_interrupt_countdown(next->timeslice, false);
 				if(next->priority > 1)
@@ -40,6 +62,27 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			arch_processor_halt();
 		}
 	}
+}
+
+void __schedule_timer_handler(int v, struct interrupt_handler *hdl)
+{
+	(void)v;
+	(void)hdl;
+	if(current_thread) {
+		if(current_thread->processor->id == 3)
+			printk("%ld TIMER: %ld\n", current_thread->id, clksrc_get_interrupt_countdown());
+		current_thread->timeslice = clksrc_get_interrupt_countdown();
+	}
+}
+
+struct interrupt_handler _timer_handler = {
+	.fn = __schedule_timer_handler,
+};
+
+__initializer static void __init_int_timer(void)
+{
+	/* TODO: arch-dep */
+	interrupt_register_handler(32, &_timer_handler);
 }
 
 #include <slab.h>
@@ -93,6 +136,7 @@ void thread_wake(struct thread *t)
 	}
 	spinlock_release_restore(&t->processor->sched_lock);
 }
+static DECLARE_LIST(allthreads);
 
 void thread_exit(void)
 {
@@ -100,7 +144,21 @@ void thread_exit(void)
 	current_thread->state = THREADSTATE_EXITED;
 	assert(current_processor->load > 0);
 	current_processor->load--;
+	list_remove(&current_thread->all_entry);
 	/* TODO (major): cleanup thread resources */
+}
+#include <lib/iter.h>
+void thread_print_all_threads(void)
+{
+	foreach(e, list, &allthreads) {
+		struct thread *t = list_entry(e, struct thread, all_entry);
+
+		spinlock_acquire_save(&t->lock);
+		printk("thread %ld\n", t->id);
+		printk("  CPU: %d\n", t->processor ? (int)t->processor->id : -1);
+		printk("  state: %d\n", t->state);
+		spinlock_release_restore(&t->lock);
+	}
 }
 
 struct thread *thread_create(void)
@@ -108,6 +166,7 @@ struct thread *thread_create(void)
 	struct thread *t = slabcache_alloc(&_sc_thread);
 	krc_init(&t->refs);
 	t->priority = 10;
+	list_insert(&allthreads, &t->all_entry);
 	return t;
 }
 
@@ -167,8 +226,28 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 	if(fi.addr) {
 		arch_thread_raise_call(t, fi.addr, fault, info, infolen);
 	} else {
-		__print_fault_info(t, fault, info);
-		/* TODO (major): raise unhandled fault exception? */
-		thread_exit();
+		struct faultinfo fi_f;
+		obj_read_data(to,
+		  offsetof(struct twzthread_repr, faults) + sizeof(fi_f) * FAULT_FAULT,
+		  sizeof(fi_f),
+		  &fi_f);
+		if(fi_f.addr) {
+			/* thread can catch an unhandled fault */
+			struct fault_fault_info ffi = {
+				.fault_nr = fault,
+				.info = 0,
+				.resv = 0,
+				.len = infolen,
+			};
+			size_t nl = infolen + sizeof(ffi);
+			nl = ((nl - 1) & ~0xf) + 0x10; /* infolen must be 16 aligned */
+			char tmp[nl];
+			memcpy(tmp, &ffi, sizeof(ffi));
+			memcpy(tmp + sizeof(ffi), info, infolen);
+			arch_thread_raise_call(t, fi_f.addr, FAULT_FAULT, tmp, nl);
+		} else {
+			__print_fault_info(t, fault, info);
+			thread_exit();
+		}
 	}
 }

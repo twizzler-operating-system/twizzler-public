@@ -116,7 +116,62 @@ int __fault_obj_default(int fault, struct fault_object_info *info)
 {
 	return twz_handle_fault(info->addr, info->flags, info->ip);
 }
-static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
+
+struct fault_frame {
+	uint64_t r15;
+	uint64_t r14;
+	uint64_t r13;
+	uint64_t r12;
+	uint64_t r11;
+	uint64_t r10;
+	uint64_t r9;
+	uint64_t r8;
+	uint64_t rbp;
+	uint64_t rdx;
+	uint64_t rcx;
+	uint64_t rbx;
+	uint64_t rax;
+	uint64_t rdi;
+	uint64_t rsi;
+	uint64_t rsp;
+};
+
+static const char *fault_names[] = {
+	[FAULT_OBJECT] = "FAULT_OBJECT",
+	[FAULT_FAULT] = "FAULT_FAULT",
+	[FAULT_NULL] = "FAULT_NULL",
+	[FAULT_SCTX] = "FAULT_SCTX",
+	[FAULT_EXCEPTION] = "FAULT_EXCEPTION",
+};
+
+struct stackframe {
+	struct stackframe *ebp;
+	uint64_t eip;
+};
+
+static void __twz_fault_unhandled(struct fault_fault_info *info, struct fault_frame *frame)
+{
+	if(info->fault_nr != FAULT_NULL)
+		twz_thread_exit();
+	struct twzthread_repr *repr = twz_thread_repr_base();
+	debug_printf("unhandled fault: %s in thread " IDFMT " (%s)\n",
+	  fault_names[info->fault_nr],
+	  IDPR(repr->reprid),
+	  repr->hdr.name);
+	uint64_t *pp = (void *)(frame->rsp - 8);
+	debug_printf("  pc: %lx\n", pp[0]);
+#if 0
+	struct stackframe *sf = (void *)frame->rbp;
+	while(sf) {
+		debug_printf("  (%p) : %lx\n", sf, sf->eip);
+		sf = sf->ebp;
+	}
+#endif
+}
+
+static __attribute__((used)) void __twz_fault_entry_c(int fault,
+  void *_info,
+  struct fault_frame *frame)
 {
 	if(fault == FAULT_OBJECT) {
 		struct fault_object_info *fi = _info;
@@ -125,6 +180,10 @@ static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
 			twz_thread_exit();
 		}
 		//}
+	} else if(fault == FAULT_FAULT) {
+		__twz_fault_unhandled(_info, frame);
+		twz_thread_exit();
+		return;
 	}
 	if((fault >= NUM_FAULTS || !_fault_table[fault].fn) && fault != FAULT_OBJECT) {
 		debug_printf("Unhandled exception: %d", fault);
@@ -136,7 +195,6 @@ static __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info)
 }
 
 /* TODO: arch-dep */
-
 /* Stack comes in as mis-aligned (like any function call),
  * so maintain that alignment until the call below. */
 asm(" \
@@ -156,6 +214,7 @@ asm(" \
                         pushq %r14;\
                         pushq %r15;\
 \
+						mov %rsp, %rdx;\
                         call __twz_fault_entry_c ;\
 \
                         popq %r15;\
@@ -197,6 +256,9 @@ void __twz_fault_init(void)
 	 * may not use any global data (since the data object may not be mapped) */
 
 	repr->faults[FAULT_OBJECT] = (struct faultinfo){
+		.addr = (void *)__twz_fault_entry,
+	};
+	repr->faults[FAULT_FAULT] = (struct faultinfo){
 		.addr = (void *)__twz_fault_entry,
 	};
 }

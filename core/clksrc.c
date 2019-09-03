@@ -49,6 +49,12 @@ __noinstrument uint64_t clksrc_get_nanoseconds(void)
 	return (cnt * best_monotonic->period_ps) / 1000;
 }
 
+uint64_t clksrc_get_interrupt_countdown(void)
+{
+	uint64_t c = best_countdown->read_counter(best_countdown);
+	return (c * best_countdown->period_ps) / 1000;
+}
+
 void clksrc_set_interrupt_countdown(uint64_t ns, bool periodic)
 {
 	if(!best_countdown || !clksrc_set_timer(best_countdown, ns, periodic)) {

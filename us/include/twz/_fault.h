@@ -7,6 +7,7 @@ enum {
 	FAULT_NULL,
 	FAULT_EXCEPTION,
 	FAULT_SCTX,
+	FAULT_FAULT,
 	NUM_FAULTS,
 };
 
@@ -49,4 +50,12 @@ struct fault_sctx_info {
 	uint32_t pneed;
 	uint32_t pad;
 	uint64_t pad64;
+} __attribute__((packed));
+
+struct fault_fault_info {
+	uint32_t fault_nr;
+	uint32_t info;
+	uint32_t len;
+	uint32_t resv;
+	char data[];
 } __attribute__((packed));

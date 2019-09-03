@@ -239,6 +239,7 @@ int main(int argc, char **argv)
 		abort();
 	}
 
+#if 0
 	struct thread sh3thr;
 	if((r = twz_thread_spawn(
 	      &sh3thr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &login2_info }))) {
@@ -246,7 +247,6 @@ int main(int argc, char **argv)
 		abort();
 	}
 
-#if 0
 	close(0);
 	close(1);
 	close(2);

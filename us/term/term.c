@@ -166,6 +166,9 @@ void fb_putc(struct fb *fb, int c);
 objid_t kid, sid, siid, soid;
 struct object kobj, sobj, siobj, soobj;
 
+#include "kbd.h"
+
+void read_keyboard(int c);
 void kbmain(void *a)
 {
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term.input-serial");
@@ -195,9 +198,12 @@ void kbmain(void *a)
 			bstream_write(&siobj, &x, 1, 0);
 		}
 		if(pckbd_ready()) {
-			debug_printf("kbd: %x\n", pckbd_getc());
+			int c = pckbd_getc();
+			if(c == 0xe1) {
+				__syscall6(0, 0x1234, 0, 0, 0, 0, 0);
+			}
+			read_keyboard(c);
 		}
-		debug_printf("");
 	}
 }
 
@@ -452,6 +458,7 @@ void fb_putc(struct fb *fb, int c)
 
 void smain(void *a)
 {
+	debug_printf(":::: SMAIN\n");
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term.framebuffer");
 	int r;
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {

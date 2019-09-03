@@ -63,19 +63,19 @@ void *_sf(void *a)
 	return NULL;
 }
 
+#include <errno.h>
+#include <fcntl.h>
 int main(int argc, char **argv)
 {
-	debug_printf("::::: here\n");
 	if(!strcmp(argv[1], "screen")) {
-		debug_printf("::::: here (screen)\n");
 		close(0);
 		close(1);
 		close(2);
-		if(open("dev:dfl:keyboard") != 0)
+		if(open("dev:dfl:keyboard", O_RDONLY) != 0)
 			debug_printf("ERR\n");
-		if(open("dev:dfl:screen") != 1)
+		if(open("dev:dfl:screen", O_RDWR) != 1)
 			debug_printf("ERR\n");
-		if(open("dev:dfl:screen") != 2)
+		if(open("dev:dfl:screen", O_RDWR) != 2)
 			debug_printf("ERR\n");
 	}
 	for(;;) {

@@ -99,7 +99,7 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 	*--stack = *jmp;
 
 	if(infolen & 0xf) {
-		panic("infolen must be 16-byte aligned");
+		panic("infolen must be 16-byte aligned (was %ld)", infolen);
 	}
 
 	stack -= infolen / 8;

@@ -43,7 +43,7 @@ struct thread {
 
 	struct kso_throbj *throbj;
 
-	struct list rq_entry, bl_entry;
+	struct list rq_entry, bl_entry, all_entry;
 };
 
 struct arch_syscall_become_args;
@@ -54,6 +54,7 @@ void thread_exit(void);
 void thread_raise_fault(struct thread *t, int fault, void *info, size_t);
 struct timespec;
 long thread_sync_single(int operation, long *addr, long arg, struct timespec *spec);
+void thread_print_all_threads(void);
 void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *, size_t);
 
 struct thread *thread_lookup(unsigned long id);

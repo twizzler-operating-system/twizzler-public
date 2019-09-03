@@ -471,7 +471,4 @@ int main(int argc, char **argv)
 		printf("failed to mark ready");
 		exit(1);
 	}
-
-	for(;;)
-		;
 }

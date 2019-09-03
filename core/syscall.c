@@ -3,9 +3,12 @@
 #include <syscall.h>
 #include <thread.h>
 
-long syscall_null(void)
+long syscall_null(long a)
 {
 	printk("-- called null syscall\n");
+	if(a == 0x1234) {
+		thread_print_all_threads();
+	}
 	return 0;
 }
 
