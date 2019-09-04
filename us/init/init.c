@@ -7,12 +7,16 @@
 #include <twz/obj.h>
 #include <twz/thread.h>
 #include <unistd.h>
+
+#include <driver/device.h>
+
 int __name_bootstrap(void);
 
 struct service_info {
 	objid_t sctx;
 	const char *name;
 	char arg[1024];
+	char arg2[1024];
 };
 
 bool term_ready = false;
@@ -41,7 +45,9 @@ void tmain(void *a)
 	}
 
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] %s", info->name);
-	r = execv(buffer, (char *[]){ info->name, info->arg[0] ? info->arg : NULL, NULL });
+	r = execv(buffer,
+	  (char *[]){
+	    info->name, info->arg[0] ? info->arg : NULL, info->arg2[0] ? info->arg2 : NULL, NULL });
 	EPRINTF("failed to exec '%s': %d\n", info->name, r);
 	twz_thread_exit();
 }
@@ -160,8 +166,10 @@ int main(int argc, char **argv)
 			continue;
 		switch(k->type) {
 			struct thread dt;
+			struct object dobj;
 			case KSO_DEVBUS:
 				sprintf(drv_info.arg, IDFMT, IDPR(k->id));
+				drv_info.name = "pcie";
 				/* TODO: determine the type of bus, and start something appropriate */
 				if((r = twz_thread_spawn(
 				      &dt, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &drv_info }))) {
@@ -170,6 +178,48 @@ int main(int argc, char **argv)
 				}
 				twz_thread_wait(
 				  1, (struct thread *[]){ &dt }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+
+				break;
+			case KSO_DEVICE:
+				twz_object_open(&dobj, k->id, FE_READ);
+
+				objid_t uid;
+				twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &uid);
+				sprintf(drv_info.arg2, IDFMT, IDPR(uid));
+
+				struct object stream;
+				twz_object_open(&stream, uid, FE_READ | FE_WRITE);
+
+				if((r = bstream_obj_init(&stream, twz_obj_base(&stream), 16))) {
+					debug_printf("failed to init bstream");
+					abort();
+				}
+
+				struct device_repr *dr = twz_obj_base(&dobj);
+				if(dr->device_type == DEVICE_INPUT) {
+					sprintf(drv_info.arg, IDFMT, IDPR(k->id));
+					drv_info.name = "input";
+					if((r = twz_thread_spawn(&dt,
+					      &(struct thrd_spawn_args){ .start_func = tmain, .arg = &drv_info }))) {
+						EPRINTF("failed to spawn driver");
+						abort();
+					}
+					twz_thread_wait(
+					  1, (struct thread *[]){ &dt }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+					twz_name_assign(uid, "dev:input:keyboard");
+				}
+				if(dr->device_type == DEVICE_IO && dr->device_type == DEVICE_ID_SERIAL) {
+					sprintf(drv_info.arg, IDFMT, IDPR(k->id));
+					drv_info.name = "serial";
+					if((r = twz_thread_spawn(&dt,
+					      &(struct thrd_spawn_args){ .start_func = tmain, .arg = &drv_info }))) {
+						EPRINTF("failed to spawn driver");
+						abort();
+					}
+					twz_thread_wait(
+					  1, (struct thread *[]){ &dt }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+					twz_name_assign(uid, "dev:input:serial");
+				}
 
 				break;
 		}
@@ -186,18 +236,34 @@ int main(int argc, char **argv)
 	close(1);
 	close(2);
 
-	if((fd = open("dev:dfl:serial-input", O_RDONLY)) != 0) {
+#if 0
+	if((fd = open("dev:dfl:input", O_RDONLY)) != 0) {
 		EPRINTF("err opening stdin: %d\n", fd);
 		abort();
 	}
-	if((fd = open("dev:dfl:serial-output", O_RDWR)) != 1) {
+	if((fd = open("dev:dfl:screen", O_RDWR)) != 1) {
 		EPRINTF("err opening stdout\n");
 		abort();
 	}
-	if((fd = open("dev:dfl:serial-output", O_RDWR)) != 2) {
+	if((fd = open("dev:dfl:screen", O_RDWR)) != 2) {
 		EPRINTF("err opening stderr\n");
 		abort();
 	}
+#else
+	if((fd = open("dev:input:serial", O_RDONLY)) != 0) {
+		EPRINTF("err opening stdin: %d\n", fd);
+		abort();
+	}
+	if((fd = open("dev:output:serial", O_RDWR)) != 1) {
+		EPRINTF("err opening stdout\n");
+		abort();
+	}
+	if((fd = open("dev:output:serial", O_RDWR)) != 2) {
+		EPRINTF("err opening stderr\n");
+		abort();
+	}
+
+#endif
 
 	term_ready = true;
 	EPRINTF("twzinit: terminal ready\n");
@@ -224,13 +290,14 @@ int main(int argc, char **argv)
 		abort();
 	}
 
+#if 0
 	struct service_info login2_info = {
 		.name = "login",
 		.sctx = lsi,
-		.arg = "screen",
+		.arg = "serial",
 	};
 
-	EPRINTF("twzinit: starting login program2\n");
+	EPRINTF("twzinit: starting login program (serial)\n");
 
 	struct thread sh2thr;
 	if((r = twz_thread_spawn(
@@ -238,8 +305,6 @@ int main(int argc, char **argv)
 		EPRINTF("failed to spawn shell2");
 		abort();
 	}
-
-#if 0
 	struct thread sh3thr;
 	if((r = twz_thread_spawn(
 	      &sh3thr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &login2_info }))) {

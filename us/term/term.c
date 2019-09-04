@@ -163,15 +163,16 @@ struct fb {
 struct fb fb = { 0 };
 
 void fb_putc(struct fb *fb, int c);
-objid_t kid, sid, siid, soid;
-struct object kobj, sobj, siobj, soobj;
 
-#include "kbd.h"
+static struct object kb_obj, out_obj, screen_obj;
 
-void read_keyboard(int c);
+#include <twz/io.h>
+
+void process_keyboard(struct object *, char *, size_t);
+
 void kbmain(void *a)
 {
-	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term.input-serial");
+	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term.input");
 
 	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
 	int r;
@@ -180,30 +181,15 @@ void kbmain(void *a)
 		abort();
 	}
 
-	// bstream_write(&sobj, twz_obj_base(&sobj), "Hello, World", 12, 0);
 	for(;;) {
 		int x;
-		if(serial_ready()) {
-			int x = serial_getc();
-			switch(x) {
-				case 0x4:
-					//	bstream_mark_eof(&ko);
-					break;
-				case '\r':
-					x = '\n';
-					serial_putc('\r'); /* fall through */
-				default:
-					serial_putc(x);
-			}
-			bstream_write(&siobj, &x, 1, 0);
+		char buf[128];
+		ssize_t r = twzio_read(&kb_obj, buf, 128, 0, 0);
+		if(r < 0) {
+			debug_printf("ERR: %ld\n", r);
+			twz_thread_exit();
 		}
-		if(pckbd_ready()) {
-			int c = pckbd_getc();
-			if(c == 0xe1) {
-				__syscall6(0, 0x1234, 0, 0, 0, 0, 0);
-			}
-			read_keyboard(c);
-		}
+		process_keyboard(&out_obj, buf, r);
 	}
 }
 
@@ -335,6 +321,15 @@ void fb_scroll(struct fb *fb, int nlines)
 	fb->flip = 1;
 }
 
+void fb_render_cursor(struct fb *fb)
+{
+	/* write directly to the front buffer */
+	uint32_t *px = (uint32_t *)fb->front_buffer;
+	for(size_t y = 0; y < fb->fsz / 1.2; y++) {
+		px[(y + fb->fby - fb->fsz / 2) * fb->pitch / 4 + fb->fbx + 1] = 0x00ffffff;
+	}
+}
+
 void fb_render(struct fb *fb, int c)
 {
 	switch(c) {
@@ -452,109 +447,61 @@ void fb_putc(struct fb *fb, int c)
 	if(fb->flip) {
 		fastMemcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
 	}
+	fb_render_cursor(fb);
+
 	uint64_t e = rdtsc();
 	// debug_printf("flip: %ld\n", e - s);
 }
 
-void smain(void *a)
+void curfb_putc(int c)
 {
-	debug_printf(":::: SMAIN\n");
-	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term.framebuffer");
-	int r;
-	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
-		debug_printf("failed to mark ready");
-		abort();
-	}
-
-	for(;;) {
-		char buf[128];
-		memset(buf, 0, sizeof(buf));
-		ssize_t r = bstream_read(&sobj, buf, 127, 0);
-		if(r > 0) {
-			for(ssize_t i = 0; i < r; i++) {
-				if(fb.init) {
-					if(buf[i] == '\n')
-						fb_putc(&fb, '\r');
-					fb_putc(&fb, buf[i]);
-				}
-			}
-		}
-	}
+	fb_putc(&fb, c);
 }
 
-struct object bs;
 int main(int argc, char **argv)
 {
 	int r;
+
+	twz_object_open_name(&kb_obj, "dev:input:keyboard", FE_READ | FE_WRITE);
+
+	objid_t kid;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &kid))) {
-		debug_printf("failed to create keyboard object");
-		abort();
-	}
-	if((r = twz_object_open(&kobj, kid, FE_READ | FE_WRITE))) {
-		debug_printf("failed to open keyboard object");
-		abort();
-	}
-
-	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &siid))) {
-		debug_printf("failed to create serial in object");
-		abort();
-	}
-	if((r = twz_object_open(&siobj, siid, FE_READ | FE_WRITE))) {
-		debug_printf("failed to open serial in object");
-		abort();
-	}
-
-	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &soid))) {
-		debug_printf("failed to create serial out object");
-		abort();
-	}
-	if((r = twz_object_open(&soobj, soid, FE_READ | FE_WRITE))) {
-		debug_printf("failed to open serial out object");
-		abort();
-	}
-
-	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
 		debug_printf("failed to create screen object");
 		abort();
 	}
-	if((r = twz_object_open(&sobj, sid, FE_READ | FE_WRITE))) {
+
+	if((r = twz_object_open(&out_obj, kid, FE_READ | FE_WRITE))) {
 		debug_printf("failed to open screen object");
 		abort();
 	}
 
-	if((r = bstream_obj_init(&kobj, twz_obj_base(&kobj), 8))) {
-		debug_printf("failed to init keyboard bstream");
-		abort();
-	}
-
-	if((r = bstream_obj_init(&sobj, twz_obj_base(&sobj), 16))) {
+	if((r = bstream_obj_init(&out_obj, twz_obj_base(&out_obj), 16))) {
 		debug_printf("failed to init screen bstream");
 		abort();
 	}
 
-	if((r = bstream_obj_init(&soobj, twz_obj_base(&soobj), 16))) {
-		debug_printf("failed to init serial out bstream");
-		abort();
-	}
-	if((r = bstream_obj_init(&siobj, twz_obj_base(&siobj), 16))) {
-		debug_printf("failed to init serial in bstream");
-		abort();
-	}
-
-	if((r = twz_name_assign(kid, "dev:dfl:keyboard"))) {
-		debug_printf("failed to assign keyboard object name");
-		abort();
-	}
-	if((r = twz_name_assign(sid, "dev:dfl:screen"))) {
+	if((r = twz_name_assign(kid, "dev:dfl:input"))) {
 		debug_printf("failed to assign screen object name");
 		abort();
 	}
 
-	if((r = twz_name_assign(siid, "dev:dfl:serial-input"))) {
-		debug_printf("failed to assign keyboard object name");
+	objid_t sid;
+	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
+		debug_printf("failed to create screen object");
 		abort();
 	}
-	if((r = twz_name_assign(soid, "dev:dfl:serial-output"))) {
+
+	if((r = twz_object_open(&screen_obj, sid, FE_READ | FE_WRITE))) {
+		debug_printf("failed to open screen object");
+		abort();
+	}
+
+	if((r = bstream_obj_init(&screen_obj, twz_obj_base(&screen_obj), 16))) {
+		debug_printf("failed to init screen bstream");
+		abort();
+	}
+
+	if((r = twz_name_assign(sid, "dev:dfl:screen"))) {
 		debug_printf("failed to assign screen object name");
 		abort();
 	}
@@ -567,21 +514,12 @@ int main(int argc, char **argv)
 
 	struct thread kthr;
 	if((r = twz_thread_spawn(
-	      &kthr, &(struct thrd_spawn_args){ .start_func = kbmain, .arg = &bs }))) {
+	      &kthr, &(struct thrd_spawn_args){ .start_func = kbmain, .arg = NULL }))) {
 		debug_printf("failed to spawn kb thread");
 		abort();
 	}
 
 	twz_thread_wait(1, (struct thread *[]){ &kthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
-
-	struct thread sthr;
-	if((r =
-	       twz_thread_spawn(&sthr, &(struct thrd_spawn_args){ .start_func = smain, .arg = &bs }))) {
-		debug_printf("failed to spawn framebuffer thread");
-		abort();
-	}
-
-	twz_thread_wait(1, (struct thread *[]){ &sthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
 		debug_printf("failed to mark ready");
@@ -591,12 +529,14 @@ int main(int argc, char **argv)
 	for(;;) {
 		char buf[128];
 		memset(buf, 0, sizeof(buf));
-		ssize_t r = bstream_read(&soobj, buf, 127, 0);
+		ssize_t r = bstream_read(&screen_obj, buf, 127, 0);
 		if(r > 0) {
 			for(ssize_t i = 0; i < r; i++) {
-				if(buf[i] == '\n')
-					serial_putc('\r');
-				serial_putc(buf[i]);
+				if(fb.init) {
+					if(buf[i] == '\n')
+						fb_putc(&fb, '\r');
+					fb_putc(&fb, buf[i]);
+				}
 			}
 		}
 	}

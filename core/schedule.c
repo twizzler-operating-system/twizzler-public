@@ -14,8 +14,9 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 		if(current_thread && current_thread->timeslice
 		   && current_thread->state == THREADSTATE_RUNNING) {
 			if(proc->id == 3) {
-				printk(
-				  "resuming current: %ld (%ld)\n", current_thread->id, current_thread->timeslice);
+				//			printk(
+				//			  "resuming current: %ld (%ld)\n", current_thread->id,
+				//current_thread->timeslice);
 			}
 			clksrc_set_interrupt_countdown(current_thread->timeslice, false);
 			spinlock_release(&proc->sched_lock, 0);
@@ -37,11 +38,11 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 
 			next->timeslice = TIMESLICE; // + next->priority * 100000;
 			if(proc->id == 3) {
-				printk("%ld: %ld (%d) %ld\n",
-				  next->id,
-				  next->timeslice,
-				  empty,
-				  current_thread ? current_thread->arch.exception.int_no : 0);
+				//			printk("%ld: %ld (%d) %ld\n",
+				//			  next->id,
+				//			  next->timeslice,
+				//			  empty,
+				//			  current_thread ? current_thread->arch.exception.int_no : 0);
 			}
 			if(!empty) {
 				clksrc_set_interrupt_countdown(next->timeslice, false);
@@ -69,8 +70,8 @@ void __schedule_timer_handler(int v, struct interrupt_handler *hdl)
 	(void)v;
 	(void)hdl;
 	if(current_thread) {
-		if(current_thread->processor->id == 3)
-			printk("%ld TIMER: %ld\n", current_thread->id, clksrc_get_interrupt_countdown());
+		//	if(current_thread->processor->id == 3)
+		//		printk("%ld TIMER: %ld\n", current_thread->id, clksrc_get_interrupt_countdown());
 		current_thread->timeslice = clksrc_get_interrupt_countdown();
 	}
 }

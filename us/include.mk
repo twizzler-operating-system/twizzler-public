@@ -1,5 +1,5 @@
-PROGS=test init term shell login nls pcie
-SUBDIRS=test init term shell login nls pcie
+PROGS=test init term shell login nls pcie input serial
+SUBDIRS=test init term shell login nls pcie input serial
 TWZCC?=x86_64-pc-elf-gcc
 
 TWZOBJS=$(addprefix $(BUILDDIR)/us/,$(addsuffix .text.obj,$(foreach x,$(PROGS),$(x)/$(x))))

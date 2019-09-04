@@ -67,15 +67,15 @@ void *_sf(void *a)
 #include <fcntl.h>
 int main(int argc, char **argv)
 {
-	if(!strcmp(argv[1], "screen")) {
+	if(!strcmp(argv[1], "serial") && 0) {
 		close(0);
 		close(1);
 		close(2);
-		if(open("dev:dfl:keyboard", O_RDONLY) != 0)
+		if(open("dev:input:serial", O_RDONLY) != 0)
 			debug_printf("ERR\n");
-		if(open("dev:dfl:screen", O_RDWR) != 1)
+		if(open("dev:output:serial", O_RDWR) != 1)
 			debug_printf("ERR\n");
-		if(open("dev:dfl:screen", O_RDWR) != 2)
+		if(open("dev:output:serial", O_RDWR) != 2)
 			debug_printf("ERR\n");
 	}
 	for(;;) {

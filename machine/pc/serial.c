@@ -1,79 +1,79 @@
 #include <arch/x86_64-io.h>
-#include <processor.h>
-#include <instrument.h>
 #include <debug.h>
+#include <instrument.h>
 #include <interrupt.h>
-#define COM1_PORT 0x3f8   /* COM1 */
+#include <processor.h>
+#define COM1_PORT 0x3f8 /* COM1 */
 #define COM1_IRQ 0x24
 
-#define UART_REG_DATA    0
-#define UART_REG_IER     1
-#define UART_REG_IID     2
+#define UART_REG_DATA 0
+#define UART_REG_IER 1
+#define UART_REG_IID 2
 #define UART_REG_FIFOCTL 2 /* same as above */
-#define UART_REG_LCR     3
-#define UART_REG_MCR     4
-#define UART_REG_LSR     5
-#define UART_REG_MSR     6
+#define UART_REG_LCR 3
+#define UART_REG_MCR 4
+#define UART_REG_LSR 5
+#define UART_REG_MSR 6
 #define UART_REG_SCRATCH 7
 
 #define UART_REG_DIV_LSB 0 /* with DLAB set to 1 */
 #define UART_REG_DIV_MSB 1
 
-#define UART_IER_RX_FULL    (1 << 0)
-#define UART_IER_TX_FULL    (1 << 1)
+#define UART_IER_RX_FULL (1 << 0)
+#define UART_IER_TX_FULL (1 << 1)
 #define UART_IER_LINESTATUS (1 << 2)
-#define UART_IER_LINEDELTA  (1 << 3)
+#define UART_IER_LINEDELTA (1 << 3)
 
 #define UART_IID_FIFOEN1 (1 << 7)
 #define UART_IID_FIFOEN2 (1 << 6)
-#define UART_IID_IID2    (1 << 3)
-#define UART_IID_IID1    (1 << 2)
-#define UART_IID_IID0    (1 << 1)
+#define UART_IID_IID2 (1 << 3)
+#define UART_IID_IID1 (1 << 2)
+#define UART_IID_IID0 (1 << 1)
 #define UART_IID_PENDING (1 << 0)
 
-#define UART_FCR_FIFO64   (1 << 5)
-#define UART_FCR_DMASEL   (1 << 3)
+#define UART_FCR_FIFO64 (1 << 5)
+#define UART_FCR_DMASEL (1 << 3)
 #define UART_FCR_TX_RESET (1 << 2)
 #define UART_FCR_RX_RESET (1 << 1)
-#define UART_FCR_ENABLE   (1 << 0)
+#define UART_FCR_ENABLE (1 << 0)
 /* bits 6,7 are RX trigger */
 
-#define UART_LCR_DLAB       (1 << 7)
-#define UART_LCR_SBR        (1 << 6)
+#define UART_LCR_DLAB (1 << 7)
+#define UART_LCR_SBR (1 << 6)
 #define UART_LCR_STICKY_PAR (1 << 5)
-#define UART_LCR_EVEN_PAR   (1 << 4)
+#define UART_LCR_EVEN_PAR (1 << 4)
 #define UART_LCR_ENABLE_PAR (1 << 3)
-#define UART_LCR_STOP_BIT   (1 << 2)
+#define UART_LCR_STOP_BIT (1 << 2)
 /* bits 0,1 are word length */
 
 #define UART_MCR_LOOP_EANBLE (1 << 4)
 #define UART_MCR_OUT2 (1 << 3)
 #define UART_MCR_OUT1 (1 << 2)
-#define UART_MCR_RTS  (1 << 1)
-#define UART_MCR_DTR  (1 << 0)
+#define UART_MCR_RTS (1 << 1)
+#define UART_MCR_DTR (1 << 0)
 
-#define UART_LSR_FIFO_ERR    (1 << 7)
-#define UART_LSR_TX_EMPTY    (1 << 6)
-#define UART_LSR_THR_EMPTY   (1 << 5)
-#define UART_LSR_BREAK       (1 << 4)
-#define UART_LSR_FRAME_ERR   (1 << 3)
-#define UART_LSR_PARITY_ERR  (1 << 2)
+#define UART_LSR_FIFO_ERR (1 << 7)
+#define UART_LSR_TX_EMPTY (1 << 6)
+#define UART_LSR_THR_EMPTY (1 << 5)
+#define UART_LSR_BREAK (1 << 4)
+#define UART_LSR_FRAME_ERR (1 << 3)
+#define UART_LSR_PARITY_ERR (1 << 2)
 #define UART_LSR_OVERRUN_ERR (1 << 1)
-#define UART_LSR_RX_READY    (1 << 0)
+#define UART_LSR_RX_READY (1 << 0)
 
-#define UART_MSR_DCD  (1 << 7)
-#define UART_MSR_RI   (1 << 6)
-#define UART_MSR_DSR  (1 << 5)
-#define UART_MSR_CTS  (1 << 4)
+#define UART_MSR_DCD (1 << 7)
+#define UART_MSR_RI (1 << 6)
+#define UART_MSR_DSR (1 << 5)
+#define UART_MSR_CTS (1 << 4)
 #define UART_MSR_DDCD (1 << 3)
 #define UART_MSR_TERI (1 << 2)
 #define UART_MSR_DDSR (1 << 1)
 #define UART_MSR_DCTS (1 << 0)
 
-#define UART_PARITY_TYPE_NONE  0
-#define UART_PARITY_TYPE_ODD   1
-#define UART_PARITY_TYPE_EVEN  2
-#define UART_PARITY_TYPE_MARK  3
+#define UART_PARITY_TYPE_NONE 0
+#define UART_PARITY_TYPE_ODD 1
+#define UART_PARITY_TYPE_EVEN 2
+#define UART_PARITY_TYPE_MARK 3
 #define UART_PARITY_TYPE_SPACE 4
 
 struct uart {
@@ -88,14 +88,12 @@ struct uart {
 	int irq;
 };
 
-__noinstrument
-static void uart_write(struct uart *u, int reg, uint8_t value)
+__noinstrument static void uart_write(struct uart *u, int reg, uint8_t value)
 {
 	x86_64_outb(u->port + reg, value);
 }
 
-__noinstrument
-static uint8_t uart_read(struct uart *u, int reg)
+__noinstrument static uint8_t uart_read(struct uart *u, int reg)
 {
 	return x86_64_inb(u->port + reg);
 }
@@ -104,9 +102,15 @@ static void uart_configure_line(struct uart *u, int parity, int stopbits, int wo
 {
 	uint8_t lc = 0;
 	switch(parity) {
-		case UART_PARITY_TYPE_EVEN:  lc |= UART_LCR_EVEN_PAR; break;
-		case UART_PARITY_TYPE_SPACE: lc |= UART_LCR_EVEN_PAR; break;
-		case UART_PARITY_TYPE_MARK:  lc |= UART_LCR_STICKY_PAR | UART_LCR_EVEN_PAR; break;
+		case UART_PARITY_TYPE_EVEN:
+			lc |= UART_LCR_EVEN_PAR;
+			break;
+		case UART_PARITY_TYPE_SPACE:
+			lc |= UART_LCR_EVEN_PAR;
+			break;
+		case UART_PARITY_TYPE_MARK:
+			lc |= UART_LCR_STICKY_PAR | UART_LCR_EVEN_PAR;
+			break;
 	}
 	if(parity != UART_PARITY_TYPE_NONE) {
 		lc |= UART_LCR_ENABLE_PAR;
@@ -137,10 +141,16 @@ static void uart_set_fifo(struct uart *u, int fifosz)
 	if(u->fifo_sz > 1) {
 		u->fc = UART_FCR_ENABLE | UART_FCR_TX_RESET | UART_FCR_RX_RESET;
 		switch(u->fifo_sz) {
-			case 4:  u->fc |= (1 << 6); break;
-			case 8:  u->fc |= (1 << 7); break;
-			default: u->fc |= (1 << 6) | (1 << 7); break;
-			/* TODO: some chips support 64-byte FIFOs. We don't, yet. */
+			case 4:
+				u->fc |= (1 << 6);
+				break;
+			case 8:
+				u->fc |= (1 << 7);
+				break;
+			default:
+				u->fc |= (1 << 6) | (1 << 7);
+				break;
+				/* TODO: some chips support 64-byte FIFOs. We don't, yet. */
 		}
 	}
 }
@@ -183,14 +193,13 @@ static void uart_program(struct uart *u, bool interrupts)
 		u->ie = UART_IER_RX_FULL;
 //			| UART_IER_LINESTATUS | UART_IER_LINEDELTA;
 #else
-		u->ie = UART_IER_RX_FULL | UART_IER_TX_FULL
-			| UART_IER_LINESTATUS | UART_IER_LINEDELTA;
+		u->ie = UART_IER_RX_FULL | UART_IER_TX_FULL | UART_IER_LINESTATUS | UART_IER_LINEDELTA;
 #endif
 	} else {
 		u->ie = 0;
 	}
 	uart_write(u, UART_REG_IER, u->ie);
-	
+
 	/* The way is open. Mark DTR and RTS to send and recv data */
 	u->mc = UART_MCR_DTR | UART_MCR_RTS;
 	uart_write(u, UART_REG_MCR, u->mc);
@@ -246,20 +255,24 @@ static void uart_identify(struct uart *u)
 		}
 		fifo_size = 1;
 	}
-	
+
 	u->max_baud = max_baud;
 	uart_set_fifo(u, fifo_size);
 }
 
-static void uart_configure(struct uart *u, bool interrupts, int parity,
-		int stop, int word, int speed) {
+static void uart_configure(struct uart *u,
+  bool interrupts,
+  int parity,
+  int stop,
+  int word,
+  int speed)
+{
 	uart_set_speed(u, speed);
 	uart_configure_line(u, parity, stop, word);
 	uart_program(u, interrupts);
 }
 
-static void uart_init(struct uart *u, bool interrupts, int parity,
-		int stop, int word, int speed)
+static void uart_init(struct uart *u, bool interrupts, int parity, int stop, int word, int speed)
 {
 	uart_identify(u);
 	uart_configure(u, interrupts, parity, stop, word, speed);
@@ -270,21 +283,34 @@ static struct uart com1 = {
 	.irq = COM1_IRQ,
 };
 
-__noinstrument
-static void _serial_interrupt(int i, struct interrupt_handler *h __unused)
+static struct object *ser_obj;
+
+#include <driver/device.h>
+#include <init.h>
+#include <limits.h>
+#include <object.h>
+#include <syscall.h>
+__noinstrument static void _serial_interrupt(int i, struct interrupt_handler *h __unused)
 {
 	struct uart *u = &com1;
 	(void)i;
 	uint8_t id, ls;
 	while(((id = uart_read(u, UART_REG_IID)) & 1) == 0) {
 		switch((id >> 1) & 7) {
+			unsigned char c;
 			case 0:
 				uart_read(u, UART_REG_MSR);
 				break;
 			case 1:
 				break;
-			case 2: case 6:
-				uart_read(u, UART_REG_DATA);
+			case 2:
+			case 6:
+				c = uart_read(u, UART_REG_DATA);
+
+				long tmp = c;
+				obj_write_data(ser_obj, offsetof(struct device_repr, syncs[0]), sizeof(long), &tmp);
+				thread_wake_object(
+				  ser_obj, offsetof(struct device_repr, syncs[0]) + OBJ_NULLPAGE_SIZE, INT_MAX);
 				break;
 			case 3:
 				ls = uart_read(u, UART_REG_LSR);
@@ -294,19 +320,49 @@ static void _serial_interrupt(int i, struct interrupt_handler *h __unused)
 	}
 }
 
+static void __late_init_serial(void *a __unused)
+{
+	int r;
+	objid_t id;
+	/* TODO: restrict write access. In fact, do this for ALL KSOs. */
+	r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &id);
+	if(r < 0)
+		panic("failed to create serial object: %d", r);
+
+	ser_obj = obj_lookup(id);
+
+	assert(ser_obj != NULL);
+
+	struct device_repr repr = {
+		.hdr.name = "UART0",
+		.device_type = DEVICE_IO,
+		.device_id = DEVICE_ID_SERIAL,
+	};
+
+	obj_write_data(ser_obj, 0, sizeof(repr), &repr);
+	kso_root_attach(ser_obj, 0, KSO_DEVICE);
+}
+POST_INIT(__late_init_serial, NULL);
+
 static struct interrupt_handler _serial_handler = {
 	.fn = _serial_interrupt,
 };
 
 void serial_init(void)
 {
-	uart_init(&com1, false, UART_PARITY_TYPE_NONE, CONFIG_SERIAL_DEBUG_STOPBITS, CONFIG_SERIAL_DEBUG_WORDSZ, CONFIG_SERIAL_DEBUG_BAUD);
+	uart_init(&com1,
+	  false,
+	  UART_PARITY_TYPE_NONE,
+	  CONFIG_SERIAL_DEBUG_STOPBITS,
+	  CONFIG_SERIAL_DEBUG_WORDSZ,
+	  CONFIG_SERIAL_DEBUG_BAUD);
 	printk("Initialized serial debugging (max_baud=%d, fifo_sz=%d, div=%d)\n",
-			com1.max_baud, com1.fifo_sz, com1.divisor);
+	  com1.max_baud,
+	  com1.fifo_sz,
+	  com1.divisor);
 }
 
-__noinstrument
-void serial_putc(char c)
+__noinstrument void serial_putc(char c)
 {
 	while((uart_read(&com1, UART_REG_LSR) & UART_LSR_THR_EMPTY) == 0)
 		;
@@ -324,14 +380,17 @@ __initializer static void __serial_init(void)
 {
 	interrupt_register_handler(com1.irq, &_serial_handler);
 	arch_interrupt_unmask(com1.irq);
-	uart_init(&com1, true, UART_PARITY_TYPE_NONE,
-			CONFIG_SERIAL_DEBUG_STOPBITS, CONFIG_SERIAL_DEBUG_WORDSZ, CONFIG_SERIAL_DEBUG_BAUD);
+	uart_init(&com1,
+	  true,
+	  UART_PARITY_TYPE_NONE,
+	  CONFIG_SERIAL_DEBUG_STOPBITS,
+	  CONFIG_SERIAL_DEBUG_WORDSZ,
+	  CONFIG_SERIAL_DEBUG_BAUD);
 }
 
 #include <spinlock.h>
 static struct spinlock _lock = SPINLOCK_INIT;
-__noinstrument
-void debug_puts(char *s)
+__noinstrument void debug_puts(char *s)
 {
 #if CONFIG_INSTRUMENT
 	instrument_disable();
@@ -350,4 +409,3 @@ void debug_puts(char *s)
 	instrument_enable();
 #endif
 }
-

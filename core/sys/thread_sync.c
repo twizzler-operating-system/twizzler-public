@@ -158,6 +158,12 @@ static long thread_sync_sleep_wakeup(long *addr, int wake)
 	return 0;
 }
 
+long thread_wake_object(struct object *obj, size_t offset, long arg)
+{
+	struct syncpoint *sp = sp_lookup(obj, offset, false);
+	return sp_wake(sp, arg);
+}
+
 long thread_sync_single(int operation, long *addr, long arg, struct timespec *spec)
 {
 	objid_t id;

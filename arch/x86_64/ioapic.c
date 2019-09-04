@@ -94,7 +94,7 @@ void arch_interrupt_unmask(int v)
 			continue;
 		if(vector >= chip->gsib && vector < chip->gsib + 24) {
 			write_ioapic_vector(
-			  chip, vector, 0, vector + chip->gsib > 4 ? 1 : 1, 0, 0, 32 + vector + chip->gsib);
+			  chip, vector, 0, vector + chip->gsib > 4 ? 1 : 0, 0, 0, 32 + vector + chip->gsib);
 		}
 	}
 }
