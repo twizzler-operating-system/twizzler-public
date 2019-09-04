@@ -163,12 +163,12 @@ ssize_t get_input(char *buf, size_t len)
 				return c;
 			}
 			if(!atomic_exchange(&dr->syncs[0], 0)) {
-				sys_thread_sync(1,
-				  (int[1]){ THREAD_SYNC_SLEEP },
-				  (long * [1]){ (long *)&dr->syncs[0] },
-				  (long[1]){ 0 },
-				  NULL,
-				  NULL);
+				struct sys_thread_sync_args args = {
+					.op = THREAD_SYNC_SLEEP,
+					.arg = 0,
+					.addr = (uint64_t *)&dr->syncs[0],
+				};
+				sys_thread_sync(1, &args);
 			}
 		} else {
 			int k = pckbd_getc();

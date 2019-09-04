@@ -241,8 +241,9 @@ static long __pcie_kaction(struct object *obj, long cmd, long arg)
 	return 0;
 }
 
-static void pcie_init_space(struct mcfg_desc_entry *space)
+__attribute__((no_sanitize("undefined"))) static void pcie_init_space(struct mcfg_desc_entry *space)
 {
+	printk("[acpi] found MCFG descriptor table: %p\n", space);
 	printk("[pcie] initializing PCIe configuration space at %lx covering %.4d:%.2x-%.2x\n",
 	  space->ba,
 	  space->pci_seg_group_nr,

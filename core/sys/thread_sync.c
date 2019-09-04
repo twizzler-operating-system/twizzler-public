@@ -129,16 +129,19 @@ static long thread_sync_single_norestore(int operation, long *addr, long arg, st
 		return -1;
 	}
 	struct syncpoint *sp = sp_lookup(obj, off, operation == THREAD_SYNC_SLEEP);
-	obj_put(obj);
+	long ret = -1;
 	switch(operation) {
 		case THREAD_SYNC_SLEEP:
-			return sp_sleep_prep(sp, addr, arg, spec);
+			ret = sp_sleep_prep(sp, addr, arg, spec);
+			break;
 		case THREAD_SYNC_WAKE:
-			return sp_wake(sp, arg);
+			ret = sp_wake(sp, arg);
+			break;
 		default:
 			break;
 	}
-	return -1;
+	obj_put(obj);
+	return ret;
 }
 
 static long thread_sync_sleep_wakeup(long *addr, int wake)
@@ -188,27 +191,24 @@ long thread_sync_single(int operation, long *addr, long arg, struct timespec *sp
 	return -1;
 }
 
-long syscall_thread_sync(size_t count,
-  int *operation,
-  long **addr,
-  long *arg,
-  long *res,
-  struct timespec **spec)
+long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args)
 {
 	bool ok = false;
 	bool wake = false;
 	for(size_t i = 0; i < count; i++) {
-		int r = thread_sync_single_norestore(operation[i], addr[i], arg[i], spec ? spec[i] : NULL);
+		int r = thread_sync_single_norestore(args[i].op,
+		  (long *)args[i].addr,
+		  args[i].arg,
+		  (args[i].flags & THREAD_SYNC_TIMEOUT) ? args[i].spec : NULL);
 		ok = ok || r >= 0;
-		if(res)
-			res[i] = 1; // TODO
-		if(operation[i] == THREAD_SYNC_SLEEP && r == 0)
+		args[i].res = 1; // TODO
+		if(args[i].op == THREAD_SYNC_SLEEP && r == 0)
 			wake = true;
 	}
 	if(wake) {
 		for(size_t i = 0; i < count; i++) {
-			if(operation[i] == THREAD_SYNC_SLEEP)
-				thread_sync_sleep_wakeup(addr[i], 1);
+			if(args[i].op == THREAD_SYNC_SLEEP)
+				thread_sync_sleep_wakeup((long *)args[i].addr, 1);
 		}
 	}
 	return ok ? 0 : -1;

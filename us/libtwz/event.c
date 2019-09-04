@@ -44,6 +44,7 @@ int event_wait(size_t count, struct event *ev)
 	if(count > 4096)
 		return -EINVAL; // TODO
 	while(true) {
+		struct sys_thread_sync_args args[count];
 		int ops[count];
 		long *points[count];
 		long arg[count];
@@ -51,11 +52,16 @@ int event_wait(size_t count, struct event *ev)
 		size_t ready = 0;
 		for(size_t i = 0; i < count; i++) {
 			_Atomic uint64_t *point = __event_point(ev);
-			arg[i] = *point;
-			points[i] = (long *)point;
-			ops[i] = THREAD_SYNC_SLEEP;
-			spec[i] = ev->flags & EV_TIMEOUT ? &ev->timeout : NULL;
-			ev->result = arg[i] & ev->events;
+			args[i].arg = *point;
+			args[i].addr = (uint64_t *)point;
+			args[i].op = THREAD_SYNC_SLEEP;
+			if(ev->flags & EV_TIMEOUT) {
+				args[i].spec = &ev->timeout;
+				args[i].flags = THREAD_SYNC_TIMEOUT;
+			} else {
+				args[i].flags = 0;
+			}
+			ev->result = args[i].arg & ev->events;
 			if(ev->result) {
 				ready++;
 			}
@@ -63,7 +69,7 @@ int event_wait(size_t count, struct event *ev)
 		if(ready > 0)
 			return ready;
 
-		int r = sys_thread_sync(count, ops, points, arg, NULL, spec);
+		int r = sys_thread_sync(count, args);
 		if(r < 0)
 			return r;
 	}
@@ -73,12 +79,12 @@ int event_wake(struct evhdr *ev, uint64_t events, long wcount)
 {
 	uint64_t old = atomic_fetch_or(&ev->point, events);
 	if((old & events) != events) {
-		return sys_thread_sync(1,
-		  (int[1]){ THREAD_SYNC_WAKE },
-		  (long * [1]){ (long *)&ev->point },
-		  (long[1]){ wcount },
-		  NULL,
-		  NULL);
+		struct sys_thread_sync_args args = {
+			.op = THREAD_SYNC_WAKE,
+			.addr = (uint64_t *)&ev->point,
+			.arg = wcount,
+		};
+		return sys_thread_sync(1, &args);
 	}
 	return 0;
 }

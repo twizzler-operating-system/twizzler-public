@@ -21,6 +21,8 @@ extern void idt_init_secondary(void);
 static struct multiboot *mb;
 static struct processor _dummy_proc;
 
+static size_t xsave_region_size = 512;
+
 static void proc_init(void)
 {
 	uint64_t cr0, cr4;
@@ -63,6 +65,15 @@ static void proc_init(void)
 	/* in case we need to field an interrupt before we properly setup gs */
 	uint64_t gs = (uint64_t)&_dummy_proc.arch;
 	x86_64_wrmsr(X86_MSR_GS_BASE, gs & 0xFFFFFFFF, gs >> 32);
+
+	// for(int i = 2; i <= 2; i++) {
+	//	size_t sz = x86_64_cpuid(0xd, i, 0);
+	//	size_t base = x86_64_cpuid(0xd, i, 1);
+	//	if(base + sz > xsave_region_size)
+	//		xsave_region_size = base + sz;
+	//}
+	xsave_region_size = 1024; // TODO
+	align_up(xsave_region_size, 64);
 }
 
 struct ustar_header {
@@ -334,7 +345,9 @@ void arch_thread_init(struct thread *thread,
 	thread->arch.syscall.rsi = ID_LO(thread->thrid);
 	thread->arch.syscall.rdx = ID_HI(thread->thrid);
 	thread->arch.was_syscall = 1;
-	thread->arch.usedfpu = false;
 	thread->arch.fs = (long)tls; /* TODO: only set one of these */
 	thread->arch.gs = (long)thrd_ctrl_slot * mm_page_size(MAX_PGLEVEL);
+	if(xsave_region_size > 0x1000)
+		panic("NI - HUGE xsave region");
+	thread->arch.xsave_region = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, true);
 }

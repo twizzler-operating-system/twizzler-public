@@ -42,6 +42,18 @@ enum kso_invl_current {
 #define THREAD_SYNC_SLEEP 0
 #define THREAD_SYNC_WAKE 1
 
+#define THREAD_SYNC_TIMEOUT 1
+
+struct timespec;
+struct sys_thread_sync_args {
+	uint64_t *addr;
+	uint64_t arg;
+	uint64_t res;
+	struct timespec *spec;
+	uint32_t op;
+	uint32_t flags;
+};
+
 /* TODO: arch-dep */
 struct sys_become_args {
 	objid_t target_view;

@@ -20,12 +20,7 @@ struct timespec {
 	uint64_t tv_nsec;
 };
 
-long syscall_thread_sync(size_t count,
-  int *operation,
-  long **addr,
-  long *arg,
-  long *res,
-  struct timespec **spec);
+long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args);
 
 long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count);
 

@@ -121,13 +121,14 @@ ssize_t twz_thread_wait(size_t count,
 	size_t ready;
 	do {
 		ready = 0;
-		long *addrs[count];
-		int ops[count];
+		struct sys_thread_sync_args args[count];
 		for(size_t i = 0; i < count; i++) {
 			struct twzthread_repr *r = twz_obj_base(&threads[i]->obj);
 
-			addrs[i] = (long *)&r->syncs[syncpoints[i]];
-			ops[i] = THREAD_SYNC_SLEEP;
+			args[i].addr = (uint64_t *)&r->syncs[syncpoints[i]];
+			args[i].arg = 0;
+			args[i].op = THREAD_SYNC_SLEEP;
+			args[i].flags = 0;
 			if(r->syncs[syncpoints[i]]) {
 				if(event)
 					event[i] = 1;
@@ -137,10 +138,7 @@ ssize_t twz_thread_wait(size_t count,
 			}
 		}
 		if(!ready) {
-			long z[count];
-			memset(z, 0, sizeof(z));
-
-			int r = sys_thread_sync(count, ops, addrs, z, event, NULL);
+			int r = sys_thread_sync(count, args);
 			if(r < 0)
 				return r;
 		}
@@ -148,6 +146,7 @@ ssize_t twz_thread_wait(size_t count,
 	return ready;
 }
 
+#include <limits.h>
 int twz_thread_ready(struct thread *thread, int sp, uint64_t info)
 {
 	struct twzthread_repr *repr;
@@ -159,10 +158,10 @@ int twz_thread_ready(struct thread *thread, int sp, uint64_t info)
 
 	repr->syncinfos[sp] = info;
 	repr->syncs[sp] = 1;
-	return sys_thread_sync(1,
-	  (int[]){ THREAD_SYNC_WAKE },
-	  (long *[]){ (long *)&repr->syncs[sp] },
-	  (long[]){ -1 },
-	  NULL,
-	  NULL);
+	struct sys_thread_sync_args args = {
+		.op = THREAD_SYNC_WAKE,
+		.addr = (uint64_t *)&repr->syncs[sp],
+		.arg = UINT64_MAX,
+	};
+	return sys_thread_sync(1, &args);
 }

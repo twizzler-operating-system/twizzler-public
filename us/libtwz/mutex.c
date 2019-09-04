@@ -12,13 +12,15 @@ void mutex_acquire(struct mutex *m)
 	}
 	if(v)
 		v = atomic_exchange(&m->sleep, 2);
+
+	struct sys_thread_sync_args args = {
+		.op = THREAD_SYNC_SLEEP,
+		.addr = (uint64_t *)&m->sleep,
+		.arg = 2,
+	};
+
 	while(v) {
-		sys_thread_sync(1,
-		  (int[1]){ THREAD_SYNC_SLEEP },
-		  (long * [1]){ (long *)&m->sleep },
-		  (long[1]){ 2 },
-		  NULL,
-		  NULL);
+		sys_thread_sync(1, &args);
 
 		v = atomic_exchange(&m->sleep, 2);
 	}
@@ -40,10 +42,10 @@ void mutex_release(struct mutex *m)
 		}
 		asm("pause");
 	}
-	sys_thread_sync(1,
-	  (int[1]){ THREAD_SYNC_WAKE },
-	  (long * [1]){ (long *)&m->sleep },
-	  (long[1]){ 1 },
-	  NULL,
-	  NULL);
+	struct sys_thread_sync_args args = {
+		.op = THREAD_SYNC_WAKE,
+		.addr = (uint64_t *)&m->sleep,
+		.arg = 1,
+	};
+	sys_thread_sync(1, &args);
 }

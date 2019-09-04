@@ -41,19 +41,16 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
   bool was_userspace,
   bool ignored)
 {
-	// if(frame->int_no != 36 && frame->int_no != 32) {
-	//	printk(":: %ld\n", frame->int_no);
-	//}
 	if(!ignored) {
 		if(was_userspace) {
 			current_thread->arch.was_syscall = false;
 		}
 
-		if((frame->int_no == 6 || frame->int_no == 7) && current_thread
-		   && !current_thread->arch.usedfpu) {
+		if((frame->int_no == 6 || frame->int_no == 7)) {
 			if(!was_userspace) {
 				panic("floating-point operations used in kernel-space");
 			}
+			panic("NI - FP exception");
 		} else if(frame->int_no == 14) {
 			/* page fault */
 			uint64_t cr2;
@@ -184,27 +181,11 @@ __noinstrument void arch_thread_resume(struct thread *thread)
 	x86_64_wrmsr(
 	  X86_MSR_KERNEL_GS_BASE, thread->arch.gs & 0xFFFFFFFF, (thread->arch.gs >> 32) & 0xFFFFFFFF);
 
-	/* TODO (sec): remove lazy FPU switching */
-	/* TODO (perf): we can be smarter about FPU state:
-	 *  - we should allocate a separate (slab-based) structure to hold
-	 *    FPU state, making thread allocations cheaper.
-	 *  - we can store more info than "did thread use FPU",
-	 *    such as how long has it been since it was used... and
-	 *    then we can 're-disable' the FPU for that thread, and possibly
-	 *    even free the allocated FPU state space.
-	 */
 	if(old) {
-		/* store FPU state */
-		asm volatile("fxsave (%0)" ::"r"(old->arch.fpu_data) : "memory");
+		asm volatile("xsave (%0)" ::"r"(old->arch.xsave_region), "a"(7), "d"(0) : "memory");
 	}
 
-	if(thread->arch.usedfpu) {
-		/* restore FPU state */
-		asm volatile("fxrstor (%0)" ::"r"(thread->arch.fpu_data) : "memory");
-	} else {
-		asm volatile("finit;");
-		thread->arch.usedfpu = true;
-	}
+	asm volatile("xrstor (%0)" ::"r"(thread->arch.xsave_region), "a"(7), "d"(0) : "memory");
 	if((!old || old->ctx != thread->ctx) && thread->ctx) {
 		arch_mm_switch_context(thread->ctx);
 	}

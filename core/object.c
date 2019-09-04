@@ -42,7 +42,7 @@ static void _obj_dtor(void *_u, void *ptr)
 __initializer static void _init_objs(void)
 {
 	/* TODO (perf): verify all ihtable sizes */
-	slabcache_init(&sc_pctable, ihtable_size(4), _iht_ctor, NULL, (void *)4ul);
+	slabcache_init(&sc_pctable, ihtable_size(8), _iht_ctor, NULL, (void *)8ul);
 	slabcache_init(&sc_tstable, ihtable_size(4), _iht_ctor, NULL, (void *)4ul);
 	slabcache_init(&sc_objs, sizeof(struct object), _obj_ctor, _obj_dtor, NULL);
 	slabcache_init(&sc_objpage, sizeof(struct objpage), NULL, NULL, NULL);
