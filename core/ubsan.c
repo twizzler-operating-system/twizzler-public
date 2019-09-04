@@ -49,7 +49,7 @@ __attribute__((no_sanitize_undefined)) static void print_source_location(const c
 
 __attribute__((no_sanitize_undefined)) static void ubsan_prologue(struct source_location *location)
 {
-	spinlock_acquire(&lock);
+	__spinlock_acquire(&lock, NULL, 0);
 	panic_continue("Undefined Behavior Detected");
 	print_source_location("Undefined behaviour in", location);
 }

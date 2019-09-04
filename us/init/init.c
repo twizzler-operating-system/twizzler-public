@@ -164,20 +164,20 @@ int main(int argc, char **argv)
 		struct kso_attachment *k = &rr->attached[i];
 		if(!k->id || !k->type)
 			continue;
+		struct thread *dt = malloc(sizeof(*dt));
 		switch(k->type) {
-			struct thread dt;
 			struct object dobj;
 			case KSO_DEVBUS:
 				sprintf(drv_info.arg, IDFMT, IDPR(k->id));
 				drv_info.name = "pcie";
 				/* TODO: determine the type of bus, and start something appropriate */
 				if((r = twz_thread_spawn(
-				      &dt, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &drv_info }))) {
+				      dt, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &drv_info }))) {
 					EPRINTF("failed to spawn driver");
 					abort();
 				}
 				twz_thread_wait(
-				  1, (struct thread *[]){ &dt }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+				  1, (struct thread *[]){ dt }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 
 				break;
 			case KSO_DEVICE:
@@ -199,25 +199,25 @@ int main(int argc, char **argv)
 				if(dr->device_type == DEVICE_INPUT) {
 					sprintf(drv_info.arg, IDFMT, IDPR(k->id));
 					drv_info.name = "input";
-					if((r = twz_thread_spawn(&dt,
+					if((r = twz_thread_spawn(dt,
 					      &(struct thrd_spawn_args){ .start_func = tmain, .arg = &drv_info }))) {
 						EPRINTF("failed to spawn driver");
 						abort();
 					}
 					twz_thread_wait(
-					  1, (struct thread *[]){ &dt }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+					  1, (struct thread *[]){ dt }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 					twz_name_assign(uid, "dev:input:keyboard");
 				}
 				if(dr->device_type == DEVICE_IO && dr->device_type == DEVICE_ID_SERIAL) {
 					sprintf(drv_info.arg, IDFMT, IDPR(k->id));
 					drv_info.name = "serial";
-					if((r = twz_thread_spawn(&dt,
+					if((r = twz_thread_spawn(dt,
 					      &(struct thrd_spawn_args){ .start_func = tmain, .arg = &drv_info }))) {
 						EPRINTF("failed to spawn driver");
 						abort();
 					}
 					twz_thread_wait(
-					  1, (struct thread *[]){ &dt }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+					  1, (struct thread *[]){ dt }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 					twz_name_assign(uid, "dev:input:serial");
 				}
 

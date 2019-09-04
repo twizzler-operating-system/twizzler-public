@@ -9,8 +9,10 @@
 static inline size_t slab_size(size_t sz)
 {
 	size_t tmp = sz * 64;
-	if(tmp < PAGE_SIZE) tmp = PAGE_SIZE;
-	if(tmp > PAGE_SIZE * 2) tmp = PAGE_SIZE * 2;
+	if(tmp < PAGE_SIZE)
+		tmp = PAGE_SIZE;
+	if(tmp > PAGE_SIZE * 2)
+		tmp = PAGE_SIZE * 2;
 	return tmp;
 }
 
@@ -44,7 +46,7 @@ static struct slab *new_slab(struct slabcache *c)
 	s->alloc = 0;
 	s->slabcache = c;
 
-	for(unsigned int i=0;i<obj_per_slab(c->sz);i++) {
+	for(unsigned int i = 0; i < obj_per_slab(c->sz); i++) {
 		s->alloc |= (1ull << i);
 		if(c->ctor) {
 			char *obj = s->data + i * c->sz;
@@ -117,7 +119,7 @@ void slabcache_free(void *obj)
 static void destroy_slab(struct slab *s)
 {
 	assert(num_set(s->alloc) == obj_per_slab(s->slabcache->sz));
-	for(unsigned int i=0;i<obj_per_slab(s->slabcache->sz);i++) {
+	for(unsigned int i = 0; i < obj_per_slab(s->slabcache->sz); i++) {
 		if(s->slabcache->dtor) {
 			char *obj = s->data + i * s->slabcache->sz;
 			s->slabcache->dtor(s->slabcache->ptr, obj);
@@ -127,7 +129,7 @@ static void destroy_slab(struct slab *s)
 
 void slabcache_reap(struct slabcache *c)
 {
-	for(struct slab *s = c->empty.next;s != &c->empty; s=s->next) {
+	for(struct slab *s = c->empty.next; s != &c->empty; s = s->next) {
 		destroy_slab(s);
 	}
 }
@@ -138,11 +140,18 @@ static void init_list(struct slab *s)
 	s->prev = s;
 }
 
-void slabcache_init(struct slabcache *c, size_t sz,
-		void (*ctor)(void *, void *), void (*dtor)(void *, void *), void *ptr)
+void slabcache_init(struct slabcache *c,
+  size_t sz,
+  void (*ctor)(void *, void *),
+  void (*dtor)(void *, void *),
+  void *ptr)
 {
 	c->ptr = ptr;
-	c->sz = sz;
+	if(sz < 16)
+		c->sz = align_up(sz, 8);
+	else
+		c->sz = align_up(sz, 16);
+
 	c->ctor = ctor;
 	c->dtor = dtor;
 	c->lock = SPINLOCK_INIT;
@@ -151,4 +160,3 @@ void slabcache_init(struct slabcache *c, size_t sz,
 	init_list(&c->full);
 	init_list(&c->partial);
 }
-

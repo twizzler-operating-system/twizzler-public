@@ -16,10 +16,10 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			if(proc->id == 3) {
 				//			printk(
 				//			  "resuming current: %ld (%ld)\n", current_thread->id,
-				//current_thread->timeslice);
+				// current_thread->timeslice);
 			}
-			clksrc_set_interrupt_countdown(current_thread->timeslice, false);
 			spinlock_release(&proc->sched_lock, 0);
+			clksrc_set_interrupt_countdown(current_thread->timeslice, false);
 
 			arch_thread_resume(current_thread);
 		}

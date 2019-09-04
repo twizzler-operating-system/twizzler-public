@@ -132,7 +132,7 @@ void x86_64_virtualization_fault(struct processor *proc);
 #define PAGE_LARGE (1ull << 7)
 #define EPT_READ 1ull
 #define EPT_WRITE 2ull
-#define EPT_EXEC (4ull | (1ull << 10)) /* TODO (sec): separate exec_user and exec_kernel */
+#define EPT_EXEC 4ull
 
 #define EPT_MEMTYPE_WB (6 << 3)
 #define EPT_MEMTYPE_WC (1 << 3)

@@ -100,6 +100,7 @@ static inline struct object *__obj_alloc(enum kso_type ksot, objid_t id)
 	krc_init(&obj->refs);
 	krc_init_zero(&obj->pcount);
 	obj_kso_init(obj, ksot);
+	arch_object_init(obj);
 
 	return obj;
 }
@@ -110,6 +111,7 @@ struct object *obj_create(uint128_t id, enum kso_type ksot)
 	/* TODO (major): check for duplicates */
 	if(id) {
 		spinlock_acquire_save(&objlock);
+		printk(":: %p\n", &obj->elem);
 		ihtable_insert(&objtbl, &obj->elem, obj->id);
 		spinlock_release_restore(&objlock);
 	}
@@ -163,7 +165,22 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 struct object *obj_lookup(uint128_t id)
 {
 	spinlock_acquire_save(&objlock);
-	struct object *obj = ihtable_find(&objtbl, id, struct object, elem, id);
+	// struct object *obj = ihtable_find(&objtbl, id, struct object, elem, id);
+
+	struct object *obj;
+	struct object *ret = NULL;
+	int bucket =
+	  sizeof(id) > 8 ? hash128_sz((id), (&objtbl)->bits) : hash64_sz((id), (&objtbl)->bits);
+	for(struct ihelem *e = (&objtbl)->table[bucket]; e; e = e->next) {
+		struct object *__obj = container_of(e, struct object, elem);
+		if(__obj->id == (id)) {
+			ret = __obj;
+			break;
+		}
+	};
+
+	obj = ret;
+
 	if(obj) {
 		krc_get(&obj->refs);
 	}
@@ -490,7 +507,6 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	  mi.p_flags);*/
 
 	struct objpage *p = obj_get_page(o, idx, true);
-	obj_put(o);
 
 	uint64_t caching_flags = 0;
 	switch(PAGE_CACHE_TYPE(p->page)) {
@@ -508,11 +524,12 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			break;
 	}
 
-	/*
-	printk("mapping: %lx -> %lx (%d)\n",
-	  loaddr & ~(mm_page_size(p->page->level) - 1),
-	  p->page->addr,
-	  p->page->level);*/
+		/*
+		printk("mapping: %lx -> %lx (%d)\n",
+		  loaddr & ~(mm_page_size(p->page->level) - 1),
+		  p->page->addr,
+		  p->page->level);*/
+#if 0
 	bool r = arch_objspace_map(loaddr & ~(mm_page_size(p->page->level) - 1),
 	  p->page->addr,
 	  p->page->level,
@@ -526,4 +543,14 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		panic("already mapped %lx %d %lx\n", pa, level, fl);
 	}
 	/* TODO (major): deal with mapcounting */
+#else
+
+	(void)caching_flags;
+	arch_object_map_slot(o, perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
+	if(!(p->flags & OBJPAGE_MAPPED)) {
+		arch_object_map_page(o, p->page, p->idx);
+	}
+
+#endif
+	obj_put(o);
 }

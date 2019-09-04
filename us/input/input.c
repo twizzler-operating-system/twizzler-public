@@ -162,14 +162,13 @@ ssize_t get_input(char *buf, size_t len)
 			if(c) {
 				return c;
 			}
-			if(!dr->syncs[0]) {
+			if(!atomic_exchange(&dr->syncs[0], 0)) {
 				sys_thread_sync(1,
 				  (int[1]){ THREAD_SYNC_SLEEP },
 				  (long * [1]){ (long *)&dr->syncs[0] },
 				  (long[1]){ 0 },
 				  NULL,
 				  NULL);
-				dr->syncs[0] = 0;
 			}
 		} else {
 			int k = pckbd_getc();
@@ -199,6 +198,7 @@ int main(int argc, char **argv)
 
 	dr = twz_obj_base(&ks_obj);
 
+	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
 		debug_printf("failed to mark ready");
 		abort();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <arch/object.h>
 #include <krc.h>
 #include <lib/inthash.h>
 #include <secctx.h>
@@ -46,6 +47,7 @@ void kso_root_attach(struct object *obj, uint64_t flags, int type);
 
 struct object {
 	uint128_t id;
+
 	size_t maxsz;
 
 	struct krc refs, pcount;
@@ -69,11 +71,14 @@ struct object {
 	struct ihtable *pagecache, *tstable;
 
 	struct ihelem elem, slotelem;
+	struct arch_object arch;
 };
 
 struct page;
+#define OBJPAGE_MAPPED 1
 struct objpage {
 	size_t idx;
+	uint64_t flags;
 	struct page *page;
 	struct krc refs;
 	struct ihelem elem;
@@ -96,6 +101,11 @@ objid_t obj_compute_id(struct object *obj);
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
 int obj_check_permission(struct object *obj, uint64_t flags);
+
+void arch_object_map_slot(struct object *obj, uint64_t flags);
+void arch_object_unmap_page(struct object *obj, size_t idx);
+bool arch_object_map_page(struct object *obj, struct page *page, size_t idx);
+void arch_object_init(struct object *obj);
 
 #define OBJSPACE_FAULT_READ 1
 #define OBJSPACE_FAULT_WRITE 2

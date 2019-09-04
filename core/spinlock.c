@@ -1,22 +1,30 @@
-#include <spinlock.h>
-#include <interrupt.h>
-#include <stdatomic.h>
-#include <processor.h>
 #include <instrument.h>
+#include <interrupt.h>
+#include <processor.h>
+#include <spinlock.h>
+#include <stdatomic.h>
 
-bool spinlock_acquire(struct spinlock *lock)
+bool __spinlock_acquire(struct spinlock *lock, const char *f, int l)
 {
 	register bool set = arch_interrupt_set(0);
+	// if(f)
+	//	printk("SLA: %s:%d\n", f, l);
+	size_t count = 0;
 	while(atomic_fetch_or_explicit(&lock->data, 1, memory_order_acquire) & 1) {
-		while(atomic_load_explicit(&lock->data, memory_order_acquire))
+		while(atomic_load_explicit(&lock->data, memory_order_acquire)) {
 			arch_processor_relax();
+			if(count++ == 10000 && f) {
+				printk("POTENTIAL DEADLOCK trying to acquire %s:%d\n", f, l);
+			}
+		}
 	}
 	return set;
 }
 
-void spinlock_release(struct spinlock *lock, bool flags)
+void __spinlock_release(struct spinlock *lock, bool flags, const char *f, int l)
 {
+	// if(f)
+	//	printk("SLR: %s:%d\n", f, l);
 	atomic_store_explicit(&lock->data, 0, memory_order_release);
 	arch_interrupt_set(flags);
 }
-

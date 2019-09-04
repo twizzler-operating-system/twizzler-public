@@ -10,7 +10,7 @@ LDFLAGS+=-mcmodel=kernel -Wl,-z,max-page-size=4096 -Wl,-z,common-page-size=4096
 
 QEMU=qemu-system-x86_64 -m 1024 -kernel $(BUILDDIR)/kernel # -initrd $(BUILDDIR)/initrd.tar -cpu host
 
-C_SOURCES+=$(addprefix arch/$(ARCH)/,init.c processor.c memory.c debug.c apic.c ioapic.c acpi.c madt.c idt.c entry.c vmx.c virtmem.c hpet.c thread.c rdrand.c)
+C_SOURCES+=$(addprefix arch/$(ARCH)/,init.c processor.c memory.c debug.c apic.c ioapic.c acpi.c madt.c idt.c entry.c vmx.c virtmem.c hpet.c thread.c rdrand.c object.c)
 
 ASM_SOURCES+=$(addprefix arch/$(ARCH)/,start.S ctx.S trampoline.S interrupt.S gate.S)
 

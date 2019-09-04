@@ -402,6 +402,7 @@ void fb_putc(struct fb *fb, int c)
 
 		fb->char_buffer = calloc(sizeof(fb->char_buffer[0]), fb->cw * fb->ch);
 		fb->back_buffer = malloc(fb->pitch * fb->fbh);
+		debug_printf(":::::: %p\n", fb->back_buffer);
 		memset(fb->back_buffer, 0, fb->pitch * fb->fbh);
 
 		struct object font;
@@ -445,7 +446,10 @@ void fb_putc(struct fb *fb, int c)
 
 	uint64_t s = rdtsc();
 	if(fb->flip) {
-		fastMemcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
+		// fastMemcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
+		// memcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
+		// fb->front_buffer[i] = 0; // fb->back_buffer[i];
+		// x += fb->back_buffer[i];
 	}
 	fb_render_cursor(fb);
 

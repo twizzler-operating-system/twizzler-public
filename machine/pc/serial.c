@@ -396,14 +396,14 @@ __noinstrument void debug_puts(char *s)
 	instrument_disable();
 #endif
 
-	bool fl = spinlock_acquire(&_lock);
+	bool fl = __spinlock_acquire(&_lock, NULL, 0);
 	while(*s) {
 		serial_putc(*s);
 		if(*s == '\n')
 			serial_putc('\r');
 		s++;
 	}
-	spinlock_release(&_lock, fl);
+	__spinlock_release(&_lock, fl, NULL, 0);
 
 #if CONFIG_INSTRUMENT
 	instrument_enable();
