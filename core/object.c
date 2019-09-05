@@ -111,7 +111,6 @@ struct object *obj_create(uint128_t id, enum kso_type ksot)
 	/* TODO (major): check for duplicates */
 	if(id) {
 		spinlock_acquire_save(&objlock);
-		printk(":: %p\n", &obj->elem);
 		ihtable_insert(&objtbl, &obj->elem, obj->id);
 		spinlock_release_restore(&objlock);
 	}
@@ -165,21 +164,7 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 struct object *obj_lookup(uint128_t id)
 {
 	spinlock_acquire_save(&objlock);
-	// struct object *obj = ihtable_find(&objtbl, id, struct object, elem, id);
-
-	struct object *obj;
-	struct object *ret = NULL;
-	int bucket =
-	  sizeof(id) > 8 ? hash128_sz((id), (&objtbl)->bits) : hash64_sz((id), (&objtbl)->bits);
-	for(struct ihelem *e = (&objtbl)->table[bucket]; e; e = e->next) {
-		struct object *__obj = container_of(e, struct object, elem);
-		if(__obj->id == (id)) {
-			ret = __obj;
-			break;
-		}
-	};
-
-	obj = ret;
+	struct object *obj = ihtable_find(&objtbl, id, struct object, elem, id);
 
 	if(obj) {
 		krc_get(&obj->refs);

@@ -122,7 +122,6 @@ int dsa_import(const unsigned char *in, unsigned long inlen, dsa_key *key)
 
 LBL_OK:
    key->qord = mp_unsigned_bin_size(key->q);
-
    /* quick p, q, g validation, without primality testing */
    if ((err = dsa_int_validate_pqg(key, &stat)) != CRYPT_OK) {
       goto LBL_ERR;

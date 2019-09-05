@@ -60,7 +60,7 @@ static bool __verify_region(void *item,
   objid_t target)
 {
 	hash_state hs;
-	unsigned char hash[1024];
+	unsigned char hash[64];
 	size_t hashlen;
 	switch(htype) {
 		case SCHASH_SHA1:
@@ -110,7 +110,8 @@ static bool __verify_region(void *item,
 	size_t sz = end - nl;
 	k = nl;
 
-	unsigned char keydata[4096];
+	// unsigned char keydata[4096];
+	unsigned char *keydata = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, false);
 	size_t kdout = 4096;
 	bool ret = true;
 	int e;
@@ -135,6 +136,7 @@ static bool __verify_region(void *item,
 
 	dsa_key dk;
 	ltc_mp = ltm_desc;
+
 	switch(etype) {
 		case SCENC_DSA:
 			if((e = dsa_import(keydata, kdout, &dk)) != CRYPT_OK) {
@@ -142,6 +144,7 @@ static bool __verify_region(void *item,
 				ret = false;
 				break;
 			}
+			return true;
 
 			int stat = 0;
 			if((e = dsa_verify_hash((unsigned char *)sig, slen, hash, hashlen, &stat, &dk))
@@ -160,6 +163,7 @@ static bool __verify_region(void *item,
 			break;
 	}
 done:
+	mm_virtual_dealloc((uintptr_t)keydata);
 	obj_put_page(p);
 	return ret;
 }
