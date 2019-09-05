@@ -3,23 +3,40 @@
 #include <processor.h>
 #include <thread.h>
 
-#define TIMESLICE 1000000
+#define TIMESLICE 20000
 
 __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 {
+	uint64_t ji = clksrc_get_nanoseconds();
 	while(true) {
 		/* TODO (major): allow current thread to run again */
 		spinlock_acquire(&proc->sched_lock);
 
-		if(current_thread && current_thread->timeslice
+		if(current_thread && current_thread->timeslice_expire > ji
 		   && current_thread->state == THREADSTATE_RUNNING) {
-			//	current_thread->timeslice -= 1000;
-			// printk("resuming current: %ld (%ld)\n", current_thread->id,
-			// current_thread->timeslice);
+#if 0
+			printk("resuming current: %ld (%ld)\n",
+			  current_thread->id,
+			  current_thread->timeslice_expire - ji);
+#endif
 			spinlock_release(&proc->sched_lock, 0);
-			clksrc_set_interrupt_countdown(current_thread->timeslice, false);
+			clksrc_set_interrupt_countdown(current_thread->timeslice_expire - ji, false);
 
 			arch_thread_resume(current_thread);
+		}
+		if(current_thread && current_thread->timeslice_expire <= ji) {
+#if 0
+			printk("%ld ::: %d [%d;%lx;%ld]\n",
+			  current_thread->id,
+			  current_thread->priority,
+			  current_thread->arch.was_syscall,
+			  current_thread->arch.was_syscall ? current_thread->arch.syscall.rcx
+			                                   : current_thread->arch.exception.rip,
+			  current_thread->arch.was_syscall ? current_thread->arch.syscall.rax
+			                                   : current_thread->arch.exception.int_no);
+#endif
+			if(current_thread->priority > 1)
+				current_thread->priority--;
 		}
 
 		//	if(current_thread && current_thread->state == THREADSTATE_RUNNING) {
@@ -34,16 +51,22 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			list_insert(&proc->runqueue, &next->rq_entry);
 			spinlock_release(&proc->sched_lock, 0);
 
-			next->timeslice = TIMESLICE; // + next->priority * 100000;
-			                             //		printk("%ld: %ld (%d) %ld\n",
-			                             //		  next->id,
-			                             //		  next->timeslice,
-			                             //		  empty,
-			//		  current_thread ? current_thread->arch.exception.int_no : 0);
+			if(next->timeslice_expire < ji)
+				next->timeslice_expire = ji + TIMESLICE + next->priority * 10000;
+
+#if 0
+			printk("%ld: %ld/%ld (%d) %ld\n",
+			  next->id,
+			  ji,
+			  next->timeslice_expire,
+			  empty,
+			  current_thread ? current_thread->arch.exception.int_no : 0);
+#endif
 			if(!empty) {
-				clksrc_set_interrupt_countdown(next->timeslice, false);
-				if(next->priority > 1)
-					next->priority--;
+#if 0
+				printk("  set countdown %ld\n", next->timeslice_expire - ji);
+#endif
+				clksrc_set_interrupt_countdown(next->timeslice_expire - ji, false);
 			}
 			assertmsg(next->state == THREADSTATE_RUNNING,
 			  "%ld threadstate is %d (%d)",
@@ -66,8 +89,10 @@ void __schedule_timer_handler(int v, struct interrupt_handler *hdl)
 	(void)v;
 	(void)hdl;
 	if(current_thread) {
-		//	printk("%ld TIMER: %ld\n", current_thread->id, clksrc_get_interrupt_countdown());
-		current_thread->timeslice = clksrc_get_interrupt_countdown();
+#if 0
+		printk("%ld TIMER: %ld\n", current_thread->id, clksrc_get_interrupt_countdown());
+#endif
+		// current_thread->timeslice = clksrc_get_interrupt_countdown();
 	}
 }
 

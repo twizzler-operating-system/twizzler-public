@@ -193,7 +193,8 @@ static void uart_program(struct uart *u, bool interrupts)
 		u->ie = UART_IER_RX_FULL;
 //			| UART_IER_LINESTATUS | UART_IER_LINEDELTA;
 #else
-		u->ie = UART_IER_RX_FULL | UART_IER_TX_FULL | UART_IER_LINESTATUS | UART_IER_LINEDELTA;
+		// u->ie = UART_IER_RX_FULL | UART_IER_TX_FULL | UART_IER_LINESTATUS | UART_IER_LINEDELTA;
+		u->ie = UART_IER_RX_FULL | UART_IER_LINESTATUS | UART_IER_LINEDELTA;
 #endif
 	} else {
 		u->ie = 0;

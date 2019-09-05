@@ -26,7 +26,7 @@ struct thread {
 	struct spinlock lock;
 	unsigned long id;
 	enum thread_state state;
-	int64_t timeslice;
+	uint64_t timeslice_expire;
 	int priority;
 	struct krc refs;
 	objid_t thrid;
