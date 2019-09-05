@@ -294,8 +294,8 @@ __noinstrument static void x86_64_vmenter(struct processor *proc)
 	/* any time we trap back to the "hypervisor" we need this state reset */
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
 	asm volatile(
-	  "pushf;"
 	  "cli;"
+	  "pushf;"
 	  "push %%rcx;"
 	  "cmp $0, %0;"
 	  /* load the "guest" registers into the cpu. We can trash the host regs because
