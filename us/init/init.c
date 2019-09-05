@@ -123,6 +123,7 @@ int main(int argc, char **argv)
 		EPRINTF("failed to spawn logger");
 		abort();
 	}
+
 	twz_thread_wait(1, (struct thread *[]){ &lthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 	objid_t si;
 	r = twz_name_resolve(NULL, "init.sctx", NULL, 0, &si);

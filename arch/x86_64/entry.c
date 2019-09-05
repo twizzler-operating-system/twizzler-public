@@ -1,5 +1,6 @@
 #include <arch/x86_64-msr.h>
 #include <arch/x86_64-vmx.h>
+#include <clksrc.h>
 #include <processor.h>
 #include <secctx.h>
 #include <syscall.h>
@@ -105,6 +106,12 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
 		} else if(frame->int_no == PROCESSOR_IPI_RESUME) {
 			x86_64_ipi_resume();
 		} else {
+#if 0
+			printk("INTERRUPT : %ld (%d ; %d)\n",
+			  frame->int_no,
+			  was_userspace,
+			  current_thread->arch.was_syscall);
+#endif
 			kernel_interrupt_entry(frame->int_no);
 		}
 	}
@@ -162,7 +169,7 @@ void secctx_switch(int i)
 
 extern void x86_64_resume_userspace(void *);
 extern void x86_64_resume_userspace_interrupt(void *);
-__noinstrument void arch_thread_resume(struct thread *thread)
+__noinstrument void arch_thread_resume(struct thread *thread, uint64_t timeout)
 {
 	// printk("resume %ld\n", thread->id);
 	struct thread *old = current_thread;
@@ -191,6 +198,9 @@ __noinstrument void arch_thread_resume(struct thread *thread)
 	}
 	if((!old || old->active_sc != thread->active_sc) && thread->active_sc) {
 		x86_64_secctx_switch(thread->active_sc);
+	}
+	if(timeout) {
+		clksrc_set_interrupt_countdown(timeout, false);
 	}
 	if(thread->arch.was_syscall) {
 		x86_64_resume_userspace(&thread->arch.syscall);

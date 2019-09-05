@@ -145,8 +145,6 @@ static struct device_repr *dr;
 
 ssize_t get_input(char *buf, size_t len)
 {
-	for(;;)
-		;
 	size_t c = 0;
 	while(c < len) {
 		long x = atomic_exchange(&dr->syncs[0], 0);

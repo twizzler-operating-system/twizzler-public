@@ -60,6 +60,7 @@ static uintptr_t lapic_addr = 0;
 
 static inline void lapic_write(int reg, uint32_t data)
 {
+	asm volatile("mfence; lfence;" ::: "memory");
 	*((volatile uint32_t *)(lapic_addr + reg)) = data;
 }
 
@@ -155,7 +156,6 @@ static uint64_t wait_ns(int64_t ns)
 static void _apic_set_counter(struct clksrc *c __unused, uint64_t val, bool per)
 {
 	lapic_write(LAPIC_LVTT, 32 | (per ? (1 << 17) : 0));
-	lapic_write(LAPIC_TDCR, APIC_TIMER_DIV);
 	lapic_write(LAPIC_TICR, val);
 }
 
@@ -329,6 +329,7 @@ static void lapic_configure(int bsp)
 	lapic_write(LAPIC_TPR, 0);
 	/* finally write to the spurious interrupt register to enable
 	 * the interrupts */
+	lapic_write(LAPIC_ESR, 0);
 	lapic_write(LAPIC_SPIV, 0x0100 | 0xFF);
 	int div = APIC_TIMER_DIV;
 	if(bsp)

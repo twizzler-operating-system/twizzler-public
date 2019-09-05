@@ -3,7 +3,8 @@
 #include <processor.h>
 #include <thread.h>
 
-#define TIMESLICE 20000
+#define TIMESLICE_MIN 1000000
+#define TIMESLICE_GIVEUP 10000
 
 __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 {
@@ -12,7 +13,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 		/* TODO (major): allow current thread to run again */
 		spinlock_acquire(&proc->sched_lock);
 
-		if(current_thread && current_thread->timeslice_expire > ji
+		if(current_thread && current_thread->timeslice_expire > (ji + TIMESLICE_GIVEUP)
 		   && current_thread->state == THREADSTATE_RUNNING) {
 #if 0
 			printk("resuming current: %ld (%ld)\n",
@@ -20,9 +21,9 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			  current_thread->timeslice_expire - ji);
 #endif
 			spinlock_release(&proc->sched_lock, 0);
-			clksrc_set_interrupt_countdown(current_thread->timeslice_expire - ji, false);
+			//		clksrc_set_interrupt_countdown(current_thread->timeslice_expire - ji, false);
 
-			arch_thread_resume(current_thread);
+			arch_thread_resume(current_thread, current_thread->timeslice_expire - ji);
 		}
 		if(current_thread && current_thread->timeslice_expire <= ji) {
 #if 0
@@ -52,7 +53,9 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			spinlock_release(&proc->sched_lock, 0);
 
 			if(next->timeslice_expire < ji)
-				next->timeslice_expire = ji + TIMESLICE + next->priority * 10000;
+				next->timeslice_expire = ji + TIMESLICE_MIN + next->priority * 1000 * 5;
+			else if(next->timeslice_expire < (ji + TIMESLICE_GIVEUP))
+				next->timeslice_expire += TIMESLICE_GIVEUP;
 
 #if 0
 			printk("%ld: %ld/%ld (%d) %ld\n",
@@ -64,16 +67,18 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 #endif
 			if(!empty) {
 #if 0
-				printk("  set countdown %ld\n", next->timeslice_expire - ji);
+				printk("  set countdown %ld (%ld)\n",
+				  next->timeslice_expire - ji,
+				  clksrc_get_interrupt_countdown());
 #endif
-				clksrc_set_interrupt_countdown(next->timeslice_expire - ji, false);
+				//			clksrc_set_interrupt_countdown(next->timeslice_expire - ji, false);
 			}
 			assertmsg(next->state == THREADSTATE_RUNNING,
 			  "%ld threadstate is %d (%d)",
 			  next->id,
 			  next->state,
 			  empty);
-			arch_thread_resume(next);
+			arch_thread_resume(next, empty ? 0 : next->timeslice_expire - ji);
 		} else {
 			spinlock_release(&proc->sched_lock, 1);
 			/* we're halting here, but the arch_processor_halt function will return

@@ -226,6 +226,7 @@ static void vmx_handle_ept_violation(struct processor *proc)
 	vmx_queue_exception(20); /* #VE */
 }
 
+extern uint64_t clksrc_get_interrupt_countdown();
 void x86_64_vmexit_handler(struct processor *proc)
 {
 	/* so, in theory we now have a valid pointer to a vstate struct, and a stack
@@ -243,6 +244,8 @@ void x86_64_vmexit_handler(struct processor *proc)
 	            */
 	// printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual,
 	// iinfo);
+
+	// printk(":: %lx\n", clksrc_get_interrupt_countdown());
 
 	// uint32_t x, y;
 	// x86_64_rdmsr(X86_MSR_GS_BASE, &x, &y);
