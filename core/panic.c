@@ -23,6 +23,10 @@ void __panic(const char *file, int linenr, int flags, const char *msg, ...)
 
 	if(flags & PANIC_UNWIND)
 		debug_print_backtrace();
+	printk("in-kernel from: %s\n", current_thread->arch.was_syscall ? "syscall" : "exception");
+	printk("  NR: %ld\n",
+	  current_thread->arch.was_syscall ? current_thread->arch.syscall.rax
+	                                   : current_thread->arch.exception.int_no);
 	// kernel_debug_entry();
 	if(!(flags & PANIC_CONTINUE))
 		for(;;)

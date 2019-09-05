@@ -236,7 +236,7 @@ int main(int argc, char **argv)
 	close(1);
 	close(2);
 
-#if 0
+#if 1
 	if((fd = open("dev:dfl:input", O_RDONLY)) != 0) {
 		EPRINTF("err opening stdin: %d\n", fd);
 		abort();

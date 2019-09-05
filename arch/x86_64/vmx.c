@@ -206,7 +206,7 @@ static void vmx_handle_ept_violation(struct processor *proc)
 {
 	if(proc->arch.veinfo->lock != 0) {
 		panic("virtualization information area lock is not 0:\n(%lx %lx %lx) -> (%lx %lx %lx) at "
-		      "%ld:%lx",
+		      "%ld:%lx (%x)",
 		  proc->arch.veinfo->qual,
 		  proc->arch.veinfo->physical,
 		  proc->arch.veinfo->linear,
@@ -214,7 +214,8 @@ static void vmx_handle_ept_violation(struct processor *proc)
 		  vmcs_readl(VMCS_GUEST_PHYSICAL_ADDRESS),
 		  vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS),
 		  current_thread->id,
-		  vmcs_readl(VMCS_GUEST_RIP));
+		  vmcs_readl(VMCS_GUEST_RIP),
+		  proc->arch.veinfo->lock);
 	}
 	proc->arch.veinfo->reason = VMEXIT_REASON_EPT_VIOLATION;
 	proc->arch.veinfo->qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);

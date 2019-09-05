@@ -13,7 +13,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 
 		if(current_thread && current_thread->timeslice
 		   && current_thread->state == THREADSTATE_RUNNING) {
-			current_thread->timeslice -= 1000;
+			//	current_thread->timeslice -= 1000;
 			// printk("resuming current: %ld (%ld)\n", current_thread->id,
 			// current_thread->timeslice);
 			spinlock_release(&proc->sched_lock, 0);

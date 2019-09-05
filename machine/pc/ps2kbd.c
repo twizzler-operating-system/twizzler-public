@@ -7,13 +7,15 @@
 
 #include <driver/device.h>
 
+#include <arch/x86_64-io.h>
+
 static struct object *kbd_obj;
 
 static void __kbd_interrupt(int v, struct interrupt_handler *ih)
 {
 	(void)v;
 	(void)ih;
-	long tmp = 1;
+	long tmp = x86_64_inb(0x60);
 	obj_write_data(kbd_obj, offsetof(struct device_repr, syncs[0]), sizeof(long), &tmp);
 	thread_wake_object(
 	  kbd_obj, offsetof(struct device_repr, syncs[0]) + OBJ_NULLPAGE_SIZE, INT_MAX);

@@ -158,21 +158,20 @@ ssize_t get_input(char *buf, size_t len)
 {
 	size_t c = 0;
 	while(c < len) {
-		if(!pckbd_ready()) {
+		long x = atomic_exchange(&dr->syncs[0], 0);
+		if(!x) {
 			if(c) {
 				return c;
 			}
-			if(!atomic_exchange(&dr->syncs[0], 0)) {
-				struct sys_thread_sync_args args = {
-					.op = THREAD_SYNC_SLEEP,
-					.arg = 0,
-					.addr = (uint64_t *)&dr->syncs[0],
-				};
-				sys_thread_sync(1, &args);
-			}
+			struct sys_thread_sync_args args = {
+				.op = THREAD_SYNC_SLEEP,
+				.arg = 0,
+				.addr = (uint64_t *)&dr->syncs[0],
+			};
+
+			sys_thread_sync(1, &args);
 		} else {
-			int k = pckbd_getc();
-			buf[c++] = k;
+			buf[c++] = x;
 		}
 	}
 	return c;
