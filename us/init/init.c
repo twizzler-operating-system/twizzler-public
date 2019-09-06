@@ -279,7 +279,7 @@ int main(int argc, char **argv)
 	struct service_info login_info = {
 		.name = "login",
 		.sctx = lsi,
-		.arg = "serial",
+		.arg = "screen",
 	};
 
 	EPRINTF("twzinit: starting login program\n");
@@ -291,7 +291,7 @@ int main(int argc, char **argv)
 		abort();
 	}
 
-#if 0
+#if 1
 	struct service_info login2_info = {
 		.name = "login",
 		.sctx = lsi,
@@ -306,6 +306,8 @@ int main(int argc, char **argv)
 		EPRINTF("failed to spawn shell2");
 		abort();
 	}
+#endif
+#if 0
 	struct thread sh3thr;
 	if((r = twz_thread_spawn(
 	      &sh3thr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &login2_info }))) {

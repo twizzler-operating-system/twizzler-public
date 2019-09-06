@@ -515,53 +515,8 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	  flags,
 	  IDPR(o->id));
 #endif
-	/*
-	printk("--> %lx %lx %d (%x)\n",
-	  loaddr & ~(mm_page_size(0) - 1),
-	  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U),
-	  ok,
-	  mi.p_flags);*/
-
 	struct objpage *p = obj_get_page(o, idx, true);
 
-	uint64_t caching_flags = 0;
-	switch(PAGE_CACHE_TYPE(p->page)) {
-		case PAGE_CACHE_UC:
-			caching_flags = OBJSPACE_UC;
-			break;
-		case PAGE_CACHE_WT:
-			caching_flags = OBJSPACE_WT;
-			break;
-		case PAGE_CACHE_WC:
-			caching_flags = OBJSPACE_WC;
-			break;
-		case PAGE_CACHE_WB:
-			caching_flags = OBJSPACE_WB;
-			break;
-	}
-
-		/*
-		printk("mapping: %lx -> %lx (%d)\n",
-		  loaddr & ~(mm_page_size(p->page->level) - 1),
-		  p->page->addr,
-		  p->page->level);*/
-#if 0
-	bool r = arch_objspace_map(loaddr & ~(mm_page_size(p->page->level) - 1),
-	  p->page->addr,
-	  p->page->level,
-	  (perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U)) | OBJSPACE_SET_FLAGS
-	    | caching_flags);
-	if(!r) {
-		uintptr_t pa;
-		uint64_t fl;
-		int level;
-		arch_objspace_getmap(loaddr & ~(mm_page_size(p->page->level) - 1), &pa, &level, &fl);
-		panic("already mapped %lx %d %lx\n", pa, level, fl);
-	}
-	/* TODO (major): deal with mapcounting */
-#else
-
-	(void)caching_flags;
 	if(do_map) {
 		arch_object_map_slot(o, perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
 	}
@@ -570,6 +525,5 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		p->flags |= OBJPAGE_MAPPED;
 	}
 
-#endif
 	obj_put(o);
 }

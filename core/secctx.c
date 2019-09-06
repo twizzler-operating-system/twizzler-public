@@ -371,6 +371,8 @@ static int __lookup_perms(struct object *obj,
 	return 0;
 }
 
+/* TODO: we could first see if it's mapped in any security context, thereby allowing us to check a
+ * "cached" value of the permissions */
 int secctx_check_permissions(struct thread *t, uintptr_t ip, struct object *to, uint64_t flags)
 {
 	char fls[8];
