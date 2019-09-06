@@ -149,6 +149,9 @@ rehw: $(BUILDDIR)/kernel userspace
 	cp projects/x86_64/build/kernel /srv/tftp/kernel
 	cp projects/x86_64/build/us/root.tar /srv/tftp/root.tar
 
+tools-prep:
+	tools/prep.sh
+
 $(BUILDDIR)/hd.img: $(USRPROGS)
 	@-sudo umount $(BUILDDIR)/mnt
 	truncate -s 1GB $(BUILDDIR)/hd.img

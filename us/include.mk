@@ -31,6 +31,10 @@ $(BUILDDIR)/us/sysroot/usr/lib/libc.a: $(BUILDDIR)/us/$(MUSL)/lib/libc.a
 	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
 	@touch $@
 
+.PHONY: sysroot-prep
+
+sysroot-prep: $(BUILDDIR)/us/sysroot/usr/lib/libc.a
+
 MUSL_INCL=$(addprefix -I$(BUILDDIR)/us/$(MUSL)/,include obj/include src/internal obj/src/internal arch/generic arch/$(ARCH))
 
 $(BUILDDIR)/us/$(MUSL)/include/string.h:

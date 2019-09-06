@@ -20,7 +20,6 @@ CONFIG_DEBUG_LOCKS=n
 
 # set this to your toolchain path
 TOOLCHAIN_PATH=
-HOSTED_TOOLCHAIN_PATH=
 
 QEMU_FLAGS+=-cpu host,migratable=false,host-cache-info=true -machine q35
 QEMU_FLAGS+="-enable-kvm"
