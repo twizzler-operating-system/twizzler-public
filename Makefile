@@ -131,7 +131,7 @@ $(BUILDDIR)/%.o : %.S $(CONFIGFILE)
 	@mkdir -p $(@D)
 	@$(TOOLCHAIN_PREFIX)gcc $(ASFLAGS) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
 
-$(BUILDDIR)/%.o : %.c $(CONFIGFILE)
+$(BUILDDIR)/%.o : %.c $(CONFIGFILE) $(BUILDDIR)/third-party/libtomcrypt/include/tomcrypt.h
 	@echo "[CC]  $@"
 	@mkdir -p $(@D)
 	@$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) $($(addprefix CFLAGS_,$(subst /,_,$<))) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d

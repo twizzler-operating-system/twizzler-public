@@ -144,6 +144,8 @@ int __name_bootstrap(void)
 	if(r < 0)
 		return r;
 
+	debug_printf("GOT HERE : %s  " IDFMT "\n", bsname, IDPR(id));
+
 	struct object no;
 	twz_object_open(&no, id, FE_READ | FE_WRITE);
 	bt_init(&no, twz_obj_base(&no));

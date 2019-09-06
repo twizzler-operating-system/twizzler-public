@@ -251,8 +251,8 @@ void kernel_main(struct processor *proc)
 		printk("stck slot = %ld\n", (uintptr_t)stck_obj / mm_page_size(MAX_PGLEVEL));
 		printk("thrd slot = %ld\n", (uintptr_t)thrd_obj / mm_page_size(MAX_PGLEVEL));
 
-		char name_id[32];
-		snprintf(name_id, 32, "BSNAME=" IDFMT, IDPR(kc_name_id));
+		char name_id[64];
+		snprintf(name_id, 64, "BSNAME=" IDFMT, IDPR(kc_name_id));
 
 		long vector[6] = {
 			[0] = 1, /* argc */
