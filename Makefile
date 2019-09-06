@@ -150,7 +150,16 @@ rehw: $(BUILDDIR)/kernel userspace
 	cp projects/x86_64/build/us/root.tar /srv/tftp/root.tar
 
 tools-prep:
-	tools/prep.sh
+	@tools/prep.sh
+	@$(MAKE) tools-build
+	@$(MAKE) tools-build2
+
+tools-build:
+	@cd tools && PREFIX=$(TOOLCHAIN_PATH) TARGET=$(CONFIG_TRIPLET) ./toolchain.sh 
+	@$(MAKE) sysroot-prep
+
+tools-build2:
+	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace.sh 
 
 $(BUILDDIR)/hd.img: $(USRPROGS)
 	@-sudo umount $(BUILDDIR)/mnt

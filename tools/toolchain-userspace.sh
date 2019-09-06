@@ -2,7 +2,12 @@
 
 set -e
 
-TARGET=x86_64-pc-twizzler-musl
+if [[ "$ARCH" == "" ]]; then
+	echo "Set ARCH variable before calling (e.g. x86_64)"
+	exit 1
+fi
+
+TARGET=$ARCH-pc-twizzler-musl
 
 if [[ "$PROJECT" == "" ]]; then
 	echo "Set PROJECT variable before calling (used to determine sysroot; e.g. x86_64)"
