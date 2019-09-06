@@ -369,7 +369,7 @@ void sendescstr(struct object *out_obj, char *str)
 	strncpy(&buf[1], str, 14);
 	twzio_write(out_obj, buf, strlen(buf), 0, 0);
 	curfb_putc('^');
-	for(size_t i = 0; i < strlen(buf); i++)
+	for(size_t i = 0; i < strlen(str); i++)
 		curfb_putc(str[i]);
 	// bstream_write(&sobj, "^", 1, 0);
 	// bstream_write(&sobj, str, strlen(str), 0);

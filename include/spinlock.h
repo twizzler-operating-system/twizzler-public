@@ -5,6 +5,10 @@
 struct spinlock {
 	_Atomic int data;
 	bool fl;
+#if CONFIG_DEBUG_LOCKS
+	const char *holder_file;
+	int holder_line;
+#endif
 };
 
 #define DECLARE_SPINLOCK(name) struct spinlock name = { .data = 0 }

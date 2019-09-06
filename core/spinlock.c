@@ -13,11 +13,21 @@ bool __spinlock_acquire(struct spinlock *lock, const char *f, int l)
 	while(atomic_fetch_or_explicit(&lock->data, 1, memory_order_acquire) & 1) {
 		while(atomic_load_explicit(&lock->data, memory_order_acquire)) {
 			arch_processor_relax();
-			if(count++ == 10000 && f) {
-				printk("POTENTIAL DEADLOCK trying to acquire %s:%d\n", f, l);
+#if CONFIG_DEBUG_LOCKS
+			if(count++ == 100000 && f) {
+				printk("POTENTIAL DEADLOCK trying to acquire %s:%d (held from %s:%d)\n",
+				  f,
+				  l,
+				  lock->holder_file,
+				  lock->holder_line);
 			}
+#endif
 		}
 	}
+#if CONFIG_DEBUG_LOCKS
+	lock->holder_file = f;
+	lock->holder_line = l;
+#endif
 	return set;
 }
 

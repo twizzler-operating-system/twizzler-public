@@ -16,6 +16,7 @@ CONFIG_SERIAL_DEBUG_WORDSZ=8
 CONFIG_SERIAL_DEBUG_ENABLE=y
 
 CONFIG_PRINT_SYSCALLS=n
+CONFIG_DEBUG_LOCKS=y
 
 # set this to your toolchain path
 TOOLCHAIN_PATH=/home/dbittman/code/twizzler-kernel/.tc/
