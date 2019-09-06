@@ -1,12 +1,12 @@
 CONFIG_DEBUG=y
-CONFIG_WERROR=y
-CONFIG_OPTIMIZE=g
+CONFIG_WERROR=n
+CONFIG_OPTIMIZE=3
 
 CONFIG_ARCH=x86_64
 CONFIG_MACHINE=pc
 CONFIG_TRIPLET=x86_64-pc-elf
 
-CONFIG_UBSAN=y
+CONFIG_UBSAN=n
 
 CONFIG_INSTRUMENT=n
 
@@ -16,10 +16,12 @@ CONFIG_SERIAL_DEBUG_WORDSZ=8
 CONFIG_SERIAL_DEBUG_ENABLE=y
 
 CONFIG_PRINT_SYSCALLS=n
-CONFIG_DEBUG_LOCKS=y
+CONFIG_DEBUG_LOCKS=n
 
 # set this to your toolchain path
-TOOLCHAIN_PATH=/home/dbittman/code/twizzler-kernel/.tc/
-QEMU_FLAGS+=-cpu host,migratable=false,host-cache-info=true
+TOOLCHAIN_PATH=
+HOSTED_TOOLCHAIN_PATH=
+
+QEMU_FLAGS+=-cpu host,migratable=false,host-cache-info=true -machine q35
 QEMU_FLAGS+="-enable-kvm"
 
