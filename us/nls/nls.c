@@ -11,11 +11,32 @@
 
 static jmp_buf buf;
 
+static bool human_readable = false;
+
 void __nls_fault_handler(int f, void *info)
 {
 	(void)f;
 	(void)info;
 	longjmp(buf, 1);
+}
+
+void print_size(size_t sz)
+{
+	const char *str = "";
+	const char *possibles[] = {
+		"KB",
+		"MB",
+		"GB",
+		"TB",
+	};
+	for(size_t i = 0; i < sizeof(possibles) / sizeof(possibles[0]) && sz > 1024; i++) {
+		str = possibles[i];
+		sz /= 1024;
+	}
+	if(*str)
+		printf("%7ld %s ", sz, str);
+	else
+		printf("%10ld ", sz);
 }
 
 void nls_print(struct twz_nament *ne, bool info, bool read, bool id)
@@ -82,7 +103,10 @@ void nls_print(struct twz_nament *ne, bool info, bool read, bool id)
 					printf("%15s ", "*");
 				}
 				if(mi->flags & MIF_SZ) {
-					printf("%10ld ", mi->sz);
+					if(human_readable)
+						print_size(mi->sz);
+					else
+						printf("%10ld ", mi->sz);
 				} else {
 					printf("         * ");
 				}
@@ -152,6 +176,8 @@ int main(int argc, char **argv)
 				id = true;
 				break;
 			case 'h':
+				human_readable = true;
+				break;
 			default:
 				usage();
 		}
