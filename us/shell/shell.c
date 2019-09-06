@@ -13,6 +13,7 @@ const char *kso_names[] = {
 	[KSO_VIEW] = "view",
 	[KSO_SECCTX] = "secctx",
 	[KSO_DEVBUS] = "devbus",
+	[KSO_DEVICE] = "device",
 };
 
 void print_kat(struct kso_attachment *k, int indent)
