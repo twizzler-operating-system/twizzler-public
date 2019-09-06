@@ -400,9 +400,10 @@ void fb_putc(struct fb *fb, int c)
 		for(int i = 0; i < 256; i++)
 			fb->glyph_cache[i] = NULL;
 
-		fb->char_buffer = calloc(sizeof(fb->char_buffer[0]), fb->cw * fb->ch);
 		fb->back_buffer = malloc(fb->pitch * fb->fbh);
+
 		memset(fb->back_buffer, 0, fb->pitch * fb->fbh);
+		fb->char_buffer = calloc(sizeof(fb->char_buffer[0]), fb->cw * fb->ch);
 
 		struct object font;
 		int r;

@@ -145,6 +145,8 @@ void x86_64_virtualization_fault(struct processor *proc);
 #define RECUR_ATTR_MASK (EPT_READ | EPT_WRITE | EPT_EXEC)
 #define GET_VIRT_TABLE(x) ((uintptr_t *)mm_ptov(((x)&VM_PHYS_MASK)))
 
+#define EPT_PAGE_MASK 0x7ffffffffffff000ul
+
 #define EQ_EPTV_READ (1 << 0)
 #define EQ_EPTV_WRITE (1 << 1)
 #define EQ_EPTV_EXEC (1 << 2)

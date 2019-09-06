@@ -58,6 +58,7 @@ static uintptr_t lapic_addr = 0;
 #define LAPIC_TCCR 0x390
 #define LAPIC_TDCR 0x3E0
 
+/* TODO: support 2xAPIC if possible */
 static inline void lapic_write(int reg, uint32_t data)
 {
 	asm volatile("mfence; lfence;" ::: "memory");

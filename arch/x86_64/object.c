@@ -67,6 +67,35 @@ static bool x86_64_ept_getmap(uintptr_t ept_phys,
 	return true;
 }
 
+bool arch_object_getmap_slot_flags(struct object *obj, uint64_t *flags)
+{
+	uint64_t ef = 0;
+
+	uintptr_t ept_phys = current_thread->active_sc->arch.ept_root;
+	uintptr_t virt = obj->slot * (1024 * 1024 * 1024ull);
+	int pml4_idx = PML4_IDX(virt);
+	int pdpt_idx = PDPT_IDX(virt);
+
+	uintptr_t *pml4 = GET_VIRT_TABLE(ept_phys);
+	if(!pml4[pml4_idx])
+		return false;
+
+	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
+	if(!pdpt[pdpt_idx])
+		return false;
+	assert(obj->arch.pt_root == (pdpt[pdpt_idx] & EPT_PAGE_MASK));
+	ef = pdpt[pdpt_idx] & ~EPT_PAGE_MASK;
+	if(flags) {
+		if(ef & EPT_READ)
+			*flags |= OBJSPACE_READ;
+		if(ef & EPT_WRITE)
+			*flags |= OBJSPACE_WRITE;
+		if(ef & EPT_EXEC)
+			*flags |= OBJSPACE_EXEC_U;
+	}
+	return true;
+}
+
 void arch_object_map_slot(struct object *obj, uint64_t flags)
 {
 	uint64_t ef = 0;
@@ -146,7 +175,7 @@ bool arch_object_map_page(struct object *obj, struct page *page, size_t idx)
 		uint64_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
 		pt[pt_idx] = page->addr | flags;
 		//	printk("  writing pt[%d] = %lx (%lx %lx)\n", pt_idx, page->addr | flags, page->addr,
-		//flags);
+		// flags);
 	}
 	return true;
 }

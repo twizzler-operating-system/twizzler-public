@@ -208,6 +208,8 @@ void obj_cache_page(struct object *obj, size_t idx, struct page *p)
 	}
 	page->page = p;
 	ihtable_insert(obj->pagecache, &page->elem, page->idx);
+	// arch_object_map_page(obj, page->page, page->idx);
+	// page->flags |= OBJPAGE_MAPPED;
 	spinlock_release_restore(&obj->lock);
 }
 
@@ -412,9 +414,66 @@ int obj_check_permission(struct object *obj, uint64_t flags)
 	return secctx_check_permissions(current_thread, arch_thread_instruction_pointer(), obj, flags);
 }
 
-bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags);
+static bool __objspace_fault_calculate_perms(struct object *o,
+  uint32_t flags,
+  uintptr_t loaddr,
+  uintptr_t vaddr,
+  uintptr_t ip,
+  uint64_t *perms)
+{
+	/* optimization: just check if default permissions are enough */
+	struct metainfo mi;
+	obj_read_data(o, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
+	uint32_t dfl = mi.p_flags & (MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE);
+	bool ok = true;
+	if(flags & OBJSPACE_FAULT_READ) {
+		ok = ok && (dfl & MIP_DFL_READ);
+	}
+	if(flags & OBJSPACE_FAULT_WRITE) {
+		ok = ok && (dfl & MIP_DFL_WRITE);
+	}
+	if(flags & OBJSPACE_FAULT_EXEC) {
+		ok = ok && (dfl & MIP_DFL_EXEC);
+	}
+	if(dfl & MIP_DFL_READ)
+		*perms |= OBJSPACE_READ;
+	if(dfl & MIP_DFL_WRITE)
+		*perms |= OBJSPACE_WRITE;
+	if(dfl & MIP_DFL_EXEC)
+		*perms |= OBJSPACE_EXEC_U;
+	if(!ok) {
+		*perms = 0;
+		if(secctx_fault_resolve(current_thread, ip, loaddr, vaddr, o->id, flags, perms) == -1) {
+			obj_put(o);
+			return false;
+		}
+	}
+
+	bool w = (*perms & OBJSPACE_WRITE);
+	if(!obj_verify_id(o, !w, w)) {
+		struct fault_object_info info = {
+			.ip = ip,
+			.addr = vaddr,
+			.objid = o->id,
+			.flags = FAULT_OBJECT_INVALID,
+		};
+		thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
+		obj_put(o);
+		return false;
+	}
+
+	if(((*perms & flags) & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U))
+	   != (flags & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U))) {
+		panic("Insufficient permissions for mapping (should be handled earlier)");
+	}
+	return true;
+}
+
 void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr, uint32_t flags)
 {
+	static size_t __c = 0;
+	__c++;
+	// printk("OSC: %ld\n", ++__c);
 	size_t slot = loaddr / mm_page_size(MAX_PGLEVEL);
 	size_t idx = (loaddr % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
 	if(idx == 0) {
@@ -431,59 +490,31 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		panic("NO OBJ");
 	}
 
-	/*
-	printk("OSPACE FAULT: ip=%lx loaddr=%lx vaddr=%lx flags=%x :: " IDFMT "\n",
+	uint64_t perms = 0;
+	uint64_t existing_flags;
+	bool do_map = false;
+	if(arch_object_getmap_slot_flags(o, &existing_flags)) {
+		/* we've already mapped the object. Maybe we don't need to do a permissions check. */
+		if((existing_flags & flags) != flags) {
+			do_map = true;
+			if(!__objspace_fault_calculate_perms(o, flags, loaddr, vaddr, ip, &perms))
+				return;
+		}
+	} else {
+		do_map = true;
+		if(!__objspace_fault_calculate_perms(o, flags, loaddr, vaddr, ip, &perms))
+			return;
+	}
+
+#if 0
+	printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx vaddr=%lx flags=%x :: " IDFMT "\n",
+	  current_thread->id,
 	  ip,
 	  loaddr,
 	  vaddr,
 	  flags,
-	  IDPR(o->id));*/
-	/* optimization: just check if default permissions are enough */
-	struct metainfo mi;
-	obj_read_data(o, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
-	uint32_t dfl = mi.p_flags & (MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE);
-	bool ok = true;
-	uint64_t perms = 0;
-	if(flags & OBJSPACE_FAULT_READ) {
-		ok = ok && (dfl & MIP_DFL_READ);
-	}
-	if(flags & OBJSPACE_FAULT_WRITE) {
-		ok = ok && (dfl & MIP_DFL_WRITE);
-	}
-	if(flags & OBJSPACE_FAULT_EXEC) {
-		ok = ok && (dfl & MIP_DFL_EXEC);
-	}
-	if(dfl & MIP_DFL_READ)
-		perms |= OBJSPACE_READ;
-	if(dfl & MIP_DFL_WRITE)
-		perms |= OBJSPACE_WRITE;
-	if(dfl & MIP_DFL_EXEC)
-		perms |= OBJSPACE_EXEC_U;
-	if(!ok) {
-		perms = 0;
-		if(secctx_fault_resolve(current_thread, ip, loaddr, vaddr, o->id, flags, &perms) == -1) {
-			obj_put(o);
-			return;
-		}
-	}
-
-	bool w = (perms & OBJSPACE_WRITE);
-	if(!obj_verify_id(o, !w, w)) {
-		struct fault_object_info info = {
-			.ip = ip,
-			.addr = vaddr,
-			.objid = o->id,
-			.flags = FAULT_OBJECT_INVALID,
-		};
-		thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
-		obj_put(o);
-		return;
-	}
-
-	if(((perms & flags) & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U))
-	   != (flags & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U))) {
-		panic("Insufficient permissions for mapping (should be handled earlier)");
-	}
+	  IDPR(o->id));
+#endif
 	/*
 	printk("--> %lx %lx %d (%x)\n",
 	  loaddr & ~(mm_page_size(0) - 1),
@@ -531,9 +562,12 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 #else
 
 	(void)caching_flags;
-	arch_object_map_slot(o, perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
+	if(do_map) {
+		arch_object_map_slot(o, perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
+	}
 	if(!(p->flags & OBJPAGE_MAPPED)) {
 		arch_object_map_page(o, p->page, p->idx);
+		p->flags |= OBJPAGE_MAPPED;
 	}
 
 #endif
