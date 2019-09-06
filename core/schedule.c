@@ -3,8 +3,9 @@
 #include <processor.h>
 #include <thread.h>
 
-#define TIMESLICE_MIN 1000000
+#define TIMESLICE_MIN 2000000
 #define TIMESLICE_GIVEUP 10000
+#define TIMESLICE_SCALE 10000
 
 __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 {
@@ -53,7 +54,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			spinlock_release(&proc->sched_lock, 0);
 
 			if(next->timeslice_expire < ji)
-				next->timeslice_expire = ji + TIMESLICE_MIN + next->priority * 1000 * 5;
+				next->timeslice_expire = ji + TIMESLICE_MIN + next->priority * TIMESLICE_SCALE;
 			else if(next->timeslice_expire < (ji + TIMESLICE_GIVEUP))
 				next->timeslice_expire += TIMESLICE_GIVEUP;
 
