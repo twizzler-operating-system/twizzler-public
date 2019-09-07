@@ -147,7 +147,7 @@ int pckbd_ready(void)
 	return ((inb(0x64) & 1));
 }
 
-#include "../pcie/ssfn.h"
+#include "ssfn.h"
 struct fb {
 	struct object obj;
 	struct object font;
