@@ -1,6 +1,6 @@
 #pragma once
 
-#include <driver/pcie.h>
+#include <twz/driver/pcie.h>
 
 #include <lib/list.h>
 #include <spinlock.h>

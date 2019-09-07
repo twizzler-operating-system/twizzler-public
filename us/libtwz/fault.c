@@ -30,7 +30,7 @@ int twz_map_fot_entry(struct object *obj, size_t slot, struct fotentry *fe)
 		objid_t nid;
 		int err;
 		if((err = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, id, &nid)) < 0) {
-			debug_printf("Failed to make new derived object\n");
+			debug_printf("Failed to make new derived object from " IDFMT "\n", IDPR(id));
 			return err;
 		}
 		id = nid;
@@ -44,7 +44,7 @@ int twz_map_fot_entry(struct object *obj, size_t slot, struct fotentry *fe)
 
 int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source)
 {
-	// debug_printf("%lx %x %lx\n", addr, cause, source);
+	debug_printf("%lx %x %lx\n", addr, cause, source);
 	uint64_t offset = addr % OBJ_MAXSIZE;
 	if(offset < OBJ_NULLPAGE_SIZE) {
 		debug_printf("NULL ptr\n");
@@ -274,4 +274,5 @@ int twz_fault_set(int fault, void (*fn)(int, void *))
 	repr->faults[fault] = (struct faultinfo){
 		.addr = fn ? (void *)__twz_fault_entry : NULL,
 	};
+	return 0;
 }

@@ -1,8 +1,9 @@
-PROGS=test init term shell login nls pcie input serial
-SUBDIRS=test init term shell login nls pcie input serial
-TWZCC?=x86_64-pc-elf-gcc
+PROGS=
+#SUBDIRS=test init term shell login nls pcie input serial
+TWZCC?=x86_64-pc-twizzler-musl-gcc
+#TWZCC=x86_64-pc-elf-gcc
 
-TWZOBJS=$(addprefix $(BUILDDIR)/us/,$(addsuffix .text.obj,$(foreach x,$(PROGS),$(x)/$(x))))
+PROGS+=term
 
 MUSL=musl-1.1.16
 
@@ -26,10 +27,13 @@ $(BUILDDIR)/us/$(MUSL)/lib/libc.a: $(MUSL_SRCS) $(BUILDDIR)/us/libtwz/libtwz.a $
 	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL)
 	@touch $@
 
+$(BUILDDIR)/us/sysroot/usr/include/%.h: $(BUILDDIR)/us/sysroot/usr/lib/libc.a
+
 $(BUILDDIR)/us/sysroot/usr/lib/libc.a: $(BUILDDIR)/us/$(MUSL)/lib/libc.a
 	@mkdir -p $(BUILDDIR)/us/sysroot
 	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
-	@touch $@
+	@touch $(BUILDDIR)/us/sysroot/usr/lib/libc.a
+	@cd $(BUILDDIR)/us/sysroot/usr/include && [ ! -f twz ] && ln -s ../../../../../../../us/include//twz twz
 
 .PHONY: sysroot-prep
 
@@ -59,7 +63,7 @@ TWZCFLAGS=-Ius/include $(MUSL_INCL) -Wall -Wextra -O3 -msse2 -msse -mavx -march=
 US_LIBDEPS=$(BUILDDIR)/us/libtwz/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a $(BUILDDIR)/us/twix/libtwix.a us/elf.ld
 US_LDFLAGS=-static -Wl,-z,max-page-size=0x1000 -Tus/elf.ld -g
 
-include $(addprefix us/,$(addsuffix /include.mk,$(SUBDIRS)))
+#include $(addprefix us/,$(addsuffix /include.mk,$(SUBDIRS)))
 
 include us/libtwz/include.mk
 include us/twix/include.mk
@@ -70,15 +74,14 @@ $(BUILDDIR)/us/%.flags: us/%.flags
 	@-cp $< $@
 	@echo "" > $@
 
-$(BUILDDIR)/us/%.data.obj $(BUILDDIR)/us/%.text.obj: $(BUILDDIR)/us/% $(BUILDDIR)/us/%.flags $(UTILS)
+$(BUILDDIR)/us/twzutils/%.data.obj $(BUILDDIR)/us/twzutils/%.text.obj: $(BUILDDIR)/us/twzutils/% $(UTILS)
 	@echo [SPLIT] $<
 	@$(BUILDDIR)/utils/elfsplit $<
 	@echo [OBJ] $<.data.obj
 	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p RH
 	@echo [OBJ] $<.text.obj
 	@DATAID=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
-	FLAGS=$$(cat $<.flags);\
-	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXH -f 1:RWD:$$DATAID $$FLAGS
+	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXH -f 1:RWD:$$DATAID
 
 $(BUILDDIR)/us/libtwz/libtwz.so.data.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.obj: $(BUILDDIR)/us/libtwz/libtwz.so $(BUILDDIR)/us/libtwz/libtwz.so.flags $(UTILS)
 	@echo [SPLIT] $<
@@ -104,21 +107,25 @@ $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a: $(BUILDDIR)/us/twix/libtwix.a
 
 SYSLIBS=$(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/libtwz.so $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a $(BUILDDIR)/us/sysroot/usr/lib/libc.a
 
-$(BUILDDIR)/us/%.o: us/%.c $(MUSL_READY)
-	@mkdir -p $(dir $@)
-	@echo "[CCC] $@"
-	$(TWZCC) $(TWZCFLAGS) -fpic -c -MD -MF $(BUILDDIR)/us/$*.d -o $@ $<
+#$(BUILDDIR)/us/%.o: us/%.c $(BUILDDIR)/us/sysroot/usr/lib/libc.a
+#	@mkdir -p $(dir $@)
+#	@echo "[CCC] $@"
+#	$(TWZCC) -c -MD -MF $(BUILDDIR)/us/$*.d -o $@ $<
 
 -include $(BUILDDIR)/us/*/*.d
 
-TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),$(x)/$(x))))
+include us/twzutils/include.mk
+
+TWZOBJS=$(addprefix $(BUILDDIR)/us/,$(addsuffix .text.obj,$(foreach x,$(PROGS),twzutils/$(x))))
+
+TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),twzutils/$(x))))
 
 #TWZOBJS+=$(BUILDDIR)/us/foo.text.obj $(BUILDDIR)/us/foo.data.obj
 #TWZOBJS+=$(BUILDDIR)/us/bash.text.obj $(BUILDDIR)/us/bash.data.obj
 
-$(BUILDDIR)/us/bsv.data: $(BUILDDIR)/us/init/init.text.obj
+$(BUILDDIR)/us/bsv.data: $(BUILDDIR)/us/twzutils/init.text.obj
 	@echo "[BSV] $@"
-	@$(BUILDDIR)/utils/bsv $@ 0,$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/init/init.text.obj),RX
+	@$(BUILDDIR)/utils/bsv $@ 0,$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/twzutils/init.text.obj),RX
 
 $(BUILDDIR)/us/root/kc $(BUILDDIR)/us/bsv.obj: $(BUILDDIR)/us/bsv.data
 	@echo "[OBJ] $(BUILDDIR)/us/bsv.obj"
@@ -148,7 +155,7 @@ $(BUILDDIR)/us/root.tar: $(TWZOBJS) $(SYSLIBS)
 		echo $$NAMES > $(BUILDDIR)/us/names
 	@$(BUILDDIR)/utils/file2obj -i $(BUILDDIR)/us/names -o $(BUILDDIR)/us/names.obj -p RWU
 	@cp $(BUILDDIR)/us/names.obj $(BUILDDIR)/us/root/$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/names.obj)
-	@echo "init=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/init/init.text.obj)" >> $(BUILDDIR)/us/kc
+	@echo "init=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/twzutils/init.text.obj)" >> $(BUILDDIR)/us/kc
 	@echo "name=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/names.obj)" >> $(BUILDDIR)/us/kc
 	@cp $(BUILDDIR)/us/kc $(BUILDDIR)/us/root/kc
 	@echo [TAR] $@

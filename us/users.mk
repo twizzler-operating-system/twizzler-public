@@ -58,22 +58,22 @@ $(BUILDDIR)/us/data/bob.sctx: $(BUILDDIR)/us/data/bob.sctx.tmp $(BUILDDIR)/utils
 
 
 
-$(BUILDDIR)/us/data/login.sctx: $(BUILDDIR)/us/data/login.sctx.tmp $(BUILDDIR)/us/data/bob.sctx.obj $(BUILDDIR)/utils/sctx $(BUILDDIR)/utils/mkcap $(BUILDDIR)/utils/appendobj $(BUILDDIR)/us/data/login-rk.pem $(BUILDDIR)/us/login/login.text.obj $(BUILDDIR)/us/data/bob-rk.pem
+$(BUILDDIR)/us/data/login.sctx: $(BUILDDIR)/us/data/login.sctx.tmp $(BUILDDIR)/us/data/bob.sctx.obj $(BUILDDIR)/utils/sctx $(BUILDDIR)/utils/mkcap $(BUILDDIR)/utils/appendobj $(BUILDDIR)/us/data/login-rk.pem $(BUILDDIR)/us/twzutils/login.text.obj $(BUILDDIR)/us/data/bob-rk.pem
 	@echo "[SCTX] $@"
 	@mkdir -p $(BUILDDIR)/us/data
 	LID=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/login.sctx.tmp);\
 	( \
 		$(BUILDDIR)/utils/mkcap -t $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/bob.sctx.obj) -a $$LID -p RU -h sha1 -s dsa $(BUILDDIR)/us/data/bob-rk.pem &&\
-		$(BUILDDIR)/utils/mkcap -t $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/login/login.text.obj) -a $$LID -p RX -h sha1 -s dsa $(BUILDDIR)/us/data/login-rk.pem \
+		$(BUILDDIR)/utils/mkcap -t $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/twzutils/login.text.obj) -a $$LID -p RX -h sha1 -s dsa $(BUILDDIR)/us/data/login-rk.pem \
 		) | $(BUILDDIR)/utils/sctx -n "login" $@
 
-$(BUILDDIR)/us/data/init.sctx: $(BUILDDIR)/us/data/init.sctx.tmp $(BUILDDIR)/us/data/login.sctx.obj $(BUILDDIR)/utils/sctx $(BUILDDIR)/utils/mkcap $(BUILDDIR)/utils/appendobj $(BUILDDIR)/us/data/login-rk.pem $(BUILDDIR)/us/data/init-rk.pem $(BUILDDIR)/us/init/init.text.obj
+$(BUILDDIR)/us/data/init.sctx: $(BUILDDIR)/us/data/init.sctx.tmp $(BUILDDIR)/us/data/login.sctx.obj $(BUILDDIR)/utils/sctx $(BUILDDIR)/utils/mkcap $(BUILDDIR)/utils/appendobj $(BUILDDIR)/us/data/login-rk.pem $(BUILDDIR)/us/data/init-rk.pem $(BUILDDIR)/us/twzutils/init.text.obj
 	@echo "[SCTX] $@"
 	@mkdir -p $(BUILDDIR)/us/data
 	LID=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/init.sctx.tmp);\
 	( \
 		$(BUILDDIR)/utils/mkcap -t $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/login.sctx.obj) -a $$LID -p RU -h sha1 -s dsa $(BUILDDIR)/us/data/login-rk.pem &&\
-		$(BUILDDIR)/utils/mkcap -t $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/init/init.text.obj) -a $$LID -p RX -h sha1 -s dsa $(BUILDDIR)/us/data/init-rk.pem \
+		$(BUILDDIR)/utils/mkcap -t $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/twzutils/init.text.obj) -a $$LID -p RX -h sha1 -s dsa $(BUILDDIR)/us/data/init-rk.pem \
 		) | $(BUILDDIR)/utils/sctx -n "init" $@
 
 
@@ -92,25 +92,23 @@ $(BUILDDIR)/us/data/%-key.pri.obj: $(BUILDDIR)/us/data/%-key.pri
 	@mkdir -p $(BUILDDIR)/us/data
 	@$(BUILDDIR)/utils/file2obj -i $< -o $@
 
-$(BUILDDIR)/us/login/login.data.obj $(BUILDDIR)/us/login/login.text.obj: $(BUILDDIR)/us/login/login $(BUILDDIR)/us/login/login.flags $(UTILS) $(BUILDDIR)/us/data/login-key.pub.obj
+$(BUILDDIR)/us/twzutils/login.data.obj $(BUILDDIR)/us/twzutils/login.text.obj: $(BUILDDIR)/us/twzutils/login $(UTILS) $(BUILDDIR)/us/data/login-key.pub.obj
 	@echo [SPLIT] $<
 	@$(BUILDDIR)/utils/elfsplit $<
 	@echo [OBJ] $<.data.obj
 	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p RH
 	@echo [OBJ] $<.text.obj
 	@DATAID=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
-	FLAGS=$$(cat $<.flags);\
-	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p HR -k $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/login-key.pub.obj) -f 1:RWD:$$DATAID $$FLAGS
+	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p HR -k $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/login-key.pub.obj) -f 1:RWD:$$DATAID
 
-$(BUILDDIR)/us/init/init.data.obj $(BUILDDIR)/us/init/init.text.obj: $(BUILDDIR)/us/init/init $(BUILDDIR)/us/init/init.flags $(UTILS) $(BUILDDIR)/us/data/init-key.pub.obj
+$(BUILDDIR)/us/twzutils/init.data.obj $(BUILDDIR)/us/twzutils/init.text.obj: $(BUILDDIR)/us/twzutils/init $(UTILS) $(BUILDDIR)/us/data/init-key.pub.obj
 	@echo [SPLIT] $<
 	@$(BUILDDIR)/utils/elfsplit $<
 	@echo [OBJ] $<.data.obj
 	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p RH
 	@echo [OBJ] $<.text.obj
 	@DATAID=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
-	FLAGS=$$(cat $<.flags);\
-	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p HR -k $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/init-key.pub.obj) -f 1:RWD:$$DATAID $$FLAGS
+	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p HR -k $$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/data/init-key.pub.obj) -f 1:RWD:$$DATAID
 
 
 

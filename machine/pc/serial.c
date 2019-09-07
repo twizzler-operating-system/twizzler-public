@@ -286,11 +286,11 @@ static struct uart com1 = {
 
 static struct object *ser_obj;
 
-#include <driver/device.h>
 #include <init.h>
 #include <limits.h>
 #include <object.h>
 #include <syscall.h>
+#include <twz/driver/device.h>
 __noinstrument static void _serial_interrupt(int i, struct interrupt_handler *h __unused)
 {
 	struct uart *u = &com1;

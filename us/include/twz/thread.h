@@ -45,4 +45,8 @@ int twz_exec_view(struct object *view,
   char const *const *argv,
   char *const *env);
 
-#define twz_stdstack ({ &TWZ_OBJECT_INIT(TWZSLOT_STACK); })
+#define twz_stdstack                                                                               \
+	(struct object)                                                                                \
+	{                                                                                              \
+		.base = SLOT_TO_VADDR(TWZSLOT_STACK)                                                       \
+	}

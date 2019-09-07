@@ -5,7 +5,7 @@
 
 #include <limits.h>
 
-#include <driver/device.h>
+#include <twz/driver/device.h>
 
 #include <arch/x86_64-io.h>
 

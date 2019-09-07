@@ -20,6 +20,7 @@ int twz_object_open(struct object *obj, objid_t id, int flags)
 		return slot;
 
 	obj->base = (void *)(OBJ_MAXSIZE * (slot));
+	// debug_printf("opened " IDFMT " -> %p\n", IDPR(id), obj->base);
 	return 0;
 }
 
@@ -34,6 +35,7 @@ int twz_object_open_name(struct object *obj, const char *name, int flags)
 		return slot;
 
 	obj->base = (void *)(OBJ_MAXSIZE * (slot));
+	// debug_printf("opened name %s : " IDFMT " -> %p\n", name, IDPR(id), obj->base);
 	return 0;
 }
 
