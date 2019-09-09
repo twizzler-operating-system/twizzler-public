@@ -7,44 +7,47 @@ PROGS+=term
 
 MUSL=musl-1.1.16
 
-$(BUILDDIR)/us/musl-config.mk: $(BUILDDIR)/us/$(MUSL)/configure $(BUILDDIR)/us
+$(BUILDDIR)/us/musl-config.mk: $(BUILDDIR)/us/$(MUSL)/configure
 	cd $(BUILDDIR)/us/$(MUSL) && ./configure --host=$(CONFIG_TRIPLET) CROSS_COMPILER=$(TOOLCHAIN_PREFIX) --prefix=/usr --syslibdir=/lib
 	mv $(BUILDDIR)/us/$(MUSL)/config.mak $@
 
-MUSL_H_GEN=obj/include/bits/alltypes.h obj/include/bits/syscall.h
-musl-prep:
-	@mkdir -p $(BUILDDIR)/us
-	cp -a us/$(MUSL) $(BUILDDIR)/us
-	$(MAKE) $(BUILDDIR)/us/musl-config.mk
-	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) $(MUSL_H_GEN)
-
 MUSL_SRCS=$(shell find us/$(MUSL))
 
-$(BUILDDIR)/us/$(MUSL)/lib/libc.a: $(MUSL_SRCS) $(BUILDDIR)/us/libtwz/libtwz.a $(BUILDDIR)/us/twix/libtwix.a $(MUSL_READY)
+MUSL_HDRS=$(BUILDDIR)/us/sysroot/usr/include/string.h
+
+MUSL_H_GEN=obj/include/bits/alltypes.h obj/include/bits/syscall.h
+
+$(BUILDDIR)/us/$(MUSL)/configure: $(MUSL_SRCS)
+	@mkdir -p $(BUILDDIR)/us
+	cp -a us/$(MUSL) $(BUILDDIR)/us
+
+$(BUILDDIR)/us/$(MUSL)/lib/libc.a: $(BUILDDIR)/us/musl-config.mk
 	@mkdir -p $(BUILDDIR)/us
 	@mkdir -p $(BUILDDIR)/us/sysroot
-	cp -a us/$(MUSL) $(BUILDDIR)/us
-	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL)
+	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) lib/libc.a
 	@touch $@
 
-$(BUILDDIR)/us/sysroot/usr/include/%.h: $(BUILDDIR)/us/sysroot/usr/lib/libc.a
+$(MUSL_HDRS): $(BUILDDIR)/us/musl-config.mk
+	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) $(MUSL_H_GEN)
+	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install-headers DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
+	-@cd $(BUILDDIR)/us/sysroot/usr/include && [ ! -e twz ] && ln -s ../../../../../../../us/include/twz twz
+
+$(BUILDDIR)/us/sysroot/usr/include/%.h: $(MUSL_HDRS)
 
 $(BUILDDIR)/us/sysroot/usr/lib/libc.a: $(BUILDDIR)/us/$(MUSL)/lib/libc.a
 	@mkdir -p $(BUILDDIR)/us/sysroot
-	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
+	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) $(shell pwd)/$(BUILDDIR)/us/sysroot/usr/lib/libc.a DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
 	@touch $(BUILDDIR)/us/sysroot/usr/lib/libc.a
-	@cd $(BUILDDIR)/us/sysroot/usr/include && [ ! -f twz ] && ln -s ../../../../../../../us/include//twz twz
 
-.PHONY: sysroot-prep
+$(BUILDDIR)/us/sysroot/usr/lib/crt1.o: $(MUSL_HDRS) $(BUILDDIR)/us/sysroot/usr/lib/libc.a $(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a
+	@mkdir -p $(BUILDDIR)/us/sysroot
+	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
+	@touch $(BUILDDIR)/us/sysroot/usr/lib/crt1.o
 
-sysroot-prep: $(BUILDDIR)/us/sysroot/usr/lib/libc.a
+
+SYSROOT_READY=$(BUILDDIR)/us/sysroot/usr/lib/crt1.o
 
 MUSL_INCL=$(addprefix -I$(BUILDDIR)/us/$(MUSL)/,include obj/include src/internal obj/src/internal arch/generic arch/$(ARCH))
-
-$(BUILDDIR)/us/$(MUSL)/include/string.h:
-	$(MAKE) musl-prep
-
-MUSL_READY=$(BUILDDIR)/us/$(MUSL)/include/string.h
 
 MUSL_STATIC_LIBC_PRE_i=$(BUILDDIR)/us/$(MUSL)/lib/crti.o
 MUSL_STATIC_LIBC_PRE_1=$(BUILDDIR)/us/$(MUSL)/lib/crt1.o
@@ -59,9 +62,9 @@ CRTBEGIN=$(shell env PATH=$(PATH) $(TOOLCHAIN_PREFIX)gcc -print-file-name=crtbeg
 
 US_PRELINK=$(MUSL_STATIC_LIBC_PRE_i) $(CRTBEGIN) $(MUSL_STATIC_LIBC_PRE_1)
 US_POSTLINK=-Wl,--start-group $(BUILDDIR)/us/libtwz/libtwz.a $(MUSL_STATIC_LIBC) $(BUILDDIR)/us/twix/libtwix.a -Wl,--as-needed $(BUILDDIR)/us/libtwz/libtwz.a -Wl,--end-group $(LIBGCC) $(CRTEND) $(MUSL_STATIC_LIBC_POST)
-TWZCFLAGS=-Ius/include $(MUSL_INCL) -Wall -Wextra -O3 -msse2 -msse -mavx -march=native -ffast-math -g -Ius/libtwz/include
-US_LIBDEPS=$(BUILDDIR)/us/libtwz/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a $(BUILDDIR)/us/twix/libtwix.a us/elf.ld
-US_LDFLAGS=-static -Wl,-z,max-page-size=0x1000 -Tus/elf.ld -g
+TWZCFLAGS=-Wall -Wextra -O3 -msse2 -msse -mavx -march=native -ffast-math -g
+#US_LIBDEPS=$(BUILDDIR)/us/libtwz/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a $(BUILDDIR)/us/twix/libtwix.a us/elf.ld
+#US_LDFLAGS=-static -Wl,-z,max-page-size=0x1000 -Tus/elf.ld -g
 
 #include $(addprefix us/,$(addsuffix /include.mk,$(SUBDIRS)))
 
