@@ -57,19 +57,19 @@ patch -p1 < ../gcc-$GCCVER-twizzler-hosted.patch
 cd ..
 
 
-[ -d build-binutils-hosted ] && rm -r build-gcc-hosted
+[ -d build-binutils-hosted ] && rm -r build-binutils-hosted
 [ -d build-gcc-hosted ] && rm -r build-gcc-hosted
 
 mkdir -p build-binutils-hosted build-gcc-hosted
 cd build-binutils-hosted
 
-../binutils-${BINUTILSVER}/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --disable-werror
+../binutils-${BINUTILSVER}/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --disable-werror --enable-shared
 make -j6
 make install
 
 cd ../build-gcc-hosted
 
-../gcc-${GCCVER}/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --with-sysroot="$SYSROOT"
+../gcc-${GCCVER}/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --with-sysroot="$SYSROOT" --enable-shared
 
 make all-gcc all-target-libgcc -j6
 make install-gcc install-target-libgcc
