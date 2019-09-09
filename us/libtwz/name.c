@@ -93,8 +93,10 @@ static void copy_names(const char *bsname, struct object *nobj)
 		struct btree_val dv = { .mv_data = &thisid, .mv_size = sizeof(thisid) };
 
 		int r = bt_put(nobj, twz_obj_base(nobj), &kv, &dv, NULL);
-		if(r)
+		if(r) {
+			debug_printf("DUPLICATE NAME (%s)\n", names);
 			abort();
+		}
 
 		char buf[64];
 		snprintf(buf, 64, "#" IDFMT, IDPR(thisid));
@@ -102,6 +104,7 @@ static void copy_names(const char *bsname, struct object *nobj)
 		struct btree_val rkv = { .mv_data = buf, .mv_size = strlen(buf) + 1 };
 		r = bt_put(nobj, twz_obj_base(nobj), &rkv, &rdv, NULL);
 		if(r) {
+			debug_printf("DUPLICATE NAME\n");
 			abort();
 		}
 

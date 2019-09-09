@@ -47,6 +47,7 @@ static void __buddy_free(struct object *o, struct twzoa_header *hdr, void *block
 	// debug_printf("FREE\n");
 	// return ;
 	void *vblock = twz_ptr_lea(o, block);
+	debug_printf(":: %p %p\n", vblock, block);
 	// fetch order in previous byte
 	int i = *((uint8_t *)(vblock - 1));
 

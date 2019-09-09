@@ -266,7 +266,7 @@ int bt_insert(struct object *obj,
 	if(e) {
 		if(nt)
 			*nt = e;
-		oa_hdr_free(obj, &hdr->oa, pt);
+		oa_hdr_free(obj, &hdr->oa, __c(pt));
 		return 1;
 	}
 	if(nt)

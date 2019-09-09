@@ -151,8 +151,8 @@ struct stackframe {
 
 static void __twz_fault_unhandled(struct fault_fault_info *info, struct fault_frame *frame)
 {
-	if(info->fault_nr != FAULT_NULL)
-		twz_thread_exit();
+	// if(info->fault_nr != FAULT_NULL)
+	//	twz_thread_exit();
 	struct twzthread_repr *repr = twz_thread_repr_base();
 	debug_printf("unhandled fault: %s in thread " IDFMT " (%s)\n",
 	  fault_names[info->fault_nr],
