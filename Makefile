@@ -160,6 +160,9 @@ tools-build:
 
 tools-build2:
 	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace.sh 
+	$(MAKE) $(SYSROOT_PREP)
+	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace-libs.sh 
+	
 
 $(BUILDDIR)/hd.img: $(USRPROGS)
 	@-sudo umount $(BUILDDIR)/mnt

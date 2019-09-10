@@ -71,6 +71,7 @@ cd ../build-gcc-hosted
 
 ../gcc-${GCCVER}/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --with-sysroot="$SYSROOT" --enable-shared
 
-make all-gcc all-target-libgcc -j6
-make install-gcc install-target-libgcc
+make -j6 all-gcc
+make install-gcc
+
 

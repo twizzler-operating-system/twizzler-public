@@ -47,6 +47,8 @@ $(BUILDDIR)/us/sysroot/usr/lib/crt1.o: $(MUSL_SRCS) $(MUSL_HDRS) $(BUILDDIR)/us/
 
 SYSROOT_READY=$(BUILDDIR)/us/sysroot/usr/lib/crt1.o
 
+SYSROOT_PREP=$(MUSL_HDRS)
+
 MUSL_INCL=$(addprefix -I$(BUILDDIR)/us/$(MUSL)/,include obj/include src/internal obj/src/internal arch/generic arch/$(ARCH))
 
 MUSL_STATIC_LIBC_PRE_i=$(BUILDDIR)/us/$(MUSL)/lib/crti.o
