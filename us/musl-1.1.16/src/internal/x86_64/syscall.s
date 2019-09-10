@@ -2,6 +2,7 @@
 .hidden __syscall
 .type __syscall,@function
 .extern __twix_syscall_target
+.weak __twix_syscall_target
 __syscall:
 	movq %rdi,%rax
 	movq %rsi,%rdi

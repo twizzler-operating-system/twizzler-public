@@ -1,11 +1,15 @@
 #define __SYSCALL_LL_E(x) (x)
 #define __SYSCALL_LL_O(x) (x)
 
-extern long __twix_syscall_target();
-extern long twix_syscall();
+extern long __attribute__((weak)) twix_syscall();
+extern long __attribute__((weak)) __twix_syscall_target();
 
 //#define SYSCALL_INSTRUCTION "mov $__twix_syscall_target, %%rcx; call *%%rcx"
-#define SYSCALL_INSTRUCTION "call __twix_syscall_target;"
+#define SYSCALL_INSTRUCTION                                                                        \
+	".weak __twix_syscall_target; .extern __twix_syscall_target; .type "                           \
+	"__twix_syscall_target,@function; .protected "                                                 \
+	"__twix_syscall_target; .weak "                                                                \
+	"__twix_syscall_target; call __twix_syscall_target;"
 
 #include <bits/syscall.h>
 
