@@ -9,11 +9,25 @@ $(BUILDDIR)/us/musl-config.mk: $(BUILDDIR)/us/$(MUSL)/configure
 	cd $(BUILDDIR)/us/$(MUSL) && ./configure --host=x86_64-pc-twizzler-musl CROSS_COMPILER=x86_64-pc-twizzler-musl- --prefix=/usr --syslibdir=/lib
 	mv $(BUILDDIR)/us/$(MUSL)/config.mak $@
 
+$(BUILDDIR)/us/musl-config-bootstrap.mk: $(BUILDDIR)/us/$(MUSL)/configure
+	cd $(BUILDDIR)/us/$(MUSL) && ./configure --host=x86_64-pc-elf CROSS_COMPILER=x86_64-pc-elf- --prefix=/usr --syslibdir=/lib
+	mv $(BUILDDIR)/us/$(MUSL)/config.mak $@
+
 MUSL_SRCS=$(shell find us/$(MUSL))
 
 MUSL_HDRS=$(BUILDDIR)/us/sysroot/usr/include/string.h
 
 MUSL_H_GEN=obj/include/bits/alltypes.h obj/include/bits/syscall.h
+
+bootstrap-musl: $(BUILDDIR)/us/musl-config-bootstrap.mk
+	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config-bootstrap.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) $(MUSL_H_GEN)
+	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config-bootstrap.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install-headers DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
+	-@cd $(BUILDDIR)/us/sysroot/usr/include && [ ! -e twz ] && ln -s ../../../../../../../us/include/twz twz
+
+clean-musl:
+	-rm -r $(BUILDDIR)/us/$(MUSL)
+	-rm -r $(BUILDDIR)/us/sysroot
+	-rm us/$(MUSL)/config.mak
 
 $(BUILDDIR)/us/$(MUSL)/configure: $(MUSL_SRCS)
 	@mkdir -p $(BUILDDIR)/us

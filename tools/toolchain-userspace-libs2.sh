@@ -39,5 +39,5 @@ fi
 
 cd build-gcc-hosted
 
-make all-target-libgcc -j6
-make install-target-libgcc
+make all-target-libstdc++-v3
+make install-target-libstdc++-v3

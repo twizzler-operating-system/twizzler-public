@@ -20,12 +20,14 @@ $(BUILDDIR)/us/twzutils/term: $(BUILDDIR)/us/twzutils/term.o $(BUILDDIR)/us/twzu
 
 
 $(BUILDDIR)/us/data/pcieids.obj: /usr/share/hwdata/pci.ids $(BUILDDIR)/utils/file2obj
+	@mkdir -p $(dir $@)
 	@echo [OBJ] $@
 	@$(BUILDDIR)/utils/file2obj -i $< -o $@ -p rh
 
 TWZOBJS+=$(BUILDDIR)/us/data/pcieids.obj
 
 $(BUILDDIR)/us/inconsolata.sfn.obj: us/inconsolata.sfn $(BUILDDIR)/utils/file2obj
+	@mkdir -p $(dir $@)
 	@echo [OBJ] $@
 	@$(BUILDDIR)/utils/file2obj -p rh -i $< -o $@
 

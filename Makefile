@@ -156,13 +156,26 @@ tools-prep:
 
 tools-build:
 	@cd tools && PREFIX=$(TOOLCHAIN_PATH) TARGET=$(CONFIG_TRIPLET) ./toolchain.sh 
-	@$(MAKE) sysroot-prep
 
 tools-build2:
+	$(MAKE) bootstrap-musl
 	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace.sh 
-	$(MAKE) $(SYSROOT_PREP)
+	$(MAKE) $(BUILDDIR)/us/sysroot/usr/lib/libc.a
 	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace-libs.sh 
+	@$(MAKE) $(SYSROOT_READY)
+	@$(MAKE) clean-musl
+	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace-libs2.sh 
 	
+sysroot-prep:
+	$(MAKE) bootstrap-musl
+	$(MAKE) $(BUILDDIR)/us/sysroot/usr/lib/libc.a
+
+foo:
+	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace-libs.sh 
+	@$(MAKE) clean-musl
+	@$(MAKE) $(SYSROOT_READY)
+	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace-libs2.sh 
+
 
 $(BUILDDIR)/hd.img: $(USRPROGS)
 	@-sudo umount $(BUILDDIR)/mnt
