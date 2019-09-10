@@ -37,6 +37,7 @@ struct twix_register_frame {
 #define LINUX_SYS_write 1
 #define LINUX_SYS_open 2
 #define LINUX_SYS_close 3
+#define LINUX_SYS_stat 4
 
 #define LINUX_SYS_mmap 9
 
@@ -153,6 +154,21 @@ static int __alloc_fd(void)
 			return i;
 	}
 	return -EMFILE;
+}
+
+#include <sys/stat.h>
+long linux_sys_stat(const char *path, struct stat *sb)
+{
+	struct object obj;
+	int r = twz_object_open_name(&obj, path, FE_READ);
+	if(r < 0)
+		return r;
+
+	struct metainfo *mi = twz_object_meta(&obj);
+	sb->st_size = mi->sz;
+	sb->st_mode = S_IFREG | S_IXOTH | S_IROTH | S_IRWXU | S_IRGRP | S_IXGRP;
+	return 0;
+	return -ENOSYS;
 }
 
 long linux_sys_open(const char *path, int flags, int mode)
@@ -641,7 +657,7 @@ long linux_sys_fork(struct twix_register_frame *frame)
 struct rusage;
 long linux_sys_wait4(long pid, int *wstatus, int options, struct rusage *rusage)
 {
-	debug_printf("WAIT: %ld %p %x\n", pid, wstatus, options);
+	// debug_printf("WAIT: %ld %p %x\n", pid, wstatus, options);
 
 	while(1) {
 		struct thread *thrd[MAX_PID];
@@ -657,7 +673,6 @@ long linux_sys_wait4(long pid, int *wstatus, int options, struct rusage *rusage)
 				thrd[c++] = &pds[i].thrd;
 			}
 		}
-		debug_printf(":: %ld\n", c);
 		int r = twz_thread_wait(c, thrd, sps, event, info);
 
 		for(unsigned int i = 0; i < c; i++) {
@@ -665,7 +680,7 @@ long linux_sys_wait4(long pid, int *wstatus, int options, struct rusage *rusage)
 				if(wstatus) {
 					*wstatus = 0; // TODO
 				}
-				debug_printf("RET\n");
+				pds[pids[i]].pid = 0;
 				return pids[i];
 			}
 		}
@@ -696,6 +711,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_pselect6] = linux_sys_pselect6,
 	[LINUX_SYS_fork] = linux_sys_fork,
 	[LINUX_SYS_wait4] = linux_sys_wait4,
+	[LINUX_SYS_stat] = linux_sys_stat,
 };
 
 static size_t stlen = sizeof(syscall_table) / sizeof(syscall_table[0]);
@@ -704,7 +720,9 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 {
 	__fd_sys_init();
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
-		debug_printf("Unimplemented UNIX system call: %ld\n", num);
+#if 0
+		debug_printf("Unimplemented Linux system call: %ld\n", num);
+#endif
 		return -ENOSYS;
 	}
 	if(num == LINUX_SYS_clone) {
@@ -715,7 +733,9 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 		/* needs frame */
 		return -ENOSYS;
 	}
-	return syscall_table[num](a0, a1, a2, a3, a4, a5);
+	long r = syscall_table[num](a0, a1, a2, a3, a4, a5);
+	// debug_printf("sc %ld ret %ld\n", num, r);
+	return r;
 }
 
 static long twix_syscall_frame(struct twix_register_frame *frame,
@@ -729,7 +749,9 @@ static long twix_syscall_frame(struct twix_register_frame *frame,
 {
 	__fd_sys_init();
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
-		debug_printf("Unimplemented UNIX system call: %ld", num);
+#if 0
+		debug_printf("Unimplemented Linux system call: %ld\n", num);
+#endif
 		return -ENOSYS;
 	}
 	if(num == LINUX_SYS_clone) {
@@ -739,7 +761,9 @@ static long twix_syscall_frame(struct twix_register_frame *frame,
 		/* needs frame */
 		return syscall_table[num](frame, a0, a1, a2, a3, a4, a5);
 	}
-	return syscall_table[num](a0, a1, a2, a3, a4, a5);
+	long r = syscall_table[num](a0, a1, a2, a3, a4, a5);
+	// debug_printf("sc %ld ret %ld\n", num, r);
+	return r;
 }
 
 long __twix_syscall_target_c(long num, struct twix_register_frame *frame)

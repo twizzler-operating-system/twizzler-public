@@ -79,13 +79,13 @@ $(BUILDDIR)/us/%.flags: us/%.flags
 	@echo "" > $@
 
 $(BUILDDIR)/us/twzutils/%.data.obj $(BUILDDIR)/us/twzutils/%.text.obj: $(BUILDDIR)/us/twzutils/% $(UTILS)
-	@echo [SPLIT] $<
+	@echo [split] $<
 	@$(BUILDDIR)/utils/elfsplit $<
-	@echo [OBJ] $<.data.obj
-	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p RH
-	@echo [OBJ] $<.text.obj
-	@DATAID=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
-	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXH -f 1:RWD:$$DATAID
+	@echo [obj] $<.data.obj
+	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p rh
+	@echo [obj] $<.text.obj
+	@dataid=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
+	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p rxh -f 1:rwd:$$dataid
 
 #$(BUILDDIR)/us/libtwz/libtwz.so.data.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.obj: $(BUILDDIR)/us/libtwz/libtwz.so $(BUILDDIR)/us/libtwz/libtwz.so.flags $(UTILS)
 #	@echo [SPLIT] $<
@@ -136,6 +136,19 @@ $(BUILDDIR)/us/root/kc $(BUILDDIR)/us/bsv.obj: $(BUILDDIR)/us/bsv.data
 TWZOBJS+=$(BUILDDIR)/us/bsv.obj
 
 include us/users.mk
+
+$(BUILDDIR)/us/sysroot/usr/bin/%.text.obj $(BUILDDIR)/us/sysroot/usr/bin/%.data.obj: $(BUILDDIR)/us/sysroot/usr/bin/% $(UTILS)
+	@echo [split] $<
+	@$(BUILDDIR)/utils/elfsplit $<
+	@echo [obj] $<.data.obj
+	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p rh
+	@echo [obj] $<.text.obj
+	@dataid=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
+	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p rxh -f 1:rwd:$$dataid
+
+
+TWZOBJS+=$(BUILDDIR)/us/sysroot/usr/bin/bash.text.obj
+TWZOBJS+=$(BUILDDIR)/us/sysroot/usr/bin/bash.data.obj
 
 $(BUILDDIR)/us/root.tar: $(TWZOBJS) $(SYSLIBS)
 	@-rm -r $(BUILDDIR)/us/root

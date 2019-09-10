@@ -44,7 +44,7 @@ int twz_map_fot_entry(struct object *obj, size_t slot, struct fotentry *fe)
 
 int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source)
 {
-	debug_printf("%lx %x %lx\n", addr, cause, source);
+	// debug_printf("%lx %x %lx\n", addr, cause, source);
 	uint64_t offset = addr % OBJ_MAXSIZE;
 	if(offset < OBJ_NULLPAGE_SIZE) {
 		debug_printf("NULL ptr\n");
@@ -246,10 +246,6 @@ asm(" \
 void __twz_fault_entry(void);
 void __twz_fault_init(void)
 {
-	uint64_t s, d;
-	asm volatile("mov %%fs:0, %%rsi" : "=S"(s));
-	asm volatile("mov %%fs:8, %%rdx" : "=d"(d));
-
 	struct twzthread_repr *repr = twz_thread_repr_base();
 
 	/* have to do this manually, because fault handling during init

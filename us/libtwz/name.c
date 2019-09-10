@@ -188,6 +188,8 @@ static int __twz_name_dfl_resolve(struct object *obj, const char *name, int flag
 	if(!__name_init())
 		return -ENOTSUP;
 
+	if(name[0] == '.' && name[1] == '/')
+		name += 2;
 	const char *vname = obj ? twz_ptr_lea(obj, name) : name;
 
 	struct btree_val kv = { .mv_data = vname, .mv_size = strlen(vname) + 1 };

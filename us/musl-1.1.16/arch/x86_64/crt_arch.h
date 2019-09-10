@@ -1,8 +1,6 @@
 __asm__(".text \n"
         ".global " START " \n" START ": \n"
         "	xor %rbp,%rbp \n"
-        "   mov %rsi,%fs:0 \n"
-        "   mov %rdx,%fs:8 \n"
         /*"	mov %rsp,%rdi \n"*/
         ".weak _DYNAMIC \n"
         ".hidden _DYNAMIC \n"
