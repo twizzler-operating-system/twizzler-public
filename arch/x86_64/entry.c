@@ -11,6 +11,7 @@ void x86_64_signal_eoi(void);
 void x86_64_ipi_tlb_shootdown(void)
 {
 	asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3; mfence;" ::: "memory", "rax");
+	current_thread->processor->stats.shootdowns++;
 	processor_ipi_finish();
 }
 
@@ -116,8 +117,12 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
 		}
 	}
 
-	if(frame->int_no >= 32)
+	if(frame->int_no >= 32) {
+		current_thread->processor->stats.ext_intr++;
 		x86_64_signal_eoi();
+	} else {
+		current_thread->processor->stats.int_intr++;
+	}
 	if(was_userspace) {
 		thread_schedule_resume();
 	}
@@ -130,6 +135,7 @@ __noinstrument void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 {
 	current_thread->arch.was_syscall = true;
 	arch_interrupt_set(true);
+	current_thread->processor->stats.syscalls++;
 #if CONFIG_PRINT_SYSCALLS
 	if(frame->rax != SYS_DEBUG_PRINT)
 		printk("%ld: SYSCALL %ld (%lx)\n", current_thread->id, frame->rax, frame->rcx);
@@ -198,6 +204,7 @@ __noinstrument void arch_thread_resume(struct thread *thread, uint64_t timeout)
 	}
 	if((!old || old->active_sc != thread->active_sc) && thread->active_sc) {
 		x86_64_secctx_switch(thread->active_sc);
+		thread->processor->stats.sctx_switch++;
 	}
 	if(timeout) {
 		clksrc_set_interrupt_countdown(timeout, false);

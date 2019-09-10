@@ -79,6 +79,9 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			  next->id,
 			  next->state,
 			  empty);
+			if(next != current_thread) {
+				proc->stats.thr_switch++;
+			}
 			arch_thread_resume(next, empty ? 0 : next->timeslice_expire - ji);
 		} else {
 			spinlock_release(&proc->sched_lock, 1);
@@ -145,6 +148,7 @@ void thread_sleep(struct thread *t, int flags, int64_t timeout)
 	if(t->state != THREADSTATE_BLOCKED) {
 		t->state = THREADSTATE_BLOCKED;
 		list_remove(&t->rq_entry);
+		t->processor->stats.running--;
 	}
 	arch_interrupt_set(in);
 }
@@ -157,6 +161,7 @@ void thread_wake(struct thread *t)
 	int old = atomic_exchange(&t->state, THREADSTATE_RUNNING);
 	if(old == THREADSTATE_BLOCKED) {
 		list_insert(&t->processor->runqueue, &t->rq_entry);
+		t->processor->stats.running++;
 		if(t->processor != current_processor) {
 			processor_send_ipi(t->processor->id, PROCESSOR_IPI_RESUME, NULL, PROCESSOR_IPI_NOWAIT);
 		}
@@ -168,6 +173,7 @@ static DECLARE_LIST(allthreads);
 void thread_exit(void)
 {
 	list_remove(&current_thread->rq_entry);
+	current_thread->processor->stats.running--;
 	current_thread->state = THREADSTATE_EXITED;
 	assert(current_processor->load > 0);
 	current_processor->load--;

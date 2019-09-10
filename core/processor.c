@@ -148,6 +148,7 @@ static void __do_processor_attach_thread(struct processor *proc, struct thread *
 	list_insert(&proc->runqueue, &thread->rq_entry);
 	spinlock_release_restore(&proc->sched_lock);
 	proc->load++;
+	proc->stats.running++;
 	if(proc != current_processor) {
 		processor_send_ipi(proc->id, PROCESSOR_IPI_RESUME, NULL, PROCESSOR_IPI_NOWAIT);
 	}
