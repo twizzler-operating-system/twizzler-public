@@ -18,6 +18,7 @@ MUSL_H_GEN=obj/include/bits/alltypes.h obj/include/bits/syscall.h
 $(BUILDDIR)/us/$(MUSL)/configure: $(MUSL_SRCS)
 	@mkdir -p $(BUILDDIR)/us
 	cp -a us/$(MUSL) $(BUILDDIR)/us
+	@touch $@
 
 $(BUILDDIR)/us/$(MUSL)/lib/libc.a: $(BUILDDIR)/us/musl-config.mk
 	@mkdir -p $(BUILDDIR)/us
@@ -37,7 +38,7 @@ $(BUILDDIR)/us/sysroot/usr/lib/libc.a: $(BUILDDIR)/us/$(MUSL)/lib/libc.a
 	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) $(shell pwd)/$(BUILDDIR)/us/sysroot/usr/lib/libc.a DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
 	@touch $(BUILDDIR)/us/sysroot/usr/lib/libc.a
 
-$(BUILDDIR)/us/sysroot/usr/lib/crt1.o: $(MUSL_HDRS) $(BUILDDIR)/us/sysroot/usr/lib/libc.a $(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a
+$(BUILDDIR)/us/sysroot/usr/lib/crt1.o: $(MUSL_SRCS) $(MUSL_HDRS) $(BUILDDIR)/us/sysroot/usr/lib/libc.a $(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a
 	@mkdir -p $(BUILDDIR)/us/sysroot
 	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
 	@touch $(BUILDDIR)/us/sysroot/usr/lib/crt1.o
@@ -85,15 +86,15 @@ $(BUILDDIR)/us/twzutils/%.data.obj $(BUILDDIR)/us/twzutils/%.text.obj: $(BUILDDI
 	@DATAID=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
 	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXH -f 1:RWD:$$DATAID
 
-$(BUILDDIR)/us/libtwz/libtwz.so.data.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.obj: $(BUILDDIR)/us/libtwz/libtwz.so $(BUILDDIR)/us/libtwz/libtwz.so.flags $(UTILS)
-	@echo [SPLIT] $<
-	@$(BUILDDIR)/utils/elfsplit $<
-	@echo [OBJ] $<.data.obj
-	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p RH
-	@echo [OBJ] $<.text.obj
-	@DATAID=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
-	FLAGS=$$(cat $<.flags);\
-	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXH -f 1:RWD:$$DATAID $$FLAGS
+#$(BUILDDIR)/us/libtwz/libtwz.so.data.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.obj: $(BUILDDIR)/us/libtwz/libtwz.so $(BUILDDIR)/us/libtwz/libtwz.so.flags $(UTILS)
+#	@echo [SPLIT] $<
+#	@$(BUILDDIR)/utils/elfsplit $<
+#	@echo [OBJ] $<.data.obj
+#	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p RH
+#	@echo [OBJ] $<.text.obj
+#	@DATAID=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
+#	FLAGS=$$(cat $<.flags);\
+#	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXH -f 1:RWD:$$DATAID $$FLAGS
 
 $(BUILDDIR)/us/sysroot/usr/lib/libtwz.a: $(BUILDDIR)/us/libtwz/libtwz.a
 	mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
@@ -134,7 +135,8 @@ $(BUILDDIR)/us/root/kc $(BUILDDIR)/us/bsv.obj: $(BUILDDIR)/us/bsv.data
 	@$(BUILDDIR)/utils/file2obj -i $< -o $(BUILDDIR)/us/bsv.obj -p RWU
 	@echo "bsv=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/bsv.obj)" > $(BUILDDIR)/us/kc
 
-TWZOBJS+=$(BUILDDIR)/us/bsv.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.obj $(BUILDDIR)/us/libtwz/libtwz.so.data.obj
+TWZOBJS+=$(BUILDDIR)/us/bsv.obj
+#$(BUILDDIR)/us/libtwz/libtwz.so.text.obj $(BUILDDIR)/us/libtwz/libtwz.so.data.obj
 
 include us/users.mk
 
