@@ -3,6 +3,8 @@ PROGS=
 TWZCC?=x86_64-pc-twizzler-musl-gcc
 TWZCXX?=x86_64-pc-twizzler-musl-g++
 #TWZCC=x86_64-pc-elf-gcc
+TWIZZLER_TRIPLET=x86_64-pc-twizzler-musl
+# TODO: move the above somewhere non-project-specific
 
 MUSL=musl-1.1.16
 
@@ -155,3 +157,6 @@ $(BUILDDIR)/us/root.tar: $(TWZOBJS) $(SYSLIBS)
 	@tar cf $(BUILDDIR)/us/root.tar -C $(BUILDDIR)/us/root --xform s:'./':: .
 
 userspace: $(BUILDDIR)/us/root.tar
+
+
+include us/ports/include.mk
