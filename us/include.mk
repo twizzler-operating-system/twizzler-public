@@ -6,7 +6,7 @@ TWZCC?=x86_64-pc-twizzler-musl-gcc
 MUSL=musl-1.1.16
 
 $(BUILDDIR)/us/musl-config.mk: $(BUILDDIR)/us/$(MUSL)/configure
-	cd $(BUILDDIR)/us/$(MUSL) && ./configure --host=$(CONFIG_TRIPLET) CROSS_COMPILER=$(TOOLCHAIN_PREFIX) --prefix=/usr --syslibdir=/lib
+	cd $(BUILDDIR)/us/$(MUSL) && ./configure --host=x86_64-pc-twizzler-musl CROSS_COMPILER=x86_64-pc-twizzler-musl- --prefix=/usr --syslibdir=/lib
 	mv $(BUILDDIR)/us/$(MUSL)/config.mak $@
 
 MUSL_SRCS=$(shell find us/$(MUSL))
@@ -26,10 +26,11 @@ $(BUILDDIR)/us/$(MUSL)/lib/libc.a: $(BUILDDIR)/us/musl-config.mk
 	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) lib/libc.a
 	@touch $@
 
-$(MUSL_HDRS): $(BUILDDIR)/us/musl-config.mk
+$(MUSL_HDRS): $(BUILDDIR)/us/musl-config.mk $(MUSL_SRCS)
 	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) $(MUSL_H_GEN)
 	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install-headers DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
 	-@cd $(BUILDDIR)/us/sysroot/usr/include && [ ! -e twz ] && ln -s ../../../../../../../us/include/twz twz
+	@touch $@
 
 $(BUILDDIR)/us/sysroot/usr/include/%.h: $(MUSL_HDRS)
 

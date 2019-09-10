@@ -565,7 +565,7 @@ tryldflag LDFLAGS_AUTO -Wl,--sort-common
 
 # When linking shared library, drop dummy weak definitions that were
 # replaced by strong definitions from other translation units.
-#tryldflag LDFLAGS_AUTO -Wl,--gc-sections
+tryldflag LDFLAGS_AUTO -Wl,--gc-sections
 
 # Some patched GCC builds have these defaults messed up...
 tryldflag LDFLAGS_AUTO -Wl,--hash-style=both

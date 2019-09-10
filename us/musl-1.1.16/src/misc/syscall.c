@@ -3,10 +3,10 @@
 
 #undef syscall
 
-long __attribute__((weak)) __twix_syscall_target()
-{
-	__builtin_unreachable();
-}
+long __attribute__((weak, visibility("default"))) __twix_syscall_target();
+//{
+//	__builtin_unreachable();
+//}
 
 long syscall(long n, ...)
 {

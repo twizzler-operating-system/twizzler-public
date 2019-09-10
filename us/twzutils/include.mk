@@ -6,7 +6,7 @@ PROGS+=$(TWZUTILS)
 
 $(BUILDDIR)/us/twzutils/%: $(BUILDDIR)/us/twzutils/%.o $(SYSROOT_READY)
 	@echo [LD] $@
-	@$(TWZCC) -static $(TWZLDFLAGS) -o $@ -MD $<
+	$(TWZCC) -static $(TWZLDFLAGS) -o $@ -MD $<
 
 $(BUILDDIR)/us/twzutils/%.o: us/twzutils/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
