@@ -1,4 +1,4 @@
-TWZUTILS=init login nls shell input pcie serial term
+TWZUTILS=init login nls shell input pcie serial term bstream
 
 PROGS+=$(TWZUTILS)
 

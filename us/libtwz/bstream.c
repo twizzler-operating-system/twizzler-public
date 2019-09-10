@@ -91,7 +91,7 @@ int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr, uint32_t nbits
 	event_obj_init(obj, &hdr->ev);
 
 	objid_t id;
-	r = twz_name_resolve(NULL, "libtwz.so.text", NULL, 0, &id);
+	r = twz_name_resolve(NULL, "bstream.text", NULL, 0, &id);
 	if(r)
 		return r;
 	r = twz_ptr_make(
@@ -105,6 +105,3 @@ int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr, uint32_t nbits
 
 	return 0;
 }
-
-TWZ_GATE(bstream_read, BSTREAM_GATE_READ);
-TWZ_GATE(bstream_write, BSTREAM_GATE_WRITE);
