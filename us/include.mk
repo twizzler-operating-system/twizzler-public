@@ -108,6 +108,12 @@ $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a: $(BUILDDIR)/us/twix/libtwix.a
 	mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
 	cp $< $@
 
+$(BUILDDIR)/us/sysroot/usr/lib/libtwix.so: $(BUILDDIR)/us/twix/libtwix.so
+	mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
+	cp $< $@
+
+
+
 SYSLIBS=$(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/libtwz.so $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a $(BUILDDIR)/us/sysroot/usr/lib/libc.a
 
 #$(BUILDDIR)/us/%.o: us/%.c $(BUILDDIR)/us/sysroot/usr/lib/libc.a
