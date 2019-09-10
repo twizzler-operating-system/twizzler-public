@@ -1,4 +1,4 @@
-TWZUTILS=init login nls shell input pcie serial term bstream
+TWZUTILS=init login nls shell input pcie serial term bstream test
 
 PROGS+=$(TWZUTILS)
 
@@ -12,6 +12,15 @@ $(BUILDDIR)/us/twzutils/%.o: us/twzutils/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo [CC] $@
 	@$(TWZCC) $(TWZCFLAGS) -o $@ -c -MD $<
+
+$(BUILDDIR)/us/twzutils/test: $(BUILDDIR)/us/twzutils/test.o $(SYSROOT_READY)
+	@echo [LD] $@
+	$(TWZCXX) -static $(TWZLDFLAGS) -o $@ -MD $<
+
+$(BUILDDIR)/us/twzutils/%.o: us/twzutils/%.cpp $(MUSL_HDRS)
+	@mkdir -p $(dir $@)
+	@echo [CC] $@
+	@$(TWZCXX) $(TWZCFLAGS) -o $@ -c -MD $<
 
 $(BUILDDIR)/us/twzutils/term: $(BUILDDIR)/us/twzutils/term.o $(BUILDDIR)/us/twzutils/kbd.o $(SYSROOT_READY)
 	@echo [LD] $@

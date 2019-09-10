@@ -1,6 +1,7 @@
 PROGS=
 #SUBDIRS=test init term shell login nls pcie input serial
 TWZCC?=x86_64-pc-twizzler-musl-gcc
+TWZCXX?=x86_64-pc-twizzler-musl-g++
 #TWZCC=x86_64-pc-elf-gcc
 
 MUSL=musl-1.1.16
@@ -63,27 +64,8 @@ SYSROOT_READY=$(BUILDDIR)/us/sysroot/usr/lib/crt1.o
 
 SYSROOT_PREP=$(MUSL_HDRS)
 
-MUSL_INCL=$(addprefix -I$(BUILDDIR)/us/$(MUSL)/,include obj/include src/internal obj/src/internal arch/generic arch/$(ARCH))
-
-MUSL_STATIC_LIBC_PRE_i=$(BUILDDIR)/us/$(MUSL)/lib/crti.o
-MUSL_STATIC_LIBC_PRE_1=$(BUILDDIR)/us/$(MUSL)/lib/crt1.o
-MUSL_STATIC_LIBC=$(BUILDDIR)/us/$(MUSL)/lib/libc.a
-MUSL_SHARED_LIBC=$(BUILDDIR)/us/$(MUSL)/lib/libc.so
-MUSL_STATIC_LIBC_POST=$(BUILDDIR)/us/$(MUSL)/lib/crtn.o
-
-
-LIBGCC=$(shell env PATH=$(PATH) $(TOOLCHAIN_PREFIX)gcc -print-libgcc-file-name)
-CRTEND=$(shell env PATH=$(PATH) $(TOOLCHAIN_PREFIX)gcc -print-file-name=crtend.o)
-CRTBEGIN=$(shell env PATH=$(PATH) $(TOOLCHAIN_PREFIX)gcc -print-file-name=crtbegin.o)
-
-US_PRELINK=$(MUSL_STATIC_LIBC_PRE_i) $(CRTBEGIN) $(MUSL_STATIC_LIBC_PRE_1)
-US_POSTLINK=-Wl,--start-group $(BUILDDIR)/us/libtwz/libtwz.a $(MUSL_STATIC_LIBC) $(BUILDDIR)/us/twix/libtwix.a -Wl,--as-needed $(BUILDDIR)/us/libtwz/libtwz.a -Wl,--end-group $(LIBGCC) $(CRTEND) $(MUSL_STATIC_LIBC_POST)
 #TWZCFLAGS=-Wall -Wextra -O3 -msse2 -msse -mavx -march=native -ffast-math -g
 TWZCFLAGS=-Wall -Wextra -Og -g
-#US_LIBDEPS=$(BUILDDIR)/us/libtwz/libtwz.a $(BUILDDIR)/us/$(MUSL)/lib/libc.a $(BUILDDIR)/us/twix/libtwix.a us/elf.ld
-#US_LDFLAGS=-static -Wl,-z,max-page-size=0x1000 -Tus/elf.ld -g
-
-#include $(addprefix us/,$(addsuffix /include.mk,$(SUBDIRS)))
 
 include us/libtwz/include.mk
 include us/twix/include.mk
@@ -129,14 +111,7 @@ $(BUILDDIR)/us/sysroot/usr/lib/libtwix.so: $(BUILDDIR)/us/twix/libtwix.so
 	mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
 	cp $< $@
 
-
-
 SYSLIBS=$(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/libtwz.so $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a $(BUILDDIR)/us/sysroot/usr/lib/libc.a
-
-#$(BUILDDIR)/us/%.o: us/%.c $(BUILDDIR)/us/sysroot/usr/lib/libc.a
-#	@mkdir -p $(dir $@)
-#	@echo "[CCC] $@"
-#	$(TWZCC) -c -MD -MF $(BUILDDIR)/us/$*.d -o $@ $<
 
 -include $(BUILDDIR)/us/*/*.d
 
@@ -146,8 +121,6 @@ TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .text.obj,$(foreach x,$(PROGS),
 
 TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),twzutils/$(x))))
 
-#TWZOBJS+=$(BUILDDIR)/us/foo.text.obj $(BUILDDIR)/us/foo.data.obj
-#TWZOBJS+=$(BUILDDIR)/us/bash.text.obj $(BUILDDIR)/us/bash.data.obj
 
 $(BUILDDIR)/us/bsv.data: $(BUILDDIR)/us/twzutils/init.text.obj
 	@echo "[BSV] $@"
@@ -159,7 +132,6 @@ $(BUILDDIR)/us/root/kc $(BUILDDIR)/us/bsv.obj: $(BUILDDIR)/us/bsv.data
 	@echo "bsv=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/bsv.obj)" > $(BUILDDIR)/us/kc
 
 TWZOBJS+=$(BUILDDIR)/us/bsv.obj
-#$(BUILDDIR)/us/libtwz/libtwz.so.text.obj $(BUILDDIR)/us/libtwz/libtwz.so.data.obj
 
 include us/users.mk
 
