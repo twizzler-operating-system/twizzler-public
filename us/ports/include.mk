@@ -1,4 +1,4 @@
-PORTS=bash
+PORTS=bash ncurses
 
 PORTDIR=$(BUILDDIR)/us/ports
 SYSROOT=$(BUILDDIR)/us/sysroot

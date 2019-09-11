@@ -11,7 +11,7 @@ $(SYSROOT)/usr/bin/bash: $(PORTDIR)/$(DIR_bash)/bash
 
 SRCS_bash=$(shell find $(PORTDIR)/$(DIR_bash))
 
-$(PORTDIR)/$(DIR_bash)/bash: $(PORTDIR)/$(DIR_bash)/Makefile $(SRCS_bash) $(MUSL_SRCS) $(SYSLIBS)
+$(PORTDIR)/$(DIR_bash)/bash: $(PORTDIR)/$(DIR_bash)/Makefile $(SRCS_bash) $(SYSLIBS)
 	$(MAKE) -C $(PORTDIR)/$(DIR_bash)
 
 bash_relink: $(PORTDIR)/$(DIR_bash)/Makefile
@@ -26,6 +26,6 @@ $(PORTDIR)/$(DIR_bash)/Makefile: $(PORTDIR)/bash.tar.gz
 	cd $(PORTDIR) && rm -rf $(DIR_bash)
 	cd $(PORTDIR) && tar xf $(notdir $<)
 	cd $(PORTDIR)/$(DIR_bash) && sed -i 's/| sortix\*/| sortix\* | twizzler\*/g' support/config.sub
-	cd $(PORTDIR)/$(DIR_bash) && ./configure --prefix=/usr --without-bash-malloc --host=$(TWIZZLER_TRIPLET) --enable-static-link
+	cd $(PORTDIR)/$(DIR_bash) && ./configure --prefix=/usr --without-bash-malloc --host=$(TWIZZLER_TRIPLET) --enable-static-link --with-curses
 
 
