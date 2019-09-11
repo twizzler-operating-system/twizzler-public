@@ -421,7 +421,7 @@ long linux_sys_write(int fd, void *buf, size_t count)
 
 long linux_sys_ioctl(int fd, unsigned long request, unsigned long arg)
 {
-	// debug_printf("IOCTL: %d %ld %ld\n", fd, request, arg);
+	debug_printf("IOCTL: %d %ld %ld\n", fd, request, arg);
 	return 0;
 }
 
@@ -720,7 +720,7 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 {
 	__fd_sys_init();
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
-#if 0
+#if 1
 		debug_printf("Unimplemented Linux system call: %ld\n", num);
 #endif
 		return -ENOSYS;
@@ -749,7 +749,7 @@ static long twix_syscall_frame(struct twix_register_frame *frame,
 {
 	__fd_sys_init();
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
-#if 0
+#if 1
 		debug_printf("Unimplemented Linux system call: %ld\n", num);
 #endif
 		return -ENOSYS;

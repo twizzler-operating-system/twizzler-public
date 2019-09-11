@@ -3,6 +3,8 @@
 #include <twz/_obj.h>
 #include <twz/_slots.h>
 
+#include <stddef.h>
+
 struct object {
 	void *base;
 };
