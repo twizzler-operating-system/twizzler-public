@@ -36,6 +36,7 @@ void processor_register(bool bsp, unsigned int id)
 		proc->flags = PROCESSOR_BSP;
 		proc_bsp = proc;
 		proc->percpu = bsp_percpu_region;
+		proc->flags |= PROCESSOR_UP;
 	} else {
 		size_t percpu_length = (size_t)&kernel_data_percpu_length;
 		proc->percpu = (void *)mm_virtual_alloc(percpu_length, PM_TYPE_DRAM, true);
@@ -139,6 +140,27 @@ void processor_secondary_entry(struct processor *proc)
 {
 	proc->flags |= PROCESSOR_UP;
 	processor_perproc_init(proc);
+}
+
+void processor_print_stats(struct processor *proc)
+{
+	printk("processor %d\n", proc->id);
+	printk("  thr_switch : %-ld\n", proc->stats.thr_switch);
+	printk("  ext_intr   : %-ld\n", proc->stats.ext_intr);
+	printk("  int_intr   : %-ld\n", proc->stats.int_intr);
+	printk("  running    : %-ld\n", proc->stats.running);
+	printk("  sctx_switch: %-ld\n", proc->stats.sctx_switch);
+	printk("  shootdowns : %-ld\n", proc->stats.shootdowns);
+	printk("  syscalls   : %-ld\n", proc->stats.syscalls);
+}
+
+void processor_print_all_stats(void)
+{
+	for(int i = 0; i < PROCESSOR_MAX_CPUS; i++) {
+		if((processors[i].flags & PROCESSOR_UP)) {
+			processor_print_stats(&processors[i]);
+		}
+	}
 }
 
 static void __do_processor_attach_thread(struct processor *proc, struct thread *thread)

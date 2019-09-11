@@ -61,6 +61,7 @@ void processor_send_ipi(int destid, int vector, void *arg, int flags);
 void arch_processor_send_ipi(int destid, int vector, int flags);
 void processor_ipi_finish(void);
 void processor_shutdown(void);
+void processor_print_all_stats(void);
 
 #define current_processor processor_get_current()
 
