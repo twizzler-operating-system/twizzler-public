@@ -118,9 +118,10 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
 	}
 
 	if(frame->int_no >= 32) {
-		current_thread->processor->stats.ext_intr++;
+		if(current_thread && current_thread->processor)
+			current_thread->processor->stats.ext_intr++;
 		x86_64_signal_eoi();
-	} else {
+	} else if(current_thread && current_thread->processor) {
 		current_thread->processor->stats.int_intr++;
 	}
 	if(was_userspace) {

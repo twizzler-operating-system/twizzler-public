@@ -52,6 +52,33 @@ void tmain(void *a)
 	twz_thread_exit();
 }
 
+void start_login(void)
+{
+	objid_t lsi;
+	int r = twz_name_resolve(NULL, "login.sctx", NULL, 0, &lsi);
+	if(r) {
+		EPRINTF("failed to resolve 'login.sctx'");
+		exit(0);
+	}
+
+	r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
+	if(r) {
+		EPRINTF("failed to detach: %d\n", r);
+		exit(0);
+	}
+
+	r = sys_attach(0, lsi, 0, KSO_SECCTX);
+	if(r) {
+		EPRINTF("failed to attach " IDFMT ": %d\n", IDPR(lsi), r);
+		twz_thread_exit();
+	}
+
+	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] login");
+
+	r = execv("login.text", (char *[]){ "login", NULL });
+	EPRINTF("execv failed: %d\n", r);
+}
+
 #include <twz/view.h>
 void logmain(void *arg)
 {
@@ -236,138 +263,52 @@ int main(int argc, char **argv)
 		abort();
 	}
 	twz_thread_wait(1, (struct thread *[]){ &tthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
-
-	close(0);
-	close(1);
-	close(2);
-
-#if 1
-	if((fd = open("dev:dfl:input", O_RDONLY)) != 0) {
-		EPRINTF("err opening stdin: %d\n", fd);
-		abort();
-	}
-	if((fd = open("dev:dfl:screen", O_RDWR)) != 1) {
-		EPRINTF("err opening stdout\n");
-		abort();
-	}
-	if((fd = open("dev:dfl:screen", O_RDWR)) != 2) {
-		EPRINTF("err opening stderr\n");
-		abort();
-	}
-#else
-	if((fd = open("dev:input:serial", O_RDONLY)) != 0) {
-		EPRINTF("err opening stdin: %d\n", fd);
-		abort();
-	}
-	if((fd = open("dev:output:serial", O_RDWR)) != 1) {
-		EPRINTF("err opening stdout\n");
-		abort();
-	}
-	if((fd = open("dev:output:serial", O_RDWR)) != 2) {
-		EPRINTF("err opening stderr\n");
-		abort();
-	}
-
-#endif
-
 	term_ready = true;
 	EPRINTF("twzinit: terminal ready\n");
 
-	objid_t lsi;
-	r = twz_name_resolve(NULL, "login.sctx", NULL, 0, &lsi);
-	if(r) {
-		EPRINTF("failed to resolve 'login.sctx'");
-		twz_thread_exit();
-	}
+	if(!fork()) {
+		close(0);
+		close(1);
+		close(2);
 
-	struct service_info login_info = {
-		.name = "login",
-		.sctx = lsi,
-		.arg = "screen",
-	};
-
-	EPRINTF("twzinit: starting login program\n");
-
-	struct thread shthr;
-	if((r = twz_thread_spawn(
-	      &shthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &login_info }))) {
-		EPRINTF("failed to spawn shell");
-		abort();
-	}
-
-#if 1
-	struct service_info login2_info = {
-		.name = "login",
-		.sctx = lsi,
-		.arg = "serial",
-	};
-
-	EPRINTF("twzinit: starting login program (serial)\n");
-
-	struct thread sh2thr;
-	if((r = twz_thread_spawn(
-	      &sh2thr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &login2_info }))) {
-		EPRINTF("failed to spawn shell2");
-		abort();
-	}
-#endif
-#if 0
-	struct thread sh3thr;
-	if((r = twz_thread_spawn(
-	      &sh3thr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &login2_info }))) {
-		EPRINTF("failed to spawn shell2");
-		abort();
-	}
-
-	close(0);
-	close(1);
-	close(2);
-
-	if((fd = open("dev:dfl:keyboard", O_RDONLY)) != 0) {
-		EPRINTF("err opening stdin: %d\n", fd);
-		abort();
-	}
-	if((fd = open("dev:dfl:screen", O_RDWR)) != 1) {
-		EPRINTF("err opening stdout\n");
-		abort();
-	}
-	if((fd = open("dev:dfl:screen", O_RDWR)) != 2) {
-		EPRINTF("err opening stderr\n");
-		abort();
-	}
-
-	/*
-	objid_t lsi;
-	r = twz_name_resolve(NULL, "login.sctx", NULL, 0, &lsi);
-	if(r) {
-	    EPRINTF("failed to resolve 'login.sctx'");
-	    twz_thread_exit();
-	}*/
-
-	EPRINTF("twzinit: starting login program\n");
-
-	struct thread shthr2;
-	if((r = twz_thread_spawn(
-	      &shthr2, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &login_info }))) {
-		EPRINTF("failed to spawn shell");
-		abort();
-	}
-#endif
-	EPRINTF("twzinit: init process completed\n");
-	twz_thread_exit();
-
-#if 0
-	struct object obj;
-	event_init(&obj, &e);
-
-	int r;
-	struct event res;
-	while((r = event_wait(&obj, EV_READ, &res)) >= 0) {
-		if(r == 0)
-			continue;
-		/* process events */
-		if(res.events & EV_READ) {
+		if((fd = open("dev:dfl:input", O_RDONLY)) != 0) {
+			EPRINTF("err opening stdin: %d\n", fd);
+			abort();
 		}
+		if((fd = open("dev:dfl:screen", O_RDWR)) != 1) {
+			EPRINTF("err opening stdout\n");
+			abort();
+		}
+		if((fd = open("dev:dfl:screen", O_RDWR)) != 2) {
+			EPRINTF("err opening stderr\n");
+			abort();
+		}
+
+		start_login();
+		exit(0);
 	}
-#endif
+
+	if(!fork()) {
+		close(0);
+		close(1);
+		close(2);
+
+		if((fd = open("dev:input:serial", O_RDONLY)) != 0) {
+			EPRINTF("err opening stdin: %d\n", fd);
+			abort();
+		}
+		if((fd = open("dev:output:serial", O_RDWR)) != 1) {
+			EPRINTF("err opening stdout\n");
+			abort();
+		}
+		if((fd = open("dev:output:serial", O_RDWR)) != 2) {
+			EPRINTF("err opening stderr\n");
+			abort();
+		}
+
+		start_login();
+		exit(0);
+	}
+
+	exit(0);
 }
