@@ -1,0 +1,28 @@
+#!/bin/sh
+
+NAME=bash
+VERSION=5.0
+DEPS=ncurses
+desc="The Bourne Again Shell"
+
+DOWNLOADS=(https://mirrors.ocf.berkeley.edu/gnu/bash/bash-5.0.tar.gz)
+HASHES=(d116b469b9e6ea5264a74661d3a4c797da7f997b)
+
+function prepare() {
+	tar xf bash-5.0.tar.gz
+	cd bash-5.0
+	sed -i 's/| sortix\*/| sortix\* | twizzler\*/g' support/config.sub
+	./configure --prefix=/usr --without-bash-malloc --host=$TARGET --enable-static-link --with-curses
+}
+
+function build() {
+	cd bash-5.0
+	make $MAKEFLAGS 
+}
+
+function install() {
+	cd bash-5.0
+	make $MAKEFLAGS DESTDIR=$SYSROOT install
+}
+
+

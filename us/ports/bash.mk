@@ -22,7 +22,7 @@ bash_clean:
 	$(MAKE) -C $(PORTDIR)/$(DIR_bash) uninstall DESTDIR=$(shell pwd)/$(SYSROOT)
 	-rm -rf $(PORTDIR)/$(DIR_bash)
 
-$(PORTDIR)/$(DIR_bash)/Makefile: $(PORTDIR)/bash.tar.gz
+$(PORTDIR)/$(DIR_bash)/Makefile: $(PORTDIR)/bash.tar.gz $(SYSROOT)/usr/lib/libcurses.a
 	cd $(PORTDIR) && rm -rf $(DIR_bash)
 	cd $(PORTDIR) && tar xf $(notdir $<)
 	cd $(PORTDIR)/$(DIR_bash) && sed -i 's/| sortix\*/| sortix\* | twizzler\*/g' support/config.sub
