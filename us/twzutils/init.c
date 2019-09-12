@@ -52,6 +52,15 @@ void tmain(void *a)
 	twz_thread_exit();
 }
 
+void start_terminal(char *input, char *output, char *pty)
+{
+	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term");
+	execv("term.text", (char *[]){ "term.text", "-i", input, "-o", output, "-p", pty, NULL });
+	// EPRINTF("failed to exec '%s': %s\n", strerror(errno));
+	EPRINTF("failed to exec '%s'\n");
+	exit(1);
+}
+
 void start_login(void)
 {
 	objid_t lsi;
@@ -98,6 +107,44 @@ void logmain(void *arg)
 	}
 }
 
+#include <twz/pty.h>
+
+int create_pty_pair(char *server, char *client)
+{
+	struct object pty_s, pty_c;
+
+	objid_t psid, pcid;
+
+	int r;
+	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &psid)))
+		return r;
+	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &pcid)))
+		return r;
+
+	if((r = twz_object_open(&pty_s, psid, FE_READ | FE_WRITE))) {
+		return r;
+	}
+	if((r = twz_object_open(&pty_c, pcid, FE_READ | FE_WRITE))) {
+		return r;
+	}
+
+	if((r = pty_obj_init_server(&pty_s, twz_obj_base(&pty_s))))
+		return r;
+	struct pty_hdr *ps = twz_obj_base(&pty_s);
+	if((r = pty_obj_init_client(&pty_c, twz_obj_base(&pty_c), ps)))
+		return r;
+
+	if((r = twz_name_assign(psid, server))) {
+		return r;
+	}
+
+	if((r = twz_name_assign(pcid, client))) {
+		return r;
+	}
+
+	return 0;
+}
+
 struct object bs;
 int main(int argc, char **argv)
 {
@@ -117,6 +164,42 @@ int main(int argc, char **argv)
 	};
 
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] init");
+
+#if 0
+	struct object pty_s, pty_c;
+
+	objid_t psid, pcid;
+
+	twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &psid);
+	twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &pcid);
+
+	twz_object_open(&pty_s, psid, FE_READ | FE_WRITE);
+	twz_object_open(&pty_c, pcid, FE_READ | FE_WRITE);
+
+	int x;
+	if((x = pty_obj_init_server(&pty_s, twz_obj_base(&pty_s))))
+		debug_printf("ERR: %d\n", x);
+	struct pty_hdr *ps = twz_obj_base(&pty_s);
+	struct pty_client_hdr *pc = twz_obj_base(&pty_c);
+	if((x = pty_obj_init_client(&pty_c, twz_obj_base(&pty_c), ps)))
+		debug_printf("ERR: %d\n", x);
+
+	ssize_t a = twzio_write(&pty_s, "hello from server\n", 18, 0, 0);
+	debug_printf("tio_w s : ret %ld\n", a);
+
+	char buffer[1024];
+	a = twzio_read(&pty_c, buffer, 1024, 0, 0);
+	debug_printf("tio_r c : ret %ld : %s\n", a, buffer);
+
+	a = twzio_write(&pty_c, "hello from client\n", 18, 0, 0);
+	debug_printf("tio_w c : ret %ld\n", a);
+
+	a = twzio_read(&pty_s, buffer, 1024, 0, 0);
+	debug_printf("tio_r s : ret %ld : %s\n", a, buffer);
+
+	for(;;)
+		;
+#endif
 
 	objid_t lid;
 	struct object lobj;
@@ -257,6 +340,15 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if((r = create_pty_pair("dev:pty:pty0", "dev:pty:ptyc0"))) {
+		EPRINTF("failed to create pty pair\n");
+		abort();
+	}
+	if(!fork()) {
+		start_terminal("dev:input:keyboard", "dev:output:framebuffer", "dev:pty:pty0");
+	}
+
+#if 0
 	if((r = twz_thread_spawn(
 	      &tthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &term_info }))) {
 		EPRINTF("failed to spawn terminal");
@@ -265,21 +357,22 @@ int main(int argc, char **argv)
 	twz_thread_wait(1, (struct thread *[]){ &tthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 	term_ready = true;
 	EPRINTF("twzinit: terminal ready\n");
+#endif
 
 	if(!fork()) {
 		close(0);
 		close(1);
 		close(2);
 
-		if((fd = open("dev:dfl:input", O_RDONLY)) != 0) {
+		if((fd = open("dev:pty:ptyc0", O_RDONLY)) != 0) {
 			EPRINTF("err opening stdin: %d\n", fd);
 			abort();
 		}
-		if((fd = open("dev:dfl:screen", O_RDWR)) != 1) {
+		if((fd = open("dev:pty:ptyc0", O_RDWR)) != 1) {
 			EPRINTF("err opening stdout\n");
 			abort();
 		}
-		if((fd = open("dev:dfl:screen", O_RDWR)) != 2) {
+		if((fd = open("dev:pty:ptyc0", O_RDWR)) != 2) {
 			EPRINTF("err opening stderr\n");
 			abort();
 		}

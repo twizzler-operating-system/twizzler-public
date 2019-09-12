@@ -28,4 +28,14 @@ static inline size_t bstream_hdr_size(uint32_t nbits)
 
 ssize_t bstream_write(struct object *obj, const void *ptr, size_t len, unsigned flags);
 ssize_t bstream_read(struct object *obj, void *ptr, size_t len, unsigned flags);
+ssize_t bstream_hdr_write(struct object *obj,
+  struct bstream_hdr *,
+  const void *ptr,
+  size_t len,
+  unsigned flags);
+ssize_t bstream_hdr_read(struct object *obj,
+  struct bstream_hdr *,
+  void *ptr,
+  size_t len,
+  unsigned flags);
 int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr, uint32_t nbits);

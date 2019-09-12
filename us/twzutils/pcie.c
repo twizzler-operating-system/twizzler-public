@@ -367,7 +367,7 @@ void pcie_load_driver(struct pcie_function *pf)
 {
 	struct pcie_function_header *hdr = twz_obj_base(&pf->cobj);
 	if(hdr->vendorid == 0x1234 && hdr->deviceid == 0x1111) {
-		twz_name_assign(pf->cid, "dev:framebuffer");
+		twz_name_assign(pf->cid, "dev:output:framebuffer");
 		return;
 		printf("VGA!\n");
 		printf("%lx\n", hdr->bars[0]);

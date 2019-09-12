@@ -1,9 +1,11 @@
+#include <libgen.h>
 #include <stdlib.h>
 #include <twz/bstream.h>
 #include <twz/debug.h>
 #include <twz/name.h>
 #include <twz/obj.h>
 #include <twz/thread.h>
+#include <unistd.h>
 
 #include "ssfn.h"
 struct fb {
@@ -23,7 +25,7 @@ struct fb fb = { 0 };
 
 void fb_putc(struct fb *fb, int c);
 
-static struct object kb_obj, out_obj, screen_obj;
+static struct object ptyobj, kbobj;
 
 #include <twz/io.h>
 
@@ -43,12 +45,12 @@ void kbmain(void *a)
 	for(;;) {
 		int x;
 		char buf[128];
-		ssize_t r = twzio_read(&kb_obj, buf, 128, 0, 0);
+		ssize_t r = twzio_read(&kbobj, buf, 128, 0, 0);
 		if(r < 0) {
 			debug_printf("ERR: %ld\n", r);
 			twz_thread_exit();
 		}
-		process_keyboard(&out_obj, buf, r);
+		process_keyboard(&ptyobj, buf, r);
 	}
 }
 
@@ -326,8 +328,30 @@ int main(int argc, char **argv)
 {
 	int r;
 
-	twz_object_open_name(&kb_obj, "dev:input:keyboard", FE_READ | FE_WRITE);
+	char *input, *output, *pty;
 
+	int c;
+	while((c = getopt(argc, argv, "i:o:p:")) != -1) {
+		switch(c) {
+			case 'i':
+				input = optarg;
+				break;
+			case 'o':
+				output = optarg;
+				break;
+			case 'p':
+				pty = optarg;
+				break;
+			default:
+				fprintf(stderr, "unrecognized option: %c\n", c);
+				exit(1);
+		}
+	}
+
+	twz_object_open_name(&kbobj, input, FE_READ | FE_WRITE);
+	twz_object_open_name(&ptyobj, pty, FE_READ | FE_WRITE);
+
+#if 0
 	objid_t kid;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &kid))) {
 		debug_printf("failed to create screen object");
@@ -369,9 +393,10 @@ int main(int argc, char **argv)
 		debug_printf("failed to assign screen object name");
 		abort();
 	}
+#endif
 
 	fb.init = 1;
-	if((r = twz_object_open_name(&fb.obj, "dev:framebuffer", FE_READ | FE_WRITE))) {
+	if((r = twz_object_open_name(&fb.obj, output, FE_READ | FE_WRITE))) {
 		debug_printf("term: failed to open framebuffer: %d\n", r);
 		fb.init = 0;
 	}
@@ -393,7 +418,7 @@ int main(int argc, char **argv)
 	for(;;) {
 		char buf[128];
 		memset(buf, 0, sizeof(buf));
-		ssize_t r = bstream_read(&screen_obj, buf, 127, 0);
+		ssize_t r = twzio_read(&ptyobj, buf, 127, 0, 0);
 		if(r > 0) {
 			for(ssize_t i = 0; i < r; i++) {
 				if(fb.init) {

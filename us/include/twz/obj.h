@@ -34,6 +34,12 @@ static inline void *__twz_ptr_lea(const struct object *o, const void *p)
 	}
 }
 
+#define TWZ_OBJECT_FROM_PTR(p)                                                                     \
+	(struct object)                                                                                \
+	{                                                                                              \
+		.base = (void *)((uintptr_t)p & ~(OBJ_MAXSIZE - 1))                                        \
+	}
+
 #define TWZ_OBJECT_INIT(s)                                                                         \
 	(struct object)                                                                                \
 	{                                                                                              \

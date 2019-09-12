@@ -149,6 +149,7 @@ struct stackframe {
 	uint64_t eip;
 };
 
+#include <twz/_sctx.h>
 static void __twz_fault_unhandled(struct fault_fault_info *info, struct fault_frame *frame)
 {
 	// if(info->fault_nr != FAULT_NULL)
@@ -160,6 +161,25 @@ static void __twz_fault_unhandled(struct fault_fault_info *info, struct fault_fr
 	  repr->hdr.name);
 	uint64_t *pp = (void *)(frame->rsp - 8);
 	debug_printf("  pc: %lx\n", pp[0]);
+
+	if(info->fault_nr == FAULT_SCTX) {
+		struct fault_sctx_info *si = (void *)info->data;
+		char rp[12];
+		int _r = 0;
+		if(si->pneed & SCP_READ)
+			rp[_r++] = 'r';
+		if(si->pneed & SCP_WRITE)
+			rp[_r++] = 'w';
+		if(si->pneed & SCP_EXEC)
+			rp[_r++] = 'x';
+		rp[_r] = 0;
+		debug_printf("  when accessing " IDFMT " at addr %lx, requesting %s (%lx)\n",
+		  IDPR(si->target),
+		  si->addr,
+		  rp,
+		  si->pneed);
+	}
+
 #if 0
 	struct stackframe *sf = (void *)frame->rbp;
 	while(sf) {
