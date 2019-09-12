@@ -172,4 +172,3 @@ $(BUILDDIR)/us/root.tar: $(TWZOBJS) $(SYSLIBS)
 userspace: $(BUILDDIR)/us/root.tar
 
 
-include us/ports/include.mk

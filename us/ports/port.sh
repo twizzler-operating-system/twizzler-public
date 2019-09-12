@@ -67,7 +67,7 @@ for i in "${!DOWNLOADS[*]}"; do
 	# we have it.
 	status_print "  $thefile"
 	if [[ ! -f $thefile ]]; then
-		curl $theurl > $thefile
+		curl --progress-bar $theurl > $thefile
 	fi
 	if [[ "$thehash" != "-" ]]; then
 		if ! echo "$thehash  $thefile" | tee | sha1sum -c - 2>&1 > /dev/null; then

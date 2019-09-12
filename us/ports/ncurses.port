@@ -1,0 +1,28 @@
+#!/bin/sh
+
+NAME=ncurses
+VERSION=6.1
+DEPS=
+desc="terminfo and text interface library"
+
+DOWNLOADS=(https://mirrors.ocf.berkeley.edu/gnu/ncurses/ncurses-6.1.tar.gz)
+HASHES=(57acf6bc24cacd651d82541929f726f4def780cc)
+
+function prepare() {
+	tar xf $NAME-$VERSION.tar.gz
+	cd $NAME-$VERSION
+	cp $PORTDIR/config.sub .
+	./configure --prefix=/usr --host=$TARGET --datadir=/usr/share --with-default-terminfo-dir=/usr/share/terminfo
+}
+
+function build() {
+	cd $NAME-$VERSION
+	make $MAKEFLAGS 
+}
+
+function install() {
+	cd $NAME-$VERSION
+	make $MAKEFLAGS DESTDIR=$SYSROOT install
+}
+
+
