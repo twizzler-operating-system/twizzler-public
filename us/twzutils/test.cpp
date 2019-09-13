@@ -1,4 +1,7 @@
+#include <err.h>
 #include <iostream>
+
+#include <ncurses.h>
 
 void foo()
 {
@@ -15,6 +18,17 @@ int main()
 	} catch(const char *msg) {
 		std::cerr << "Caught: " << msg << "\n";
 	}
+
+	if(!initscr()) /* Start curses mode 		  */
+		err(1, "initscr");
+	printw("Hello World !!!"); /* Print Hello World		  */
+
+	refresh(); /* Print it on to the real screen */
+
+	getch(); /* Wait for user input */
+
+	endwin(); /* End curses mode		  */
+
 	foo();
 	return 0;
 }

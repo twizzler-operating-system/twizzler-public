@@ -15,7 +15,7 @@ $(BUILDDIR)/us/twzutils/%.o: us/twzutils/%.c $(MUSL_HDRS)
 
 $(BUILDDIR)/us/twzutils/test: $(BUILDDIR)/us/twzutils/test.o $(SYSROOT_READY)
 	@echo [LD] $@
-	$(TWZCXX) -static $(TWZLDFLAGS) -o $@ -MD $<
+	$(TWZCXX) -static $(TWZLDFLAGS) -o $@ -MD $< -lncurses
 
 $(BUILDDIR)/us/twzutils/%.o: us/twzutils/%.cpp $(MUSL_HDRS)
 	@mkdir -p $(dir $@)

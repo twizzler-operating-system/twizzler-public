@@ -161,8 +161,10 @@ long linux_sys_stat(const char *path, struct stat *sb)
 {
 	struct object obj;
 	int r = twz_object_open_name(&obj, path, FE_READ);
-	if(r < 0)
+	if(r < 0) {
+		debug_printf("--- stat %s: no obj\n", path);
 		return r;
+	}
 
 	struct metainfo *mi = twz_object_meta(&obj);
 	sb->st_size = mi->sz;
