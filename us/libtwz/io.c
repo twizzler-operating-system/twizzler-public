@@ -28,3 +28,16 @@ ssize_t twzio_write(struct object *obj, const void *buf, size_t len, size_t off,
 	ssize_t (*fn)(struct object *, const void *, size_t, size_t, unsigned) = _fn;
 	return fn(obj, buf, len, off, flags);
 }
+
+ssize_t twzio_ioctl(struct object *obj, int req, long arg)
+{
+	struct twzio_hdr *hdr = twz_object_getext(obj, TWZIO_METAEXT_TAG);
+	if(!hdr || !hdr->ioctl)
+		return -ENOTSUP;
+
+	void *_fn = twz_ptr_lea(obj, hdr->ioctl);
+	if(!_fn)
+		return -EGENERIC;
+	ssize_t (*fn)(struct object *, int, long) = _fn;
+	return fn(obj, req, arg);
+}

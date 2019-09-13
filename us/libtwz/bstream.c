@@ -100,7 +100,6 @@ int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr, uint32_t nbits
 		return r;
 	if((r = twz_object_addext(obj, EVENT_METAEXT_TAG, &hdr->ev)))
 		return r;
-	debug_printf("A: %p\n", hdr);
 	memset(hdr, 0, sizeof(*hdr));
 	mutex_init(&hdr->rlock);
 	mutex_init(&hdr->wlock);

@@ -352,13 +352,9 @@ unsigned int us_map_shift[128] = {
 #include <twz/io.h>
 #include <twz/obj.h>
 
-void curfb_putc(int c);
 void sendkey(struct object *out_obj, unsigned char key)
 {
 	twzio_write(out_obj, &key, 1, 0, 0);
-	curfb_putc(key);
-	if(key == '\n')
-		curfb_putc('\r');
 }
 #include <string.h>
 void sendescstr(struct object *out_obj, char *str)
@@ -368,11 +364,6 @@ void sendescstr(struct object *out_obj, char *str)
 	buf[0] = 27;
 	strncpy(&buf[1], str, 14);
 	twzio_write(out_obj, buf, strlen(buf), 0, 0);
-	curfb_putc('^');
-	for(size_t i = 0; i < strlen(str); i++)
-		curfb_putc(str[i]);
-	// bstream_write(&sobj, "^", 1, 0);
-	// bstream_write(&sobj, str, strlen(str), 0);
 }
 
 bool ctrl = false, shift = false, alt = false, capslock = false;

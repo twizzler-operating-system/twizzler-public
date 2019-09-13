@@ -26,6 +26,7 @@ struct fb fb = { 0 };
 void fb_putc(struct fb *fb, int c);
 
 static struct object ptyobj, kbobj;
+static struct termios *termios;
 
 #include <twz/io.h>
 
@@ -174,6 +175,9 @@ void fastMemcpy(void *pvDest, void *pvSrc, size_t nBytes)
 }
 #endif
 
+#include <sys/ioctl.h>
+#include <termios.h>
+#include <twz/pty.h>
 void fb_scroll(struct fb *fb, int nlines)
 {
 	// memmove(&fb->char_buffer[0], &fb->char_buffer[fb->cw], fb->cw * (fb->ch - 1));
@@ -198,9 +202,18 @@ void fb_render(struct fb *fb, int c)
 		ssfn_glyph_t *glyph;
 		case '\n':
 			fb->fby += fb->fsz;
-			break;
+			if(!(termios->c_oflag & ONLRET))
+				break;
+			/* fall-through */
 		case '\r':
 			fb->fbx = 0;
+			break;
+		case '\b':
+			if(fb->fbx > 0) {
+				fb->fbx -= 8;
+				fb_render(fb, ' ');
+				fb->fbx -= 8;
+			}
 			break;
 		default:
 			glyph = fb->glyph_cache[c];
@@ -233,6 +246,32 @@ void fb_render(struct fb *fb, int c)
 			fb->flip = 1;
 			break;
 	}
+}
+
+struct termios def_term = {
+	.c_iflag = BRKINT | ICRNL,
+	.c_oflag = ONLCR | OPOST,
+	.c_lflag = ICANON | ECHO | ISIG,
+	.c_cc[VEOF] = 4,
+	.c_cc[VEOL] = 0,
+	.c_cc[VERASE] = '\b',
+	.c_cc[VINTR] = 3,
+	.c_cc[VMIN] = 1,
+	.c_cc[VSUSP] = 26,
+};
+
+void setup_pty(int cw, int ch)
+{
+	struct winsize w = { .ws_row = ch, .ws_col = cw };
+	int r;
+	if((r = twzio_ioctl(&ptyobj, TCSETS, &def_term)) < 0) {
+		fprintf(stderr, "failed to set pty termios: %d\n", r);
+	}
+	if((r = twzio_ioctl(&ptyobj, TIOCSWINSZ, &w)) < 0) {
+		fprintf(stderr, "failed to set pty winsize: %d\n", r);
+	}
+	struct pty_hdr *hdr = twz_obj_base(&ptyobj);
+	termios = &hdr->termios;
 }
 
 void fb_putc(struct fb *fb, int c)
@@ -295,10 +334,11 @@ void fb_putc(struct fb *fb, int c)
 			return;
 		}
 		fb->init = 2;
+		setup_pty(fb->cw, fb->ch);
 	}
 
 	fb->flip = 0;
-	if(c > 0xff) {
+	if(c > 0xff || !c) {
 		return;
 	}
 
@@ -323,7 +363,6 @@ void curfb_putc(int c)
 {
 	fb_putc(&fb, c);
 }
-
 int main(int argc, char **argv)
 {
 	int r;
@@ -401,6 +440,7 @@ int main(int argc, char **argv)
 		fb.init = 0;
 	}
 
+	fb_putc(&fb, 0);
 	struct thread kthr;
 	if((r = twz_thread_spawn(
 	      &kthr, &(struct thrd_spawn_args){ .start_func = kbmain, .arg = NULL }))) {
