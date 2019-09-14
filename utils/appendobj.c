@@ -179,7 +179,7 @@ int main(int argc, char **argv)
 		}
 	}
 	if(optind >= argc) {
-		fprintf(stderr, "usage: objstat [-i] file\n");
+		fprintf(stderr, "usage: appendobj file\n");
 		exit(1);
 	}
 	appendobj(argv[optind]);

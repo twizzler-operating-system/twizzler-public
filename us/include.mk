@@ -150,6 +150,11 @@ $(BUILDDIR)/us/sysroot/usr/bin/%.text.obj $(BUILDDIR)/us/sysroot/usr/bin/%.data.
 TWZOBJS+=$(BUILDDIR)/us/sysroot/usr/bin/bash.text.obj
 TWZOBJS+=$(BUILDDIR)/us/sysroot/usr/bin/bash.data.obj
 
+$(BUILDDIR)/us/root2.tar:
+	@echo [TAR] $@
+	@tar cf $(BUILDDIR)/us/root2.tar -C $(BUILDDIR)/us/objroot --exclude='__ns*' --xform s:'./':: .
+
+
 $(BUILDDIR)/us/root.tar: $(TWZOBJS) $(SYSLIBS)
 	@-rm -r $(BUILDDIR)/us/root
 	@mkdir -p $(BUILDDIR)/us/root
@@ -160,7 +165,10 @@ $(BUILDDIR)/us/root.tar: $(TWZOBJS) $(SYSLIBS)
 		NAMES="$$NAMES,$$(basename -s .obj $$i)=$$ID";\
 		cp $$i $(BUILDDIR)/us/root/$$ID ;\
 		done ;\
-		echo $$NAMES > $(BUILDDIR)/us/names
+		echo -n $$NAMES > $(BUILDDIR)/us/names
+	@if [[ -f $(BUILDDIR)/us/objroot/__ns ]]; then \
+		echo ",__unix__root__=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/objroot/__ns)" >> $(BUILDDIR)/us/names ;\
+	fi
 	@$(BUILDDIR)/utils/file2obj -i $(BUILDDIR)/us/names -o $(BUILDDIR)/us/names.obj -p RWU
 	@cp $(BUILDDIR)/us/names.obj $(BUILDDIR)/us/root/$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/names.obj)
 	@echo "init=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/twzutils/init.text.obj)" >> $(BUILDDIR)/us/kc

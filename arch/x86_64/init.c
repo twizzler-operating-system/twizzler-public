@@ -151,60 +151,64 @@ static void x86_64_initrd(void *u)
 	if(mb->mods_count == 0)
 		return;
 	struct mboot_module *m = mm_ptov(mb->mods_addr);
-	struct ustar_header *h = mm_ptov(m->start);
-	char *start = (char *)h;
-	size_t modlen = m->end - m->start;
-	printk("Loading objects from modules\n");
-	while((char *)h < start + modlen) {
-		char *name = h->name;
-		if(!*name)
-			break;
-		if(strncmp(h->magic, "ustar", 5))
-			break;
-		char *data = (char *)h + 512;
-		size_t len = strtol(h->size, NULL, 8);
-		size_t reclen = (len + 511) & ~511;
+	for(unsigned i = 0; i < mb->mods_count; i++, m++) {
+		size_t modlen = m->end - m->start;
+		printk("Loading objects from module %d (len=%ld bytes)\n", i, modlen);
 
-		switch(h->typeflag[0]) {
-			size_t nl;
-			case '0':
-			case '7':
-				nl = strlen(name);
-				printk("Loading object: %s\n", name);
-				if(!strncmp(name, "kc", 2) && nl == 2) {
-					kc_parse(data, len);
-				} else {
-					if(nl < 33) {
-						printk("Malformed object name: %s\n", name);
-						break;
-					} else if(nl > 33 && nl != 38) {
-						printk("Malformed object name: %s\n", name);
-						break;
-					} else if(nl == 38 && strncmp(name + 33, ".meta", 5)) {
-						printk("Malformed object name: %s\n", name);
-						break;
-					}
-					bool meta = nl == 38;
-					objid_t id;
-					if(!objid_parse(name, &id)) {
-						printk("Malformed object name: %s\n", name);
-						break;
-					}
+		struct ustar_header *h = mm_ptov(m->start);
+		char *start = (char *)h;
 
-					struct object *obj = obj_lookup(id);
-					if(obj == NULL) {
-						obj = obj_create(id, KSO_NONE);
+		while((char *)h < start + modlen) {
+			char *name = h->name;
+			if(!*name)
+				break;
+			if(strncmp(h->magic, "ustar", 5))
+				break;
+			char *data = (char *)h + 512;
+			size_t len = strtol(h->size, NULL, 8);
+			size_t reclen = (len + 511) & ~511;
+
+			switch(h->typeflag[0]) {
+				size_t nl;
+				case '0':
+				case '7':
+					nl = strlen(name);
+					printk("Loading object: %s\n", name);
+					if(!strncmp(name, "kc", 2) && nl == 2) {
+						kc_parse(data, len);
+					} else {
+						if(nl < 33) {
+							printk("Malformed object name: %s\n", name);
+							break;
+						} else if(nl > 33 && nl != 38) {
+							printk("Malformed object name: %s\n", name);
+							break;
+						} else if(nl == 38 && strncmp(name + 33, ".meta", 5)) {
+							printk("Malformed object name: %s\n", name);
+							break;
+						}
+						bool meta = nl == 38;
+						objid_t id;
+						if(!objid_parse(name, &id)) {
+							printk("Malformed object name: %s\n", name);
+							break;
+						}
+
+						struct object *obj = obj_lookup(id);
+						if(obj == NULL) {
+							obj = obj_create(id, KSO_NONE);
+						}
+						obj->flags |= OF_NOTYPECHECK;
+						size_t idx = 0;
+						load_object_data(obj, data, len);
 					}
-					obj->flags |= OF_NOTYPECHECK;
-					size_t idx = 0;
-					load_object_data(obj, data, len);
-				}
-				break;
-			default:
-				break;
+					break;
+				default:
+					break;
+			}
+
+			h = (struct ustar_header *)((char *)h + 512 + reclen);
 		}
-
-		h = (struct ustar_header *)((char *)h + 512 + reclen);
 	}
 }
 POST_INIT(x86_64_initrd);
@@ -222,9 +226,11 @@ void x86_64_init(struct multiboot *mth)
 	if(!(mth->flags & MULTIBOOT_FLAG_MEM))
 		panic("don't know how to detect memory!");
 	struct mboot_module *m = mb->mods_count == 0 ? NULL : mm_ptov(mb->mods_addr);
+	uintptr_t end = 0;
+	for(unsigned i = 0; i < mb->mods_count; i++, m++)
+		end = m->end;
 	x86_64_top_mem = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
-	x86_64_bot_mem =
-	  (m && m->end > PHYS((uintptr_t)&kernel_end)) ? m->end : PHYS((uintptr_t)&kernel_end);
+	x86_64_bot_mem = (end > PHYS((uintptr_t)&kernel_end)) ? end : PHYS((uintptr_t)&kernel_end);
 
 	kernel_early_init();
 	_init();

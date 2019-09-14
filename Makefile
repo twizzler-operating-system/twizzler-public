@@ -94,7 +94,7 @@ KLIBS=
 include third-party/include.mk
 
 test: $(BUILDDIR)/kernel $(BUILDDIR)/us/root.tar
-	$(QEMU) $(QEMU_FLAGS) -initrd $(BUILDDIR)/us/root.tar -serial stdio | tee serial.txt
+	$(QEMU) $(QEMU_FLAGS) -initrd $(BUILDDIR)/us/root.tar,$(BUILDDIR)/us/root2.tar -serial stdio | tee serial.txt
 
 export TOOLCHAIN_PREFIX
 export BUILDDIR

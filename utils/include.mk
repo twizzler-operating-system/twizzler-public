@@ -39,8 +39,11 @@ $(BUILDDIR)/utils/mkuser: utils/user.c
 	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/user.c -Ius/include -MD
 
 
+$(BUILDDIR)/utils/hier: utils/hier.c
+	mkdir -p $(BUILDDIR)/utils
+	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/hier.c -Ius/include -MD
 
 
-UTILS=$(addprefix $(BUILDDIR)/utils/,objstat file2obj elfsplit bsv appendobj sctx mkcap mkdlg makekey mkuser)
+UTILS=$(addprefix $(BUILDDIR)/utils/,objstat file2obj elfsplit bsv appendobj sctx mkcap mkdlg makekey mkuser hier)
 
 -include $(addsuffix .d,$(UTILS))

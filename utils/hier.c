@@ -1,0 +1,78 @@
+#include <assert.h>
+#include <err.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <twz/hier.h>
+#include <unistd.h>
+
+#include "common.h"
+
+int main(int argc, char **argv)
+{
+	int c;
+	int append = 0;
+	FILE *f = stdout;
+	while((c = getopt(argc, argv, "a:")) != -1) {
+		switch(c) {
+			case 'a':
+				append = 1;
+				f = fopen(optarg, "a+");
+				if(!f) {
+					err(1, "failed to open %s for appending", optarg);
+				}
+				break;
+			default:
+				errx(1, "unknown option %c\n", c);
+		}
+	}
+	size_t ln = 0;
+	char *buffer;
+	if(!append) {
+		struct twz_namespace_hdr hdr = {};
+		fwrite(&hdr, sizeof(hdr), 1, stdout);
+	} else {
+		fseek(f, 0, SEEK_END);
+	}
+	while(getline(&buffer, &ln, stdin) != -1) {
+		/* type objid name */
+		int type;
+		char *typestr = strtok(buffer, " ");
+		assert(typestr != NULL);
+
+		switch(typestr[0]) {
+			case 'r':
+				type = NAME_ENT_REGULAR;
+				break;
+			case 'd':
+			case 'n':
+				type = NAME_ENT_NAMESPACE;
+				break;
+			default:
+				errx(1, "unknown type %c\n", typestr[0]);
+		}
+
+		char *idstr = strtok(NULL, " ");
+		assert(idstr != NULL);
+		objid_t id = str_to_objid(idstr);
+
+		char *name = strtok(NULL, " ");
+		assert(name != NULL);
+
+		struct twz_name_ent ent = {
+			.id = id,
+			.flags = NAME_ENT_VALID,
+			.type = type,
+			.dlen = strlen(name) + 1 /* null terminator */
+		};
+
+		size_t rem = 16 - ent.dlen % 16;
+		char null[16] = {};
+
+		fwrite(&ent, sizeof(ent), 1, f);
+		fwrite(name, 1, strlen(name) + 1, f);
+		fwrite(null, 1, rem, f);
+	}
+
+	return 0;
+}
