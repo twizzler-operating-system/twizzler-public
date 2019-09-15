@@ -183,7 +183,7 @@ int pty_obj_init_server(struct object *obj, struct pty_hdr *hdr)
 	hdr->bufpos = 0;
 
 	objid_t id;
-	r = twz_name_resolve(NULL, "pty.text", NULL, 0, &id);
+	r = twz_name_resolve(NULL, PTY_CTRL_OBJ, NULL, 0, &id);
 	if(r)
 		return r;
 	r = twz_ptr_make(
@@ -210,7 +210,7 @@ int pty_obj_init_client(struct object *obj, struct pty_client_hdr *hdr, struct p
 	if((r = twz_object_addext(obj, TWZIO_METAEXT_TAG, &hdr->io)))
 		return r;
 	objid_t id;
-	r = twz_name_resolve(NULL, "pty.text", NULL, 0, &id);
+	r = twz_name_resolve(NULL, PTY_CTRL_OBJ, NULL, 0, &id);
 	if(r)
 		return r;
 	r = twz_ptr_make(

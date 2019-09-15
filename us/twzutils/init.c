@@ -157,8 +157,8 @@ int main(int argc, char **argv)
 	}
 	unsetenv("BSNAME");
 
-	struct thread tthr;
 	int r;
+	struct thread tthr;
 
 	struct service_info term_info = {
 		.name = "term",

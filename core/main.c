@@ -218,9 +218,9 @@ void kernel_main(struct processor *proc)
 		post_init_call_head = NULL;
 
 		// bench();
-		if(kc_bsv_id == 0) {
-			panic("No bsv specified");
-		}
+		// if(kc_bsv_id == 0) {
+		//	panic("No bsv specified");
+		//}
 
 		if(kc_init_id == 0) {
 			panic("No init specified");
@@ -266,6 +266,7 @@ void kernel_main(struct processor *proc)
 
 		objid_t bthrid;
 		objid_t bstckid;
+		objid_t bsvid;
 
 		int r;
 		r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &bthrid);
@@ -274,11 +275,14 @@ void kernel_main(struct processor *proc)
 		r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &bstckid);
 		if(r < 0)
 			panic("failed to create initial objects: %d", r);
-		printk("Created bthrd = " IDFMT " and bstck = " IDFMT "\n", IDPR(bthrid), IDPR(bstckid));
+		r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &bsvid);
+		if(r < 0)
+			printk(
+			  "Created bthrd = " IDFMT " and bstck = " IDFMT "\n", IDPR(bthrid), IDPR(bstckid));
 
 		struct object *bthr = obj_lookup(bthrid);
 		struct object *bstck = obj_lookup(bstckid);
-		struct object *bv = obj_lookup(kc_bsv_id);
+		struct object *bv = obj_lookup(bsvid);
 		assert(bthr && bstck && bv);
 
 		struct viewentry v_t = {
@@ -291,11 +295,18 @@ void kernel_main(struct processor *proc)
 		};
 
 		struct viewentry v_v = {
-			.id = kc_bsv_id,
+			.id = bsvid,
 			.flags = VE_READ | VE_WRITE | VE_VALID,
 		};
 
 		kso_view_write(bv, TWZSLOT_CVIEW, &v_v);
+
+		struct viewentry v_i = {
+			.id = kc_init_id,
+			.flags = VE_READ | VE_EXEC | VE_VALID,
+		};
+
+		kso_view_write(bv, 0, &v_i);
 
 		bthr->flags |= OF_KERNELGEN;
 		bstck->flags |= OF_KERNELGEN;
@@ -342,7 +353,7 @@ void kernel_main(struct processor *proc)
 			.stack_size = (US_STACK_SIZE - 0x100),
 			.tls_base = stck_obj + 0x1000 + US_STACK_SIZE,
 			.arg = stck_obj + off + 0x1000,
-			.target_view = kc_bsv_id,
+			.target_view = bsvid,
 			.thrd_ctrl = (uintptr_t)thrd_obj / mm_page_size(MAX_PGLEVEL),
 		};
 

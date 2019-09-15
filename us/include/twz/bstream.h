@@ -21,6 +21,8 @@ static inline size_t bstream_hdr_size(uint32_t nbits)
 	return sizeof(struct bstream_hdr) + (1ul << nbits);
 }
 
+#define BSTREAM_CTRL_OBJ "/usr/bin/bstream"
+
 #define BSTREAM_METAEXT_TAG 0x00000000bbbbbbbb
 
 #define BSTREAM_GATE_READ 1

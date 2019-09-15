@@ -4,6 +4,7 @@
 #include <string.h>
 #include <twz/_err.h>
 #include <twz/btree.h>
+#include <twz/hier.h>
 #include <twz/name.h>
 #include <twz/obj.h>
 
@@ -67,6 +68,7 @@ static bool __name_init(void)
 	return true;
 }
 
+#if 0
 static void copy_names(const char *bsname, struct object *nobj)
 {
 	struct object bobj;
@@ -113,12 +115,42 @@ static void copy_names(const char *bsname, struct object *nobj)
 		names = next + 1;
 	}
 }
+#endif
 
 int twz_name_assign(objid_t id, const char *name)
 {
 	if(!__name_init())
 		return -ENOTSUP;
 
+	char *ch_name = alloca(strlen(name) + 1);
+	char *par_name = alloca(strlen(name) + 1);
+	char *sl = strrchr(name, '/');
+
+	if(sl) {
+		strncpy(par_name, name, sl - par_name);
+		strcpy(ch_name, sl + 1);
+	} else {
+		ch_name = name;
+	}
+
+	struct object *parent;
+	struct object tmp;
+	parent = &nameobj;
+	int r;
+	if(sl) {
+		r = twz_object_open_name(&tmp, par_name, FE_READ | FE_WRITE);
+		if(r)
+			return r;
+		parent = &tmp;
+	}
+
+	r = twz_hier_assign_name(parent, ch_name, NAME_ENT_REGULAR);
+	if(r)
+		return r;
+
+	return 0;
+
+#if 0
 	struct btree_val kv = { .mv_data = name, .mv_size = strlen(name) + 1 };
 	struct btree_val dv = { .mv_data = &id, .mv_size = sizeof(id) };
 
@@ -132,6 +164,7 @@ int twz_name_assign(objid_t id, const char *name)
 	struct btree_val rkv = { .mv_data = buf, .mv_size = strlen(buf) + 1 };
 	bt_put(&nameobj, twz_obj_base(&nameobj), &rkv, &rdv, NULL);
 	return 0;
+#endif
 }
 
 int __name_bootstrap(void)
@@ -140,6 +173,10 @@ int __name_bootstrap(void)
 	if(!bsname)
 		return -ENOENT;
 
+	setenv("TWZNAME", bsname, 1);
+	return 0;
+
+#if 0
 	int r;
 	objid_t id;
 	/* TODO: make this read-only */
@@ -158,8 +195,10 @@ int __name_bootstrap(void)
 	if(setenv("TWZNAME", tmp, 1) == -1)
 		return -EGENERIC;
 	return 0;
+#endif
 }
 
+#if 0
 static int __twz_name_dfl_reverse(objid_t id, char *name, size_t *nl, int flags)
 {
 	if(!__name_init())
@@ -182,11 +221,21 @@ static int __twz_name_dfl_reverse(objid_t id, char *name, size_t *nl, int flags)
 		return -ENOSPC;
 	}
 }
+#endif
 
 static int __twz_name_dfl_resolve(struct object *obj, const char *name, int flags, objid_t *id)
 {
 	if(!__name_init())
 		return -ENOTSUP;
+
+	struct twz_name_ent ent;
+	int r = twz_hier_resolve_name(&nameobj, name, 0, &ent);
+	if(r)
+		return r;
+	*id = ent.id;
+	return 0;
+
+#if 0
 
 	if(name[0] == '.' && name[1] == '/')
 		name += 2;
@@ -196,18 +245,36 @@ static int __twz_name_dfl_resolve(struct object *obj, const char *name, int flag
 	struct btree_val dv;
 
 	struct btree_node *n = bt_lookup(&nameobj, twz_obj_base(&nameobj), &kv);
-	if(!n)
-		return -ENOENT;
+	if(!n) {
+		static int unix_root = 0;
+		static struct object ur;
+		if(!unix_root) {
+			unix_root = 1;
+			if(twz_object_open_name(&ur, "__unix__root__", FE_READ)) {
+				unix_root = -1;
+				return -ENOENT;
+			}
+		}
+		struct twz_name_ent ent;
+		int r = twz_hier_resolve_name(&ur, name, 0, &ent);
+		if(r)
+			return r;
+		*id = ent.id;
+		return 0;
+	}
 	bt_node_get(&nameobj, twz_obj_base(&nameobj), n, &dv);
 
 	if(id)
 		*id = *(objid_t *)dv.mv_data;
 
 	return 0;
+#endif
 }
 
 ssize_t twz_name_dfl_getnames(const char *startname, struct twz_nament *ents, size_t len)
 {
+	return -ENOTSUP;
+#if 0
 	if(!__name_init())
 		return -ENOTSUP;
 	struct btree_node *n;
@@ -252,6 +319,7 @@ ssize_t twz_name_dfl_getnames(const char *startname, struct twz_nament *ents, si
 	}
 
 	return recs;
+#endif
 }
 
 int twz_name_resolve(struct object *obj,
@@ -275,5 +343,6 @@ int twz_name_reverse_lookup(objid_t id,
 {
 	if(fn)
 		return fn(id, name, nl, flags);
-	return __twz_name_dfl_reverse(id, name, nl, flags);
+	return -ENOTSUP;
+	// return __twz_name_dfl_reverse(id, name, nl, flags);
 }

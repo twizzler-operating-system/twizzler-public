@@ -32,3 +32,4 @@ struct twz_namespace_hdr {
 
 struct object;
 int twz_hier_resolve_name(struct object *ns, const char *path, int flags, struct twz_name_ent *ent);
+int twz_hier_assign_name(struct object *ns, const char *name, int type);

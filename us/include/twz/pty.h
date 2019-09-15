@@ -25,6 +25,8 @@ struct pty_client_hdr {
 	struct twzio_hdr io;
 };
 
+#define PTY_CTRL_OBJ "/usr/bin/pty"
+
 #define PTY_GATE_READ_SERVER 1
 #define PTY_GATE_WRITE_SERVER 2
 #define PTY_GATE_READ_CLIENT 3

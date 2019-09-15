@@ -107,7 +107,7 @@ int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr, uint32_t nbits
 	event_obj_init(obj, &hdr->ev);
 
 	objid_t id;
-	r = twz_name_resolve(NULL, "bstream.text", NULL, 0, &id);
+	r = twz_name_resolve(NULL, BSTREAM_CTRL_OBJ, NULL, 0, &id);
 	if(r)
 		return r;
 	r = twz_ptr_make(

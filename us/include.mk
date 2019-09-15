@@ -1,5 +1,3 @@
-PROGS=
-#SUBDIRS=test init term shell login nls pcie input serial
 TWZCC?=x86_64-pc-twizzler-musl-gcc
 TWZCXX?=x86_64-pc-twizzler-musl-g++
 #TWZCC=x86_64-pc-elf-gcc
@@ -7,6 +5,8 @@ TWIZZLER_TRIPLET=x86_64-pc-twizzler-musl
 # TODO: move the above somewhere non-project-specific
 
 MUSL=musl-1.1.16
+
+SYSROOT_FILES=
 
 $(BUILDDIR)/us/musl-config.mk: $(BUILDDIR)/us/$(MUSL)/configure
 	cd $(BUILDDIR)/us/$(MUSL) && ./configure --host=x86_64-pc-twizzler-musl CROSS_COMPILER=x86_64-pc-twizzler-musl- --prefix=/usr --syslibdir=/lib
@@ -74,18 +74,18 @@ include us/twix/include.mk
 
 all_progs: $(addsuffix _all,$(PROGS))
 
-$(BUILDDIR)/us/%.flags: us/%.flags
-	@-cp $< $@
-	@echo "" > $@
+#$(BUILDDIR)/us/%.flags: us/%.flags
+#	@-cp $< $@
+#	@echo "" > $@
 
-$(BUILDDIR)/us/twzutils/%.data.obj $(BUILDDIR)/us/twzutils/%.text.obj: $(BUILDDIR)/us/twzutils/% $(UTILS)
-	@echo [split] $<
-	@$(BUILDDIR)/utils/elfsplit $<
-	@echo [obj] $<.data.obj
-	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p rh
-	@echo [obj] $<.text.obj
-	@dataid=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
-	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p rxh -f 1:rwd:$$dataid
+#$(BUILDDIR)/us/twzutils/%.data.obj $(BUILDDIR)/us/twzutils/%.text.obj: $(BUILDDIR)/us/twzutils/% $(UTILS)
+#	@echo [split] $<
+#	@$(BUILDDIR)/utils/elfsplit $<
+#	@echo [obj] $<.data.obj
+#	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p rh
+#	@echo [obj] $<.text.obj
+#	@dataid=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
+#	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p rxh -f 1:rwd:$$dataid
 
 #$(BUILDDIR)/us/libtwz/libtwz.so.data.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.obj: $(BUILDDIR)/us/libtwz/libtwz.so $(BUILDDIR)/us/libtwz/libtwz.so.flags $(UTILS)
 #	@echo [SPLIT] $<
@@ -119,43 +119,47 @@ SYSLIBS=$(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/l
 
 include us/twzutils/include.mk
 
-TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .text.obj,$(foreach x,$(PROGS),twzutils/$(x))))
+#TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .obj,$(foreach x,$(PROGS),twzutils/$(x))))
+#TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),twzutils/$(x))))
 
-TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),twzutils/$(x))))
+$(BUILDDIR)/us/kc: $(BUILDDIR)/us/root-tmp.tar
+	for i in $$(ls $(BUILDDIR)/us/objroot/*:*); do \
+		if tar tf $$i 2>/dev/null | grep usr_bin_init.obj; then \
+			echo "init=$$(basename $$i)" > $(BUILDDIR)/us/kc ;\
+		fi;\
+	done
+	@echo "name=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/objroot/__ns)" >> $(BUILDDIR)/us/kc
 
-
-$(BUILDDIR)/us/bsv.data: $(BUILDDIR)/us/twzutils/init.text.obj
-	@echo "[BSV] $@"
-	@$(BUILDDIR)/utils/bsv $@ 0,$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/twzutils/init.text.obj),RX
-
-$(BUILDDIR)/us/root/kc $(BUILDDIR)/us/bsv.obj: $(BUILDDIR)/us/bsv.data
-	@echo "[OBJ] $(BUILDDIR)/us/bsv.obj"
-	@$(BUILDDIR)/utils/file2obj -i $< -o $(BUILDDIR)/us/bsv.obj -p RWU
-	@echo "bsv=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/bsv.obj)" > $(BUILDDIR)/us/kc
-
-TWZOBJS+=$(BUILDDIR)/us/bsv.obj
+#TWZOBJS+=$(BUILDDIR)/us/bsv.obj
 
 include us/users.mk
 
-$(BUILDDIR)/us/sysroot/usr/bin/%.text.obj $(BUILDDIR)/us/sysroot/usr/bin/%.data.obj: $(BUILDDIR)/us/sysroot/usr/bin/% $(UTILS)
-	@echo [split] $<
-	@$(BUILDDIR)/utils/elfsplit $<
-	@echo [obj] $<.data.obj
-	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p rh
-	@echo [obj] $<.text.obj
-	@dataid=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
-	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p rxh -f 1:rwd:$$dataid
+#$(BUILDDIR)/us/sysroot/usr/bin/%.text.obj $(BUILDDIR)/us/sysroot/usr/bin/%.data.obj: $(BUILDDIR)/us/sysroot/usr/bin/% $(UTILS)
+#	@echo [split] $<
+#	@$(BUILDDIR)/utils/elfsplit $<
+#	@echo [obj] $<.data.obj
+#	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p rh
+#	@echo [obj] $<.text.obj
+#	@dataid=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
+#	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p rxh -f 1:rwd:$$dataid
 
 
-TWZOBJS+=$(BUILDDIR)/us/sysroot/usr/bin/bash.text.obj
-TWZOBJS+=$(BUILDDIR)/us/sysroot/usr/bin/bash.data.obj
+#TWZOBJS+=$(BUILDDIR)/us/sysroot/usr/bin/bash.text.obj
+#TWZOBJS+=$(BUILDDIR)/us/sysroot/usr/bin/bash.data.obj
 
-$(BUILDDIR)/us/root2.tar:
+$(BUILDDIR)/us/objroot/__ns: $(shell find $(BUILDDIR)/us/sysroot) $(SYSROOT_FILES)
+	export PROJECT=$(PROJECT) && ./us/gen_root.sh | ./us/gen_root.py projects/x86_64/build/us/objroot/ | ./us/append_ns.sh >/dev/null
+
+$(BUILDDIR)/us/root-tmp.tar: $(BUILDDIR)/us/objroot $(BUILDDIR)/us/objroot/__ns
 	@echo [TAR] $@
-	@tar cf $(BUILDDIR)/us/root2.tar -C $(BUILDDIR)/us/objroot --exclude='__ns*' --xform s:'./':: .
+	@tar cf $(BUILDDIR)/us/root-tmp.tar -C $(BUILDDIR)/us/objroot --exclude='__ns*' --xform s:'./':: .
 
+$(BUILDDIR)/us/root.tar: $(BUILDDIR)/us/root-tmp.tar $(BUILDDIR)/us/kc
+	@cp $< $@
+	@echo [TAR] $@
+	@tar rf $@ -C $(BUILDDIR)/us kc
 
-$(BUILDDIR)/us/root.tar: $(TWZOBJS) $(SYSLIBS)
+$(BUILDDIR)/us/root-old.tar: $(TWZOBJS) $(SYSLIBS)
 	@-rm -r $(BUILDDIR)/us/root
 	@mkdir -p $(BUILDDIR)/us/root
 	@NAMES=;\

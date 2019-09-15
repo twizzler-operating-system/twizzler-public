@@ -94,7 +94,7 @@ KLIBS=
 include third-party/include.mk
 
 test: $(BUILDDIR)/kernel $(BUILDDIR)/us/root.tar
-	$(QEMU) $(QEMU_FLAGS) -initrd $(BUILDDIR)/us/root.tar,$(BUILDDIR)/us/root2.tar -serial stdio | tee serial.txt
+	$(QEMU) $(QEMU_FLAGS) -initrd $(BUILDDIR)/us/root.tar -serial stdio | tee serial.txt
 
 export TOOLCHAIN_PREFIX
 export BUILDDIR
@@ -172,6 +172,10 @@ sysroot-prep:
 
 construct-root: $(UTILS)
 	export PROJECT=$(PROJECT) && ./us/gen_root.sh | ./us/gen_root.py projects/x86_64/build/us/objroot/ | ./us/append_ns.sh
+	rm $(BUILDDIR)/us/root2.tar
+	rm $(BUILDDIR)/us/root.tar
+	$(MAKE) $(BUILDDIR)/us/root2.tar
+	$(MAKE) $(BUILDDIR)/us/root.tar
 
 $(BUILDDIR)/hd.img: $(USRPROGS)
 	@-sudo umount $(BUILDDIR)/mnt

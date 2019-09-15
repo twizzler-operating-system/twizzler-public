@@ -1,44 +1,46 @@
-TWZUTILS=init login nls shell input pcie serial term bstream test pty
+TWZUTILS=init login nls shell input pcie serial term bstream pty
 
-PROGS+=$(TWZUTILS)
+LIBS_test=-lncurses
+EXTRAS_term=$(BUILDDIR)/us/twzutils/kbd.o
+ALL_EXTRAS=$(EXTRAS_term)
 
-.PRECIOUS: $(addprefix $(BUILDDIR)/us/twzutils/,$(TWZUTILS))
-
-$(BUILDDIR)/us/twzutils/%: $(BUILDDIR)/us/twzutils/%.o $(SYSROOT_READY)
+$(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
 	@echo [LD] $@
-	$(TWZCC) -static $(TWZLDFLAGS) -o $@ -MD $<
+	@$(TWZCC) -static $(TWZLDFLAGS) -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@))
+	@echo [SPLIT] $@
+	@$(BUILDDIR)/utils/elfsplit $@.elf
+	@mv $@.elf.text $@
+	@mv $@.elf.data $@.data
+	@mv $@.elf $(BUILDDIR)/us/twzutils/$(notdir $@)
+
+$(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.opp $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
+	@echo [LD] $@
+	@$(TWZCXX) -static $(TWZLDFLAGS) -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@))
+	@echo [SPLIT] $@
+	@$(BUILDDIR)/utils/elfsplit $@.elf
+	@mv $@.elf.text $@
+	@mv $@.elf.data $@.data
+	@mv $@.elf $(BUILDDIR)/us/twzutils/$(notdir $@)
+
 
 $(BUILDDIR)/us/twzutils/%.o: us/twzutils/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo [CC] $@
 	@$(TWZCC) $(TWZCFLAGS) -o $@ -c -MD $<
 
-$(BUILDDIR)/us/twzutils/test: $(BUILDDIR)/us/twzutils/test.o $(SYSROOT_READY)
-	@echo [LD] $@
-	$(TWZCXX) -static $(TWZLDFLAGS) -o $@ -MD $< -lncurses
-
-$(BUILDDIR)/us/twzutils/%.o: us/twzutils/%.cpp $(MUSL_HDRS)
+$(BUILDDIR)/us/twzutils/%.opp: us/twzutils/%.cpp $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo [CC] $@
 	@$(TWZCXX) $(TWZCFLAGS) -o $@ -c -MD $<
 
-$(BUILDDIR)/us/twzutils/term: $(BUILDDIR)/us/twzutils/term.o $(BUILDDIR)/us/twzutils/kbd.o $(SYSROOT_READY)
-	@echo [LD] $@
-	@$(TWZCC) -static $(TWZLDFLAGS) -o $@ -MD $(BUILDDIR)/us/twzutils/term.o $(BUILDDIR)/us/twzutils/kbd.o
-
-
-
-$(BUILDDIR)/us/data/pcieids.obj: /usr/share/hwdata/pci.ids $(BUILDDIR)/utils/file2obj
+$(BUILDDIR)/us/sysroot/usr/share/pcieids: /usr/share/hwdata/pci.ids $(BUILDDIR)/utils/file2obj
 	@mkdir -p $(dir $@)
-	@echo [OBJ] $@
-	@$(BUILDDIR)/utils/file2obj -i $< -o $@ -p rh
+	@cp $< $@
 
-TWZOBJS+=$(BUILDDIR)/us/data/pcieids.obj
-
-$(BUILDDIR)/us/inconsolata.sfn.obj: us/inconsolata.sfn $(BUILDDIR)/utils/file2obj
+$(BUILDDIR)/us/sysroot/usr/share/inconsolata.sfn: us/inconsolata.sfn $(BUILDDIR)/utils/file2obj
 	@mkdir -p $(dir $@)
-	@echo [OBJ] $@
-	@$(BUILDDIR)/utils/file2obj -p rh -i $< -o $@
+	@cp $< $@
 
-TWZOBJS+=$(BUILDDIR)/us/inconsolata.sfn.obj
+SYSROOT_FILES+=$(BUILDDIR)/us/sysroot/usr/share/inconsolata.sfn $(BUILDDIR)/us/sysroot/usr/share/pcieids
+SYSROOT_FILES+=$(addprefix $(BUILDDIR)/us/sysroot/usr/bin/,$(TWZUTILS))
 

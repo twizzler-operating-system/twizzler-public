@@ -99,8 +99,11 @@ void tmain(void *a)
 	objid_t id;
 	r = twz_name_resolve(NULL, buf, NULL, 0, &id);
 	if(r) {
-		printf("failed to resolve '%s'\n", buf);
-		twz_thread_exit();
+		r = twz_name_resolve(NULL, args[0], NULL, 0, &id);
+		if(r) {
+			printf("failed to resolve '%s'\n", buf);
+			twz_thread_exit();
+		}
 	}
 
 	r = execv(buf, args);
