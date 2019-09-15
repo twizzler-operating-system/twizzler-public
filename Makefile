@@ -170,6 +170,8 @@ sysroot-prep:
 	$(MAKE) bootstrap-musl
 	$(MAKE) $(BUILDDIR)/us/sysroot/usr/lib/libc.a
 
+construct-root: $(UTILS)
+	export PROJECT=$(PROJECT) && ./us/gen_root.sh | ./us/gen_root.py projects/x86_64/build/us/objroot/ | ./us/append_ns.sh
 
 $(BUILDDIR)/hd.img: $(USRPROGS)
 	@-sudo umount $(BUILDDIR)/mnt

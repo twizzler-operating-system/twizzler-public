@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 	size_t ln = 0;
 	char *buffer;
 	if(!append) {
-		struct twz_namespace_hdr hdr = {};
+		struct twz_namespace_hdr hdr = { .magic = NAMESPACE_MAGIC };
 		fwrite(&hdr, sizeof(hdr), 1, stdout);
 	} else {
 		fseek(f, 0, SEEK_END);
@@ -58,6 +58,9 @@ int main(int argc, char **argv)
 
 		char *name = strtok(NULL, " ");
 		assert(name != NULL);
+		char *nl = strchr(name, '\n');
+		if(nl)
+			*nl = 0;
 
 		struct twz_name_ent ent = {
 			.id = id,
@@ -66,7 +69,7 @@ int main(int argc, char **argv)
 			.dlen = strlen(name) + 1 /* null terminator */
 		};
 
-		size_t rem = 16 - ent.dlen % 16;
+		size_t rem = ((ent.dlen + 15) & ~15) - ent.dlen;
 		char null[16] = {};
 
 		fwrite(&ent, sizeof(ent), 1, f);

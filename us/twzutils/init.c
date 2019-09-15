@@ -145,6 +145,8 @@ int create_pty_pair(char *server, char *client)
 	return 0;
 }
 
+#include <twz/hier.h>
+
 struct object bs;
 int main(int argc, char **argv)
 {
@@ -165,6 +167,17 @@ int main(int argc, char **argv)
 
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] init");
 
+#if 0
+	struct object rt;
+	twz_object_open_name(&rt, "__unix__root__", FE_READ);
+
+	struct twz_name_ent ent;
+	r = twz_hier_resolve_name(&rt, "/usr/bin/bash", 0, &ent);
+	debug_printf("lookup: %d :: " IDFMT "\n", r, IDPR(ent.id));
+
+	for(;;)
+		;
+#endif
 #if 0
 	struct object pty_s, pty_c;
 

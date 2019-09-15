@@ -58,7 +58,7 @@ for line in sys.stdin.readlines():
         n = n[e][2]
 
     outf=srcdir + '/__ns_' + tn + '.dat'
-    print("%s r %s %s" % (outf, oid, name))
+    print("%s r %s %s" % (outf, oid, elems[-1]))
 
 
 #print_namespaces(ns)
