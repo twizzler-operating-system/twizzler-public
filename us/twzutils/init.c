@@ -342,6 +342,7 @@ int main(int argc, char **argv)
 	EPRINTF("twzinit: terminal ready\n");
 #endif
 
+	setenv("TERM", "linux", 1);
 	if(!fork()) {
 		close(0);
 		close(1);

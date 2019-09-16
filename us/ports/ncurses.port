@@ -8,11 +8,13 @@ desc="terminfo and text interface library"
 DOWNLOADS=(https://mirrors.ocf.berkeley.edu/gnu/ncurses/ncurses-6.1.tar.gz)
 HASHES=(57acf6bc24cacd651d82541929f726f4def780cc)
 
+SPLITS=(usr/bin/clear usr/bin/infocmp usr/bin/tic usr/bin/toe usr/bin/tput usr/bin/tset)
+
 function prepare() {
 	tar xf $NAME-$VERSION.tar.gz
 	cd $NAME-$VERSION
 	cp $PORTDIR/config.sub .
-	./configure --prefix=/usr --host=$TARGET --datadir=/usr/share --with-default-terminfo-dir=/usr/share/terminfo
+	./configure --prefix=/usr --host=$TARGET --datadir=/usr/share --with-default-terminfo-dir=/usr/share/terminfo LDFLAGS=-static
 }
 
 function build() {

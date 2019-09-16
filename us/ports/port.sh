@@ -54,7 +54,9 @@ function cleanup () {
 }
 trap cleanup 0
 
+rm -rf $WORKDIR
 mkdir -p $WORKDIR
+(
 cd $WORKDIR
 
 status_print "retrieving sources: " $NAME
@@ -91,6 +93,15 @@ status_print "starting build(): " $NAME
 status_print "starting install(): " $NAME
 
 ( install ) > install.stdout
+
+)
+status_print "post-processing executables: " $NAME
+for i in "${SPLITS[@]}"; do
+	echo " " $i
+	./projects/$PROJECT/build/utils/elfsplit $SYSROOT/$i
+	rm $SYSROOT/$i
+	mv $SYSROOT/$i.text $SYSROOT/$i
+done
 
 trap - 0
 

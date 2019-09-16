@@ -1,6 +1,6 @@
-TWZUTILS=init login nls shell input pcie serial term bstream pty
+TWZUTILS=init login nls shell input pcie serial term bstream pty tst
 
-LIBS_test=-lncurses
+LIBS_tst=-lncurses
 EXTRAS_term=$(BUILDDIR)/us/twzutils/kbd.o
 ALL_EXTRAS=$(EXTRAS_term)
 

@@ -1,4 +1,4 @@
-TWIX_SRC=$(addprefix us/twix/,syscall.c)
+TWIX_SRC=$(addprefix us/twix/,syscall.c rw.c fd.c linux.c file.c thread.c access.c process.c)
 TWIX_OBJ=$(addprefix $(BUILDDIR)/,$(TWIX_SRC:.c=.o))
 
 $(BUILDDIR)/us/twix/libtwix.a: $(TWIX_OBJ)

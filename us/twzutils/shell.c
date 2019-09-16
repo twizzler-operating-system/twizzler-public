@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <sys/wait.h>
 #include <twz/_err.h>
 #include <twz/bstream.h>
 #include <twz/debug.h>
@@ -67,11 +68,9 @@ void kls(void)
 
 extern char **environ;
 
-void tmain(void *a)
+void tmain(char *cmd)
 {
 	/* TODO: add and remove instance */
-	char *cmd = twz_ptr_lea(&twz_stdstack, a);
-
 	while(*cmd == ' ') {
 		*cmd++ = 0;
 	}
@@ -94,7 +93,7 @@ void tmain(void *a)
 	args[c] = NULL;
 
 	char buf[1024];
-	sprintf(buf, "%s.text", args[0]);
+	sprintf(buf, "/usr/bin/%s", args[0]);
 	int r;
 	objid_t id;
 	r = twz_name_resolve(NULL, buf, NULL, 0, &id);
@@ -153,13 +152,11 @@ int main(int argc, char **argv)
 			continue;
 		}
 
-		struct thread tthr;
-		int r;
-		if((r = twz_thread_spawn(
-		      &tthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = buffer }))) {
-			fprintf(stderr, "failed to spawn thread\n");
-		} else {
-			twz_thread_wait(1, (struct thread *[]){ &tthr }, (int[]){ THRD_SYNC_EXIT }, NULL, NULL);
+		if(!fork()) {
+			tmain(buffer);
 		}
+
+		int status;
+		wait(&status);
 	}
 }

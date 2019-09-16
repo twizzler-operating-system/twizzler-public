@@ -134,6 +134,8 @@ static void vbufprintk(char *buffer, const char *fmt, va_list args)
 				char *str;
 				long long value;
 				unsigned long long uvalue;
+				unsigned int count;
+				size_t len;
 				case 0:
 					goto done;
 				case 'd':
@@ -168,14 +170,14 @@ static void vbufprintk(char *buffer, const char *fmt, va_list args)
 					str = va_arg(args, char *);
 					if(!str)
 						str = "(null)";
-					size_t len = strlen(str);
+					len = strlen(str);
 					if(precision && precision < len)
 						len = precision;
 					if(!(flags & WN_LJUST)) {
 						for(int i = 0; len + i < min_field_width; i++)
 							*b++ = ' ';
 					}
-					unsigned int count = 0;
+					count = 0;
 					while(*str && count++ < len)
 						*b++ = *str++;
 					if(flags & WN_LJUST) {

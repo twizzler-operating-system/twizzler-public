@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include <ncurses.h>
+#include <twz/debug.h>
 
 void foo()
 {
@@ -19,6 +20,7 @@ int main()
 		std::cerr << "Caught: " << msg << "\n";
 	}
 
+	debug_printf("TRYING NCURSES\n");
 	if(!initscr()) /* Start curses mode 		  */
 		err(1, "initscr");
 	printw("Hello World !!!"); /* Print Hello World		  */
@@ -29,6 +31,6 @@ int main()
 
 	endwin(); /* End curses mode		  */
 
-	foo();
+	// foo();
 	return 0;
 }

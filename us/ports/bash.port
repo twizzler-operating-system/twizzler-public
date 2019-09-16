@@ -8,11 +8,13 @@ desc="The Bourne Again Shell"
 DOWNLOADS=(https://mirrors.ocf.berkeley.edu/gnu/bash/bash-5.0.tar.gz)
 HASHES=(d116b469b9e6ea5264a74661d3a4c797da7f997b)
 
+SPLITS=(usr/bin/bash)
+
 function prepare() {
 	tar xf bash-5.0.tar.gz
 	cd bash-5.0
 	sed -i 's/| sortix\*/| sortix\* | twizzler\*/g' support/config.sub
-	./configure --prefix=/usr --without-bash-malloc --host=$TARGET --enable-static-link --with-curses
+	./configure --prefix=/usr --without-bash-malloc --host=$TARGET --enable-static-link --with-curses --disable-nls
 }
 
 function build() {
