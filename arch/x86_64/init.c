@@ -204,6 +204,7 @@ static void x86_64_initrd(void *u)
 					}
 					break;
 				default:
+					printk("unsupported ustar type %c for %s\n", h->typeflag[0], name);
 					break;
 			}
 

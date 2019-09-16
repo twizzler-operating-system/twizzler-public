@@ -13,7 +13,7 @@ int main(int argc, char **argv)
 	int c;
 	int append = 0;
 	FILE *f = stdout;
-	while((c = getopt(argc, argv, "a:")) != -1) {
+	while((c = getopt(argc, argv, "a:A")) != -1) {
 		switch(c) {
 			case 'a':
 				append = 1;
@@ -21,6 +21,9 @@ int main(int argc, char **argv)
 				if(!f) {
 					err(1, "failed to open %s for appending", optarg);
 				}
+				break;
+			case 'A':
+				append = 1;
 				break;
 			default:
 				errx(1, "unknown option %c\n", c);
@@ -32,7 +35,8 @@ int main(int argc, char **argv)
 		struct twz_namespace_hdr hdr = { .magic = NAMESPACE_MAGIC };
 		fwrite(&hdr, sizeof(hdr), 1, stdout);
 	} else {
-		fseek(f, 0, SEEK_END);
+		if(f != stdout)
+			fseek(f, 0, SEEK_END);
 	}
 	while(getline(&buffer, &ln, stdin) != -1) {
 		/* type objid name */

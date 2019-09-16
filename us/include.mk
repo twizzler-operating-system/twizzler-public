@@ -123,11 +123,7 @@ include us/twzutils/include.mk
 #TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),twzutils/$(x))))
 
 $(BUILDDIR)/us/kc: $(BUILDDIR)/us/root-tmp.tar
-	for i in $$(ls $(BUILDDIR)/us/objroot/*:*); do \
-		if tar tf $$i 2>/dev/null | grep usr_bin_init.obj; then \
-			echo "init=$$(basename $$i)" > $(BUILDDIR)/us/kc ;\
-		fi;\
-	done
+	@echo "init=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/objroot/usr_bin_init.obj)" >> $(BUILDDIR)/us/kc
 	@echo "name=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/objroot/__ns)" >> $(BUILDDIR)/us/kc
 
 #TWZOBJS+=$(BUILDDIR)/us/bsv.obj
@@ -147,12 +143,18 @@ include us/users.mk
 #TWZOBJS+=$(BUILDDIR)/us/sysroot/usr/bin/bash.text.obj
 #TWZOBJS+=$(BUILDDIR)/us/sysroot/usr/bin/bash.data.obj
 
-$(BUILDDIR)/us/objroot/__ns: $(shell find $(BUILDDIR)/us/sysroot) $(SYSROOT_FILES)
+$(BUILDDIR)/us/objroot/__ns: $(shell find $(BUILDDIR)/us/sysroot) $(SYSROOT_FILES) $(KEYOBJS)
 	export PROJECT=$(PROJECT) && ./us/gen_root.sh | ./us/gen_root.py projects/x86_64/build/us/objroot/ | ./us/append_ns.sh >/dev/null
 
-$(BUILDDIR)/us/root-tmp.tar: $(BUILDDIR)/us/objroot $(BUILDDIR)/us/objroot/__ns
+$(BUILDDIR)/us/root-tmp.tar: $(BUILDDIR)/us/objroot $(BUILDDIR)/us/objroot/__ns $(CTXOBJS) $(UTILS)
+	for i in $(CTXOBJS); do \
+		echo $$i;\
+		ID=$$($(BUILDDIR)/utils/objstat -i $$i) ;\
+		ln $$i $(BUILDDIR)/us/objroot/$$ID ;\
+		echo "r $$ID $$(basename -s .obj $$i)" | $(BUILDDIR)/utils/hier -A | $(BUILDDIR)/utils/appendobj $(BUILDDIR)/us/objroot/__ns;\
+	done
 	@echo [TAR] $@
-	@tar cf $(BUILDDIR)/us/root-tmp.tar -C $(BUILDDIR)/us/objroot --exclude='__ns*' --xform s:'./':: .
+	@tar cf $(BUILDDIR)/us/root-tmp.tar -C $(BUILDDIR)/us/objroot --exclude='__ns*' --exclude='*.obj' --xform s:'./':: .
 
 $(BUILDDIR)/us/root.tar: $(BUILDDIR)/us/root-tmp.tar $(BUILDDIR)/us/kc
 	@cp $< $@
