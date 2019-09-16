@@ -123,10 +123,10 @@ static int __check_fd_valid(int fd)
 {
 	if(!fds[fd].valid) {
 		twz_view_get(NULL, TWZSLOT_FILES_BASE + fd, NULL, &fds[fd].fl);
-		fds[fd].valid = true;
 		if(!(fds[fd].fl & VE_VALID)) {
 			return -EBADF;
 		}
+		fds[fd].valid = true;
 		fds[fd].obj = TWZ_OBJECT_INIT(TWZSLOT_FILES_BASE + fd);
 		fds[fd].taken = true;
 	} else if(!fds[fd].taken) {
@@ -243,7 +243,7 @@ long linux_sys_execve(const char *path, char **argv, char *const *env)
 	for(size_t i = 0; i < MAX_FD; i++) {
 		struct file *f = &fds[i];
 		/* TODO: CLOEXEC */
-		if(f->valid && f->taken) {
+		if(f->taken) {
 			objid_t fi;
 			uint32_t fl;
 			twz_view_get(NULL, TWZSLOT_FILES_BASE + i, &fi, &fl);

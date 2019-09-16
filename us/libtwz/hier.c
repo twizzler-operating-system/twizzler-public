@@ -15,7 +15,7 @@ static struct twz_name_ent *__get_name_ent(struct object *ns, const char *path, 
 
 	while(ent->dlen) {
 		if((ent->flags & NAME_ENT_VALID) && ent->dlen >= plen + 1) {
-			if(!memcmp(ent->name, path, plen) && ent->name[plen + 1] == 0) {
+			if(!memcmp(ent->name, path, plen) && ent->name[plen] == 0) {
 				/* found! */
 				return ent;
 			}
@@ -27,7 +27,7 @@ static struct twz_name_ent *__get_name_ent(struct object *ns, const char *path, 
 	return NULL;
 }
 
-int twz_hier_assign_name(struct object *ns, const char *name, int type)
+int twz_hier_assign_name(struct object *ns, const char *name, int type, objid_t id)
 {
 	struct twz_namespace_hdr *hdr = twz_obj_base(ns);
 	if(hdr->magic != NAMESPACE_MAGIC) {
@@ -42,6 +42,7 @@ int twz_hier_assign_name(struct object *ns, const char *name, int type)
 			ent->type = type;
 			ent->resv0 = 0;
 			ent->resv1 = 0;
+			ent->id = id;
 			strcpy(ent->name, name);
 		}
 		size_t reclen = sizeof(*ent) + ent->dlen;
@@ -53,6 +54,7 @@ int twz_hier_assign_name(struct object *ns, const char *name, int type)
 	ent->type = type;
 	ent->resv0 = 0;
 	ent->resv1 = 0;
+	ent->id = id;
 	strcpy(ent->name, name);
 	return 0;
 }

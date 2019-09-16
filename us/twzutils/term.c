@@ -308,7 +308,7 @@ void fb_putc(struct fb *fb, int c)
 
 		struct object font;
 		int r;
-		if((r = twz_object_open_name(&font, "inconsolata.sfn", FE_READ))) {
+		if((r = twz_object_open_name(&font, "/usr/share/inconsolata.sfn", FE_READ))) {
 			printf("ERR opening font: %d\n", r);
 			fb->init = 0;
 			return;

@@ -1,3 +1,4 @@
+#include <err.h>
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -73,8 +74,7 @@ void objstat(char *path)
 {
 	int fd = open(path, O_RDONLY);
 	if(fd < 0) {
-		perror("open");
-		exit(1);
+		err(1, "open: %s", path);
 	}
 	char *m =
 	  (char *)mmap(NULL, OBJ_MAXSIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);

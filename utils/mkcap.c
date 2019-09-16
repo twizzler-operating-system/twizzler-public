@@ -135,7 +135,7 @@ int main(int argc, char **argv)
 
 	int fd = open(pr, O_RDONLY);
 	if(fd == -1)
-		err(1, "open");
+		err(1, "open: %s", pr);
 
 	struct stat st;
 	if(fstat(fd, &st) == -1)

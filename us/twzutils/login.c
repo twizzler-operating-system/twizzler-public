@@ -51,7 +51,7 @@ void tmain(const char *username)
 
 	snprintf(
 	  twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] shell [user %s]", username);
-	r = execv("shell.text", (char *[]){ "shell.text", NULL });
+	r = execv("/usr/bin/shell", (char *[]){ "/usr/bin/shell", NULL });
 	fprintf(stderr, "failed to exec shell: %d", r);
 	exit(1);
 }

@@ -151,6 +151,7 @@ $(BUILDDIR)/us/root-tmp.tar: $(BUILDDIR)/us/objroot/__ns $(CTXOBJS) $(UTILS)
 		echo $$i;\
 		ID=$$($(BUILDDIR)/utils/objstat -i $$i) ;\
 		ln $$i $(BUILDDIR)/us/objroot/$$ID ;\
+		echo $i; \
 		echo "r $$ID $$(basename -s .obj $$i)" | $(BUILDDIR)/utils/hier -A | $(BUILDDIR)/utils/appendobj $(BUILDDIR)/us/objroot/__ns;\
 	done
 	@echo [TAR] $@
@@ -160,6 +161,7 @@ $(BUILDDIR)/us/root.tar: $(BUILDDIR)/us/root-tmp.tar $(BUILDDIR)/us/kc
 	@cp $< $@
 	@echo [TAR] $@
 	@tar rf $@ -C $(BUILDDIR)/us kc
+	@tar rf $@ -C $(BUILDDIR)/us/keyroot --exclude='*.obj' --xform s:'./':: .
 
 $(BUILDDIR)/us/root-old.tar: $(TWZOBJS) $(SYSLIBS)
 	@-rm -r $(BUILDDIR)/us/root

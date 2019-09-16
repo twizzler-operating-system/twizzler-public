@@ -42,9 +42,9 @@ int twz_map_fot_entry(struct object *obj, size_t slot, struct fotentry *fe)
 	return 0;
 }
 
-int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source)
+int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t id)
 {
-	// debug_printf("%lx %x %lx\n", addr, cause, source);
+	debug_printf("%lx %x %lx (" IDFMT ")\n", addr, cause, source, IDPR(id));
 	uint64_t offset = addr % OBJ_MAXSIZE;
 	if(offset < OBJ_NULLPAGE_SIZE) {
 		debug_printf("NULL ptr\n");
@@ -114,7 +114,7 @@ int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source)
 
 int __fault_obj_default(int fault, struct fault_object_info *info)
 {
-	return twz_handle_fault(info->addr, info->flags, info->ip);
+	return twz_handle_fault(info->addr, info->flags, info->ip, info->objid);
 }
 
 struct fault_frame {

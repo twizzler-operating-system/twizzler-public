@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 #include <twz/bstream.h>
 #include <twz/debug.h>
 #include <twz/name.h>
@@ -52,10 +53,36 @@ void tmain(void *a)
 	twz_thread_exit();
 }
 
+void start_service(struct service_info *info)
+{
+	int r;
+	r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
+	if(r) {
+		EPRINTF("failed to detach: %d\n", r);
+		twz_thread_exit();
+	}
+
+	if(info->sctx) {
+		r = sys_attach(0, info->sctx, 0, KSO_SECCTX);
+		if(r) {
+			EPRINTF("failed to attach " IDFMT ": %d\n", IDPR(info->sctx), r);
+			twz_thread_exit();
+		}
+	}
+
+	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] %s", info->name);
+	r = execv(info->name,
+	  (char *[]){
+	    info->name, info->arg[0] ? info->arg : NULL, info->arg2[0] ? info->arg2 : NULL, NULL });
+	EPRINTF("failed to exec '%s': %d\n", info->name, r);
+	exit(1);
+}
+
 void start_terminal(char *input, char *output, char *pty)
 {
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term");
-	execv("term.text", (char *[]){ "term.text", "-i", input, "-o", output, "-p", pty, NULL });
+	execv(
+	  "/usr/bin/term", (char *[]){ "/usr/bin/term", "-i", input, "-o", output, "-p", pty, NULL });
 	// EPRINTF("failed to exec '%s': %s\n", strerror(errno));
 	EPRINTF("failed to exec '%s'\n");
 	exit(1);
@@ -64,7 +91,7 @@ void start_terminal(char *input, char *output, char *pty)
 void start_login(void)
 {
 	objid_t lsi;
-	int r = twz_name_resolve(NULL, "login.sctx", NULL, 0, &lsi);
+	int r = twz_name_resolve(NULL, "usr_bin_login.sctx", NULL, 0, &lsi);
 	if(r) {
 		EPRINTF("failed to resolve 'login.sctx'");
 		exit(0);
@@ -84,7 +111,7 @@ void start_login(void)
 
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] login");
 
-	r = execv("login.text", (char *[]){ "login", NULL });
+	r = execv("/usr/bin/login", (char *[]){ "/usr/bin/login", NULL });
 	EPRINTF("execv failed: %d\n", r);
 }
 
@@ -167,53 +194,6 @@ int main(int argc, char **argv)
 
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] init");
 
-#if 0
-	struct object rt;
-	twz_object_open_name(&rt, "__unix__root__", FE_READ);
-
-	struct twz_name_ent ent;
-	r = twz_hier_resolve_name(&rt, "/usr/bin/bash", 0, &ent);
-	debug_printf("lookup: %d :: " IDFMT "\n", r, IDPR(ent.id));
-
-	for(;;)
-		;
-#endif
-#if 0
-	struct object pty_s, pty_c;
-
-	objid_t psid, pcid;
-
-	twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &psid);
-	twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &pcid);
-
-	twz_object_open(&pty_s, psid, FE_READ | FE_WRITE);
-	twz_object_open(&pty_c, pcid, FE_READ | FE_WRITE);
-
-	int x;
-	if((x = pty_obj_init_server(&pty_s, twz_obj_base(&pty_s))))
-		debug_printf("ERR: %d\n", x);
-	struct pty_hdr *ps = twz_obj_base(&pty_s);
-	struct pty_client_hdr *pc = twz_obj_base(&pty_c);
-	if((x = pty_obj_init_client(&pty_c, twz_obj_base(&pty_c), ps)))
-		debug_printf("ERR: %d\n", x);
-
-	ssize_t a = twzio_write(&pty_s, "hello from server\n", 18, 0, 0);
-	debug_printf("tio_w s : ret %ld\n", a);
-
-	char buffer[1024];
-	a = twzio_read(&pty_c, buffer, 1024, 0, 0);
-	debug_printf("tio_r c : ret %ld : %s\n", a, buffer);
-
-	a = twzio_write(&pty_c, "hello from client\n", 18, 0, 0);
-	debug_printf("tio_w c : ret %ld\n", a);
-
-	a = twzio_read(&pty_s, buffer, 1024, 0, 0);
-	debug_printf("tio_r s : ret %ld : %s\n", a, buffer);
-
-	for(;;)
-		;
-#endif
-
 	objid_t lid;
 	struct object lobj;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &lid))) {
@@ -253,7 +233,7 @@ int main(int argc, char **argv)
 
 	twz_thread_wait(1, (struct thread *[]){ &lthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 	objid_t si;
-	r = twz_name_resolve(NULL, "init.sctx", NULL, 0, &si);
+	r = twz_name_resolve(NULL, "usr_bin_init.sctx", NULL, 0, &si);
 	if(r) {
 		EPRINTF("failed to resolve 'init.sctx'");
 		twz_thread_exit();
@@ -284,7 +264,7 @@ int main(int argc, char **argv)
 
 	struct kso_root_repr *rr = twz_obj_base(&root);
 	struct service_info drv_info = {
-		.name = "pcie",
+		.name = "/usr/bin/pcie",
 		.sctx = 0,
 	};
 
@@ -295,17 +275,15 @@ int main(int argc, char **argv)
 		struct thread *dt = malloc(sizeof(*dt));
 		switch(k->type) {
 			struct object dobj;
+			int pid, status;
 			case KSO_DEVBUS:
-				sprintf(drv_info.arg, IDFMT, IDPR(k->id));
-				drv_info.name = "pcie";
-				/* TODO: determine the type of bus, and start something appropriate */
-				if((r = twz_thread_spawn(
-				      dt, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &drv_info }))) {
-					EPRINTF("failed to spawn driver");
-					abort();
+				debug_printf("STARTING PCIE\n");
+				if(!(pid = fork())) {
+					sprintf(drv_info.arg, IDFMT, IDPR(k->id));
+					drv_info.name = "/usr/bin/pcie";
+					start_service(&drv_info);
 				}
-				twz_thread_wait(
-				  1, (struct thread *[]){ dt }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+				wait(&status);
 
 				break;
 			case KSO_DEVICE:
@@ -325,27 +303,19 @@ int main(int argc, char **argv)
 
 				struct device_repr *dr = twz_obj_base(&dobj);
 				if(dr->device_type == DEVICE_INPUT) {
-					sprintf(drv_info.arg, IDFMT, IDPR(k->id));
-					drv_info.name = "input";
-					if((r = twz_thread_spawn(dt,
-					      &(struct thrd_spawn_args){ .start_func = tmain, .arg = &drv_info }))) {
-						EPRINTF("failed to spawn driver");
-						abort();
+					if(!fork()) {
+						sprintf(drv_info.arg, IDFMT, IDPR(k->id));
+						drv_info.name = "/usr/bin/input";
+						start_service(&drv_info);
 					}
-					twz_thread_wait(
-					  1, (struct thread *[]){ dt }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 					twz_name_assign(uid, "dev:input:keyboard");
 				}
 				if(dr->device_type == DEVICE_IO && dr->device_type == DEVICE_ID_SERIAL) {
-					sprintf(drv_info.arg, IDFMT, IDPR(k->id));
-					drv_info.name = "serial";
-					if((r = twz_thread_spawn(dt,
-					      &(struct thrd_spawn_args){ .start_func = tmain, .arg = &drv_info }))) {
-						EPRINTF("failed to spawn driver");
-						abort();
+					if(!fork()) {
+						sprintf(drv_info.arg, IDFMT, IDPR(k->id));
+						drv_info.name = "/usr/bin/serial";
+						start_service(&drv_info);
 					}
-					twz_thread_wait(
-					  1, (struct thread *[]){ dt }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 					twz_name_assign(uid, "dev:input:serial");
 				}
 

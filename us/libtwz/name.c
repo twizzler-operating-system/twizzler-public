@@ -144,7 +144,7 @@ int twz_name_assign(objid_t id, const char *name)
 		parent = &tmp;
 	}
 
-	r = twz_hier_assign_name(parent, ch_name, NAME_ENT_REGULAR);
+	r = twz_hier_assign_name(parent, ch_name, NAME_ENT_REGULAR, id);
 	if(r)
 		return r;
 

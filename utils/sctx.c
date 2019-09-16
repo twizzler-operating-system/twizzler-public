@@ -68,8 +68,7 @@ int main(int argc, char **argv)
 	char *outname = argv[optind];
 	int fd = open(outname, O_RDWR | O_CREAT | O_TRUNC, 0644);
 	if(fd == -1) {
-		perror("open");
-		exit(1);
+		err(1, "open: %s\n", outname);
 	}
 	ftruncate(fd, OBJ_MAXSIZE);
 	struct secctx *ctx = mmap(NULL,
