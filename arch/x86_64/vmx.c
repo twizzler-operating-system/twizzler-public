@@ -834,10 +834,9 @@ void x86_64_virtualization_fault(struct processor *proc)
 		flags |= OBJSPACE_FAULT_EXEC;
 	}
 
-	kernel_objspace_fault_entry(current_thread->arch.exception.rip,
-	  proc->arch.veinfo->physical,
-	  proc->arch.veinfo->linear,
-	  flags);
-
-	proc->arch.veinfo->lock = 0;
+	uint64_t p = proc->arch.veinfo->physical;
+	uint64_t l = proc->arch.veinfo->linear;
+	asm volatile("lfence;" ::: "memory");
+	atomic_store(&proc->arch.veinfo->lock, 0);
+	kernel_objspace_fault_entry(current_thread->arch.exception.rip, p, l, flags);
 }
