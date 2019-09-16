@@ -146,7 +146,7 @@ include us/users.mk
 $(BUILDDIR)/us/objroot/__ns: $(shell find $(BUILDDIR)/us/sysroot) $(SYSROOT_FILES) $(KEYOBJS)
 	export PROJECT=$(PROJECT) && ./us/gen_root.sh | ./us/gen_root.py projects/x86_64/build/us/objroot/ | ./us/append_ns.sh >/dev/null
 
-$(BUILDDIR)/us/root-tmp.tar: $(BUILDDIR)/us/objroot $(BUILDDIR)/us/objroot/__ns $(CTXOBJS) $(UTILS)
+$(BUILDDIR)/us/root-tmp.tar: $(BUILDDIR)/us/objroot/__ns $(CTXOBJS) $(UTILS)
 	for i in $(CTXOBJS); do \
 		echo $$i;\
 		ID=$$($(BUILDDIR)/utils/objstat -i $$i) ;\

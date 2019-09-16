@@ -7,8 +7,8 @@
 #include <twz/_sctx.h>
 #include <twz/_sys.h>
 
-//#define EPRINTK(...) printk(__VA_ARGS__)
-#define EPRINTK(...)
+#define EPRINTK(...) printk(__VA_ARGS__)
+//#define EPRINTK(...)
 static void _sc_ctor(void *_x __unused, void *ptr)
 {
 	struct sctx *sc = ptr;

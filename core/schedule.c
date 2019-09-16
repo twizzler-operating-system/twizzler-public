@@ -244,6 +244,33 @@ static void __print_fault_info(struct thread *t, int fault, void *info)
 	}
 }
 
+static uint64_t __failed_addr(int f, void *info)
+{
+	switch(f) {
+		struct fault_object_info *foi;
+		struct fault_null_info *fni;
+		struct fault_exception_info *fei;
+		struct fault_sctx_info *fsi;
+		case FAULT_OBJECT:
+			foi = info;
+			return foi->addr;
+			break;
+		case FAULT_NULL:
+			fni = info;
+			return fni->addr;
+			break;
+		case FAULT_EXCEPTION:
+			fei = info;
+			return fei->ip;
+			break;
+		case FAULT_SCTX:
+			fsi = info;
+			return fsi->addr;
+			break;
+	}
+	return 0;
+}
+
 void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 {
 	struct object *to = kso_get_obj(t->throbj, thr);
@@ -257,6 +284,12 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 		panic("NI - different view :: %d", fault);
 	}
 	if(fi.addr) {
+		if((void *)__failed_addr(fault, info) == fi.addr) {
+			/* probably a double-fault. Just die */
+			__print_fault_info(t, fault, info);
+			thread_exit();
+			return;
+		}
 		arch_thread_raise_call(t, fi.addr, fault, info, infolen);
 	} else {
 		struct faultinfo fi_f;
@@ -265,6 +298,13 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 		  sizeof(fi_f),
 		  &fi_f);
 		if(fi_f.addr) {
+			if((void *)__failed_addr(fault, info) == fi_f.addr) {
+				/* probably a double-fault. Just die */
+				__print_fault_info(t, fault, info);
+				thread_exit();
+				return;
+			}
+
 			/* thread can catch an unhandled fault */
 			struct fault_fault_info ffi = {
 				.fault_nr = fault,
