@@ -16,4 +16,5 @@ struct arch_thread {
 	void *xsave_region;
 	uint64_t fs, gs;
 	bool was_syscall;
+	bool fpu_init;
 };

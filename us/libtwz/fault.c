@@ -178,6 +178,16 @@ static void __twz_fault_unhandled(struct fault_fault_info *info, struct fault_fr
 		  si->addr,
 		  rp,
 		  si->pneed);
+	} else if(info->fault_nr == FAULT_EXCEPTION) {
+		struct fault_exception_info *ei = (void *)info->data;
+		debug_printf("  ecode: %d\n", ei->code);
+		debug_printf("  info : %x\n", ei->arg0);
+		uint16_t fcw;
+		asm volatile("fstcw %0" : "=m"(fcw));
+		debug_printf("  fcw: %x\n", fcw);
+		uint16_t mxcsr;
+		asm volatile("stmxcsr %0" : "=m"(mxcsr));
+		debug_printf("  mxcsr: %x\n", mxcsr);
 	}
 
 #if 0

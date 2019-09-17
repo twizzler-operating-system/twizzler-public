@@ -19,22 +19,39 @@ struct fb {
 	struct object font;
 	size_t gl_w, gl_h;
 	ssfn_glyph_t *glyph_cache[256];
+	ssfn_glyph_t *bold_glyph_cache[256];
 	unsigned char *back_buffer, *front_buffer;
 	unsigned char *char_buffer;
 	size_t x, y, max_x, max_y;
 	size_t fbw, fbh, pitch, bpp;
 	int spacing;
 	ssfn_t ctx;
+	ssfn_t bold_ctx;
 	int init, flip;
 
 	unsigned esc_args[16];
 	int esc_argc;
 	int esc_state;
+	/* attrs */
+	bool bold;
+	uint32_t fg, bg;
 };
 
-struct fb fb = { 0 };
+struct fb fb = {};
 
 void fb_putc(struct fb *fb, int c);
+
+/* values are rgb */
+static uint32_t color_map[8] = {
+	[0] = 0,          /* black */
+	[1] = 0x00ff0000, /* red */
+	[2] = 0x0000ff00, /* green */
+	[3] = 0x00ffff00, /* yellow */
+	[4] = 0x000000ff, /* blue */
+	[5] = 0x00ff00ff, /* magenta */
+	[6] = 0x0000ffff, /* cyan */
+	[7] = 0x00ffffff, /* white */
+};
 
 static struct object ptyobj, kbobj;
 static struct termios *termios;
@@ -97,6 +114,35 @@ static inline uint32_t ARGB_TO_BGR(uint32_t x)
 	return (r << 16 | g << 8 | b);
 }
 
+static inline uint32_t clamp(uint32_t x, uint32_t c)
+{
+	return x > c ? c : x;
+}
+
+static inline uint32_t ablend(uint32_t a, uint32_t b)
+{
+	float aa = (((a >> 24) & 0xff) + 1) / (float)0x100;
+	float ar = (((a >> 16) & 0xff) + 1) / (float)0x100;
+	float ag = (((a >> 8) & 0xff) + 1) / (float)0x100;
+	float ab = ((a & 0xff) + 1) / (float)0x100;
+
+	float ba = (((b >> 24) & 0xff) + 1) / (float)0x100;
+	float br = (((b >> 16) & 0xff) + 1) / (float)0x100;
+	float bg = (((b >> 8) & 0xff) + 1) / (float)0x100;
+	float bb = ((b & 0xff) + 1) / (float)0x100;
+
+	float rr = (ar * aa + br * ba * (1 - aa)) / (aa + ba * (1 - aa));
+	float rg = (ag * aa + bg * ba * (1 - aa)) / (aa + ba * (1 - aa));
+	float rb = (ab * aa + bb * ba * (1 - aa)) / (aa + ba * (1 - aa));
+
+	float ra = aa + (ba * (1 - aa));
+
+	uint32_t r = clamp((uint32_t)(ra * 0x100), 0xff) << 24
+	             | clamp((uint32_t)(rr * 0x100), 0xff) << 16
+	             | clamp((uint32_t)(rg * 0x100), 0xff) << 8 | clamp((uint32_t)(rb * 0x100), 0xff);
+	return r;
+}
+
 static __inline__ unsigned long long rdtsc(void)
 {
 	unsigned hi, lo;
@@ -118,9 +164,13 @@ static void draw_glyph(const struct fb *restrict fb,
 	if(glyph->adv_y)
 		pen_x -= (int8_t)glyph->baseline;
 	else
-		pen_y -= ((int8_t)glyph->baseline - fb->gl_h / 2);
+		pen_y -= ((int8_t)glyph->baseline - (fb->gl_h / 2 + 2));
+	if(pen_y < 0)
+		pen_y = 0;
 
 	uint32_t max_gy = fb->max_y * fb->gl_h - pen_y;
+	if(max_gy > (fb->y + 1) * fb->gl_h - pen_y)
+		max_gy = (fb->y + 1) * fb->gl_h - pen_y;
 	uint32_t *buffer = (void *)fb->back_buffer;
 
 	uint32_t bpmul = fb->pitch / 4;
@@ -147,7 +197,10 @@ static void draw_glyph(const struct fb *restrict fb,
 				uint32_t ys = (pen_y + y) * bpmul;
 				uint32_t ygs = y * glyph->pitch;
 				for(x = 0; x < glyph->w; x++) {
-					buffer[ys + pen_x + x] = ARGB_TO_BGR((glyph->data[ygs + x] << 24) | fgcolor);
+					assert(ys + pen_x + x >= 0);
+					assert(ys + pen_x + x < (fb->pitch * fb->fbh / 4));
+					buffer[ys + pen_x + x] = ARGB_TO_BGR(
+					  ablend((glyph->data[ygs + x] << 24) | fgcolor, fb->bg | 0xff000000));
 				}
 			}
 			break;
@@ -197,15 +250,15 @@ void fb_scroll(struct fb *fb, int nlines)
 	fb->flip = 1;
 }
 
-void fb_clear_cell(struct fb *fb, int x, int y)
+void fb_clear_cell(struct fb *fb, int ax, int ay, uint32_t bg)
 {
 	uint32_t *px = (uint32_t *)fb->back_buffer;
-	size_t pen_x = x * (fb->gl_w + fb->spacing);
+	size_t pen_x = ax * (fb->gl_w + fb->spacing);
 	size_t yinc = fb->pitch / 4;
-	size_t pen_y = fb->y * (fb->gl_h) * yinc;
+	size_t pen_y = ay * (fb->gl_h) * yinc;
 	for(size_t y = pen_y; y < (pen_y + fb->gl_h * yinc); y += yinc) {
-		for(size_t x = 0; x < fb->gl_w; x++) {
-			px[y + pen_x + x] = 0;
+		for(size_t x = 0; x < fb->gl_w + fb->spacing; x++) {
+			px[y + pen_x + x] = bg;
 		}
 	}
 }
@@ -240,6 +293,23 @@ void fb_del_chars(struct fb *fb, int count)
 	fb_clear_line(fb, fb->y, fb->max_x - count, fb->max_x);
 }
 
+void fb_ins_chars(struct fb *fb, int count)
+{
+	if(fb->x + count > fb->max_x)
+		count = fb->max_x - fb->x;
+	uint32_t *px = (uint32_t *)fb->back_buffer;
+	size_t pen2_x = fb->x * (fb->gl_w + fb->spacing);
+	size_t pen_x = (fb->x + count) * (fb->gl_w + fb->spacing);
+	size_t yinc = fb->pitch / 4;
+	size_t pen_y = fb->y * (fb->gl_h) * yinc;
+	for(size_t y = pen_y; y < (pen_y + fb->gl_h * yinc); y += yinc) {
+		memmove(&px[y + pen_x], &px[y + pen2_x], fb->pitch - (fb->fbw - pen2_x) * fb->bpp);
+	}
+	for(int i = 0; i < count; i++) {
+		fb_clear_cell(fb, fb->x + i, fb->y, fb->bg);
+	}
+}
+
 void fb_clear_screen(struct fb *fb, int sl, int el)
 {
 	for(int i = sl; i < el; i++) {
@@ -254,7 +324,7 @@ void fb_render_cursor(struct fb *fb)
 	size_t pen_x = fb->x * (fb->gl_w + fb->spacing);
 	size_t yinc = fb->pitch / 4;
 	size_t pen_y = fb->y * (fb->gl_h) * yinc;
-	for(size_t y = pen_y; y < (pen_y + (fb->gl_h - 3) * yinc); y += yinc) {
+	for(size_t y = pen_y; y < (pen_y + (fb->gl_h) * yinc); y += yinc) {
 		for(size_t x = 0; x < fb->gl_w; x++) {
 			px[y + pen_x + x + 1] = ~pxb[y + pen_x + x + 1];
 		}
@@ -270,6 +340,11 @@ void fb_render(struct fb *fb, int c)
 		ssfn_glyph_t *glyph;
 		case '\n':
 			fb->y++;
+			if(fb->y >= fb->max_y) {
+				fb_scroll(fb, fb->gl_h);
+				fb->y--;
+			}
+
 			if(!(termios->c_oflag & ONLRET))
 				break;
 			/* fall-through */
@@ -281,14 +356,18 @@ void fb_render(struct fb *fb, int c)
 				fb->x--;
 				/* TODO: check if we should erase or not */
 				if((termios->c_lflag & ICANON) && (termios->c_lflag & ECHOE)) {
-					fb_clear_cell(fb, fb->x, fb->y);
+					fb_clear_cell(fb, fb->x, fb->y, 0);
 				}
 			}
 			break;
 		default:
-			glyph = fb->glyph_cache[c];
+			glyph = fb->bold ? fb->bold_glyph_cache[c] : fb->glyph_cache[c];
 			if(!glyph) {
-				glyph = fb->glyph_cache[c] = ssfn_render(&fb->ctx, c);
+				glyph = ssfn_render(fb->bold ? &fb->bold_ctx : &fb->ctx, c);
+				if(fb->bold)
+					fb->bold_glyph_cache[c] = glyph;
+				else
+					fb->glyph_cache[c] = glyph;
 			}
 
 			if(!glyph) {
@@ -309,8 +388,8 @@ void fb_render(struct fb *fb, int c)
 			}
 
 			/* display the bitmap on your screen */
-			fb_clear_cell(fb, fb->x, fb->y);
-			draw_glyph(fb, glyph, 0x00ffffff, c);
+			fb_clear_cell(fb, fb->x, fb->y, fb->bg);
+			draw_glyph(fb, glyph, fb->fg, c);
 			fb->x++;
 			fb->flip = 1;
 			break;
@@ -365,10 +444,13 @@ void init_fb(struct fb *fb)
 		fb->x = 0;
 		fb->y = 0;
 		fb->spacing = 1;
+		fb->fg = 0x00ffffff;
 		fb->max_x = fb->fbw / (fb->gl_w + fb->spacing);
 		fb->max_y = fb->fbh / fb->gl_h;
-		for(int i = 0; i < 256; i++)
+		for(int i = 0; i < 256; i++) {
 			fb->glyph_cache[i] = NULL;
+			fb->bold_glyph_cache[i] = NULL;
+		}
 
 		fb->back_buffer = malloc(fb->pitch * fb->fbh);
 
@@ -383,6 +465,7 @@ void init_fb(struct fb *fb)
 			return;
 		}
 		memset(&fb->ctx, 0, sizeof(fb->ctx));
+		memset(&fb->bold_ctx, 0, sizeof(fb->ctx));
 		ssfn_font_t *_font_start = twz_obj_base(&font);
 
 		if((r = ssfn_load(&fb->ctx, _font_start))) {
@@ -390,8 +473,25 @@ void init_fb(struct fb *fb)
 			fb->init = 0;
 			return;
 		}
+		if((r = ssfn_load(&fb->bold_ctx, _font_start))) {
+			debug_printf("load:%d\n", r);
+			fb->init = 0;
+			return;
+		}
 
 		if((r = ssfn_select(&fb->ctx,
+		      SSFN_FAMILY_ANY,
+		      NULL, /* family */
+		      SSFN_STYLE_REGULAR,
+		      fb->gl_h,       /* style and size */
+		      SSFN_MODE_ALPHA /* rendering mode */
+		      ))) {
+			debug_printf("select: %d\n", r);
+			fb->init = 0;
+			return;
+		}
+
+		if((r = ssfn_select(&fb->bold_ctx,
 		      SSFN_FAMILY_ANY,
 		      NULL, /* family */
 		      SSFN_STYLE_BOLD,
@@ -402,6 +502,7 @@ void init_fb(struct fb *fb)
 			fb->init = 0;
 			return;
 		}
+
 		fb->init = 2;
 		setup_pty(fb->max_x, fb->max_y);
 	}
@@ -421,10 +522,14 @@ void process_csi(struct fb *fb, int c)
 	} else if(c == ';') {
 		fb->esc_argc++;
 	} else {
+		fb->esc_argc++;
 		debug_printf("CSI seq %c (%d %d)\n", c, fb->esc_args[0], fb->esc_args[1]);
 		switch(c) {
 			case 'P':
 				fb_del_chars(fb, fb->esc_args[0]);
+				break;
+			case '@':
+				fb_ins_chars(fb, fb->esc_args[0]);
 				break;
 			case 'C':
 				if(fb->esc_args[0] == 0)
@@ -480,6 +585,34 @@ void process_csi(struct fb *fb, int c)
 				fb->y = fb->esc_args[0];
 				debug_printf(" got H CSI: %d %d\n", fb->x, fb->y);
 
+				break;
+			case 'm':
+				for(int i = 0; i < fb->esc_argc; i++) {
+					int a = fb->esc_args[i];
+					if(a >= 30 && a <= 37) {
+						fb->fg = color_map[a - 30];
+					} else if(a >= 40 && a <= 47) {
+						fb->bg = color_map[a - 30];
+					} else {
+						switch(a) {
+							uint32_t tmp;
+							case 0:
+								/* reset */
+								fb->fg = 0x00ffffff;
+								fb->bg = 0;
+								fb->bold = false;
+								break;
+							case 1:
+								fb->bold = true;
+								break;
+							case 7:
+								tmp = fb->bg;
+								fb->bg = fb->fg;
+								fb->fg = tmp;
+								break;
+						}
+					}
+				}
 				break;
 			default:
 				debug_printf(" -- unhandled CSI %c (%d %d %d)\n",

@@ -74,6 +74,15 @@ static void proc_init(void)
 	//}
 	xsave_region_size = 1024; // TODO
 	align_up(xsave_region_size, 64);
+
+	uint16_t fcw;
+	asm volatile("fstcw %0" : "=m"(fcw));
+	fcw |= 0x33f; // double-prec, mask all
+	asm volatile("fldcw %0" : "=m"(fcw));
+	uint32_t mxcsr;
+	asm volatile("stmxcsr %0" : "=m"(mxcsr));
+	mxcsr |= 0x1f80; // mask all
+	asm volatile("ldmxcsr %0" : "=m"(mxcsr));
 }
 
 struct ustar_header {
@@ -356,5 +365,6 @@ void arch_thread_init(struct thread *thread,
 	thread->arch.gs = (long)thrd_ctrl_slot * mm_page_size(MAX_PGLEVEL);
 	if(xsave_region_size > 0x1000)
 		panic("NI - HUGE xsave region");
+	/* TODO: make sure to free this */
 	thread->arch.xsave_region = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, true);
 }

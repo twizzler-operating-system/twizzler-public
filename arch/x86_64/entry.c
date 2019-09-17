@@ -92,6 +92,10 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
 					.code = frame->int_no,
 					.arg0 = frame->err_code,
 				};
+				if(frame->int_no == 19) {
+					/* SIMD exception; get info from MXCSR */
+					asm volatile("stmxcsr %0" : "=m"(info.arg0));
+				}
 				thread_raise_fault(current_thread, FAULT_EXCEPTION, &info, sizeof(info));
 			} else {
 				if(frame->int_no == 3) {
@@ -199,6 +203,22 @@ __noinstrument void arch_thread_resume(struct thread *thread, uint64_t timeout)
 		asm volatile("xsave (%0)" ::"r"(old->arch.xsave_region), "a"(7), "d"(0) : "memory");
 	}
 
+	if(!thread->arch.fpu_init) {
+		thread->arch.fpu_init = true;
+		asm volatile("finit;");
+
+		uint16_t fcw;
+		asm volatile("fstcw %0" : "=m"(fcw));
+		fcw |= 0x33f; // double-prec, mask all
+		asm volatile("fldcw %0" : "=m"(fcw));
+		uint32_t mxcsr;
+		asm volatile("stmxcsr %0; mfence" : "=m"(mxcsr)::"memory");
+		mxcsr |= 0x1f80; // mask all
+		asm volatile("sfence; ldmxcsr %0" : "=m"(mxcsr)::"memory");
+		asm volatile("stmxcsr %0" : "=m"(mxcsr)::"memory");
+		/* TODO: fix this: need to properly init the xsave area */
+		asm volatile("xsave (%0)" ::"r"(thread->arch.xsave_region), "a"(7), "d"(0) : "memory");
+	}
 	asm volatile("xrstor (%0)" ::"r"(thread->arch.xsave_region), "a"(7), "d"(0) : "memory");
 	if((!old || old->ctx != thread->ctx) && thread->ctx) {
 		arch_mm_switch_context(thread->ctx);
