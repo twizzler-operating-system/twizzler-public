@@ -212,6 +212,9 @@ static long pcie_function_init(struct object *pbobj,
 		if(type == 2)
 			i++; /* skip the next bar because we used it in this one to make a 64-bit register */
 	}
+	start += 0x1000;
+	__alloc_bar(fobj, start, 0x1000, 0, 0, ba);
+	hdr.space = (void *)start;
 	obj_write_data(fobj, 0, sizeof(hdr), &hdr);
 
 	unsigned int fnid = function | device << 3 | bus << 8;

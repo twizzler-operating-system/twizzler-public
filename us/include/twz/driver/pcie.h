@@ -25,6 +25,7 @@ struct pcie_function_header {
 	uint32_t prefetch[6];
 	volatile void *bars[6];
 	size_t barsz[6];
+	struct pcie_config_space *space;
 };
 
 struct pcie_config_space;

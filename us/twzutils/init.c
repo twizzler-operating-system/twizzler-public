@@ -183,6 +183,8 @@ int main(int argc, char **argv)
 		abort();
 	}
 	unsetenv("BSNAME");
+	setenv("TERM", "linux", 1);
+	setenv("PATH", "/usr/bin", 1);
 
 	int r;
 	struct thread tthr;
@@ -323,6 +325,19 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if(!fork()) {
+		snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] nvme-driver");
+		r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
+		if(r) {
+			EPRINTF("failed to detach: %d\n", r);
+			twz_thread_exit();
+		}
+
+		execvp("nvme", (char *[]){ "nvme", "dev:controller:nvme", NULL });
+		EPRINTF("failed to start nvme driver\n");
+		exit(1);
+	}
+
 	if((r = create_pty_pair("dev:pty:pty0", "dev:pty:ptyc0"))) {
 		EPRINTF("failed to create pty pair\n");
 		abort();
@@ -342,7 +357,6 @@ int main(int argc, char **argv)
 	EPRINTF("twzinit: terminal ready\n");
 #endif
 
-	setenv("TERM", "linux", 1);
 	if(!fork()) {
 		close(0);
 		close(1);
@@ -365,7 +379,7 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	if(!fork()) {
+	if(0 && !fork()) {
 		close(0);
 		close(1);
 		close(2);

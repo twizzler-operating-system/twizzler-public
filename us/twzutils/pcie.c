@@ -148,7 +148,14 @@ void pcie_print_function(struct pcie_function *pf, bool nums)
 	}
 
 	// printf("%x %x %x : %x %x\n", class, subclass, progif, vendor, device);
-	printf("[pcie]  %s ", sname ? sname : cname);
+	printf("[pcie] [%d:%d:%d] (%x:%x:%x) %s ",
+	  pf->bus,
+	  pf->device,
+	  pf->function,
+	  class,
+	  subclass,
+	  progif,
+	  sname ? sname : cname);
 	if(pname)
 		printf("[%s] ", pname);
 	printf(":: %s %s\n", vname, dname);
@@ -258,6 +265,10 @@ void pcie_load_driver(struct pcie_function *pf)
 	struct pcie_function_header *hdr = twz_obj_base(&pf->cobj);
 	if(hdr->vendorid == 0x1234 && hdr->deviceid == 0x1111) {
 		twz_name_assign(pf->cid, "dev:output:framebuffer");
+		return;
+	}
+	if(hdr->classid == 1 && hdr->subclassid == 8 && hdr->progif == 2) {
+		twz_name_assign(pf->cid, "dev:controller:nvme");
 		return;
 	}
 }
