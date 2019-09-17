@@ -523,18 +523,8 @@ void process_incoming(struct fb *fb, int c)
 	}
 }
 
-void fb_putc(struct fb *fb, int c)
+void fb_flip(struct fb *fb)
 {
-	if(fb->init == 0)
-		return;
-	init_fb(fb);
-	fb->flip = 0;
-	if(c > 0xff || !c) {
-		return;
-	}
-
-	process_incoming(fb, c);
-
 	uint64_t s = rdtsc();
 	if(fb->flip) {
 		// fastMemcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
@@ -546,6 +536,19 @@ void fb_putc(struct fb *fb, int c)
 
 	uint64_t e = rdtsc();
 	// debug_printf("flip: %ld\n", e - s);
+}
+
+void fb_putc(struct fb *fb, int c)
+{
+	if(fb->init == 0)
+		return;
+	init_fb(fb);
+	fb->flip = 0;
+	if(c > 0xff || !c) {
+		return;
+	}
+
+	process_incoming(fb, c);
 }
 
 void curfb_putc(int c)
@@ -657,6 +660,7 @@ int main(int argc, char **argv)
 					fb_putc(&fb, buf[i]);
 				}
 			}
+			fb_flip(&fb);
 		}
 	}
 }
