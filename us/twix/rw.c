@@ -181,10 +181,10 @@ long linux_sys_write(int fd, void *buf, size_t count)
 
 long linux_sys_ioctl(int fd, unsigned long request, unsigned long arg)
 {
-	debug_printf("IOCTL: %d %ld %ld\n", fd, request, arg);
 	struct file *file = twix_get_fd(fd);
 	if(!file)
 		return -EBADF;
+	debug_printf("IOCTL: %d %ld %ld\n", fd, request, arg);
 	return twzio_ioctl(&file->obj, request, arg);
 }
 

@@ -8,17 +8,28 @@
 #include <unistd.h>
 
 #include "ssfn.h"
+
+#define ES_NORM 0
+#define ES_ESC 1
+#define ES_CSI 2
+#define ES_DONE 3
+
 struct fb {
 	struct object obj;
 	struct object font;
-	size_t fsz;
+	size_t gl_w, gl_h;
 	ssfn_glyph_t *glyph_cache[256];
 	unsigned char *back_buffer, *front_buffer;
 	unsigned char *char_buffer;
-	size_t cw, ch, cx, cy, fbx, fby;
+	size_t x, y, max_x, max_y;
 	size_t fbw, fbh, pitch, bpp;
+	int spacing;
 	ssfn_t ctx;
 	int init, flip;
+
+	unsigned esc_args[16];
+	int esc_argc;
+	int esc_state;
 };
 
 struct fb fb = { 0 };
@@ -99,14 +110,14 @@ static void draw_glyph(const struct fb *restrict fb,
   int c)
 {
 	unsigned int x, y, i, m;
-	uint32_t pen_x = fb->fbx;
-	uint32_t pen_y = fb->fby;
+	uint32_t pen_x = fb->x * (fb->gl_w + fb->spacing);
+	uint32_t pen_y = fb->y * fb->gl_h;
 	/* align glyph properly, we may have received a vertical letter */
 
 	if(glyph->adv_y)
 		pen_x -= (int8_t)glyph->baseline;
 	else
-		pen_y -= (int8_t)glyph->baseline;
+		pen_y -= ((int8_t)glyph->baseline - fb->gl_h / 2);
 
 	uint32_t *buffer = (void *)fb->back_buffer;
 
@@ -130,16 +141,13 @@ static void draw_glyph(const struct fb *restrict fb,
 			break;
 
 		case SSFN_MODE_ALPHA:
-			for(y = 0; y < glyph->h; y++)
+			for(y = 0; y < glyph->h; y++) {
+				uint32_t ys = (pen_y + y) * bpmul;
+				uint32_t ygs = y * glyph->pitch;
 				for(x = 0; x < glyph->w; x++) {
-					uint32_t pix = (fgcolor & 0xff);
-					pix *= glyph->data[y * glyph->pitch + x];
-					pix /= 0xff;
-					pix |= pix << 8;
-					pix |= pix << 8;
-					SDL_PIXEL = pix;
-					// SDL_PIXEL = (uint32_t)((glyph->data[y * glyph->pitch + x] << 24) | fgcolor);
+					buffer[ys + pen_x + x] = ARGB_TO_BGR((glyph->data[ygs + x] << 24) | fgcolor);
 				}
+			}
 			break;
 
 		case SSFN_MODE_CMAP:
@@ -187,32 +195,94 @@ void fb_scroll(struct fb *fb, int nlines)
 	fb->flip = 1;
 }
 
+void fb_clear_cell(struct fb *fb, int x, int y)
+{
+	uint32_t *px = (uint32_t *)fb->back_buffer;
+	size_t pen_x = x * (fb->gl_w + fb->spacing);
+	size_t yinc = fb->pitch / 4;
+	size_t pen_y = fb->y * (fb->gl_h) * yinc;
+	for(size_t y = pen_y; y < (pen_y + fb->gl_h * yinc); y += yinc) {
+		for(size_t x = 0; x < fb->gl_w; x++) {
+			px[y + pen_x + x] = 0;
+		}
+	}
+}
+
+void fb_clear_line(struct fb *fb, int line, int start, int end)
+{
+	uint32_t *px = (uint32_t *)fb->back_buffer;
+	size_t pen_x = start * (fb->gl_w + fb->spacing);
+	size_t yinc = fb->pitch / 4;
+	size_t pen_y = line * (fb->gl_h) * yinc;
+	unsigned int wid = (end - start) * (fb->gl_w + fb->spacing);
+	for(size_t y = pen_y; y < (pen_y + fb->gl_h * yinc); y += yinc) {
+		for(size_t x = 0; x < wid; x++) {
+			px[y + pen_x + x] = 0;
+		}
+	}
+}
+
+#include <string.h>
+void fb_del_chars(struct fb *fb, int count)
+{
+	for(int i = 0; i < count; i++) {
+		fb_clear_cell(fb, fb->x, fb->y);
+
+		uint32_t *px = (uint32_t *)fb->back_buffer;
+		size_t pen_x = fb->x * (fb->gl_w + fb->spacing);
+		size_t pen2_x = (fb->x + 1) * (fb->gl_w + fb->spacing);
+		size_t yinc = fb->pitch / 4;
+		size_t pen_y = fb->y * (fb->gl_h) * yinc;
+		for(size_t y = pen_y; y < (pen_y + fb->gl_h * yinc); y += yinc) {
+			memmove(&px[y + pen_x], &px[y + pen2_x], fb->pitch - (fb->fbw - pen2_x) * fb->bpp);
+		}
+		fb_clear_cell(fb, fb->max_x - 1, fb->y);
+	}
+}
+
+void fb_clear_screen(struct fb *fb, int sl, int el)
+{
+	for(int i = sl; i < el; i++) {
+		fb_clear_line(fb, i, 0, fb->max_x);
+	}
+}
+
 void fb_render_cursor(struct fb *fb)
 {
-	/* write directly to the front buffer */
 	uint32_t *px = (uint32_t *)fb->front_buffer;
-	for(size_t y = 0; y < fb->fsz - 3; y++) {
-		px[(y + fb->fby - fb->fsz / 2) * fb->pitch / 4 + fb->fbx + 1] = 0x00ffffff;
+	uint32_t *pxb = (uint32_t *)fb->back_buffer;
+	size_t pen_x = fb->x * (fb->gl_w + fb->spacing);
+	size_t yinc = fb->pitch / 4;
+	size_t pen_y = fb->y * (fb->gl_h) * yinc;
+	for(size_t y = pen_y; y < (pen_y + (fb->gl_h - 3) * yinc); y += yinc) {
+		for(size_t x = 0; x < fb->gl_w; x++) {
+			px[y + pen_x + x + 1] = ~pxb[y + pen_x + x + 1];
+		}
 	}
 }
 
 void fb_render(struct fb *fb, int c)
 {
+	if(c < 8)
+		return;
+	fb->flip = 1;
 	switch(c) {
 		ssfn_glyph_t *glyph;
 		case '\n':
-			fb->fby += fb->fsz;
+			fb->y++;
 			if(!(termios->c_oflag & ONLRET))
 				break;
 			/* fall-through */
 		case '\r':
-			fb->fbx = 0;
+			fb->x = 0;
 			break;
 		case '\b':
-			if(fb->fbx > 0) {
-				fb->fbx -= 8;
-				fb_render(fb, ' ');
-				fb->fbx -= 8;
+			if(fb->x > 0) {
+				fb->x--;
+				/* TODO: check if we should erase or not */
+				if((termios->c_lflag & ICANON) && (termios->c_lflag & ECHOE)) {
+					fb_clear_cell(fb, fb->x, fb->y);
+				}
 			}
 			break;
 		default:
@@ -228,21 +298,20 @@ void fb_render(struct fb *fb, int c)
 				return;
 			}
 
-			if(fb->fbx + glyph->adv_x >= fb->fbw) {
-				fb->fbx = 0;
-				fb->fby += fb->fsz;
+			if(fb->x >= fb->max_x) {
+				fb->x = 0;
+				fb->y++;
 			}
 
-			long lines = fb->fbh;
-			lines -= (fb->fby + fb->fsz);
-			if(lines < 0) {
-				fb_scroll(fb, -lines);
-				fb->fby += lines;
+			if(fb->y >= fb->max_y) {
+				fb_scroll(fb, fb->gl_h);
+				fb->y--;
 			}
 
 			/* display the bitmap on your screen */
+			fb_clear_cell(fb, fb->x, fb->y);
 			draw_glyph(fb, glyph, 0x00ffffff, c);
-			fb->fbx += glyph->adv_x;
+			fb->x++;
 			fb->flip = 1;
 			break;
 	}
@@ -251,7 +320,7 @@ void fb_render(struct fb *fb, int c)
 struct termios def_term = {
 	.c_iflag = BRKINT | ICRNL,
 	.c_oflag = ONLCR | OPOST,
-	.c_lflag = ICANON | ECHO | ISIG,
+	.c_lflag = ICANON | ECHO | ISIG | ECHOE,
 	.c_cc[VEOF] = 4,
 	.c_cc[VEOL] = 0,
 	.c_cc[VERASE] = '\b',
@@ -274,12 +343,10 @@ void setup_pty(int cw, int ch)
 	termios = &hdr->termios;
 }
 
-void fb_putc(struct fb *fb, int c)
+void init_fb(struct fb *fb)
 {
-	if(fb->init == 0)
-		return;
-	struct pcie_function_header *hdr = twz_obj_base(&fb->obj);
 	if(fb->init == 1) {
+		struct pcie_function_header *hdr = twz_obj_base(&fb->obj);
 		fb->front_buffer = twz_ptr_lea(&fb->obj, (void *)hdr->bars[0]);
 		volatile struct bga_regs *regs = twz_ptr_lea(&fb->obj, (void *)hdr->bars[2] + 0x500);
 		regs->index = 0xb0c5;
@@ -293,18 +360,20 @@ void fb_putc(struct fb *fb, int c)
 		fb->fbh = 768;
 		fb->bpp = 4;
 		fb->pitch = fb->fbw * fb->bpp;
-		fb->fsz = 16;
-		fb->cw = fb->fbw / (fb->fsz / 4);
-		fb->ch = fb->fbh / fb->fsz * 32;
-		fb->fbx = 0;
-		fb->fby = fb->fsz / 2;
+		fb->gl_w = 8;
+		fb->gl_h = 16;
+		fb->x = 0;
+		fb->y = 0;
+		fb->spacing = 1;
+		fb->max_x = fb->fbw / (fb->gl_w + fb->spacing);
+		fb->max_y = fb->fbh / fb->gl_h;
 		for(int i = 0; i < 256; i++)
 			fb->glyph_cache[i] = NULL;
 
 		fb->back_buffer = malloc(fb->pitch * fb->fbh);
 
 		memset(fb->back_buffer, 0, fb->pitch * fb->fbh);
-		fb->char_buffer = calloc(sizeof(fb->char_buffer[0]), fb->cw * fb->ch);
+		fb->char_buffer = calloc(sizeof(fb->char_buffer[0]), fb->max_x * fb->max_y);
 
 		struct object font;
 		int r;
@@ -318,33 +387,153 @@ void fb_putc(struct fb *fb, int c)
 
 		if((r = ssfn_load(&fb->ctx, _font_start))) {
 			debug_printf("load:%d\n", r);
-			fb->init == 0;
+			fb->init = 0;
 			return;
 		}
 
 		if((r = ssfn_select(&fb->ctx,
 		      SSFN_FAMILY_ANY,
 		      NULL, /* family */
-		      SSFN_STYLE_REGULAR,
-		      fb->fsz,       /* style and size */
-		      SSFN_MODE_CMAP /* rendering mode */
+		      SSFN_STYLE_BOLD,
+		      fb->gl_h,       /* style and size */
+		      SSFN_MODE_ALPHA /* rendering mode */
 		      ))) {
 			debug_printf("select: %d\n", r);
 			fb->init = 0;
 			return;
 		}
 		fb->init = 2;
-		setup_pty(fb->cw, fb->ch);
+		setup_pty(fb->max_x, fb->max_y);
+	}
+}
+
+void process_esc(struct fb *fb, int c)
+{
+	debug_printf(" -- unhandled ESC %c\n", c);
+}
+
+#include <ctype.h>
+void process_csi(struct fb *fb, int c)
+{
+	if(isdigit(c)) {
+		fb->esc_args[fb->esc_argc] *= 10;
+		fb->esc_args[fb->esc_argc] += c - '0';
+	} else if(c == ';') {
+		fb->esc_argc++;
+	} else {
+		debug_printf("CSI seq %c (%d %d)\n", c, fb->esc_args[0], fb->esc_args[1]);
+		switch(c) {
+			case 'P':
+				fb_del_chars(fb, fb->esc_args[0]);
+				break;
+			case 'C':
+				if(fb->esc_args[0] == 0)
+					fb->esc_args[0]++;
+				fb->x += fb->esc_args[0];
+				if(fb->x > fb->max_x)
+					fb->x = fb->max_x;
+				break;
+			case 'K':
+				switch(fb->esc_args[0]) {
+					case 0:
+						fb_clear_line(fb, fb->y, fb->x, fb->max_x);
+						break;
+					case 1:
+						fb_clear_line(fb, fb->y, 0, fb->x + 1);
+						break;
+					case 2:
+						fb_clear_line(fb, fb->y, 0, fb->max_x);
+						break;
+				}
+				break;
+			case 'J':
+				/* TODO: does this clear the entire line the cursor is on, or no? */
+				switch(fb->esc_args[0]) {
+					case 0:
+						fb_clear_screen(fb, fb->y, fb->max_y);
+						break;
+					case 1:
+						fb_clear_screen(fb, 0, fb->y + 1);
+						break;
+					case 2:
+					case 3:
+						fb_clear_screen(fb, 0, fb->max_y);
+						break;
+					default:
+						debug_printf("bad arg to CSI J: %d\n", fb->esc_args[0]);
+				}
+				break;
+			case 'H':
+				/* args are 1-based, but an ommitted arg is a zero, so just switch everything to
+				 * zero-based, which is better anyway */
+				if(fb->esc_args[0])
+					fb->esc_args[0]--;
+				if(fb->esc_args[1])
+					fb->esc_args[1]--;
+
+				if(fb->esc_args[0] > fb->max_y)
+					fb->esc_args[0] = fb->max_y;
+				if(fb->esc_args[1] > fb->max_x)
+					fb->esc_args[1] = fb->max_x;
+
+				fb->x = fb->esc_args[1];
+				fb->y = fb->esc_args[0];
+				debug_printf(" got H CSI: %d %d\n", fb->x, fb->y);
+
+				break;
+			default:
+				debug_printf(" -- unhandled CSI %c (%d %d %d)\n",
+				  c,
+				  fb->esc_args[0],
+				  fb->esc_args[1],
+				  fb->esc_args[2]);
+		}
+		fb->esc_state = ES_DONE;
+		fb->flip = 1;
+	}
+}
+
+void process_incoming(struct fb *fb, int c)
+{
+	switch(fb->esc_state) {
+		case ES_NORM:
+			if(c == 27)
+				fb->esc_state = ES_ESC;
+			break;
+		case ES_ESC:
+			fb->esc_state = ES_DONE;
+			if(c == '[') {
+				memset(fb->esc_args, 0, sizeof(fb->esc_args));
+				fb->esc_argc = 0;
+				fb->esc_state = ES_CSI;
+			} else
+				process_esc(fb, c);
+			break;
+		case ES_CSI:
+			process_csi(fb, c);
+			break;
 	}
 
+	if(fb->esc_state == ES_NORM) {
+		if(c != '\n' && c != '\r')
+			fb->char_buffer[fb->y * fb->max_x + fb->x] = c;
+		fb_render(fb, c);
+	} else if(fb->esc_state == ES_DONE) {
+		fb->esc_state = ES_NORM;
+	}
+}
+
+void fb_putc(struct fb *fb, int c)
+{
+	if(fb->init == 0)
+		return;
+	init_fb(fb);
 	fb->flip = 0;
 	if(c > 0xff || !c) {
 		return;
 	}
 
-	if(c != '\n' && c != '\r')
-		fb->char_buffer[fb->cw * fb->cy + fb->cx] = c;
-	fb_render(fb, c);
+	process_incoming(fb, c);
 
 	uint64_t s = rdtsc();
 	if(fb->flip) {
@@ -363,6 +552,7 @@ void curfb_putc(int c)
 {
 	fb_putc(&fb, c);
 }
+
 int main(int argc, char **argv)
 {
 	int r;
