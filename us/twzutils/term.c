@@ -225,19 +225,17 @@ void fb_clear_line(struct fb *fb, int line, int start, int end)
 #include <string.h>
 void fb_del_chars(struct fb *fb, int count)
 {
-	for(int i = 0; i < count; i++) {
-		fb_clear_cell(fb, fb->x, fb->y);
-
-		uint32_t *px = (uint32_t *)fb->back_buffer;
-		size_t pen_x = fb->x * (fb->gl_w + fb->spacing);
-		size_t pen2_x = (fb->x + 1) * (fb->gl_w + fb->spacing);
-		size_t yinc = fb->pitch / 4;
-		size_t pen_y = fb->y * (fb->gl_h) * yinc;
-		for(size_t y = pen_y; y < (pen_y + fb->gl_h * yinc); y += yinc) {
-			memmove(&px[y + pen_x], &px[y + pen2_x], fb->pitch - (fb->fbw - pen2_x) * fb->bpp);
-		}
-		fb_clear_cell(fb, fb->max_x - 1, fb->y);
+	if(fb->x + count > fb->max_x)
+		count = fb->max_x - fb->x;
+	uint32_t *px = (uint32_t *)fb->back_buffer;
+	size_t pen_x = fb->x * (fb->gl_w + fb->spacing);
+	size_t pen2_x = (fb->x + count) * (fb->gl_w + fb->spacing);
+	size_t yinc = fb->pitch / 4;
+	size_t pen_y = fb->y * (fb->gl_h) * yinc;
+	for(size_t y = pen_y; y < (pen_y + fb->gl_h * yinc); y += yinc) {
+		memmove(&px[y + pen_x], &px[y + pen2_x], fb->pitch - (fb->fbw - pen2_x) * fb->bpp);
 	}
+	fb_clear_line(fb, fb->y, fb->max_x - count, fb->max_x);
 }
 
 void fb_clear_screen(struct fb *fb, int sl, int el)
