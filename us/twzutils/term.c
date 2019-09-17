@@ -104,6 +104,7 @@ static __inline__ unsigned long long rdtsc(void)
 	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }
 
+#include <assert.h>
 static void draw_glyph(const struct fb *restrict fb,
   ssfn_glyph_t *restrict glyph,
   uint32_t fgcolor,
@@ -119,6 +120,7 @@ static void draw_glyph(const struct fb *restrict fb,
 	else
 		pen_y -= ((int8_t)glyph->baseline - fb->gl_h / 2);
 
+	uint32_t max_gy = fb->max_y * fb->gl_h - pen_y;
 	uint32_t *buffer = (void *)fb->back_buffer;
 
 	uint32_t bpmul = fb->pitch / 4;
@@ -127,7 +129,7 @@ static void draw_glyph(const struct fb *restrict fb,
 
 	switch(glyph->mode) {
 		case SSFN_MODE_BITMAP:
-			for(y = 0; y < glyph->h; y++) {
+			for(y = 0; y < glyph->h && y < max_gy; y++) {
 				uint32_t ys = (pen_y + y) * bpmul;
 				uint32_t ygs = y * glyph->pitch;
 				for(x = 0, i = 0, m = 1; x < glyph->w; x++, m <<= 1) {
@@ -141,7 +143,7 @@ static void draw_glyph(const struct fb *restrict fb,
 			break;
 
 		case SSFN_MODE_ALPHA:
-			for(y = 0; y < glyph->h; y++) {
+			for(y = 0; y < glyph->h && y < max_gy; y++) {
 				uint32_t ys = (pen_y + y) * bpmul;
 				uint32_t ygs = y * glyph->pitch;
 				for(x = 0; x < glyph->w; x++) {
@@ -151,7 +153,7 @@ static void draw_glyph(const struct fb *restrict fb,
 			break;
 
 		case SSFN_MODE_CMAP:
-			for(y = 0; y < glyph->h; y++) {
+			for(y = 0; y < glyph->h && y < max_gy; y++) {
 				uint32_t ys = (pen_y + y) * bpmul;
 				uint32_t ygs = y * glyph->pitch;
 				for(x = 0; x < glyph->w; x++) {
@@ -190,7 +192,7 @@ void fb_scroll(struct fb *fb, int nlines)
 {
 	// memmove(&fb->char_buffer[0], &fb->char_buffer[fb->cw], fb->cw * (fb->ch - 1));
 	// memset(&fb->char_buffer[fb->cw * (fb->ch - 1)], 0, fb->cw);
-	memcpy(fb->back_buffer, fb->back_buffer + fb->pitch * nlines, fb->pitch * (fb->fbh - nlines));
+	memmove(fb->back_buffer, fb->back_buffer + fb->pitch * nlines, fb->pitch * (fb->fbh - nlines));
 	memset(fb->back_buffer + fb->pitch * (fb->fbh - nlines), 0, fb->pitch * nlines);
 	fb->flip = 1;
 }
@@ -513,8 +515,8 @@ void process_incoming(struct fb *fb, int c)
 	}
 
 	if(fb->esc_state == ES_NORM) {
-		if(c != '\n' && c != '\r')
-			fb->char_buffer[fb->y * fb->max_x + fb->x] = c;
+		// if(c != '\n' && c != '\r')
+		//	fb->char_buffer[fb->y * fb->max_x + fb->x] = c;
 		fb_render(fb, c);
 	} else if(fb->esc_state == ES_DONE) {
 		fb->esc_state = ES_NORM;
