@@ -7,6 +7,41 @@ static struct spinlock locks[MAX_INTERRUPT_VECTORS] = { [0 ... MAX_INTERRUPT_VEC
 	                                                      SPINLOCK_INIT };
 static bool initialized[MAX_INTERRUPT_VECTORS] = { false };
 
+static struct spinlock alloc_lock = SPINLOCK_INIT;
+
+int interrupt_allocate_vectors(size_t count, struct interrupt_alloc_req *req)
+{
+	/* TODO: arch-dep */
+	static size_t vp = 64;
+	bool ok = true;
+	spinlock_acquire_save(&alloc_lock);
+	for(size_t i = 0; i < count; i++) {
+		size_t ov = vp;
+		req->res = -1;
+		for(vp++; vp != ov && req->res == -1;) {
+			spinlock_acquire_save(&locks[vp]);
+			if(initialized[vp] && !list_empty(&handlers[vp]) && req->pri == IVP_UNIQUE)
+				continue;
+			if(!initialized[vp]) {
+				list_init(&handlers[vp]);
+				initialized[vp] = true;
+			}
+			list_insert(&handlers[vp], &req->handler.entry);
+			arch_interrupt_unmask(vp);
+
+			req->res = vp;
+			spinlock_release_restore(&locks[vp]);
+			vp++;
+			if(vp >= MAX_INTERRUPT_VECTORS)
+				vp = 64;
+		}
+		if(req->res == -1)
+			ok = false;
+	}
+	spinlock_release_restore(&alloc_lock);
+	return ok ? 0 : -1;
+}
+
 void interrupt_register_handler(int vector, struct interrupt_handler *handler)
 {
 	spinlock_acquire_save(&locks[vector]);

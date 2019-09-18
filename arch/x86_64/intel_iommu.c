@@ -99,6 +99,22 @@ static struct iommu iommus[MAX_IOMMUS] = {};
 #define IOMMU_FEC_IM (1 << 31)
 #define IOMMU_FEC_IP (1 << 30)
 
+#define IOMMU_CTXE_PRESENT 1
+#define IOMMU_CTXE_AW48 2
+
+#define IOMMU_RTE_PRESENT 1
+#define IOMMU_RTE_MASK 0xFFFFFFFFFFFFF000
+
+struct iommu_rte {
+	uint64_t lo;
+	uint64_t hi;
+};
+
+struct iommu_ctxe {
+	uint64_t lo;
+	uint64_t hi;
+};
+
 static uint32_t iommu_read32(struct iommu *im, int reg)
 {
 	return *(volatile uint32_t *)(im->base + reg);
@@ -130,6 +146,21 @@ static void iommu_status_wait(struct iommu *im, uint32_t ws, bool set)
 		while((iommu_read32(im, IOMMU_REG_GSTS) & ws))
 			asm("pause");
 	}
+}
+
+static void iommu_set_context_entry(struct iommu *im,
+  uint8_t bus,
+  uint8_t dfn,
+  uintptr_t ptroot,
+  uint16_t did)
+{
+	struct iommu_rte *rt = mm_ptov(im->root_table);
+	if(!(rt[bus].lo & IOMMU_RTE_PRESENT)) {
+		rt[bus].lo = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true) | IOMMU_RTE_PRESENT;
+	}
+	struct iommu_ctxe *ct = mm_ptov(rt[bus].lo & IOMMU_RTE_MASK);
+	ct[dfn].lo = ptroot | IOMMU_CTXE_PRESENT;
+	ct[dfn].hi = IOMMU_CTXE_AW48 | did;
 }
 
 static int iommu_init(struct iommu *im)
