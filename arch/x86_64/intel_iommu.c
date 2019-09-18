@@ -1,5 +1,6 @@
 #include <arch/x86_64-acpi.h>
 #include <debug.h>
+#include <init.h>
 #include <memory.h>
 #include <system.h>
 
@@ -33,6 +34,158 @@ struct __packed dmar_desc {
 static struct dmar_desc *dmar;
 size_t remap_entries = 0;
 
+struct iommu {
+	uint64_t base;
+	uint16_t pcie_seg;
+	uint16_t id;
+	uintptr_t root_table;
+};
+
+#define MAX_IOMMUS 16
+static struct iommu iommus[MAX_IOMMUS] = {};
+
+#define IOMMU_REG_VERS 0
+#define IOMMU_REG_CAP 8
+#define IOMMU_REG_EXCAP 0x10
+#define IOMMU_REG_GCMD 0x18
+#define IOMMU_REG_GSTS 0x1c
+#define IOMMU_REG_RTAR 0x20
+#define IOMMU_REG_CCMD 0x28
+#define IOMMU_REG_FSR 0x34
+#define IOMMU_REG_FEC 0x38
+#define IOMMU_REG_FED 0x3c
+#define IOMMU_REG_FEA 0x40
+#define IOMMU_REG_FEUA 0x44
+#define IOMMU_REG_AFL 0x58
+#define IOMMU_REG_IQH 0x80
+#define IOMMU_REG_IQT 0x88
+#define IOMMU_REG_IQA 0x90
+#define IOMMU_REG_ICS 0x9c
+#define IOMMU_REG_ICEC 0xa0
+#define IOMMU_REG_ICED 0xa4
+#define IOMMU_REG_ICEA 0xa8
+#define IOMMU_REG_IQER 0xb0
+#define IOMMU_REG_IRTADDR 0xb8
+#define IOMMU_REG_PRQH 0xc0
+#define IOMMU_REG_PRQT 0xc8
+#define IOMMU_REG_PRQA 0xd0
+#define IOMMU_REG_PRSR 0xdc
+#define IOMMU_REG_PREC 0xe0
+#define IOMMU_REG_PRED 0xe4
+#define IOMMU_REG_PREA 0xe8
+#define IOMMU_REG_PREUA 0xec
+
+#define IOMMU_CAP_NFR(x) ((((x) >> 40) & 0xff) + 1)
+#define IOMMU_CAP_SLLPS(x) (((x) >> 34) & 0xf)
+#define IOMMU_CAP_FRO(x) ((((x) >> 24) & 0x3ff) * 16)
+#define IOMMU_CAP_CM (1 << 7)
+#define IOMMU_CAP_ND(x) (((x)&7) * 2 + 4)
+
+#define IOMMU_EXCAP_DT (1 << 2)
+
+#define IOMMU_GCMD_TE (1ul << 31)
+#define IOMMU_GCMD_SRTP (1ul << 30)
+
+#define IOMMU_RTAR_TTM_LEGACY 0
+#define IOMMU_RTAR_TTM_SCALABLE 1
+
+#define IOMMU_CCMD_ICC (1ul << 63)
+#define IOMMU_CCMD_SRC(x) ((x) << 16)
+#define IOMMU_CCMD_DID(x) ((x))
+
+#define IOMMU_FSR_FRI (((x) >> 8) & 0xff)
+#define IOMMU_FSR_PPF (1 << 1)
+#define IOMMU_FSR_PFO (1 << 0)
+#define IOMMU_FEC_IM (1 << 31)
+#define IOMMU_FEC_IP (1 << 30)
+
+static uint32_t iommu_read32(struct iommu *im, int reg)
+{
+	return *(volatile uint32_t *)(im->base + reg);
+}
+
+static void iommu_write32(struct iommu *im, int reg, uint32_t val)
+{
+	*(volatile uint32_t *)(im->base + reg) = val;
+	asm volatile("mfence" ::: "memory");
+}
+
+static uint64_t iommu_read64(struct iommu *im, int reg)
+{
+	return *(volatile uint64_t *)(im->base + reg);
+}
+
+static void iommu_write64(struct iommu *im, int reg, uint64_t val)
+{
+	*(volatile uint64_t *)(im->base + reg) = val;
+	asm volatile("mfence" ::: "memory");
+}
+
+static void iommu_status_wait(struct iommu *im, uint32_t ws, bool set)
+{
+	if(set) {
+		while(!(iommu_read32(im, IOMMU_REG_GSTS) & ws))
+			asm("pause");
+	} else {
+		while((iommu_read32(im, IOMMU_REG_GSTS) & ws))
+			asm("pause");
+	}
+}
+
+static int iommu_init(struct iommu *im)
+{
+	uint32_t vs = iommu_read32(im, IOMMU_REG_VERS);
+	uint64_t cap = iommu_read64(im, IOMMU_REG_CAP);
+	uint64_t ecap = iommu_read64(im, IOMMU_REG_EXCAP);
+
+	/*
+	printk(":: %x %lx %lx\n", vs, cap, ecap);
+	printk("nfr=%lx, sllps=%lx, fro=%lx, nd=%ld\n",
+	  IOMMU_CAP_NFR(cap),
+	  IOMMU_CAP_SLLPS(cap),
+	  IOMMU_CAP_FRO(cap),
+	  IOMMU_CAP_ND(cap));
+	  */
+	if(IOMMU_CAP_ND(cap) < 16) {
+		printk("[iommu] iommu %d does not support large enough domain ID\n", im->id);
+		return -1;
+	}
+	if(IOMMU_CAP_SLLPS(cap) != 3) {
+		printk("[iommui] iommu %d does not support huge pages at sl translation\n", im->id);
+		return -1;
+	}
+
+	/* first disable the hardware during init */
+	iommu_write32(im, IOMMU_REG_GCMD, 0);
+	/* if it was enabled, wait for it to disable */
+	iommu_status_wait(im, IOMMU_GCMD_TE, false);
+
+	/* set the root table */
+	im->root_table = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+	iommu_write64(im, IOMMU_REG_RTAR, im->root_table | IOMMU_RTAR_TTM_LEGACY);
+
+	iommu_write32(im, IOMMU_REG_GCMD, IOMMU_GCMD_SRTP);
+	iommu_status_wait(im, IOMMU_GCMD_SRTP, true);
+
+	uint32_t cmd = IOMMU_GCMD_TE;
+	iommu_write32(im, IOMMU_REG_GCMD, cmd);
+	iommu_status_wait(im, IOMMU_GCMD_TE, true);
+
+	return 0;
+}
+
+static void dmar_late_init(void *__u __unused)
+{
+	for(size_t i = 0; i < MAX_IOMMUS; i++) {
+		if(iommus[i].base) {
+			iommu_init(&iommus[i]);
+		}
+	}
+	for(;;)
+		;
+}
+POST_INIT(dmar_late_init);
+
 __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void dmar_init(void)
 {
 	if(!(dmar = acpi_find_table("DMAR"))) {
@@ -44,11 +197,17 @@ __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void dmar_in
 	  remap_entries,
 	  dmar->host_addr_width,
 	  dmar->flags);
+	size_t ie = 0;
 	for(size_t i = 0; i < remap_entries; i++) {
+		iommus[ie].id = ie;
 		size_t scope_entries =
 		  (dmar->remaps[i].length - sizeof(struct dmar_remap)) / sizeof(struct device_scope);
-		printk("[iommu]  remap: type=%d, length=%d, flags=%x, segnr=%d, base_addr=%lx, %ld device "
-		       "scopes\n",
+		if(dmar->remaps[i].type != 0)
+			continue;
+		printk(
+		  "[iommu] %d remap: type=%d, length=%d, flags=%x, segnr=%d, base_addr=%lx, %ld device "
+		  "scopes\n",
+		  iommus[ie].id,
 		  dmar->remaps[i].type,
 		  dmar->remaps[i].length,
 		  dmar->remaps[i].flags,
@@ -65,8 +224,16 @@ __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void dmar_in
 			  dmar->remaps[i].scopes[j].start_bus_nr,
 			  path_len);
 			for(size_t k = 0; k < path_len; k++) {
-				printk("[iommu]      path %ld: %x\n", k, dmar->remaps[i].scopes[j].path[k]);
+				//		printk("[iommu]      path %ld: %x\n", k, dmar->remaps[i].scopes[j].path[k]);
 			}
+		}
+
+		if(dmar->remaps[i].flags & 1 /* PCIe include all */) {
+			iommus[ie].base = (uint64_t)mm_ptov(dmar->remaps[i].reg_base_addr);
+			iommus[ie].pcie_seg = dmar->remaps[i].segnr;
+			ie++;
+		} else {
+			printk("[iommu] warning - remap hardware without PCI-include-all bit unsupported\n");
 		}
 	}
 }
