@@ -17,7 +17,7 @@ static inline bool arch_interrupt_set(bool on)
 #define X86_64_MSI_DM_LOGICAL (1 << 2)
 #define X86_64_MSI_RH (1 << 3)
 
-#define x86_64_msi_addr(did, flags) ({ (0xfee << 20) | (did << 12) | flags; })
+#define x86_64_msi_addr(did, flags) ({ (0xfeeul << 20) | (did << 12) | flags; })
 
 #define X86_64_MSI_EDGE 0ul
 #define X86_64_MSI_LEVEL (1ul << 15)
