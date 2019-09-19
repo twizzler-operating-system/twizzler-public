@@ -17,7 +17,7 @@ struct interrupt_alloc_req {
 	struct interrupt_handler handler;
 	uint8_t flags;
 	enum iv_priority pri;
-	int res;
+	int vec;
 };
 
 int interrupt_allocate_vectors(size_t count, struct interrupt_alloc_req *req);

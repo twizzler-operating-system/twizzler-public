@@ -15,10 +15,10 @@ int interrupt_allocate_vectors(size_t count, struct interrupt_alloc_req *req)
 	static size_t vp = 64;
 	bool ok = true;
 	spinlock_acquire_save(&alloc_lock);
-	for(size_t i = 0; i < count; i++) {
-		size_t ov = vp;
-		req->res = -1;
-		for(vp++; vp != ov && req->res == -1;) {
+	for(size_t i = 0; i < count; i++, req++) {
+		size_t ov = vp - 1;
+		req->vec = -1;
+		for(; vp != ov && req->vec == -1;) {
 			spinlock_acquire_save(&locks[vp]);
 			if(initialized[vp] && !list_empty(&handlers[vp]) && req->pri == IVP_UNIQUE)
 				continue;
@@ -29,13 +29,13 @@ int interrupt_allocate_vectors(size_t count, struct interrupt_alloc_req *req)
 			list_insert(&handlers[vp], &req->handler.entry);
 			arch_interrupt_unmask(vp);
 
-			req->res = vp;
+			req->vec = vp;
 			spinlock_release_restore(&locks[vp]);
 			vp++;
 			if(vp >= MAX_INTERRUPT_VECTORS)
 				vp = 64;
 		}
-		if(req->res == -1)
+		if(req->vec == -1)
 			ok = false;
 	}
 	spinlock_release_restore(&alloc_lock);

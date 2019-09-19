@@ -64,6 +64,7 @@ static struct iommu iommus[MAX_IOMMUS] = {};
 #define IOMMU_REG_ICEC 0xa0
 #define IOMMU_REG_ICED 0xa4
 #define IOMMU_REG_ICEA 0xa8
+#define IOMMU_REG_ICEUA 0xac
 #define IOMMU_REG_IQER 0xb0
 #define IOMMU_REG_IRTADDR 0xb8
 #define IOMMU_REG_PRQH 0xc0
@@ -163,6 +164,25 @@ static void iommu_set_context_entry(struct iommu *im,
 	ct[dfn].hi = IOMMU_CTXE_AW48 | did;
 }
 
+void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __unused)
+{
+}
+
+void __iommu_inv_handler(int v __unused, struct interrupt_handler *h __unused)
+{
+}
+
+static struct interrupt_alloc_req _iommu_int_iaq[2] = {
+	[0] = {
+		.pri = IVP_NORMAL,
+		.handler.fn = __iommu_fault_handler,
+	},
+	[1] = {
+		.pri = IVP_NORMAL,
+		.handler.fn = __iommu_inv_handler,
+	}
+};
+
 static int iommu_init(struct iommu *im)
 {
 	uint32_t vs = iommu_read32(im, IOMMU_REG_VERS);
@@ -198,6 +218,16 @@ static int iommu_init(struct iommu *im)
 	iommu_write32(im, IOMMU_REG_GCMD, IOMMU_GCMD_SRTP);
 	iommu_status_wait(im, IOMMU_GCMD_SRTP, true);
 
+	/* allocate interrupt vectors for the iommu itself. It need to inform us of faults and of
+	 * invalidation completions. It uses message-signaled interrupts. */
+	iommu_write32(im, IOMMU_REG_FED, _iommu_int_iaq[0].vec);
+	iommu_write32(im, IOMMU_REG_FEA, x86_64_msi_addr(0, X86_64_MSI_DM_PHYSICAL));
+	iommu_write32(im, IOMMU_REG_FEUA, 0);
+
+	iommu_write32(im, IOMMU_REG_ICED, _iommu_int_iaq[1].vec);
+	iommu_write32(im, IOMMU_REG_ICEA, x86_64_msi_addr(0, X86_64_MSI_DM_PHYSICAL));
+	iommu_write32(im, IOMMU_REG_ICEUA, 0);
+
 	uint32_t cmd = IOMMU_GCMD_TE;
 	iommu_write32(im, IOMMU_REG_GCMD, cmd);
 	iommu_status_wait(im, IOMMU_GCMD_TE, true);
@@ -207,13 +237,15 @@ static int iommu_init(struct iommu *im)
 
 static void dmar_late_init(void *__u __unused)
 {
+	interrupt_allocate_vectors(2, _iommu_int_iaq);
+	printk("[iommu] allocated vectors (%d, %d) for iommu\n",
+	  _iommu_int_iaq[0].vec,
+	  _iommu_int_iaq[1].vec);
 	for(size_t i = 0; i < MAX_IOMMUS; i++) {
 		if(iommus[i].base) {
 			iommu_init(&iommus[i]);
 		}
 	}
-	for(;;)
-		;
 }
 POST_INIT(dmar_late_init);
 
