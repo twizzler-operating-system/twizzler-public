@@ -35,6 +35,9 @@ void tmain(const char *username)
 	snprintf(userstring, 128, IDFMT, IDPR(uid));
 	setenv("TWZUSER", userstring, 1);
 	setenv("USER", username, 1);
+	char *ps1 = NULL;
+	asprintf(&ps1, "\\e[36m%s\\e[m@\\e[35mtwizzler\\e[m:\\e[32m/\\e[m $ ", username);
+	setenv("PS1", ps1, 1);
 
 	r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
 	if(r) {
@@ -51,7 +54,7 @@ void tmain(const char *username)
 
 	snprintf(
 	  twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] shell [user %s]", username);
-	r = execv("/usr/bin/shell", (char *[]){ "/usr/bin/shell", NULL });
+	r = execv("/usr/bin/bash", (char *[]){ "/usr/bin/shell", NULL });
 	fprintf(stderr, "failed to exec shell: %d", r);
 	exit(1);
 }
