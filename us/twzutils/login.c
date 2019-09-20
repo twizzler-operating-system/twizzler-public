@@ -58,6 +58,7 @@ void tmain(const char *username)
 
 int main(int argc, char **argv)
 {
+	printf("Setting SCE to AUX.\n");
 	for(;;) {
 		char buffer[1024];
 		printf("Twizzler Login: ");
