@@ -65,7 +65,10 @@ int twz_hier_assign_name(struct object *ns, const char *name, int type, objid_t 
  *     /usr and usr are both treated the same way here. In this sense, 'ns' is more like the
  *     root of the unix path system.
  */
-int twz_hier_resolve_name(struct object *ns, const char *path, int flags, struct twz_name_ent *ent)
+static int __twz_hier_resolve_name(struct object *ns,
+  const char *path,
+  int flags,
+  struct twz_name_ent *ent)
 {
 	while(*path == '/')
 		path++;
@@ -100,4 +103,13 @@ int twz_hier_resolve_name(struct object *ns, const char *path, int flags, struct
 	*ent = *ne;
 	ent->dlen = 0;
 	return 0;
+}
+
+int twz_hier_resolve_name(struct object *ns, const char *path, int flags, struct twz_name_ent *ent)
+{
+	int r = __twz_hier_resolve_name(ns, path, flags, ent);
+	if(r == 0 && ent->id == 0) {
+		return __twz_hier_resolve_name(ns, "/.", flags, ent);
+	}
+	return r;
 }

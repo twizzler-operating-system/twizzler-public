@@ -19,6 +19,10 @@ subprocess.run([utildir + '/file2obj', '-i', '/dev/null', '-o', srcdir + '/__ns'
 rootnid = subprocess.run([utildir + '/objstat', '-i', srcdir + '/__ns'],
         stdout=subprocess.PIPE).stdout.decode('utf-8').strip()
 
+
+print("%s d %s %s" % (srcdir + "/__ns.dat", rootnid, "."))
+print("%s d %s %s" % (srcdir + "/__ns.dat", rootnid, ".."))
+
 def print_namespaces(n):
     for (k, v) in n.items():
         print("# %s %s.dat" % (v[1], v[1]))

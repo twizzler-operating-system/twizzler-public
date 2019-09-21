@@ -28,6 +28,13 @@
 #define LINUX_SYS_exit 60
 #define LINUX_SYS_wait4 61
 
+#define LINUX_SYS_uname 63
+
+#define LINUX_SYS_getuid 102
+#define LINUX_SYS_getgid 104
+#define LINUX_SYS_geteuid 107
+#define LINUX_SYS_getegid 108
+
 #define LINUX_SYS_arch_prctl 158
 
 #define LINUX_SYS_set_tid_address 218
@@ -72,6 +79,11 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_stat] = linux_sys_stat,
 	[LINUX_SYS_access] = linux_sys_access,
 	[LINUX_SYS_faccessat] = linux_sys_faccessat,
+	[LINUX_SYS_getuid] = linux_sys_getuid,
+	[LINUX_SYS_getuid] = linux_sys_getgid,
+	[LINUX_SYS_getuid] = linux_sys_geteuid,
+	[LINUX_SYS_getuid] = linux_sys_getegid,
+	[LINUX_SYS_uname] = linux_sys_uname,
 };
 
 static size_t stlen = sizeof(syscall_table) / sizeof(syscall_table[0]);
@@ -81,7 +93,7 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 	__linux_init();
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
 #if 1
-		debug_printf("Unimplemented Linux system call: %ld\n", num);
+		debug_printf("Unimplemented Linux system call: %ld (%s)\n", num, syscall_names[num]);
 #endif
 		return -ENOSYS;
 	}
@@ -94,7 +106,7 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 		return -ENOSYS;
 	}
 	long r = syscall_table[num](a0, a1, a2, a3, a4, a5);
-	debug_printf("sc %ld ret %ld\n", num, r);
+	// debug_printf("sc %ld ret %ld\n", num, r);
 	return r;
 }
 
@@ -110,7 +122,7 @@ static long twix_syscall_frame(struct twix_register_frame *frame,
 	__linux_init();
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
 #if 1
-		debug_printf("Unimplemented Linux system call: %ld\n", num);
+		debug_printf("Unimplemented Linux system call: %ld (%s)\n", num, syscall_names[num]);
 #endif
 		return -ENOSYS;
 	}

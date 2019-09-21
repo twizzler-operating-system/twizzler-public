@@ -33,6 +33,7 @@ int twix_openpathat(int dfd, const char *path, int flags, objid_t *id)
 long linux_sys_stat(const char *path, struct stat *sb)
 {
 	struct object obj;
+	debug_printf(":: stat %s\n", path);
 	int r = twz_object_open_name(&obj, path, FE_READ);
 	if(r < 0) {
 		debug_printf("--- stat %s: no obj\n", path);

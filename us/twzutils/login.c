@@ -36,7 +36,7 @@ void tmain(const char *username)
 	setenv("TWZUSER", userstring, 1);
 	setenv("USER", username, 1);
 	char *ps1 = NULL;
-	asprintf(&ps1, "\\e[36m%s\\e[m@\\e[35mtwizzler\\e[m:\\e[32m/\\e[m $ ", username);
+	asprintf(&ps1, "\\e[36m\\u\\e[m@\\e[35m\\h\\e[m:\\e[32m\\w\\e[m $ ");
 	setenv("PS1", ps1, 1);
 
 	r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);

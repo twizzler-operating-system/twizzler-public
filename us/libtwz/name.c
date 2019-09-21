@@ -233,7 +233,7 @@ static int __twz_name_dfl_resolve(struct object *obj, const char *name, int flag
 	if(r)
 		return r;
 	*id = ent.id;
-	return 0;
+	return ent.id ? 0 : -ENOENT;
 
 #if 0
 

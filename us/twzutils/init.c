@@ -379,7 +379,7 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	if(0 && !fork()) {
+	if(!fork()) {
 		close(0);
 		close(1);
 		close(2);
