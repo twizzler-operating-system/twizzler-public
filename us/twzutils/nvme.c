@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <twz/name.h>
 #include <twz/obj.h>
+#include <twz/sys.h>
 
 #include <twz/driver/pcie.h>
 
@@ -82,42 +83,47 @@ struct nvme_cmp {
 
 _Static_assert(sizeof(struct nvme_cmp) == 16, "");
 
+struct nvme_controller {
+	struct object co;
+	int dstride;
+};
+
 void *nvme_co_get_regs(struct object *co)
 {
 	struct pcie_function_header *hdr = twz_obj_base(co);
 	return twz_ptr_lea(co, (void *)hdr->bars[0]);
 }
 
-uint32_t nvme_reg_read32(struct object *co, int r)
+uint32_t nvme_reg_read32(struct nvme_controller *nc, int r)
 {
-	void *regs = nvme_co_get_regs(co);
+	void *regs = nvme_co_get_regs(&nc->co);
 	return *(volatile uint32_t *)((char *)regs + r);
 }
 
-uint64_t nvme_reg_read64(struct object *co, int r)
+uint64_t nvme_reg_read64(struct nvme_controller *nc, int r)
 {
-	void *regs = nvme_co_get_regs(co);
+	void *regs = nvme_co_get_regs(&nc->co);
 	return *(volatile uint64_t *)((char *)regs + r);
 }
 
-void nvme_reg_write32(struct object *co, int r, uint32_t v)
+void nvme_reg_write32(struct nvme_controller *nc, int r, uint32_t v)
 {
-	void *regs = nvme_co_get_regs(co);
+	void *regs = nvme_co_get_regs(&nc->co);
 	*(volatile uint32_t *)((char *)regs + r) = v;
 	asm volatile("sfence;" ::: "memory");
 }
 
-void nvme_reg_write64(struct object *co, int r, uint64_t v)
+void nvme_reg_write64(struct nvme_controller *nc, int r, uint64_t v)
 {
-	void *regs = nvme_co_get_regs(co);
+	void *regs = nvme_co_get_regs(&nc->co);
 	*(volatile uint64_t *)((char *)regs + r) = v;
 	asm volatile("sfence;" ::: "memory");
 }
 
-int nvmec_pcie_init(struct object *co)
+int nvmec_pcie_init(struct nvme_controller *nc)
 {
-	struct pcie_function_header *hdr = twz_obj_base(co);
-	struct pcie_config_space *space = twz_ptr_lea(co, hdr->space);
+	struct pcie_function_header *hdr = twz_obj_base(&nc->co);
+	struct pcie_config_space *space = twz_ptr_lea(&nc->co, hdr->space);
 	/* bus-master enable, memory space enable. We can do interrupt disable too, since we'll be using
 	 * MSI */
 	space->header.command =
@@ -125,22 +131,22 @@ int nvmec_pcie_init(struct object *co)
 	return 0;
 }
 
-int nvmec_reset(struct object *co)
+int nvmec_reset(struct nvme_controller *nc)
 {
 	/* cause a controller reset */
-	nvme_reg_write32(co, NVME_REG_CC, 0);
+	nvme_reg_write32(nc, NVME_REG_CC, 0);
 	/* wait for RDY to clear, indicating reset completed */
-	while(nvme_reg_read32(co, NVME_REG_CSTS) & NVME_CSTS_RDY)
+	while(nvme_reg_read32(nc, NVME_REG_CSTS) & NVME_CSTS_RDY)
 		asm("pause");
 	return 0;
 }
 
 #include <twz/debug.h>
-int nvmec_wait_for_ready(struct object *co)
+int nvmec_wait_for_ready(struct nvme_controller *nc)
 {
 	/* TODO: timeout */
 	uint32_t status;
-	while(!((status = nvme_reg_read32(co, NVME_REG_CSTS)) & (NVME_CSTS_RDY | NVME_CSTS_CFS)))
+	while(!((status = nvme_reg_read32(nc, NVME_REG_CSTS)) & (NVME_CSTS_RDY | NVME_CSTS_CFS)))
 		asm("pause");
 
 	if(status & NVME_CSTS_CFS) {
@@ -155,9 +161,9 @@ int nvmec_wait_for_ready(struct object *co)
 #define NVME_ACQS 1024
 
 #define LOG2(X) ((unsigned)(8 * sizeof(unsigned long long) - __builtin_clzll((X)) - 1))
-int nvmec_init(struct object *co)
+int nvmec_init(struct nvme_controller *nc)
 {
-	uint64_t caps = nvme_reg_read64(co, NVME_REG_CAP);
+	uint64_t caps = nvme_reg_read64(nc, NVME_REG_CAP);
 	/* controller requires we set queue entry sizes and host page size. */
 	uint32_t cmd = NVME_CC_MPS(4096 /*TODO: arch-dep*/)
 	               | NVME_CC_IOCQES(LOG2(sizeof(struct nvme_cmp)))
@@ -169,29 +175,53 @@ int nvmec_init(struct object *co)
 
 	/* controller requires we set the AQA register before enabling. */
 	uint32_t aqa = NVME_ASQS | (NVME_ACQS << 16);
-	nvme_reg_write32(co, NVME_REG_AQA, aqa);
+	nvme_reg_write32(nc, NVME_REG_AQA, aqa);
+
+	/* allocate the admin queue */
+	objid_t aq_id;
+	int r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &aq_id);
+	if(r)
+		return r;
+
+	uint64_t aq_pin;
+	r = sys_opin(aq_id, &aq_pin, 0);
+	if(r)
+		return r;
+
+	size_t q_total_len = NVME_ASQS * sizeof(struct nvme_cmd) + NVME_ASQS * sizeof(struct nvme_cmp);
+
+	r = sys_octl(aq_id, OCO_CACHE_MODE, 0x1000, q_total_len, OC_CM_UC);
+	if(r)
+		return r;
+
+	fprintf(stderr, "[nvme] allocated aq @ %lx\n", aq_pin);
+	nvme_reg_write64(nc, NVME_REG_ASQ, aq_pin + 0x1000);
+	nvme_reg_write64(nc, NVME_REG_ACQ, aq_pin + 0x1000 + NVME_ASQS * sizeof(struct nvme_cmd));
 
 	/* disable all interrupts for now */
-	nvme_reg_write32(co, NVME_REG_INTMS, 0xFFFFFFFF);
+	nvme_reg_write32(nc, NVME_REG_INTMS, 0xFFFFFFFF);
 
 	/* set the command, and set the EN bit in a separate write. Note: this might not be necessary,
 	 * but this isn't performance critical and the spec doesn't make it clear if these can be
 	 * combined. This is safer. :) */
-	nvme_reg_write32(co, NVME_REG_CC, cmd);
-	nvme_reg_write32(co, NVME_REG_CC, cmd | NVME_CC_EN);
+	nvme_reg_write32(nc, NVME_REG_CC, cmd);
+	nvme_reg_write32(nc, NVME_REG_CC, cmd | NVME_CC_EN);
+
+	nc->dstride = 1 << (NVME_CAP_DSTRD(caps) + 2);
+	fprintf(stderr, "[nvme] dstride is %d\n", nc->dstride);
 	return 0;
 }
 
-int nvmec_check_features(struct object *co)
+int nvmec_check_features(struct nvme_controller *nc)
 {
-	struct pcie_function_header *hdr = twz_obj_base(co);
+	struct pcie_function_header *hdr = twz_obj_base(&nc->co);
 	if(hdr->classid != 1 || hdr->subclassid != 8 || hdr->progif != 2) {
 		fprintf(stderr, "[nvme]: controller is not an NVMe controller\n");
 		return -1;
 	}
 
-	uint64_t caps = nvme_reg_read64(co, NVME_REG_CAP);
-	uint32_t vs = nvme_reg_read32(co, NVME_REG_VS);
+	uint64_t caps = nvme_reg_read64(nc, NVME_REG_CAP);
+	uint32_t vs = nvme_reg_read32(nc, NVME_REG_VS);
 	if(!(caps & (1ul << 37))) {
 		fprintf(stderr, "[nvme] controller does not support NVM command set\n");
 		return -1;
@@ -210,8 +240,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	struct object ctrl_obj;
-	int r = twz_object_open_name(&ctrl_obj, argv[1], FE_READ | FE_WRITE);
+	struct nvme_controller nc;
+	int r = twz_object_open_name(&nc.co, argv[1], FE_READ | FE_WRITE);
 	if(r) {
 		fprintf(stderr, "nvme: failed to open controller %s: %d\n", argv[1], r);
 		return 1;
@@ -219,19 +249,19 @@ int main(int argc, char **argv)
 
 	printf("[nvme] starting NVMe controller %s\n", argv[1]);
 
-	if(nvmec_check_features(&ctrl_obj))
+	if(nvmec_check_features(&nc))
 		return 1;
 
-	if(nvmec_pcie_init(&ctrl_obj))
+	if(nvmec_pcie_init(&nc))
 		return -1;
 
-	if(nvmec_reset(&ctrl_obj))
+	if(nvmec_reset(&nc))
 		return -1;
 
-	if(nvmec_init(&ctrl_obj))
+	if(nvmec_init(&nc))
 		return -1;
 
-	if(nvmec_wait_for_ready(&ctrl_obj))
+	if(nvmec_wait_for_ready(&nc))
 		return -1;
 
 	printf("[nvme] successfully started controller\n");

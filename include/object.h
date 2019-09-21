@@ -55,6 +55,7 @@ struct object {
 	int pglevel;
 	int flags;
 	ssize_t slot;
+	bool pinned;
 	bool idvercache;
 	bool idversafe;
 

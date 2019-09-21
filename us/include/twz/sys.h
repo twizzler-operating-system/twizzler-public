@@ -73,3 +73,13 @@ static inline long sys_kaction(size_t count, struct sys_kaction_args *args)
 {
 	return __syscall6(SYS_KACTION, count, (long)args, 0, 0, 0, 0);
 }
+
+static inline long sys_opin(objid_t id, uint64_t *addr, int flags)
+{
+	return __syscall6(SYS_OPIN, ID_LO(id), ID_HI(id), (long)addr, flags, 0, 0);
+}
+
+static inline long sys_octl(objid_t id, int op, long arg1, long arg2, long arg3)
+{
+	return __syscall6(SYS_OPIN, ID_LO(id), ID_HI(id), op, arg1, arg2, arg3);
+}

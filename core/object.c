@@ -176,8 +176,12 @@ struct object *obj_lookup(uint128_t id)
 void obj_alloc_slot(struct object *obj)
 {
 	/* TODO: lock free? */
-	krc_get(&obj->refs);
 	spinlock_acquire_save(&slotlock);
+	if(obj->slot > 0) {
+		spinlock_release_restore(&slotlock);
+		return;
+	}
+	krc_get(&obj->refs);
 	int slot = bitmap_ffr(slot_bitmap, NUM_TL_SLOTS);
 	if(slot == -1)
 		panic("Out of top-level slots");

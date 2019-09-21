@@ -221,3 +221,55 @@ long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags)
 {
 	return 0;
 }
+
+long syscall_opin(uint64_t lo, uint64_t hi, uint64_t *addr, int flags)
+{
+	objid_t id = MKID(hi, lo);
+	struct object *o = obj_lookup(id);
+	if(!o)
+		return -ENOENT;
+
+	if(flags & OP_UNPIN) {
+		o->pinned = false;
+	} else {
+		o->pinned = true;
+		obj_alloc_slot(o);
+		if(addr)
+			*addr = o->slot * OBJ_MAXSIZE;
+	}
+	obj_put(o);
+	return 0;
+}
+
+#include <page.h>
+long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long arg3)
+{
+	objid_t id = MKID(hi, lo);
+	struct object *o = obj_lookup(id);
+	if(!o)
+		return -ENOENT;
+
+	int r = 0;
+	switch(op) {
+		size_t pnb, pne;
+		case OCO_CACHE_MODE:
+			pnb = arg1 / mm_page_size(0);
+			pne = (arg1 + arg2) / mm_page_size(0);
+			/* TODO: bounds check */
+			for(size_t i = pnb; i < pne; i++) {
+				struct objpage *pg = obj_get_page(o, i, true);
+				/* TODO: locking */
+				pg->page->flags |= flag_if_notzero(arg3 & OC_CM_UC, PAGE_CACHE_UC);
+				pg->page->flags |= flag_if_notzero(arg3 & OC_CM_WB, PAGE_CACHE_WB);
+				pg->page->flags |= flag_if_notzero(arg3 & OC_CM_WT, PAGE_CACHE_WT);
+				pg->page->flags |= flag_if_notzero(arg3 & OC_CM_WC, PAGE_CACHE_WC);
+				arch_object_map_page(o, pg->page, i);
+			}
+			break;
+		default:
+			r = -EINVAL;
+	}
+
+	obj_put(o);
+	return r;
+}

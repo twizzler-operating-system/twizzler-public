@@ -166,10 +166,12 @@ static void iommu_set_context_entry(struct iommu *im,
 
 void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __unused)
 {
+	printk("!!! IOMMU FAULT\n");
 }
 
 void __iommu_inv_handler(int v __unused, struct interrupt_handler *h __unused)
 {
+	printk("!!! IOMMU INV\n");
 }
 
 static struct interrupt_alloc_req _iommu_int_iaq[2] = {

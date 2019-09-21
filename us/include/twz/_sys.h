@@ -10,7 +10,9 @@
 #define SYS_ODELETE 9
 #define SYS_THRD_CTL 10
 #define SYS_KACTION 11
-#define NUM_SYSCALLS 12
+#define SYS_OPIN 12
+#define SYS_OCTL 13
+#define NUM_SYSCALLS 14
 
 #define TWZ_DETACH_ONSYSCALL(s) ((s) << 16)
 #define TWZ_DETACH_REATTACH 0
@@ -101,3 +103,14 @@ struct sys_kaction_args {
 	long arg;
 	long flags;
 };
+
+#define OP_UNPIN 1
+
+enum octl_operation {
+	OCO_CACHE_MODE,
+};
+
+#define OC_CM_WB 0
+#define OC_CM_UC 1
+#define OC_CM_WT 2
+#define OC_CM_WC 3
