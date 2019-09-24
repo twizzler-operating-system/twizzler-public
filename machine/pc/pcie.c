@@ -82,22 +82,6 @@ static struct pcie_function *pcief_lookup(uint16_t space,
 	return NULL;
 }
 
-static bool pcief_capability_get(struct pcie_function *pf, int id, union pcie_capability_ptr *cap)
-{
-	if(pf->config->device.cap_ptr) {
-		size_t offset = pf->config->device.cap_ptr;
-		do {
-			cap->header = (struct pcie_capability_header *)((char *)pf->config + offset);
-
-			if(cap->header->capid == id)
-				return true;
-			offset = cap->header->next;
-		} while(offset != 0);
-	}
-	/* TODO: pcie extended caps? */
-	return false;
-}
-
 static void __alloc_bar(struct object *obj,
   size_t start,
   size_t sz,
@@ -255,7 +239,7 @@ static long pcie_function_init(struct object *pbobj,
 		hdr.bars[i] = (volatile void *)start;
 		hdr.prefetch[i] = pref;
 		hdr.barsz[i] = sz;
-#if 0
+#if 1
 		printk("init bar %d for addr %lx at %lx len=%ld, type=%d (p=%d,wc=%d)\n",
 		  i,
 		  addr,

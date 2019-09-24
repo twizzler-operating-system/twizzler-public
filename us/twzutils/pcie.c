@@ -17,22 +17,6 @@ static struct object pids;
 
 static struct pcie_function *pcie_list = NULL;
 
-static bool pcief_capability_get(struct pcie_function *pf, int id, union pcie_capability_ptr *cap)
-{
-	if(pf->config->device.cap_ptr) {
-		size_t offset = pf->config->device.cap_ptr;
-		do {
-			cap->header = (struct pcie_capability_header *)((char *)pf->config + offset);
-
-			if(cap->header->capid == id)
-				return true;
-			offset = cap->header->next;
-		} while(offset != 0);
-	}
-	/* TODO: pcie extended caps? */
-	return false;
-}
-
 void pcie_print_function(struct pcie_function *pf, bool nums)
 {
 	static bool _init = false;

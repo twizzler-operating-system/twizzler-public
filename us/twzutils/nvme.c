@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -107,7 +108,7 @@ struct nvme_controller {
 	struct object co;
 	struct object qo;
 	int dstride;
-	bool init;
+	bool init, msix;
 	uint64_t aq_pin;
 	struct nvme_queue *queues;
 };
@@ -184,6 +185,7 @@ void nvme_reg_write64(struct nvme_controller *nc, int r, uint64_t v)
 	asm volatile("sfence;" ::: "memory");
 }
 
+#include <twz/driver/msi.h>
 int nvmec_pcie_init(struct nvme_controller *nc)
 {
 	struct pcie_function_header *hdr = twz_obj_base(&nc->co);
@@ -192,6 +194,7 @@ int nvmec_pcie_init(struct nvme_controller *nc)
 	 * MSI */
 	space->header.command =
 	  COMMAND_MEMORYSPACE | COMMAND_BUSMASTER | COMMAND_INTDISABLE | COMMAND_SERRENABLE;
+	/* allocate an interrupt vector */
 	hdr->nr_interrupts = 1;
 	hdr->interrupts[0].flags = PCIE_FUNCTION_INT_ENABLE;
 	struct sys_kaction_args args = {
@@ -210,8 +213,37 @@ int nvmec_pcie_init(struct nvme_controller *nc)
 		return r;
 	}
 	fprintf(stderr, "[nvme] allocated vector %d for interrupts\n", hdr->interrupts[0].vec);
-	// fprintf(stderr, "ALLOC: vec %d\n", hdr->interrupts[0].vec);
 
+	/* try to use MSI-X, but fall back to MSI if not available */
+	union pcie_capability_ptr cp;
+	nc->msix = pcief_capability_get(hdr, PCIE_MSIX_CAPABILITY_ID, &cp);
+	if(!nc->msix && !pcief_capability_get(hdr, PCIE_MSI_CAPABILITY_ID, &cp)) {
+		fprintf(stderr, "[nvme] no interrupt generation method supported\n");
+		return -ENOTSUP;
+	}
+
+	if(nc->msix) {
+		volatile struct pcie_msix_capability *msix = cp.msix;
+		fprintf(
+		  stderr, "[nvme] table sz = %d; tob = %x\n", msix->table_size, msix->table_offset_bir);
+		uint8_t bir = msix->table_offset_bir & 0x7;
+		if(bir != 0 && bir != 4 && bir != 5) {
+			fprintf(stderr, "[nvme] invalid BIR in table offset\n");
+			return -EINVAL;
+		}
+		uint32_t off = msix->table_offset_bir & ~0x7;
+		volatile struct pcie_msix_table_entry *tbl =
+		  twz_ptr_lea(&nc->co, (void *)((long)hdr->bars[bir] + off));
+		fprintf(stderr, "[nvme] MSIx: %p %p %d\n", hdr->bars[bir], tbl, off);
+		tbl->data = device_msi_data(hdr->interrupts[0].vec, MSI_LEVEL);
+		tbl->addr = device_msi_addr(0);
+		tbl->ctl = 0;
+		msix->fn_mask = 0;
+		msix->msix_enable = 1;
+	} else {
+		fprintf(stderr, "[nvme] TODO: not implemented: MSI (not MSI-X support)\n");
+		return -ENOTSUP;
+	}
 	return 0;
 }
 
@@ -301,8 +333,10 @@ int nvmec_init(struct nvme_controller *nc)
 	nvme_reg_write64(nc, NVME_REG_ASQ, nc->aq_pin + 0x1000);
 	nvme_reg_write64(nc, NVME_REG_ACQ, nc->aq_pin + 0x1000 + NVME_ASQS * sizeof(struct nvme_cmd));
 
-	/* disable all interrupts for now */
-	nvme_reg_write32(nc, NVME_REG_INTMS, 0xFFFFFFFF);
+	if(!nc->msix) {
+		/* disable all interrupts for now */
+		nvme_reg_write32(nc, NVME_REG_INTMS, 0xFFFFFFFF);
+	}
 
 	/* set the command, and set the EN bit in a separate write. Note: this might not be necessary,
 	 * but this isn't performance critical and the spec doesn't make it clear if these can be
@@ -312,6 +346,10 @@ int nvmec_init(struct nvme_controller *nc)
 
 	nc->dstride = 1 << (NVME_CAP_DSTRD(caps) + 2);
 	fprintf(stderr, "[nvme] dstride is %d\n", nc->dstride);
+	if(!nc->msix) {
+		/* unmask all interrupts */
+		nvme_reg_write32(nc, NVME_REG_INTMC, 0xFFFFFFFF);
+	}
 	return 0;
 }
 
@@ -373,10 +411,10 @@ int main(int argc, char **argv)
 	if(nvmec_check_features(&nc))
 		return 1;
 
-	if(nvmec_pcie_init(&nc))
+	if(nvmec_reset(&nc))
 		return -1;
 
-	if(nvmec_reset(&nc))
+	if(nvmec_pcie_init(&nc))
 		return -1;
 
 	if(nvmec_init(&nc))

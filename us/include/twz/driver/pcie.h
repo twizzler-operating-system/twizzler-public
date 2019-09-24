@@ -202,16 +202,17 @@ struct __packed pcie_msi_capability {
 };
 
 /* Message Signaled Interrupt-X support. Detailed in the PCI 3.0 base specification */
-#define PCIE_MSIX_CAPABILITY_ID 11
+#define PCIE_MSIX_CAPABILITY_ID 0x11
 
 struct __packed pcie_msix_capability {
 	struct pcie_capability_header header;
 	/* message control */
 	uint16_t table_size : 11;
-	uint16_t resv0 : 4;
+	uint16_t resv0 : 3;
+	uint16_t fn_mask : 1;
 	uint16_t msix_enable : 1;
-	uint32_t msg_upper_addr;
-	uint32_t table_offset;
+	uint32_t table_offset_bir;
+	uint32_t pba_offset_bir;
 };
 
 union pcie_capability_ptr {
@@ -222,8 +223,9 @@ union pcie_capability_ptr {
 };
 
 struct __packed pcie_msix_table_entry {
+	uint64_t addr;
 	uint32_t data;
-	uint32_t addr_bir;
+	uint32_t ctl;
 };
 
 #define HEADER_TYPE_DEVICE 0
@@ -258,3 +260,25 @@ struct __packed pcie_msix_table_entry {
 #define MEMORY_BAR_ADDRESS(m) ((m)&0xfffffffffffffff0)
 #define MEMORY_BAR_TYPE(m) (((m)&6) >> 1)
 #define MEMORY_BAR_PREFETCH(m) (m & (1 << 3))
+
+#ifndef __KERNEL__
+#include <twz/obj.h>
+static inline bool pcief_capability_get(struct pcie_function_header *pf,
+  int id,
+  union pcie_capability_ptr *cap)
+{
+	struct pcie_config_space *space = twz_ptr_lea(&TWZ_OBJECT_FROM_PTR(pf), pf->space);
+	if(space->device.cap_ptr) {
+		size_t offset = space->device.cap_ptr;
+		do {
+			cap->header = (struct pcie_capability_header *)((char *)space + offset);
+
+			if(cap->header->capid == id)
+				return true;
+			offset = cap->header->next;
+		} while(offset != 0);
+	}
+	/* TODO: pcie extended caps? */
+	return false;
+}
+#endif
