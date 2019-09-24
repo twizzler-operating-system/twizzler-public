@@ -13,6 +13,9 @@ enum iv_priority {
 	IVP_UNIQUE,
 };
 
+#define INTERRUPT_ALLOC_REQ_VALID 1
+#define INTERRUPT_ALLOC_REQ_ENABLED 2
+
 struct interrupt_alloc_req {
 	struct interrupt_handler handler;
 	uint8_t flags;

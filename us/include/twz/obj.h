@@ -7,6 +7,8 @@
 
 struct object {
 	void *base;
+	uint64_t flags;
+	objid_t id;
 };
 
 #define twz_slot_to_base(s) ({ (void *)((s)*OBJ_MAXSIZE + OBJ_NULLPAGE_SIZE); })
@@ -56,6 +58,7 @@ static inline void *__twz_ptr_lea(const struct object *o, const void *p)
 int twz_object_open(struct object *obj, objid_t id, int flags);
 int twz_object_open_name(struct object *obj, const char *name, int flags);
 
+objid_t twz_object_id(struct object *o);
 #define SLOT_TO_VADDR(s) ({ (void *)((s)*OBJ_MAXSIZE); })
 #define VADDR_TO_SLOT(s) ({ (size_t)((uintptr_t)(s) / OBJ_MAXSIZE); })
 

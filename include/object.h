@@ -64,6 +64,7 @@ struct object {
 		struct kso_view view;
 		struct kso_throbj thr;
 		struct kso_sctx sctx;
+		void *data;
 	};
 	struct kso_calls *kso_calls;
 	long (*kaction)(struct object *, long, long);

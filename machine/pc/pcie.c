@@ -127,6 +127,66 @@ static void __alloc_bar(struct object *obj,
 	}
 }
 
+#define MAX_INT_PER_DEV 8
+struct kso_pcie_data {
+	uint16_t segment;
+	uint8_t bus;
+	uint8_t device;
+	uint8_t function;
+	struct interrupt_alloc_req ir[MAX_INT_PER_DEV];
+};
+
+void __pcie_fn_interrupt(int v, struct interrupt_handler *ih)
+{
+	printk("[pcie] interrupt!\n");
+}
+
+#include <kalloc.h>
+static long __pcie_fn_kaction(struct object *obj, long cmd, long arg)
+{
+	struct pcie_function_header hdr;
+	struct kso_pcie_data *data;
+	switch(cmd) {
+		case KACTION_CMD_PF_INTERRUPTS_SETUP:
+			obj_read_data(obj, 0, sizeof(hdr), &hdr);
+			data = obj->data;
+			printk("[pcie]: setup interrupts (%x:%x:%x.%x)\n",
+			  data->segment,
+			  data->bus,
+			  data->device,
+			  data->function);
+			if(hdr.nr_interrupts > MAX_INT_PER_DEV)
+				hdr.nr_interrupts = MAX_INT_PER_DEV;
+			for(unsigned i = 0; i < hdr.nr_interrupts; i++) {
+				struct pcie_function_interrupt irq;
+				obj_read_data(obj, sizeof(hdr) + i * sizeof(irq), sizeof(irq), &irq);
+				if(irq.flags & PCIE_FUNCTION_INT_ENABLE) {
+					data->ir[i].flags |= INTERRUPT_ALLOC_REQ_VALID;
+					data->ir[i].handler.fn = __pcie_fn_interrupt;
+				}
+			}
+			if(interrupt_allocate_vectors(hdr.nr_interrupts, data->ir)) {
+				return -EIO;
+			}
+			for(unsigned i = 0; i < hdr.nr_interrupts; i++) {
+				struct pcie_function_interrupt irq;
+				obj_read_data(obj, sizeof(hdr) + i * sizeof(irq), sizeof(irq), &irq);
+				if(irq.flags & PCIE_FUNCTION_INT_ENABLE) {
+					if(data->ir[i].flags & INTERRUPT_ALLOC_REQ_ENABLED) {
+						irq.vec = data->ir[i].vec;
+						obj_write_data(obj, sizeof(hdr) + i * sizeof(irq), sizeof(irq), &irq);
+					}
+				}
+			}
+			obj_write_data(obj, 0, sizeof(hdr), &hdr);
+
+			break;
+		default:
+			return -EINVAL;
+	}
+	return 0;
+}
+
 static long pcie_function_init(struct object *pbobj,
   uint16_t segment,
   int bus,
@@ -216,6 +276,13 @@ static long pcie_function_init(struct object *pbobj,
 	__alloc_bar(fobj, start, 0x1000, 0, 0, ba);
 	hdr.space = (void *)start;
 	obj_write_data(fobj, 0, sizeof(hdr), &hdr);
+	struct kso_pcie_data *data = fobj->data = kalloc(sizeof(struct kso_pcie_data));
+	data->bus = bus;
+	data->device = device;
+	data->function = function;
+	data->segment = segment;
+
+	fobj->kaction = __pcie_fn_kaction;
 
 	unsigned int fnid = function | device << 3 | bus << 8;
 	obj_write_data(pbobj, offsetof(struct pcie_bus_header, functions[fnid]), sizeof(psid), &psid);

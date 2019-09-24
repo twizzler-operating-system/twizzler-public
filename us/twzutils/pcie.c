@@ -262,6 +262,8 @@ static void pcie_init_space(struct pcie_bus_header *space)
 #include <twz/name.h>
 void pcie_load_driver(struct pcie_function *pf)
 {
+	int r = sys_opin(pf->cid, NULL, 0);
+
 	struct pcie_function_header *hdr = twz_obj_base(&pf->cobj);
 	if(hdr->vendorid == 0x1234 && hdr->deviceid == 0x1111) {
 		twz_name_assign(pf->cid, "dev:output:framebuffer");

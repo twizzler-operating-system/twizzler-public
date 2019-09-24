@@ -16,6 +16,8 @@ int interrupt_allocate_vectors(size_t count, struct interrupt_alloc_req *req)
 	bool ok = true;
 	spinlock_acquire_save(&alloc_lock);
 	for(size_t i = 0; i < count; i++, req++) {
+		if(!(req->flags & INTERRUPT_ALLOC_REQ_VALID) || (req->flags & INTERRUPT_ALLOC_REQ_ENABLED))
+			continue;
 		size_t ov = vp - 1;
 		req->vec = -1;
 		for(; vp != ov && req->vec == -1;) {
@@ -30,6 +32,7 @@ int interrupt_allocate_vectors(size_t count, struct interrupt_alloc_req *req)
 			arch_interrupt_unmask(vp);
 
 			req->vec = vp;
+			req->flags |= INTERRUPT_ALLOC_REQ_ENABLED;
 			spinlock_release_restore(&locks[vp]);
 			vp++;
 			if(vp >= MAX_INTERRUPT_VECTORS)

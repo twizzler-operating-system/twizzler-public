@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <twz/name.h>
 #include <twz/obj.h>
 #include <twz/sys.h>
@@ -15,8 +17,8 @@
 #define NVME_REG_AQA 0x24
 #define NVME_REG_ASQ 0x28
 #define NVME_REG_ACQ 0x30
-#define NVME_REG_SQnTDBL(n, s) (0x1000 + ((n) * (4 << (s))))
-#define NVME_REG_CQnHDBL(n, s) (0x1000 + (((n) + 1) * (4 << (s))))
+#define NVME_REG_SQnTDBL(n, s) (0x1000 + ((n) * (s)))
+#define NVME_REG_CQnHDBL(n, s) (0x1000 + (((n) + 1) * (s)))
 
 #define NVME_CAP_MPSMAX(c) (((c) >> 52) & 0xf)
 #define NVME_CAP_MPSMIN(c) (((c) >> 48) & 0xf)
@@ -74,6 +76,24 @@ struct nvme_cmd {
 	uint32_t cmd_dword_10[6];
 };
 
+enum nvme_admin_op {
+	NVME_ADMIN_OP_IDENTIFY = 0x6,
+};
+
+#define NVME_CMD_SDW0_CID(x) ((x) << 16)
+#define NVME_CMD_SDW0_PSDT(x) ((x) << 14)
+#define NVME_CMD_SDW0_FUSE(x) ((x) << 8)
+#define NVME_CMD_SDW0_OP(x) ((x))
+
+static void nvme_cmd_init_identify(struct nvme_cmd *cmd, uint8_t cns, uint8_t nsid, uint64_t addr)
+{
+	memset(cmd, 0, sizeof(*cmd));
+	cmd->hdr.cdw0 = NVME_CMD_SDW0_OP(NVME_ADMIN_OP_IDENTIFY);
+	cmd->hdr.nsid = nsid;
+	cmd->hdr.dptr.prpp[0].addr = addr;
+	cmd->cmd_dword_10[0] = cns;
+}
+
 _Static_assert(sizeof(struct nvme_cmd) == 64, "");
 
 struct nvme_cmp {
@@ -85,8 +105,52 @@ _Static_assert(sizeof(struct nvme_cmp) == 16, "");
 
 struct nvme_controller {
 	struct object co;
+	struct object qo;
 	int dstride;
+	bool init;
+	uint64_t aq_pin;
+	struct nvme_queue *queues;
 };
+
+struct nvme_queue {
+	struct {
+		volatile uint32_t *tail_doorbell;
+		uint32_t head, tail;
+		volatile struct nvme_cmd *entries;
+	} subq;
+	struct {
+		volatile uint32_t *head_doorbell;
+		uint32_t head, tail;
+		volatile struct nvme_cmp *entries;
+	} cmpq;
+	uint32_t count;
+};
+
+void nvmeq_init(struct nvme_queue *q,
+  struct nvme_cmd *sentries,
+  struct nvme_cmp *centries,
+  uint32_t count,
+  uint32_t *head_db,
+  uint32_t *tail_db)
+{
+	q->subq.entries = sentries;
+	q->cmpq.entries = centries;
+	q->count = count;
+	q->cmpq.head_doorbell = head_db;
+	q->subq.tail_doorbell = tail_db;
+	q->subq.head = q->subq.tail = 0;
+	q->cmpq.head = q->cmpq.tail = 0;
+}
+
+#include <stdatomic.h>
+void nvmeq_submit_cmd(struct nvme_queue *q, struct nvme_cmd *cmd)
+{
+	size_t index = q->subq.tail;
+	q->subq.entries[q->subq.tail] = *cmd;
+	atomic_thread_fence(memory_order_acq_rel);
+	q->subq.tail = (q->subq.tail + 1) & (q->count - 1);
+	*q->subq.tail_doorbell = q->subq.tail;
+}
 
 void *nvme_co_get_regs(struct object *co)
 {
@@ -128,6 +192,26 @@ int nvmec_pcie_init(struct nvme_controller *nc)
 	 * MSI */
 	space->header.command =
 	  COMMAND_MEMORYSPACE | COMMAND_BUSMASTER | COMMAND_INTDISABLE | COMMAND_SERRENABLE;
+	hdr->nr_interrupts = 1;
+	hdr->interrupts[0].flags = PCIE_FUNCTION_INT_ENABLE;
+	struct sys_kaction_args args = {
+		.id = twz_object_id(&nc->co),
+		.cmd = KACTION_CMD_PF_INTERRUPTS_SETUP,
+		.arg = 0,
+		.flags = KACTION_VALID,
+	};
+	int r;
+	if((r = sys_kaction(1, &args)) < 0) {
+		fprintf(stderr, "kaction: %d\n", r);
+		return r;
+	}
+	if(args.result) {
+		fprintf(stderr, "kaction-result: %d\n", args.result);
+		return r;
+	}
+	fprintf(stderr, "[nvme] allocated vector %d for interrupts\n", hdr->interrupts[0].vec);
+	// fprintf(stderr, "ALLOC: vec %d\n", hdr->interrupts[0].vec);
+
 	return 0;
 }
 
@@ -161,6 +245,15 @@ int nvmec_wait_for_ready(struct nvme_controller *nc)
 #define NVME_ACQS 1024
 
 #define LOG2(X) ((unsigned)(8 * sizeof(unsigned long long) - __builtin_clzll((X)) - 1))
+
+uint32_t *nvmec_get_doorbell(struct nvme_controller *nc, uint32_t dnr, bool tail)
+{
+	void *regs = nvme_co_get_regs(&nc->co);
+	return (uint32_t *)((char *)regs
+	                    + (tail ? NVME_REG_SQnTDBL(dnr, nc->dstride)
+	                            : NVME_REG_CQnHDBL(dnr, nc->dstride)));
+}
+
 int nvmec_init(struct nvme_controller *nc)
 {
 	uint64_t caps = nvme_reg_read64(nc, NVME_REG_CAP);
@@ -183,8 +276,7 @@ int nvmec_init(struct nvme_controller *nc)
 	if(r)
 		return r;
 
-	uint64_t aq_pin;
-	r = sys_opin(aq_id, &aq_pin, 0);
+	r = sys_opin(aq_id, &nc->aq_pin, 0);
 	if(r)
 		return r;
 
@@ -193,10 +285,21 @@ int nvmec_init(struct nvme_controller *nc)
 	r = sys_octl(aq_id, OCO_CACHE_MODE, 0x1000, q_total_len, OC_CM_UC);
 	if(r)
 		return r;
+	twz_object_open(&nc->qo, aq_id, FE_READ | FE_WRITE);
 
-	fprintf(stderr, "[nvme] allocated aq @ %lx\n", aq_pin);
-	nvme_reg_write64(nc, NVME_REG_ASQ, aq_pin + 0x1000);
-	nvme_reg_write64(nc, NVME_REG_ACQ, aq_pin + 0x1000 + NVME_ASQS * sizeof(struct nvme_cmd));
+	fprintf(stderr, "[nvme] allocated aq @ %lx\n", nc->aq_pin);
+	struct nvme_queue *queues =
+	  calloc(1024 /* TODO: read max nr queues */, sizeof(struct nvme_queue));
+	nc->queues = queues;
+
+	nvmeq_init(&queues[0],
+	  (void *)((uint64_t)twz_obj_base(&nc->qo) + 0x1000),
+	  (void *)((uint64_t)twz_obj_base(&nc->qo) + 0x1000 + NVME_ASQS * sizeof(struct nvme_cmd)),
+	  NVME_ASQS,
+	  nvmec_get_doorbell(nc, 0, false),
+	  nvmec_get_doorbell(nc, 0, true));
+	nvme_reg_write64(nc, NVME_REG_ASQ, nc->aq_pin + 0x1000);
+	nvme_reg_write64(nc, NVME_REG_ACQ, nc->aq_pin + 0x1000 + NVME_ASQS * sizeof(struct nvme_cmd));
 
 	/* disable all interrupts for now */
 	nvme_reg_write32(nc, NVME_REG_INTMS, 0xFFFFFFFF);
@@ -233,6 +336,24 @@ int nvmec_check_features(struct nvme_controller *nc)
 	return 0;
 }
 
+int nvmec_identify(struct nvme_controller *nc)
+{
+	struct nvme_cmd cmd;
+	void *memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000);
+	nvme_cmd_init_identify(&cmd, 1, 0, nc->aq_pin + 0x200000 + 0x1000);
+	nvmeq_submit_cmd(&nc->queues[0], &cmd);
+
+	while(1) {
+		uint32_t s = nvme_reg_read32(nc, NVME_REG_CSTS);
+		if(s & NVME_CSTS_CFS) {
+			fprintf(stderr, "FATAL STATUS\n");
+			for(;;)
+				;
+		}
+	}
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	if(!argv[1]) {
@@ -240,7 +361,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	struct nvme_controller nc;
+	struct nvme_controller nc = {};
 	int r = twz_object_open_name(&nc.co, argv[1], FE_READ | FE_WRITE);
 	if(r) {
 		fprintf(stderr, "nvme: failed to open controller %s: %d\n", argv[1], r);
@@ -263,6 +384,8 @@ int main(int argc, char **argv)
 
 	if(nvmec_wait_for_ready(&nc))
 		return -1;
+	nc.init = true;
+	nvmec_identify(&nc);
 
 	printf("[nvme] successfully started controller\n");
 	return 0;
