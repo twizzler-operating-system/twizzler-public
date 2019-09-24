@@ -112,7 +112,7 @@ void arch_object_map_slot(struct object *obj, uint64_t flags)
 	int pdpt_idx = PDPT_IDX(virt);
 
 	uintptr_t *pml4 = GET_VIRT_TABLE(ept_phys);
-	test_and_allocate(&pml4[pml4_idx], flags);
+	test_and_allocate(&pml4[pml4_idx], EPT_READ | EPT_WRITE | EPT_EXEC);
 
 	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
 	// printk("mapping slot %ld -> %lx\n", obj->slot, obj->arch.pt_root | ef);
@@ -136,6 +136,22 @@ void arch_object_unmap_page(struct object *obj, size_t idx)
 	}
 }
 
+bool arch_object_map_flush(struct object *obj, size_t idx)
+{
+	uintptr_t *pd = mm_ptov(obj->arch.pt_root);
+	uintptr_t virt = idx * mm_page_size(0);
+	int pd_idx = PD_IDX(virt);
+	int pt_idx = PT_IDX(virt);
+
+	if(pd[pd_idx] & PAGE_LARGE) {
+		arch_processor_clwb(pd[pd_idx]);
+	} else if(pd[pd_idx]) {
+		uint64_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
+		arch_processor_clwb(pt[pt_idx]);
+	}
+	return true;
+}
+
 bool arch_object_map_page(struct object *obj, struct page *page, size_t idx)
 {
 	uintptr_t *pd = mm_ptov(obj->arch.pt_root);
@@ -145,7 +161,6 @@ bool arch_object_map_page(struct object *obj, struct page *page, size_t idx)
 	int pd_idx = PD_IDX(virt);
 	int pt_idx = PT_IDX(virt);
 	uint64_t flags = 0;
-	// printk("map_page: %ld (%lx)\n", idx, virt);
 	switch(PAGE_CACHE_TYPE(page)) {
 		case PAGE_CACHE_WB:
 			flags = EPT_MEMTYPE_WB;
@@ -163,19 +178,13 @@ bool arch_object_map_page(struct object *obj, struct page *page, size_t idx)
 
 	/* map with ALL permissions; we'll restrict permissions at a higher level */
 	flags |= EPT_READ | EPT_WRITE | EPT_EXEC | EPT_IGNORE_PAT;
-	// printk("  fl = %lx %llx %llx %llx %x\n", flags, EPT_READ, EPT_WRITE, EPT_EXEC,
-	// EPT_IGNORE_PAT);
 
 	if(page->level == 1) {
 		pd[pd_idx] = page->addr | flags | PAGE_LARGE;
-		//	printk("  writing pd[%d] = %llx\n", pd_idx, page->addr | flags | PAGE_LARGE);
 	} else {
 		test_and_allocate(&pd[pd_idx], EPT_READ | EPT_WRITE | EPT_EXEC);
-		//	printk("  pd[%d] = %lx\n", pd_idx, pd[pd_idx]);
 		uint64_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
 		pt[pt_idx] = page->addr | flags;
-		//	printk("  writing pt[%d] = %lx (%lx %lx)\n", pt_idx, page->addr | flags, page->addr,
-		// flags);
 	}
 	return true;
 }

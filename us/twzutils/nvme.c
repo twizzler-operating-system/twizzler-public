@@ -6,6 +6,7 @@
 #include <twz/obj.h>
 #include <twz/sys.h>
 
+#include <twz/debug.h>
 #include <twz/driver/pcie.h>
 
 #define NVME_REG_CAP 0
@@ -124,6 +125,7 @@ struct nvme_queue {
 		uint32_t head, tail;
 		volatile struct nvme_cmp *entries;
 	} cmpq;
+	uint64_t *sps;
 	uint32_t count;
 };
 
@@ -136,6 +138,7 @@ void nvmeq_init(struct nvme_queue *q,
 {
 	q->subq.entries = sentries;
 	q->cmpq.entries = centries;
+	q->sps = calloc(count, sizeof(uint64_t) * count);
 	q->count = count;
 	q->cmpq.head_doorbell = head_db;
 	q->subq.tail_doorbell = tail_db;
@@ -147,6 +150,7 @@ void nvmeq_init(struct nvme_queue *q,
 void nvmeq_submit_cmd(struct nvme_queue *q, struct nvme_cmd *cmd)
 {
 	size_t index = q->subq.tail;
+	cmd->hdr.cdw0 |= (uint32_t)(index << 16);
 	q->subq.entries[q->subq.tail] = *cmd;
 	atomic_thread_fence(memory_order_acq_rel);
 	q->subq.tail = (q->subq.tail + 1) & (q->count - 1);
@@ -257,7 +261,6 @@ int nvmec_reset(struct nvme_controller *nc)
 	return 0;
 }
 
-#include <twz/debug.h>
 int nvmec_wait_for_ready(struct nvme_controller *nc)
 {
 	/* TODO: timeout */
@@ -325,13 +328,14 @@ int nvmec_init(struct nvme_controller *nc)
 	nc->queues = queues;
 
 	nvmeq_init(&queues[0],
-	  (void *)((uint64_t)twz_obj_base(&nc->qo) + 0x1000),
-	  (void *)((uint64_t)twz_obj_base(&nc->qo) + 0x1000 + NVME_ASQS * sizeof(struct nvme_cmd)),
+	  (void *)((uint64_t)twz_obj_base(&nc->qo)),
+	  (void *)((uint64_t)twz_obj_base(&nc->qo) + NVME_ASQS * sizeof(struct nvme_cmd)),
 	  NVME_ASQS,
 	  nvmec_get_doorbell(nc, 0, false),
 	  nvmec_get_doorbell(nc, 0, true));
-	nvme_reg_write64(nc, NVME_REG_ASQ, nc->aq_pin + 0x1000);
-	nvme_reg_write64(nc, NVME_REG_ACQ, nc->aq_pin + 0x1000 + NVME_ASQS * sizeof(struct nvme_cmd));
+	nvme_reg_write64(nc, NVME_REG_ASQ, nc->aq_pin + OBJ_NULLPAGE_SIZE);
+	nvme_reg_write64(
+	  nc, NVME_REG_ACQ, nc->aq_pin + OBJ_NULLPAGE_SIZE + NVME_ASQS * sizeof(struct nvme_cmd));
 
 	if(!nc->msix) {
 		/* disable all interrupts for now */
@@ -381,14 +385,40 @@ int nvmec_identify(struct nvme_controller *nc)
 	nvme_cmd_init_identify(&cmd, 1, 0, nc->aq_pin + 0x200000 + 0x1000);
 	nvmeq_submit_cmd(&nc->queues[0], &cmd);
 
-	while(1) {
-		uint32_t s = nvme_reg_read32(nc, NVME_REG_CSTS);
-		if(s & NVME_CSTS_CFS) {
-			fprintf(stderr, "FATAL STATUS\n");
-			for(;;)
-				;
+	return 0;
+}
+
+void nvme_wait_for_event(struct nvme_controller *nc)
+{
+	struct pcie_function_header *hdr = twz_obj_base(&nc->co);
+	struct sys_thread_sync_args sa[2] = { [0] = { .addr = &hdr->iov_fault,
+		                                    .op = THREAD_SYNC_SLEEP },
+		[1] = { .addr = &hdr->interrupts[0].sp, .op = THREAD_SYNC_SLEEP
+
+		} };
+	for(;;) {
+		debug_printf("NVME WAIT\n");
+		uint64_t iovf = atomic_exchange(&hdr->iov_fault, 0);
+		uint64_t irq = atomic_exchange(&hdr->interrupts[0].sp, 0);
+		debug_printf(":: %lx %lx\n", iovf, irq);
+		if(!iovf && !irq) {
+			int r = sys_thread_sync(2, sa);
+			if(r < 0) {
+				fprintf(stderr, "[nvme] thread_sync error: %d\n", r);
+				return;
+			}
 		}
 	}
+}
+
+#include <pthread.h>
+
+void *ptm(void *arg)
+{
+	nvmec_identify(arg);
+
+	for(;;)
+		;
 	return 0;
 }
 
@@ -423,6 +453,17 @@ int main(int argc, char **argv)
 	if(nvmec_wait_for_ready(&nc))
 		return -1;
 	nc.init = true;
+
+	pthread_t pt;
+	pthread_create(&pt, NULL, ptm, &nc);
+	nvme_wait_for_event(&nc);
+	for(volatile long i = 0; i < 1000000000; i++) {
+	}
+	debug_printf("TRYING IDENT AGAIN\n");
+	nvmec_identify(&nc);
+	for(volatile long i = 0; i < 1000000000; i++) {
+	}
+	debug_printf("TRYING IDENT AGAIN\n");
 	nvmec_identify(&nc);
 
 	printf("[nvme] successfully started controller\n");

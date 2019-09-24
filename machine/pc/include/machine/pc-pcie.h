@@ -11,6 +11,5 @@ struct pcie_function {
 	uint8_t flags;
 	struct spinlock lock;
 	struct list entry;
-
-	size_t bar_sizes[6];
+	struct object *obj;
 };

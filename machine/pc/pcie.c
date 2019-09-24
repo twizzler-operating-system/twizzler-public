@@ -82,6 +82,24 @@ static struct pcie_function *pcief_lookup(uint16_t space,
 	return NULL;
 }
 
+static void pcief_register(uint16_t space,
+  uint8_t bus,
+  uint8_t device,
+  uint8_t function,
+  struct object *co)
+{
+	struct pcie_function *pf = slabcache_alloc(&sc_pcief);
+	pf->segment = space;
+	pf->bus = bus;
+	pf->device = device;
+	pf->function = function;
+	krc_get(&co->refs);
+	pf->obj = co;
+	spinlock_acquire_save(&pcielock);
+	list_insert(&pcief_list, &pf->entry);
+	spinlock_release_restore(&pcielock);
+}
+
 static void __alloc_bar(struct object *obj,
   size_t start,
   size_t sz,
@@ -123,6 +141,24 @@ struct kso_pcie_data {
 void __pcie_fn_interrupt(int v, struct interrupt_handler *ih)
 {
 	printk("[pcie] interrupt!\n");
+}
+
+#include <limits.h>
+void pcie_iommu_fault(uint16_t seg, uint16_t sid, uint64_t addr, bool handled)
+{
+	addr |= handled ? 1 : 0;
+	uint8_t bus = sid >> 8;
+	uint8_t dfn = sid & 0xff;
+	struct pcie_function *pf = pcief_lookup(seg, bus, dfn >> 3, dfn & 7);
+	if(!pf) {
+		printk("[pcie] unhandled pcie iommu fault to %x:%x:%x.%x\n", seg, bus, dfn >> 3, dfn & 7);
+		return;
+	}
+	/* TODO: what to do if we overflow? */
+	obj_write_data(pf->obj, offsetof(struct pcie_function_header, iov_fault), sizeof(long), &addr);
+	atomic_thread_fence(memory_order_acq_rel);
+	thread_wake_object(
+	  pf->obj, offsetof(struct pcie_function_header, iov_fault) + OBJ_NULLPAGE_SIZE, INT_MAX);
 }
 
 #include <kalloc.h>
@@ -198,6 +234,8 @@ static long pcie_function_init(struct object *pbobj,
 
 	struct object *fobj = obj_lookup(psid);
 	assert(fobj != NULL);
+
+	pcief_register(segment, bus, device, function, fobj);
 
 	struct pcie_function_header hdr = {
 		.bus = bus,

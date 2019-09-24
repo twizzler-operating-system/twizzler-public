@@ -58,6 +58,7 @@ struct object {
 	bool pinned;
 	bool idvercache;
 	bool idversafe;
+	int cache_mode;
 
 	_Atomic enum kso_type kso_type;
 	union {
@@ -102,11 +103,13 @@ objid_t obj_compute_id(struct object *obj);
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
+void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val);
 int obj_check_permission(struct object *obj, uint64_t flags);
 
 void arch_object_map_slot(struct object *obj, uint64_t flags);
 void arch_object_unmap_page(struct object *obj, size_t idx);
 bool arch_object_map_page(struct object *obj, struct page *page, size_t idx);
+bool arch_object_map_flush(struct object *obj, size_t idx);
 bool arch_object_getmap_slot_flags(struct object *obj, uint64_t *flags);
 void arch_object_init(struct object *obj);
 

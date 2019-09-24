@@ -217,6 +217,7 @@ void obj_cache_page(struct object *obj, size_t idx, struct page *p)
 	spinlock_release_restore(&obj->lock);
 }
 
+#include <twz/_sys.h>
 struct objpage *obj_get_page(struct object *obj, size_t idx, bool alloc)
 {
 	spinlock_acquire_save(&obj->lock);
@@ -237,6 +238,10 @@ struct objpage *obj_get_page(struct object *obj, size_t idx, bool alloc)
 		page = slabcache_alloc(&sc_objpage);
 		page->idx = idx;
 		page->page = page_alloc(PAGE_TYPE_VOLATILE);
+		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_UC, PAGE_CACHE_UC);
+		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WB, PAGE_CACHE_WB);
+		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WT, PAGE_CACHE_WT);
+		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WC, PAGE_CACHE_WC);
 		krc_init_zero(&page->refs);
 		ihtable_insert(obj->pagecache, &page->elem, page->idx);
 	}
@@ -312,6 +317,14 @@ void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 		panic("NI - KSO write to 2MB page");
 	memcpy(mm_ptov(p->page->addr + (start % mm_page_size(0))), ptr, len);
 	atomic_thread_fence(memory_order_seq_cst);
+	obj_put_page(p);
+}
+
+void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val)
+{
+	struct objpage *p = obj_get_page(obj, off / mm_page_size(0) + 1, true);
+	_Atomic uint64_t *loc = (_Atomic uint64_t *)(mm_ptov(p->page->addr + (off % mm_page_size(0))));
+	*loc = val;
 	obj_put_page(p);
 }
 

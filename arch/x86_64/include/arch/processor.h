@@ -1,6 +1,5 @@
 #pragma once
 
-
 #define PROCESSOR_IPI_DEST_OTHERS -1
 #define PROCESSOR_IPI_SHOOTDOWN 100
 #define PROCESSOR_IPI_HALT 90
@@ -10,8 +9,7 @@
 
 #ifndef ASSEMBLY
 
-struct x86_64_tss
-{
+struct x86_64_tss {
 	uint32_t __res0;
 	uint64_t rsp0;
 	uint64_t rsp1;
@@ -26,14 +24,13 @@ struct x86_64_tss
 	uint16_t iomap_offset;
 } __attribute__((packed));
 
-struct x86_64_gdt_entry
-{
+struct x86_64_gdt_entry {
 	uint16_t limit_low;
 	uint16_t base_low;
-	uint8_t  base_middle; 
-	uint8_t  access;
-	uint8_t  granularity;
-	uint8_t  base_high; 
+	uint8_t base_middle;
+	uint8_t access;
+	uint8_t granularity;
+	uint8_t base_high;
 } __attribute__((packed));
 
 struct idt_entry {
@@ -92,41 +89,44 @@ struct arch_processor {
 		uint64_t linear;
 		uint64_t physical;
 		uint16_t eptidx;
-	} *veinfo;
+	} * veinfo;
 	uintptr_t *eptp_list;
 };
 
-_Static_assert(offsetof(struct arch_processor, scratch_sp) == 0, "scratch_sp offset must be 0 (or update offsets in gate.S)");
-_Static_assert(offsetof(struct arch_processor, tcb) == 8, "tcb offset must be 8 (or update offsets in gate.S)");
-_Static_assert(offsetof(struct arch_processor, kernel_stack) == 16, "kernel_stack offset must be 16 (or update offsets in gate.S)");
+_Static_assert(offsetof(struct arch_processor, scratch_sp) == 0,
+  "scratch_sp offset must be 0 (or update offsets in gate.S)");
+_Static_assert(offsetof(struct arch_processor, tcb) == 8,
+  "tcb offset must be 8 (or update offsets in gate.S)");
+_Static_assert(offsetof(struct arch_processor, kernel_stack) == 16,
+  "kernel_stack offset must be 16 (or update offsets in gate.S)");
 
-__attribute__((const,always_inline)) static inline struct thread * __x86_64_get_current_thread(void)
+__attribute__((const, always_inline)) static inline struct thread *__x86_64_get_current_thread(void)
 {
 	uint64_t tmp;
-	asm ("movq %%gs:%c[curr], %0" : "=r"(tmp) : [curr]"i"(offsetof(struct arch_processor, curr)));
+	asm("movq %%gs:%c[curr], %0" : "=r"(tmp) : [ curr ] "i"(offsetof(struct arch_processor, curr)));
 	return (void *)tmp;
 }
 
 #define current_thread __x86_64_get_current_thread()
 
-__noinstrument
-static inline void arch_processor_relax(void)
+/* TODO: use clwb if we can */
+#define arch_processor_clwb(x) ({ asm volatile("clflush %0" ::"m"(x) : "memory"); })
+
+__noinstrument static inline void arch_processor_relax(void)
 {
 	asm volatile("pause");
 }
 
-__noinstrument
-static inline void arch_processor_halt(void)
+__noinstrument static inline void arch_processor_halt(void)
 {
 	asm volatile("hlt");
 }
 
-__noinstrument
-static inline unsigned long long arch_processor_timestamp(void)
+__noinstrument static inline unsigned long long arch_processor_timestamp(void)
 {
-    unsigned int lo, hi;
-    __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));                        
-    return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );  
+	unsigned int lo, hi;
+	__asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }
 
 struct processor;
@@ -144,4 +144,3 @@ static inline uint64_t x86_64_cpuid(uint32_t x, uint32_t subleaf, int rnum)
 	return regs[rnum];
 }
 #endif
-

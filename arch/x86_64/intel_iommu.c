@@ -111,6 +111,7 @@ static struct iommu iommus[MAX_IOMMUS] = {};
 
 #define IOMMU_CTXE_PRESENT 1
 #define IOMMU_CTXE_AW48 2
+#define IOMMU_CTXE_AW39 1
 
 #define IOMMU_RTE_PRESENT 1
 #define IOMMU_RTE_MASK 0xFFFFFFFFFFFFF000
@@ -167,22 +168,54 @@ static void iommu_set_context_entry(struct iommu *im,
 	struct iommu_rte *rt = mm_ptov(im->root_table);
 	if(!(rt[bus].lo & IOMMU_RTE_PRESENT)) {
 		rt[bus].lo = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true) | IOMMU_RTE_PRESENT;
+		asm volatile("clflush %0" ::"m"(rt[bus]));
 	}
 	struct iommu_ctxe *ct = mm_ptov(rt[bus].lo & IOMMU_RTE_MASK);
-	ct[dfn].lo = ptroot | IOMMU_CTXE_PRESENT;
-	ct[dfn].hi = IOMMU_CTXE_AW48 | did;
+	if(!(ct[dfn].lo & IOMMU_CTXE_PRESENT)) {
+		ct[dfn].lo = ptroot | IOMMU_CTXE_PRESENT;
+		ct[dfn].hi = IOMMU_CTXE_AW48 | (did << 8);
+		asm volatile("clflush %0" ::"m"(ct[dfn]));
+	}
 }
 
+#include <arch/x86_64-vmx.h>
+#include <object.h>
+#include <processor.h>
+
+static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
+{
+	if(!*loc) {
+		*loc = (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true) | (attr & RECUR_ATTR_MASK);
+		asm volatile("clflush %0" ::"m"(*loc));
+	}
+}
+
+static uintptr_t ept_phys;
+
+void iommu_object_map_slot(struct object *obj, uint64_t flags)
+{
+	uintptr_t virt = obj->slot * (1024 * 1024 * 1024ull);
+	int pml4_idx = PML4_IDX(virt);
+	int pdpt_idx = PDPT_IDX(virt);
+
+	uintptr_t *pml4 = GET_VIRT_TABLE(ept_phys);
+	test_and_allocate(&pml4[pml4_idx], EPT_READ | EPT_WRITE | EPT_EXEC);
+
+	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
+	pdpt[pdpt_idx] = obj->arch.pt_root | 7;
+	asm volatile("clflush %0" ::"m"(pdpt[pdpt_idx]));
+}
+
+/* TODO: generalize */
+void pcie_iommu_fault(uint16_t seg, uint16_t sid, uint64_t addr, bool handled);
 void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __unused)
 {
-	printk("!!! IOMMU FAULT\n");
 	for(int i = 0; i < MAX_IOMMUS; i++) {
 		struct iommu *im = &iommus[i];
 		if(!im->init)
 			continue;
 		uint32_t fsr = iommu_read32(im, IOMMU_REG_FSR);
 		iommu_write32(im, IOMMU_REG_FSR, fsr);
-		printk("  fsr = %x\n", fsr);
 		if(fsr & IOMMU_FSR_PPF) {
 			/* TODO: should use the FRI field */
 			for(unsigned fr = 0; fr < IOMMU_CAP_NFR(im->cap); fr++) {
@@ -198,7 +231,26 @@ void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __unused)
 				  (sid >> 3) & 0xf,
 				  (sid & 7),
 				  flo);
-				iommu_set_context_entry(im, sid >> 8, sid & 0xff, 0, 1);
+				size_t slot = flo / mm_page_size(MAX_PGLEVEL);
+				size_t idx = (flo % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
+				struct object *o = obj_lookup_slot(flo);
+				if(o) {
+					iommu_object_map_slot(o, 0);
+					iommu_set_context_entry(im, sid >> 8, sid & 0xff, ept_phys, 1);
+					struct objpage *p = obj_get_page(o, idx, true);
+
+					printk("[iommu] mapping page %ld\n", p->idx);
+					if(!(p->flags & OBJPAGE_MAPPED)) {
+						arch_object_map_page(o, p->page, p->idx);
+						p->flags |= OBJPAGE_MAPPED;
+					}
+					arch_object_map_flush(o, p->idx);
+
+					obj_put(o);
+				} else {
+					printk("[iommu] fault to slot %ld; unknown object\n", slot);
+				}
+				pcie_iommu_fault(im->pcie_seg, sid, flo, !!o);
 			}
 		}
 		if(fsr & IOMMU_FSR_PFO) {
@@ -232,17 +284,18 @@ static int iommu_init(struct iommu *im)
 	uint64_t ecap = iommu_read64(im, IOMMU_REG_EXCAP);
 	im->cap = cap;
 
-	/*
-	printk(":: %x %lx %lx\n", vs, cap, ecap);
-	printk("nfr=%lx, sllps=%lx, fro=%lx, nd=%ld\n",
-	  IOMMU_CAP_NFR(cap),
-	  IOMMU_CAP_SLLPS(cap),
-	  IOMMU_CAP_FRO(cap),
-	  IOMMU_CAP_ND(cap));
-	  */
+	ept_phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+
+	printk(":: %lx %lx %x\n", cap, ecap, vs);
+	/*	printk("nfr=%lx, sllps=%lx, fro=%lx, nd=%ld\n",
+	      IOMMU_CAP_NFR(cap),
+	      IOMMU_CAP_SLLPS(cap),
+	      IOMMU_CAP_FRO(cap),
+	      IOMMU_CAP_ND(cap));
+	      */
 	if(IOMMU_CAP_ND(cap) < 16) {
 		printk("[iommu] iommu %d does not support large enough domain ID\n", im->id);
-		return -1;
+		// return -1;
 	}
 	if(IOMMU_CAP_SLLPS(cap) != 3) {
 		printk("[iommui] iommu %d does not support huge pages at sl translation\n", im->id);
@@ -307,24 +360,26 @@ __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void dmar_in
 	  dmar->host_addr_width,
 	  dmar->flags);
 	size_t ie = 0;
+	struct dmar_remap *remap = &dmar->remaps[0];
 	for(size_t i = 0; i < remap_entries; i++) {
 		iommus[ie].id = ie;
 		size_t scope_entries =
-		  (dmar->remaps[i].length - sizeof(struct dmar_remap)) / sizeof(struct device_scope);
-		if(dmar->remaps[i].type != 0)
+		  (remap->length - sizeof(struct dmar_remap)) / sizeof(struct device_scope);
+		if(remap->type != 0)
 			continue;
 		printk(
 		  "[iommu] %d remap: type=%d, length=%d, flags=%x, segnr=%d, base_addr=%lx, %ld device "
 		  "scopes\n",
 		  iommus[ie].id,
-		  dmar->remaps[i].type,
-		  dmar->remaps[i].length,
-		  dmar->remaps[i].flags,
-		  dmar->remaps[i].segnr,
-		  dmar->remaps[i].reg_base_addr,
+		  remap->type,
+		  remap->length,
+		  remap->flags,
+		  remap->segnr,
+		  remap->reg_base_addr,
 		  scope_entries);
+#if 0
 		for(size_t j = 0; j < scope_entries; j++) {
-			size_t path_len = (dmar->remaps[i].scopes[j].length - sizeof(struct device_scope)) / 2;
+			size_t path_len = (remap->scopes[j].length - sizeof(struct device_scope)) / 2;
 			printk("[iommu]    dev_scope: type=%d, length=%d, enumer_id=%d, start_bus=%d, "
 			       "path_len=%ld\n",
 			  dmar->remaps[i].scopes[j].type,
@@ -336,13 +391,15 @@ __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void dmar_in
 				//		printk("[iommu]      path %ld: %x\n", k, dmar->remaps[i].scopes[j].path[k]);
 			}
 		}
+#endif
 
-		if(dmar->remaps[i].flags & 1 /* PCIe include all */) {
-			iommus[ie].base = (uint64_t)mm_ptov(dmar->remaps[i].reg_base_addr);
-			iommus[ie].pcie_seg = dmar->remaps[i].segnr;
+		if(1 || remap->flags & 1 /* PCIe include all */) {
+			iommus[ie].base = (uint64_t)mm_ptov(remap->reg_base_addr);
+			iommus[ie].pcie_seg = remap->segnr;
 			ie++;
 		} else {
 			printk("[iommu] warning - remap hardware without PCI-include-all bit unsupported\n");
 		}
+		remap = (void *)((char *)remap + remap->length);
 	}
 }
