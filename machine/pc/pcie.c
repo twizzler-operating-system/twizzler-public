@@ -155,7 +155,7 @@ void pcie_iommu_fault(uint16_t seg, uint16_t sid, uint64_t addr, bool handled)
 		return;
 	}
 	/* TODO: what to do if we overflow? */
-	obj_write_data(pf->obj, offsetof(struct pcie_function_header, iov_fault), sizeof(long), &addr);
+	obj_write_data_atomic64(pf->obj, offsetof(struct pcie_function_header, iov_fault), addr);
 	atomic_thread_fence(memory_order_acq_rel);
 	thread_wake_object(
 	  pf->obj, offsetof(struct pcie_function_header, iov_fault) + OBJ_NULLPAGE_SIZE, INT_MAX);

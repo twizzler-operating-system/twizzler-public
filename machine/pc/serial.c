@@ -309,7 +309,7 @@ __noinstrument static void _serial_interrupt(int i, struct interrupt_handler *h 
 				c = uart_read(u, UART_REG_DATA);
 
 				long tmp = c;
-				obj_write_data(ser_obj, offsetof(struct device_repr, syncs[0]), sizeof(long), &tmp);
+				obj_write_data_atomic64(ser_obj, offsetof(struct device_repr, syncs[0]), tmp);
 				thread_wake_object(
 				  ser_obj, offsetof(struct device_repr, syncs[0]) + OBJ_NULLPAGE_SIZE, INT_MAX);
 				break;
