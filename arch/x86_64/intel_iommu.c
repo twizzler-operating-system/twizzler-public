@@ -39,6 +39,8 @@ struct iommu {
 	uint16_t pcie_seg;
 	uint16_t id;
 	uintptr_t root_table;
+	uint64_t cap;
+	bool init;
 };
 
 #define MAX_IOMMUS 16
@@ -99,6 +101,13 @@ static struct iommu iommus[MAX_IOMMUS] = {};
 #define IOMMU_FSR_PFO (1 << 0)
 #define IOMMU_FEC_IM (1 << 31)
 #define IOMMU_FEC_IP (1 << 30)
+
+#define IOMMU_FRRH_FAULT (1ul << 63)
+#define IOMMU_FRRH_TYPE1 (1ul << 62)
+#define IOMMU_FRRH_FR(x) (((x) >> 32 & 0xFF))
+#define IOMMU_FRRH_EXE (1ul << 30)
+#define IOMMU_FRRH_SID(x) ((x)&0xFFFF)
+#define IOMMU_FRRH_TYPE2 (1ul << 28)
 
 #define IOMMU_CTXE_PRESENT 1
 #define IOMMU_CTXE_AW48 2
@@ -167,6 +176,35 @@ static void iommu_set_context_entry(struct iommu *im,
 void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __unused)
 {
 	printk("!!! IOMMU FAULT\n");
+	for(int i = 0; i < MAX_IOMMUS; i++) {
+		struct iommu *im = &iommus[i];
+		if(!im->init)
+			continue;
+		uint32_t fsr = iommu_read32(im, IOMMU_REG_FSR);
+		iommu_write32(im, IOMMU_REG_FSR, fsr);
+		printk("  fsr = %x\n", fsr);
+		if(fsr & IOMMU_FSR_PPF) {
+			/* TODO: should use the FRI field */
+			for(unsigned fr = 0; fr < IOMMU_CAP_NFR(im->cap); fr++) {
+				uint64_t flo = iommu_read64(im, IOMMU_CAP_FRO(im->cap) + (fr * 16));
+				uint64_t fhi = iommu_read64(im, IOMMU_CAP_FRO(im->cap) + (fr * 16) + 8);
+				if(!(fhi & IOMMU_FRRH_FAULT))
+					continue;
+				iommu_write64(im, IOMMU_CAP_FRO(im->cap) + (fr * 16) + 8, IOMMU_FRRH_FAULT);
+				uint16_t sid = IOMMU_FRRH_SID(fhi);
+				printk(":: detected fault from device %x:%x:%x.%x access to %lx\n",
+				  im->pcie_seg,
+				  sid >> 8,
+				  (sid >> 3) & 0xf,
+				  (sid & 7),
+				  flo);
+				iommu_set_context_entry(im, sid >> 8, sid & 0xff, 0, 1);
+			}
+		}
+		if(fsr & IOMMU_FSR_PFO) {
+			printk("[iommu] warning - primary fault overflow\n");
+		}
+	}
 }
 
 void __iommu_inv_handler(int v __unused, struct interrupt_handler *h __unused)
@@ -178,10 +216,12 @@ static struct interrupt_alloc_req _iommu_int_iaq[2] = {
 	[0] = {
 		.pri = IVP_NORMAL,
 		.handler.fn = __iommu_fault_handler,
+		.flags = INTERRUPT_ALLOC_REQ_VALID,
 	},
 	[1] = {
 		.pri = IVP_NORMAL,
 		.handler.fn = __iommu_inv_handler,
+		.flags = INTERRUPT_ALLOC_REQ_VALID,
 	}
 };
 
@@ -190,6 +230,7 @@ static int iommu_init(struct iommu *im)
 	uint32_t vs = iommu_read32(im, IOMMU_REG_VERS);
 	uint64_t cap = iommu_read64(im, IOMMU_REG_CAP);
 	uint64_t ecap = iommu_read64(im, IOMMU_REG_EXCAP);
+	im->cap = cap;
 
 	/*
 	printk(":: %x %lx %lx\n", vs, cap, ecap);
@@ -225,11 +266,14 @@ static int iommu_init(struct iommu *im)
 	iommu_write32(im, IOMMU_REG_FED, _iommu_int_iaq[0].vec);
 	iommu_write32(im, IOMMU_REG_FEA, x86_64_msi_addr(0, X86_64_MSI_DM_PHYSICAL));
 	iommu_write32(im, IOMMU_REG_FEUA, 0);
+	/* unmask the FECTL interrupt */
+	iommu_write32(im, IOMMU_REG_FEC, 0);
 
 	iommu_write32(im, IOMMU_REG_ICED, _iommu_int_iaq[1].vec);
 	iommu_write32(im, IOMMU_REG_ICEA, x86_64_msi_addr(0, X86_64_MSI_DM_PHYSICAL));
 	iommu_write32(im, IOMMU_REG_ICEUA, 0);
 
+	im->init = true;
 	uint32_t cmd = IOMMU_GCMD_TE;
 	iommu_write32(im, IOMMU_REG_GCMD, cmd);
 	iommu_status_wait(im, IOMMU_GCMD_TE, true);
