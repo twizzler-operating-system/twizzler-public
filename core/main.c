@@ -154,6 +154,11 @@ void *krealloc(void *p, size_t sz)
 	return n;
 }
 
+void *krecalloc(void *p, size_t num, size_t sz)
+{
+	return krealloc(p, num * sz);
+}
+
 void *kalloc(size_t sz)
 {
 	static _Atomic bool _init = false;

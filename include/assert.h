@@ -1,6 +1,8 @@
 #pragma once
 #if CONFIG_DEBUG
 
+#include <panic.h>
+
 #define assert(cond)                                                                               \
 	do {                                                                                           \
 		if(!__builtin_expect(cond, 0))                                                             \

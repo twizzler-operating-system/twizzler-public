@@ -1,5 +1,7 @@
 #pragma once
 
+#include <assert.h>
+
 struct list {
 	struct list *next, *prev;
 };
@@ -16,6 +18,11 @@ static inline void list_init(struct list *l)
 
 static inline void list_insert(struct list *list, struct list *entry)
 {
+#if CONFIG_DEBUG
+	//	assert(entry->next == NULL);
+	//	assert(entry->prev == NULL);
+	assert(list->next && list->prev);
+#endif
 	entry->prev = list;
 	entry->next = list->next;
 	entry->prev->next = entry;
@@ -26,6 +33,10 @@ static inline void list_remove(struct list *entry)
 {
 	entry->next->prev = entry->prev;
 	entry->prev->next = entry->next;
+#if CONFIG_DEBUG
+	if(entry->next != entry)
+		entry->next = entry->prev = NULL;
+#endif
 }
 
 static inline struct list *list_pop(struct list *l)
@@ -42,20 +53,15 @@ static inline struct list *list_dequeue(struct list *l)
 	return prev == l ? NULL : prev;
 }
 
-#define list_entry(e, type, memb) \
-	container_of(e, type, memb)
+#define list_entry(e, type, memb) container_of(e, type, memb)
 
-#define list_entry_next(item, memb) \
-	list_entry((item)->memb.next, typeof(*(item)), memb)
+#define list_entry_next(item, memb) list_entry((item)->memb.next, typeof(*(item)), memb)
 
-#define list_entry_prev(item, memb) \
-	list_entry((item)->memb.prev, typeof(*(item)), memb)
+#define list_entry_prev(item, memb) list_entry((item)->memb.prev, typeof(*(item)), memb)
 
-#define list_iter_start(list) \
-	(list)->next
+#define list_iter_start(list) (list)->next
 
 #define list_iter_end(list) list
 
 #define list_iter_next(e) (e)->next
 #define list_iter_prev(e) (e)->prev
-

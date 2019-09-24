@@ -21,6 +21,11 @@ enum thread_state {
 
 #define MAX_SC TWZ_THRD_MAX_SCS
 
+struct sleep_entry {
+	struct thread *thr;
+	struct list entry;
+};
+
 struct thread {
 	struct arch_thread arch;
 	struct spinlock lock;
@@ -43,7 +48,9 @@ struct thread {
 
 	struct kso_throbj *throbj;
 
-	struct list rq_entry, bl_entry, all_entry;
+	struct list rq_entry, all_entry;
+	struct sleep_entry *sleep_entries;
+	size_t sleep_count;
 };
 
 struct arch_syscall_become_args;
