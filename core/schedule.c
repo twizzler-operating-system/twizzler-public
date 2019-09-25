@@ -155,8 +155,6 @@ void thread_sleep(struct thread *t, int flags, int64_t timeout)
 
 void thread_wake(struct thread *t)
 {
-	assert(t->state == THREADSTATE_BLOCKED);
-
 	spinlock_acquire_save(&t->processor->sched_lock);
 	int old = atomic_exchange(&t->state, THREADSTATE_RUNNING);
 	if(old == THREADSTATE_BLOCKED) {

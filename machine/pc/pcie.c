@@ -138,12 +138,28 @@ struct kso_pcie_data {
 	struct interrupt_alloc_req ir[MAX_INT_PER_DEV];
 };
 
+#include <limits.h>
 void __pcie_fn_interrupt(int v, struct interrupt_handler *ih)
 {
 	printk("[pcie] interrupt!\n");
+	struct pcie_function_header hdr;
+	if(!ih->devobj)
+		return;
+	obj_read_data(ih->devobj, 0, sizeof(hdr), &hdr);
+	for(unsigned i = 0; i < hdr.nr_interrupts; i++) {
+		struct pcie_function_interrupt irq;
+		obj_read_data(ih->devobj, sizeof(hdr) + i * sizeof(irq), sizeof(irq), &irq);
+		if(irq.vec == v) {
+			printk("FOUND! %d\n", v);
+			obj_write_data_atomic64(
+			  ih->devobj, offsetof(struct pcie_function_header, interrupts[i]), 1);
+			thread_wake_object(ih->devobj,
+			  offsetof(struct pcie_function_header, interrupts[i]) + OBJ_NULLPAGE_SIZE,
+			  INT_MAX);
+		}
+	}
 }
 
-#include <limits.h>
 void pcie_iommu_fault(uint16_t seg, uint16_t sid, uint64_t addr, bool handled)
 {
 	addr |= handled ? 1 : 0;
@@ -156,20 +172,21 @@ void pcie_iommu_fault(uint16_t seg, uint16_t sid, uint64_t addr, bool handled)
 	}
 	/* TODO: what to do if we overflow? */
 	obj_write_data_atomic64(pf->obj, offsetof(struct pcie_function_header, iov_fault), addr);
-	atomic_thread_fence(memory_order_acq_rel);
 	thread_wake_object(
 	  pf->obj, offsetof(struct pcie_function_header, iov_fault) + OBJ_NULLPAGE_SIZE, INT_MAX);
 }
 
+#include <device.h>
 #include <kalloc.h>
+#include <twz/driver/device.h>
 static long __pcie_fn_kaction(struct object *obj, long cmd, long arg)
 {
 	struct pcie_function_header hdr;
 	struct kso_pcie_data *data;
+	data = obj->data;
 	switch(cmd) {
 		case KACTION_CMD_PF_INTERRUPTS_SETUP:
 			obj_read_data(obj, 0, sizeof(hdr), &hdr);
-			data = obj->data;
 			printk("[pcie]: setup interrupts (%x:%x:%x.%x)\n",
 			  data->segment,
 			  data->bus,
@@ -183,6 +200,8 @@ static long __pcie_fn_kaction(struct object *obj, long cmd, long arg)
 				if(irq.flags & PCIE_FUNCTION_INT_ENABLE) {
 					data->ir[i].flags |= INTERRUPT_ALLOC_REQ_VALID;
 					data->ir[i].handler.fn = __pcie_fn_interrupt;
+					data->ir[i].handler.devobj = obj;
+					krc_get(&obj->refs);
 				}
 			}
 			if(interrupt_allocate_vectors(hdr.nr_interrupts, data->ir)) {
@@ -201,6 +220,14 @@ static long __pcie_fn_kaction(struct object *obj, long cmd, long arg)
 			obj_write_data(obj, 0, sizeof(hdr), &hdr);
 
 			break;
+		case KACTION_CMD_DEVICE_ENABLE_IOMMU: {
+			struct device dev;
+			dev.co = obj;
+			dev.did = ((uint32_t)data->segment << 16) | (data->bus << 8) | data->device << 3
+			          | data->function;
+			dev.type = DEVICE_TYPE_PCIE;
+			iommu_object_map_slot(&dev, NULL);
+		} break;
 		default:
 			return -EINVAL;
 	}
@@ -236,6 +263,7 @@ static long pcie_function_init(struct object *pbobj,
 	assert(fobj != NULL);
 
 	pcief_register(segment, bus, device, function, fobj);
+	fobj->pinned = true;
 
 	struct pcie_function_header hdr = {
 		.bus = bus,

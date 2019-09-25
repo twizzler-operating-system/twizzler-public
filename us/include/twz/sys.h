@@ -81,5 +81,5 @@ static inline long sys_opin(objid_t id, uint64_t *addr, int flags)
 
 static inline long sys_octl(objid_t id, int op, long arg1, long arg2, long arg3)
 {
-	return __syscall6(SYS_OPIN, ID_LO(id), ID_HI(id), op, arg1, arg2, arg3);
+	return __syscall6(SYS_OCTL, ID_LO(id), ID_HI(id), op, arg1, arg2, arg3);
 }

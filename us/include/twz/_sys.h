@@ -108,7 +108,10 @@ struct sys_kaction_args {
 
 enum octl_operation {
 	OCO_CACHE_MODE,
+	OCO_MAP,
 };
+
+#define OC_MAP_IO 1
 
 #define OC_CM_WB 0
 #define OC_CM_UC 1

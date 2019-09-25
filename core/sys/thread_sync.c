@@ -79,8 +79,8 @@ static void sp_sleep_finish(struct syncpoint *sp, int stay_asleep, int idx)
 		return;
 	spinlock_acquire_save(&sp->lock);
 	spinlock_acquire_save(&current_thread->lock);
+	list_remove(&current_thread->sleep_entries[idx].entry);
 	if(current_thread->state == THREADSTATE_BLOCKED) {
-		list_remove(&current_thread->sleep_entries[idx].entry);
 		thread_wake(current_thread);
 	}
 	spinlock_release_restore(&current_thread->lock);

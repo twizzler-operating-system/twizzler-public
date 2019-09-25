@@ -241,6 +241,7 @@ long syscall_opin(uint64_t lo, uint64_t hi, uint64_t *addr, int flags)
 	return 0;
 }
 
+#include <device.h>
 #include <page.h>
 long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long arg3)
 {
@@ -266,6 +267,29 @@ long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long a
 				pg->page->flags |= flag_if_notzero(arg3 & OC_CM_WC, PAGE_CACHE_WC);
 				arch_object_map_page(o, pg->page, i);
 			}
+			break;
+		case OCO_MAP:
+			pnb = arg1 / mm_page_size(0);
+			pne = (arg1 + arg2) / mm_page_size(0);
+
+			/* TODO: bounds check */
+			for(size_t i = pnb; i < pne; i++) {
+				struct objpage *pg = obj_get_page(o, i, true);
+				/* TODO: locking */
+				arch_object_map_page(o, pg->page, i);
+				if(arg3)
+					arch_object_map_flush(o, i);
+			}
+			if(arg3) {
+				objid_t doid = *(objid_t *)arg3;
+				struct object *dobj = obj_lookup(doid);
+				if(!dobj) {
+					return -ENOENT;
+				}
+				/* TODO: actually lookup the device */
+				iommu_object_map_slot(NULL /*dobj */, o);
+			}
+
 			break;
 		default:
 			r = -EINVAL;

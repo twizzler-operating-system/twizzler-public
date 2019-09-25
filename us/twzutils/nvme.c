@@ -37,6 +37,52 @@
 #define NVME_CSTS_CFS (1 << 1)
 #define NVME_CSTS_RDY 1
 
+struct nvme_controller_ident {
+	uint16_t vendor;
+	uint16_t sub_vendor;
+	uint8_t serial[20];
+	uint8_t model[40];
+	uint64_t fr;
+	uint8_t rab;
+	uint8_t ieee[3];
+	uint8_t cmic;
+	uint8_t mdts;
+	uint16_t cntlid;
+	uint32_t ver;
+	uint32_t rtd3r;
+	uint32_t rtd3e;
+	uint32_t oaes;
+	uint32_t ctrarr;
+	uint8_t resv[12];
+	__int128 fguid;
+	uint8_t resv1[128];
+	uint8_t resv2[256];
+	uint8_t sqes;
+	uint8_t cqes;
+	uint16_t maxcmd;
+	uint32_t nn;
+	uint16_t oncs;
+	uint8_t ign[46];
+	uint8_t subnqn[256];
+} __attribute__((packed));
+
+struct nvme_namespace_ident {
+	uint64_t nsze;
+	uint64_t ncap;
+	uint64_t nuse;
+	uint8_t nsfeat;
+	uint8_t nlbaf;
+	uint8_t flbas;
+	uint8_t mc;
+	uint8_t ign[76];
+	__int128 nguid;
+	uint64_t eui64;
+	uint32_t lbaf[16];
+} __attribute__((packed));
+
+_Static_assert(offsetof(struct nvme_controller_ident, sqes) == 512, "");
+_Static_assert(offsetof(struct nvme_namespace_ident, lbaf) == 128, "");
+
 // Scatter gather list
 struct nvme_sgl {
 	char data[16];
@@ -105,6 +151,15 @@ struct nvme_cmp {
 
 _Static_assert(sizeof(struct nvme_cmp) == 16, "");
 
+struct nvme_namespace {
+	uint64_t size;
+	uint64_t cap;
+	uint64_t use;
+	uint32_t id;
+	uint32_t lba_size;
+	struct nvme_namespace *next;
+};
+
 struct nvme_controller {
 	struct object co;
 	struct object qo;
@@ -113,6 +168,8 @@ struct nvme_controller {
 	uint64_t aq_pin;
 	_Atomic uint64_t sp_error;
 	struct nvme_queue *queues;
+	size_t nr_queues;
+	struct nvme_namespace *namespaces;
 };
 
 struct nvme_queue {
@@ -120,11 +177,13 @@ struct nvme_queue {
 		volatile uint32_t *tail_doorbell;
 		uint32_t head, tail;
 		volatile struct nvme_cmd *entries;
+		bool phase;
 	} subq;
 	struct {
 		volatile uint32_t *head_doorbell;
 		uint32_t head, tail;
 		volatile struct nvme_cmp *entries;
+		bool phase;
 	} cmpq;
 	_Atomic uint64_t *sps;
 	uint32_t count;
@@ -145,8 +204,11 @@ void nvmeq_init(struct nvme_queue *q,
 	q->subq.tail_doorbell = tail_db;
 	q->subq.head = q->subq.tail = 0;
 	q->cmpq.head = q->cmpq.tail = 0;
+	q->subq.phase = true;
+	q->cmpq.phase = true;
 }
 
+#include <assert.h>
 #include <stdatomic.h>
 uint16_t nvmeq_submit_cmd(struct nvme_queue *q, struct nvme_cmd *cmd)
 {
@@ -154,8 +216,12 @@ uint16_t nvmeq_submit_cmd(struct nvme_queue *q, struct nvme_cmd *cmd)
 	cmd->hdr.cdw0 |= (uint32_t)(index << 16);
 	q->subq.entries[q->subq.tail] = *cmd;
 	atomic_thread_fence(memory_order_acq_rel);
-	q->subq.tail = (q->subq.tail + 1) & (q->count - 1);
+
+	size_t new_tail = (q->subq.tail + 1) & (q->count - 1);
+	bool wr = new_tail < q->subq.tail;
+	q->subq.tail = new_tail;
 	*q->subq.tail_doorbell = q->subq.tail;
+	q->subq.phase ^= wr;
 	return (uint16_t)index;
 }
 
@@ -291,6 +357,7 @@ uint32_t *nvmec_get_doorbell(struct nvme_controller *nc, uint32_t dnr, bool tail
 	                            : NVME_REG_CQnHDBL(dnr, nc->dstride)));
 }
 
+#include <twz/driver/device.h>
 int nvmec_init(struct nvme_controller *nc)
 {
 	uint64_t caps = nvme_reg_read64(nc, NVME_REG_CAP);
@@ -324,10 +391,33 @@ int nvmec_init(struct nvme_controller *nc)
 		return r;
 	twz_object_open(&nc->qo, aq_id, FE_READ | FE_WRITE);
 
+	objid_t cid = twz_object_id(&nc->co);
+	r = sys_octl(aq_id, OCO_MAP, 0x1000, q_total_len, (long)&cid);
+	if(r)
+		return r;
+
+	struct sys_kaction_args args = {
+		.id = twz_object_id(&nc->co),
+		.cmd = KACTION_CMD_DEVICE_ENABLE_IOMMU,
+		.arg = 0,
+		.flags = KACTION_VALID,
+	};
+	if((r = sys_kaction(1, &args)) < 0) {
+		fprintf(stderr, "kaction: %d\n", r);
+		return r;
+	}
+	if(args.result) {
+		fprintf(stderr, "kaction-result: %d\n", args.result);
+		return r;
+	}
+
+	twz_object_open(&nc->qo, aq_id, FE_READ | FE_WRITE);
+
 	fprintf(stderr, "[nvme] allocated aq @ %lx\n", nc->aq_pin);
 	struct nvme_queue *queues =
 	  calloc(1024 /* TODO: read max nr queues */, sizeof(struct nvme_queue));
 	nc->queues = queues;
+	nc->nr_queues = 1;
 
 	nvmeq_init(&queues[0],
 	  (void *)((uint64_t)twz_obj_base(&nc->qo)),
@@ -380,12 +470,22 @@ int nvmec_check_features(struct nvme_controller *nc)
 	return 0;
 }
 
-int nvmec_identify(struct nvme_controller *nc)
+void nvme_cmp_decode(uint64_t sp, uint32_t *dw0, uint32_t *dw3)
 {
-	struct nvme_cmd cmd;
-	void *memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000);
-	nvme_cmd_init_identify(&cmd, 1, 0, nc->aq_pin + 0x200000 + 0x1000);
-	uint16_t cid = nvmeq_submit_cmd(&nc->queues[0], &cmd);
+	*dw0 = sp >> 32;
+	*dw3 = sp & 0xffffffff;
+}
+
+#define NVME_CMP_DW3_STATUS(x) ((x) >> 17)
+
+#include <limits.h>
+
+int nvmec_execute_cmd(struct nvme_controller *nc,
+  struct nvme_cmd *cmd,
+  uint16_t *sr,
+  uint32_t *cres)
+{
+	uint16_t cid = nvmeq_submit_cmd(&nc->queues[0], cmd);
 	struct sys_thread_sync_args sa[2] = {
 		[0] = {
 		.addr = (uint64_t *)&nc->queues[0].sps[cid],
@@ -401,22 +501,169 @@ int nvmec_identify(struct nvme_controller *nc)
 		err = atomic_exchange(&nc->sp_error, 0);
 		if(res || err)
 			break;
-		debug_printf("IDENT sleep\n");
 		int r = sys_thread_sync(2, sa);
 		if(r < 0) {
-			fprintf(stderr, "[nvme] thread-sync %d\n", r);
 			return r;
 		}
 	}
 	if(err == 1) {
-		return nvmec_identify(nc);
+		return -1;
 	}
-	debug_printf("HEY! %lx %lx\n", res, err);
+	uint32_t cr, _sr;
+	nvme_cmp_decode(res, &cr, &_sr);
+	uint16_t status = NVME_CMP_DW3_STATUS(_sr);
+	*sr = status;
+	*cres = cr;
+	return 0;
+}
+int nvmec_identify(struct nvme_controller *nc)
+{
+	struct nvme_cmd cmd;
+	void *ci_memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000);
+	void *nsl_memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000 + 0x1000);
+	void *ns_memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000 + 0x2000);
+
+	objid_t id = twz_object_id(&nc->co);
+	int r =
+	  sys_octl(twz_object_id(&nc->qo), OCO_MAP, OBJ_NULLPAGE_SIZE + 0x200000, 0x3000, (long)&id);
+	if(r)
+		return r;
+
+	nvme_cmd_init_identify(&cmd, 1, 0, nc->aq_pin + 0x200000 + 0x1000);
+	uint32_t cres;
+	uint16_t status;
+	if(nvmec_execute_cmd(nc, &cmd, &status, &cres))
+		return -1;
+	if(status) {
+		fprintf(stderr, "[nvme] identify failed (command error %x)\n", status);
+		return -1;
+	}
+
+	struct nvme_controller_ident *ci = ci_memory;
+	struct nvme_namespace_ident *nsi = ns_memory;
+	uint32_t *nsl = nsl_memory;
+	fprintf(stderr,
+	  "[nvme] ident: %ld %d %d %s %s %s\n",
+	  ci->nn,
+	  ci->sqes,
+	  ci->cqes,
+	  ci->serial,
+	  ci->model,
+	  ci->subnqn);
+
+	nvme_cmd_init_identify(&cmd, 2, 0, nc->aq_pin + 0x200000 + 0x2000);
+	if(nvmec_execute_cmd(nc, &cmd, &status, &cres))
+		return -1;
+	if(status) {
+		fprintf(stderr, "[nvme] identify namespace IDs failed (command error %x)\n", status);
+		return -1;
+	}
+
+	for(uint32_t n = 0; n < 1024; n++) {
+		if(!nsl[n])
+			continue;
+		nvme_cmd_init_identify(&cmd, 0, nsl[n], nc->aq_pin + 0x200000 + 0x3000);
+		if(nvmec_execute_cmd(nc, &cmd, &status, &cres))
+			return -1;
+		if(status) {
+			fprintf(stderr, "[nvme] identify namespace failed (command error %x)\n", status);
+			return -1;
+		}
+		uint32_t lbaf = nsi->lbaf[nsi->flbas & 15];
+		if(lbaf & 0xffff) {
+			fprintf(stderr, "[nvme] namespace supports metadata, which I dont :)\n");
+			continue;
+		}
+		struct nvme_namespace *ns = malloc(sizeof(*ns));
+		uint32_t lba_size = (1 << ((lbaf >> 16) & 0xff));
+		ns->size = nsi->nsze * lba_size;
+		ns->use = nsi->nuse * lba_size;
+		ns->cap = nsi->ncap * lba_size;
+		ns->lba_size = lba_size;
+		ns->id = nsl[n];
+		ns->next = nc->namespaces;
+		nc->namespaces = ns;
+		fprintf(stderr,
+		  "[nvme] identified namespace (sz=%ld bytes, cap=%ld bytes, lba=%d bytes)\n",
+		  ns->size,
+		  ns->cap,
+		  ns->lba_size);
+	}
 
 	return 0;
 }
 
-#include <limits.h>
+struct nvme_cmp *nvmeq_cq_peek(struct nvme_queue *q, uint32_t i, bool *phase)
+{
+	uint32_t index = (q->cmpq.head + i) & (q->count - 1);
+	debug_printf("peek %d (%d %d) %p\n", index, q->cmpq.head, i, q->cmpq.entries);
+	struct nvme_cmp *c = (struct nvme_cmp *)&q->cmpq.entries[index];
+	*phase = q->cmpq.phase ^ (index < q->cmpq.head);
+	return c;
+}
+
+void nvmeq_sq_adv_head(struct nvme_queue *q, uint32_t head)
+{
+	bool wr = head < q->subq.head;
+	q->subq.head = head;
+	q->subq.phase ^= wr;
+}
+
+void nvmeq_cq_consume(struct nvme_queue *q, uint32_t c)
+{
+	uint32_t head = (q->cmpq.head + c) & (q->count - 1);
+	bool wr = head < q->cmpq.head;
+	q->cmpq.head = head;
+	q->cmpq.phase ^= wr;
+}
+
+#define NVME_CMP_DW2_HEAD(x) ((x)&0xffff)
+#define NVME_CMP_DW3_PHASE (1 << 16)
+
+void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
+{
+	/* try to advance the queue. Note that, since cid is never zero, any all-zero entries can be
+	 * totally skipped, regardless of phase */
+	uint32_t i = 0;
+	bool more = true;
+	struct nvme_cmp *buf[16];
+	while(i < 16) {
+		bool phase;
+		struct nvme_cmp *cmp = nvmeq_cq_peek(q, i, &phase);
+		// debug_printf("peeked at %x (%d %d) -> %d\n",
+		// cmp->cmp_dword[3],
+		//!!(cmp->cmp_dword[3] & NVME_CMP_DW3_PHASE),
+		// phase,
+		// cmp->cmp_dword[3] & 0xffff);
+		if(!!(cmp->cmp_dword[3] & NVME_CMP_DW3_PHASE) != phase) {
+			more = false;
+			break;
+		}
+		uint32_t head = NVME_CMP_DW2_HEAD(cmp->cmp_dword[2]);
+		nvmeq_sq_adv_head(q, head);
+		buf[i] = cmp;
+		i++;
+	}
+	if(i > 0) {
+		nvmeq_cq_consume(q, i);
+	}
+	struct sys_thread_sync_args sas[16];
+	for(uint32_t j = 0; j < i; j++) {
+		// debug_printf(":: :: :: %x %x\n", buf[j]->cmp_dword[3], buf[j]->cmp_dword[2]);
+		uint16_t cid = buf[j]->cmp_dword[3] & 0xffff;
+		uint64_t result = ((uint64_t)buf[j]->cmp_dword[0] << 32) | buf[j]->cmp_dword[3];
+		q->sps[cid] = result;
+		sas[j] = (struct sys_thread_sync_args){
+			.addr = (uint64_t *)&q->sps[cid],
+			.arg = INT_MAX,
+			.op = THREAD_SYNC_WAKE,
+		};
+	}
+	sys_thread_sync(i, sas);
+	if(more)
+		nvmeq_interrupt(nc, q);
+}
+
 void nvme_wait_for_event(struct nvme_controller *nc)
 {
 	struct pcie_function_header *hdr = twz_obj_base(&nc->co);
@@ -432,6 +679,9 @@ void nvme_wait_for_event(struct nvme_controller *nc)
 		debug_printf(":: %lx %lx\n", iovf, irq);
 		if(iovf & 1) {
 			/* handled; retry */
+			for(size_t i = 0; i < nc->nr_queues; i++) {
+				nvmeq_interrupt(nc, &nc->queues[i]);
+			}
 			nc->sp_error = 1;
 			struct sys_thread_sync_args sa_er = {
 				.addr = (uint64_t *)&nc->sp_error,
@@ -444,15 +694,22 @@ void nvme_wait_for_event(struct nvme_controller *nc)
 				fprintf(stderr, "[nvme] thread_sync error: %d\n", r);
 				return;
 			}
+		} else if(iovf) {
+			fprintf(stderr, "[nvme] unhandled IOMMU error!\n");
+			exit(1);
 		}
 		if(irq) {
-			volatile struct nvme_cmp *cmp = nc->queues[0].cmpq.entries;
-			fprintf(stderr,
-			  "CMP %x %x %x %x\n",
-			  cmp->cmp_dword[0],
-			  cmp->cmp_dword[1],
-			  cmp->cmp_dword[2],
-			  cmp->cmp_dword[3]);
+			for(size_t i = 0; i < nc->nr_queues; i++) {
+				nvmeq_interrupt(nc, &nc->queues[i]);
+			}
+			/*volatile struct nvme_cmp *cmp = nc->queues[0].cmpq.entries;
+			for(int i = 0; i < 10; i++) {
+			    debug_printf("CMP %x %x %x %x\n",
+			      cmp[i].cmp_dword[0],
+			      cmp[i].cmp_dword[1],
+			      cmp[i].cmp_dword[2],
+			      cmp[i].cmp_dword[3]);
+			}*/
 		}
 		if(!iovf && !irq) {
 			int r = sys_thread_sync(2, sa);
@@ -482,7 +739,6 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	return 0;
 	struct nvme_controller nc = {};
 	int r = twz_object_open_name(&nc.co, argv[1], FE_READ | FE_WRITE);
 	if(r) {

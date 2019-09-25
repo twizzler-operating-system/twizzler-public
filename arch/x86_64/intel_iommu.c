@@ -192,7 +192,7 @@ static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
 
 static uintptr_t ept_phys;
 
-void iommu_object_map_slot(struct object *obj, uint64_t flags)
+static void do_iommu_object_map_slot(struct object *obj, uint64_t flags)
 {
 	uintptr_t virt = obj->slot * (1024 * 1024 * 1024ull);
 	int pml4_idx = PML4_IDX(virt);
@@ -202,8 +202,25 @@ void iommu_object_map_slot(struct object *obj, uint64_t flags)
 	test_and_allocate(&pml4[pml4_idx], EPT_READ | EPT_WRITE | EPT_EXEC);
 
 	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
+	printk("SETTING %lx -> %lx\n", virt, obj->arch.pt_root);
 	pdpt[pdpt_idx] = obj->arch.pt_root | 7;
 	asm volatile("clflush %0" ::"m"(pdpt[pdpt_idx]));
+}
+
+#include <device.h>
+void iommu_object_map_slot(struct device *dev, struct object *obj)
+{
+	if(obj)
+		do_iommu_object_map_slot(obj, 0);
+	if(dev) {
+		uint16_t seg = dev->did >> 16;
+		uint16_t sid = dev->did & 0xffff;
+		for(size_t i = 0; i < MAX_IOMMUS; i++) {
+			if(iommus[i].base && iommus[i].pcie_seg == seg) {
+				iommu_set_context_entry(&iommus[i], sid >> 8, sid & 0xff, ept_phys, 1);
+			}
+		}
+	}
 }
 
 /* TODO: generalize */
@@ -235,7 +252,7 @@ void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __unused)
 				size_t idx = (flo % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
 				struct object *o = obj_lookup_slot(flo);
 				if(o) {
-					iommu_object_map_slot(o, 0);
+					do_iommu_object_map_slot(o, 0);
 					iommu_set_context_entry(im, sid >> 8, sid & 0xff, ept_phys, 1);
 					struct objpage *p = obj_get_page(o, idx, true);
 

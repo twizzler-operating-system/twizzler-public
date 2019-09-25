@@ -6,6 +6,7 @@
 struct interrupt_handler {
 	void (*fn)(int, struct interrupt_handler *);
 	struct list entry;
+	struct object *devobj;
 };
 
 enum iv_priority {

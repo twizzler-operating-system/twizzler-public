@@ -17,3 +17,8 @@ struct device_repr {
 
 	long syncs[MAX_DEVICE_SYNCS];
 };
+
+#define DEVICE_TYPE_PCIE 0
+#define DEVICE_TYPE_USB 1
+
+#define KACTION_CMD_DEVICE_ENABLE_IOMMU 1002
