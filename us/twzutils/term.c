@@ -9,6 +9,9 @@
 
 #include "ssfn.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #define ES_NORM 0
 #define ES_ESC 1
 #define ES_CSI 2
@@ -20,7 +23,7 @@ struct fb {
 	size_t gl_w, gl_h;
 	ssfn_glyph_t *glyph_cache[256];
 	ssfn_glyph_t *bold_glyph_cache[256];
-	unsigned char *back_buffer, *front_buffer;
+	unsigned char *back_buffer, *front_buffer, *background_buffer;
 	unsigned char *char_buffer;
 	size_t x, y, max_x, max_y;
 	size_t fbw, fbh, pitch, bpp;
@@ -199,8 +202,8 @@ static void draw_glyph(const struct fb *restrict fb,
 				for(x = 0; x < glyph->w; x++) {
 					assert(ys + pen_x + x >= 0);
 					assert(ys + pen_x + x < (fb->pitch * fb->fbh / 4));
-					buffer[ys + pen_x + x] = ARGB_TO_BGR(
-					  ablend((glyph->data[ygs + x] << 24) | fgcolor, fb->bg | 0xff000000));
+					buffer[ys + pen_x + x] = ablend((glyph->data[ygs + x] << 24) | fgcolor,
+					  fb->bg ? (fb->bg | 0xff000000) : fb->bg);
 				}
 			}
 			break;
@@ -211,7 +214,7 @@ static void draw_glyph(const struct fb *restrict fb,
 				uint32_t ygs = y * glyph->pitch;
 				for(x = 0; x < glyph->w; x++) {
 					buffer[ys + pen_x + x] =
-					  ARGB_TO_BGR(SSFN_CMAP_TO_ARGB(glyph->data[ygs + x], glyph->cmap, fgcolor));
+					  SSFN_CMAP_TO_ARGB(glyph->data[ygs + x], glyph->cmap, fgcolor);
 				}
 			}
 			break;
@@ -445,6 +448,7 @@ void init_fb(struct fb *fb)
 		fb->y = 0;
 		fb->spacing = 1;
 		fb->fg = 0x00ffffff;
+		fb->bg = 0;
 		fb->max_x = fb->fbw / (fb->gl_w + fb->spacing);
 		fb->max_y = fb->fbh / fb->gl_h;
 		for(int i = 0; i < 256; i++) {
@@ -453,6 +457,7 @@ void init_fb(struct fb *fb)
 		}
 
 		fb->back_buffer = malloc(fb->pitch * fb->fbh);
+		fb->background_buffer = malloc(fb->pitch * fb->fbh);
 
 		memset(fb->back_buffer, 0, fb->pitch * fb->fbh);
 		fb->char_buffer = calloc(sizeof(fb->char_buffer[0]), fb->max_x * fb->max_y);
@@ -505,6 +510,23 @@ void init_fb(struct fb *fb)
 
 		fb->init = 2;
 		setup_pty(fb->max_x, fb->max_y);
+
+		int x, y, n;
+		unsigned char *data = stbi_load("/usr/share/mountains.jpeg", &x, &y, &n, 4);
+		n = 4;
+		for(int i = 0; i < y * 2; i++) {
+			for(int j = 0; j < x * 2; j++) {
+				int dpos = (i * fb->pitch) + j * fb->bpp;
+				int spos = ((i / 2) * x * n) + (j / 2) * n;
+				((char *)fb->background_buffer)[dpos + 0] = data[spos + 2];
+				((char *)fb->background_buffer)[dpos + 1] = data[spos + 1];
+				((char *)fb->background_buffer)[dpos + 2] = data[spos + 0];
+				((char *)fb->background_buffer)[dpos + 3] = 0x55;
+			}
+		}
+		debug_printf("TERM: %d %d %d %p\n", x, y, n, data);
+		if(!data)
+			debug_printf("    -> %s\n", stbi_failure_reason());
 	}
 }
 
@@ -660,8 +682,15 @@ void fb_flip(struct fb *fb)
 {
 	uint64_t s = rdtsc();
 	if(fb->flip) {
+		uint32_t *src1 = (uint32_t *)fb->back_buffer;
+		uint32_t *src2 = (uint32_t *)fb->background_buffer;
+		uint32_t *dest = (uint32_t *)fb->front_buffer;
+		for(size_t i = 0; i < fb->fbh * fb->pitch / 4; i++) {
+			dest[i] = ARGB_TO_BGR(ablend(src1[i], src2[i]));
+			// fb->front_buffer[i] = ARGB_TO_BGR(fb->back_buffer[i]);
+		}
 		// fastMemcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
-		memcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
+		// memcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
 		// fb->front_buffer[i] = 0; // fb->back_buffer[i];
 		// x += fb->back_buffer[i];
 	}

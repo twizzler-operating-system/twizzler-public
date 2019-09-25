@@ -33,14 +33,19 @@ $(BUILDDIR)/us/twzutils/%.opp: us/twzutils/%.cpp $(MUSL_HDRS)
 	@echo [CC] $@
 	@$(TWZCXX) $(TWZCFLAGS) -o $@ -c -MD $<
 
-$(BUILDDIR)/us/sysroot/usr/share/pcieids: /usr/share/hwdata/pci.ids $(BUILDDIR)/utils/file2obj
+$(BUILDDIR)/us/sysroot/usr/share/pcieids: /usr/share/hwdata/pci.ids
 	@mkdir -p $(dir $@)
 	@cp $< $@
 
-$(BUILDDIR)/us/sysroot/usr/share/inconsolata.sfn: us/inconsolata.sfn $(BUILDDIR)/utils/file2obj
+$(BUILDDIR)/us/sysroot/usr/share/inconsolata.sfn: us/inconsolata.sfn
 	@mkdir -p $(dir $@)
 	@cp $< $@
 
-SYSROOT_FILES+=$(BUILDDIR)/us/sysroot/usr/share/inconsolata.sfn $(BUILDDIR)/us/sysroot/usr/share/pcieids
+$(BUILDDIR)/us/sysroot/usr/share/mountains.jpeg: us/mountains.jpeg
+	@mkdir -p $(dir $@)
+	@cp $< $@
+
+
+SYSROOT_FILES+=$(BUILDDIR)/us/sysroot/usr/share/inconsolata.sfn $(BUILDDIR)/us/sysroot/usr/share/pcieids $(BUILDDIR)/us/sysroot/usr/share/mountains.jpeg
 SYSROOT_FILES+=$(addprefix $(BUILDDIR)/us/sysroot/usr/bin/,$(TWZUTILS))
 

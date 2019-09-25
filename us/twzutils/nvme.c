@@ -482,6 +482,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	return 0;
 	struct nvme_controller nc = {};
 	int r = twz_object_open_name(&nc.co, argv[1], FE_READ | FE_WRITE);
 	if(r) {
