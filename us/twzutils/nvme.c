@@ -111,6 +111,7 @@ struct nvme_controller {
 	int dstride;
 	bool init, msix;
 	uint64_t aq_pin;
+	_Atomic uint64_t sp_error;
 	struct nvme_queue *queues;
 };
 
@@ -125,7 +126,7 @@ struct nvme_queue {
 		uint32_t head, tail;
 		volatile struct nvme_cmp *entries;
 	} cmpq;
-	uint64_t *sps;
+	_Atomic uint64_t *sps;
 	uint32_t count;
 };
 
@@ -147,7 +148,7 @@ void nvmeq_init(struct nvme_queue *q,
 }
 
 #include <stdatomic.h>
-void nvmeq_submit_cmd(struct nvme_queue *q, struct nvme_cmd *cmd)
+uint16_t nvmeq_submit_cmd(struct nvme_queue *q, struct nvme_cmd *cmd)
 {
 	size_t index = q->subq.tail;
 	cmd->hdr.cdw0 |= (uint32_t)(index << 16);
@@ -155,6 +156,7 @@ void nvmeq_submit_cmd(struct nvme_queue *q, struct nvme_cmd *cmd)
 	atomic_thread_fence(memory_order_acq_rel);
 	q->subq.tail = (q->subq.tail + 1) & (q->count - 1);
 	*q->subq.tail_doorbell = q->subq.tail;
+	return (uint16_t)index;
 }
 
 void *nvme_co_get_regs(struct object *co)
@@ -383,11 +385,38 @@ int nvmec_identify(struct nvme_controller *nc)
 	struct nvme_cmd cmd;
 	void *memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000);
 	nvme_cmd_init_identify(&cmd, 1, 0, nc->aq_pin + 0x200000 + 0x1000);
-	nvmeq_submit_cmd(&nc->queues[0], &cmd);
+	uint16_t cid = nvmeq_submit_cmd(&nc->queues[0], &cmd);
+	struct sys_thread_sync_args sa[2] = {
+		[0] = {
+		.addr = (uint64_t *)&nc->queues[0].sps[cid],
+		.op = THREAD_SYNC_SLEEP,
+		}, [1] = {
+			.addr = (uint64_t *)&nc->sp_error,
+			.op = THREAD_SYNC_SLEEP,
+		},
+	};
+	uint64_t res, err;
+	while(1) {
+		res = nc->queues[0].sps[cid];
+		err = atomic_exchange(&nc->sp_error, 0);
+		if(res || err)
+			break;
+		debug_printf("IDENT sleep\n");
+		int r = sys_thread_sync(2, sa);
+		if(r < 0) {
+			fprintf(stderr, "[nvme] thread-sync %d\n", r);
+			return r;
+		}
+	}
+	if(err == 1) {
+		return nvmec_identify(nc);
+	}
+	debug_printf("HEY! %lx %lx\n", res, err);
 
 	return 0;
 }
 
+#include <limits.h>
 void nvme_wait_for_event(struct nvme_controller *nc)
 {
 	struct pcie_function_header *hdr = twz_obj_base(&nc->co);
@@ -401,6 +430,30 @@ void nvme_wait_for_event(struct nvme_controller *nc)
 		uint64_t iovf = atomic_exchange(&hdr->iov_fault, 0);
 		uint64_t irq = atomic_exchange(&hdr->interrupts[0].sp, 0);
 		debug_printf(":: %lx %lx\n", iovf, irq);
+		if(iovf & 1) {
+			/* handled; retry */
+			nc->sp_error = 1;
+			struct sys_thread_sync_args sa_er = {
+				.addr = (uint64_t *)&nc->sp_error,
+				.op = THREAD_SYNC_WAKE,
+				.arg = INT_MAX,
+			};
+			debug_printf("Notifying wakeup on error\n");
+			int r = sys_thread_sync(1, &sa_er);
+			if(r) {
+				fprintf(stderr, "[nvme] thread_sync error: %d\n", r);
+				return;
+			}
+		}
+		if(irq) {
+			volatile struct nvme_cmp *cmp = nc->queues[0].cmpq.entries;
+			fprintf(stderr,
+			  "CMP %x %x %x %x\n",
+			  cmp->cmp_dword[0],
+			  cmp->cmp_dword[1],
+			  cmp->cmp_dword[2],
+			  cmp->cmp_dword[3]);
+		}
 		if(!iovf && !irq) {
 			int r = sys_thread_sync(2, sa);
 			if(r < 0) {
