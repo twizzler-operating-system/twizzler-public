@@ -173,6 +173,12 @@ int create_pty_pair(char *server, char *client)
 }
 
 #include <twz/hier.h>
+static __inline__ unsigned long long rdtsc(void)
+{
+	unsigned hi, lo;
+	__asm__ __volatile__("rdtscp" : "=a"(lo), "=d"(hi));
+	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
+}
 
 struct object bs;
 int main(int argc, char **argv)
@@ -186,6 +192,17 @@ int main(int argc, char **argv)
 	setenv("TERM", "linux", 1);
 	setenv("PATH", "/usr/bin", 1);
 
+#if 0
+	long s = rdtsc();
+	size_t i = 0;
+	for(; i < 1000000; i++) {
+		__syscall6(0, 0, 0, 0, 0, 0, 0);
+	}
+	long e = rdtsc();
+	debug_printf("----> %ld ;; %ld\n", e - s, (e - s) / i);
+	for(;;)
+		;
+#endif
 	int r;
 	struct thread tthr;
 

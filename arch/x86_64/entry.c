@@ -199,7 +199,7 @@ __noinstrument void arch_thread_resume(struct thread *thread, uint64_t timeout)
 	x86_64_wrmsr(
 	  X86_MSR_KERNEL_GS_BASE, thread->arch.gs & 0xFFFFFFFF, (thread->arch.gs >> 32) & 0xFFFFFFFF);
 
-	if(old) {
+	if(old && old != thread) {
 		asm volatile("xsave (%0)" ::"r"(old->arch.xsave_region), "a"(7), "d"(0) : "memory");
 	}
 
@@ -219,13 +219,15 @@ __noinstrument void arch_thread_resume(struct thread *thread, uint64_t timeout)
 		/* TODO: fix this: need to properly init the xsave area */
 		asm volatile("xsave (%0)" ::"r"(thread->arch.xsave_region), "a"(7), "d"(0) : "memory");
 	}
-	asm volatile("xrstor (%0)" ::"r"(thread->arch.xsave_region), "a"(7), "d"(0) : "memory");
-	if((!old || old->ctx != thread->ctx) && thread->ctx) {
-		arch_mm_switch_context(thread->ctx);
-	}
-	if((!old || old->active_sc != thread->active_sc) && thread->active_sc) {
-		x86_64_secctx_switch(thread->active_sc);
-		thread->processor->stats.sctx_switch++;
+	if(old != thread) {
+		asm volatile("xrstor (%0)" ::"r"(thread->arch.xsave_region), "a"(7), "d"(0) : "memory");
+		if((!old || old->ctx != thread->ctx) && thread->ctx) {
+			arch_mm_switch_context(thread->ctx);
+		}
+		if((!old || old->active_sc != thread->active_sc) && thread->active_sc) {
+			x86_64_secctx_switch(thread->active_sc);
+			thread->processor->stats.sctx_switch++;
+		}
 	}
 	if(timeout) {
 		clksrc_set_interrupt_countdown(timeout, false);

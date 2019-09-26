@@ -202,7 +202,6 @@ static void do_iommu_object_map_slot(struct object *obj, uint64_t flags)
 	test_and_allocate(&pml4[pml4_idx], EPT_READ | EPT_WRITE | EPT_EXEC);
 
 	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
-	printk("SETTING %lx -> %lx\n", virt, obj->arch.pt_root);
 	pdpt[pdpt_idx] = obj->arch.pt_root | 7;
 	asm volatile("clflush %0" ::"m"(pdpt[pdpt_idx]));
 }
