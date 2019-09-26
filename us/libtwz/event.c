@@ -13,6 +13,7 @@
 
 void event_obj_init(struct object *obj, struct evhdr *hdr)
 {
+	(void)obj;
 	hdr->point = 0;
 }
 
@@ -45,10 +46,6 @@ int event_wait(size_t count, struct event *ev)
 		return -EINVAL; // TODO
 	while(true) {
 		struct sys_thread_sync_args args[count];
-		int ops[count];
-		long *points[count];
-		long arg[count];
-		struct timespec *spec[count];
 		size_t ready = 0;
 		for(size_t i = 0; i < count; i++) {
 			_Atomic uint64_t *point = __event_point(ev);

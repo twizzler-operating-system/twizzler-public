@@ -389,6 +389,7 @@ int bt_node_get(struct object *obj,
   struct btree_node *n,
   struct btree_val *v)
 {
+	(void)hdr;
 	v->mv_size = n->md.mv_size;
 	v->mv_data = twz_ptr_lea(obj, n->md.mv_data);
 	return 0;
@@ -399,6 +400,7 @@ int bt_node_getkey(struct object *obj,
   struct btree_node *n,
   struct btree_val *v)
 {
+	(void)hdr;
 	v->mv_size = n->mk.mv_size;
 	v->mv_data = twz_ptr_lea(obj, n->mk.mv_data);
 	return 0;

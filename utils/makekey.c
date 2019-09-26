@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 	}
 
 	char buffer[strlen(infile) + 1024];
-	sprintf(buffer, "openssl dsa -in %s -pubout", infile);
+	sprintf(buffer, "openssl dsa -in %s -pubout 2>/dev/null", infile);
 	FILE *f = popen(buffer, "r");
 	if(!f) {
 		err(1, "popen");

@@ -490,6 +490,7 @@ int secctx_fault_resolve(struct thread *t,
 	fls[__flt] = 0;
 
 	(void)fls;
+	(void)loaddr;
 	EPRINTK("[%ld] fault_resolve - loaddr=%lx, vaddr=%lx, ip=%lx, target=" IDFMT ", flags=%s\n",
 	  t->id,
 	  loaddr,
@@ -792,6 +793,7 @@ static bool __secctx_detach(struct object *parent, struct object *child, int sys
 
 static bool __secctx_attach(struct object *parent, struct object *child, int flags)
 {
+	(void)flags;
 	if(parent->kso_type != KSO_THREAD || child->kso_type != KSO_SECCTX)
 		return false;
 	/* TODO: actually get the thread object */

@@ -190,6 +190,7 @@ void *kcalloc(size_t num, size_t sz)
 
 void kfree(void *p)
 {
+	(void)p;
 	// printk("[ni] kfree (%p)\n", p);
 }
 

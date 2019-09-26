@@ -50,15 +50,6 @@ __initializer static void _init_objs(void)
 	printk("Allocated %ld KB for object slots\n", NUM_TL_SLOTS / (8 * 1024));
 }
 
-static int sz_to_pglevel(size_t sz)
-{
-	for(int i = 0; i < MAX_PGLEVEL; i++) {
-		if(sz < mm_page_size(i))
-			return i;
-	}
-	return MAX_PGLEVEL;
-}
-
 static struct kso_calls *_kso_calls[KSO_MAX];
 
 void kso_register(int t, struct kso_calls *c)
@@ -495,8 +486,6 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 {
 	static size_t __c = 0;
 	__c++;
-	// printk("OSC: %ld\n", ++__c);
-	size_t slot = loaddr / mm_page_size(MAX_PGLEVEL);
 	size_t idx = (loaddr % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
 	if(idx == 0) {
 		struct fault_null_info info = {

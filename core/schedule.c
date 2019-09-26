@@ -138,6 +138,8 @@ __noinstrument void thread_schedule_resume(void)
 
 void thread_sleep(struct thread *t, int flags, int64_t timeout)
 {
+	(void)flags;
+	(void)timeout;
 	/* TODO (major): timeout */
 	t->priority *= 20;
 	if(t->priority > 1000) {

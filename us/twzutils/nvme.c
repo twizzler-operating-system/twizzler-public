@@ -10,129 +10,7 @@
 #include <twz/driver/device.h>
 #include <twz/driver/pcie.h>
 
-#define NVME_REG_CAP 0
-#define NVME_REG_VS 8
-#define NVME_REG_INTMS 0xC
-#define NVME_REG_INTMC 0x10
-#define NVME_REG_CC 0x14
-#define NVME_REG_CSTS 0x1c
-#define NVME_REG_NSSR 0x20
-#define NVME_REG_AQA 0x24
-#define NVME_REG_ASQ 0x28
-#define NVME_REG_ACQ 0x30
-#define NVME_REG_SQnTDBL(n, s) (0x1000 + ((n) * (s)))
-#define NVME_REG_CQnHDBL(n, s) (0x1000 + (((n) + 1) * (s)))
-
-#define NVME_CAP_MPSMAX(c) (((c) >> 52) & 0xf)
-#define NVME_CAP_MPSMIN(c) (((c) >> 48) & 0xf)
-#define NVME_CAP_DSTRD(c) (((c) >> 32) & 0xf)
-#define NVME_CAP_CQR (1 << 16)
-#define NVME_CAP_MQES ((c)&0xff)
-
-#define NVME_CC_IOCQES(c) ((c) << 20)
-#define NVME_CC_IOSQES(c) ((c) << 16)
-#define NVME_CC_MPS(c) ((LOG2(c) - 12) << 7)
-#define NVME_CC_EN 1
-
-#define NVME_CSTS_PP (1 << 5)
-#define NVME_CSTS_CFS (1 << 1)
-#define NVME_CSTS_RDY 1
-
-struct nvme_controller_ident {
-	uint16_t vendor;
-	uint16_t sub_vendor;
-	uint8_t serial[20];
-	uint8_t model[40];
-	uint64_t fr;
-	uint8_t rab;
-	uint8_t ieee[3];
-	uint8_t cmic;
-	uint8_t mdts;
-	uint16_t cntlid;
-	uint32_t ver;
-	uint32_t rtd3r;
-	uint32_t rtd3e;
-	uint32_t oaes;
-	uint32_t ctrarr;
-	uint8_t resv[12];
-	__int128 fguid;
-	uint8_t resv1[128];
-	uint8_t resv2[256];
-	uint8_t sqes;
-	uint8_t cqes;
-	uint16_t maxcmd;
-	uint32_t nn;
-	uint16_t oncs;
-	uint8_t ign[46];
-	uint8_t subnqn[256];
-} __attribute__((packed));
-
-struct nvme_namespace_ident {
-	uint64_t nsze;
-	uint64_t ncap;
-	uint64_t nuse;
-	uint8_t nsfeat;
-	uint8_t nlbaf;
-	uint8_t flbas;
-	uint8_t mc;
-	uint8_t ign[76];
-	__int128 nguid;
-	uint64_t eui64;
-	uint32_t lbaf[16];
-} __attribute__((packed));
-
-_Static_assert(offsetof(struct nvme_controller_ident, sqes) == 512, "");
-_Static_assert(offsetof(struct nvme_namespace_ident, lbaf) == 128, "");
-
-// Scatter gather list
-struct nvme_sgl {
-	char data[16];
-};
-
-_Static_assert(sizeof(struct nvme_sgl) == 16, "");
-
-// Physical region pointer
-struct nvme_prp {
-	uintptr_t addr;
-};
-
-union nvme_data_ptr {
-	// Scatter gather list
-	struct nvme_sgl sgl1;
-	// Physical region page
-	struct nvme_prp prpp[2];
-};
-
-// Command submission queue header common to all commands
-
-struct nvme_cmd_hdr {
-	// Command dword 0
-	uint32_t cdw0;
-	// namespace ID
-	uint32_t nsid;
-	uint64_t reserved1;
-	// Metadata pointer
-	uint64_t mptr;
-	// Data pointer
-	union nvme_data_ptr dptr;
-};
-
-_Static_assert(sizeof(struct nvme_cmd_hdr) == 40, "");
-
-struct nvme_cmd {
-	struct nvme_cmd_hdr hdr;
-	// cmd dwords 10 thru 15
-	uint32_t cmd_dword_10[6];
-};
-
-enum nvme_admin_op {
-	NVME_ADMIN_OP_IDENTIFY = 0x6,
-};
-
-#define NVME_CMD_SDW0_CID(x) ((x) << 16)
-#define NVME_CMD_SDW0_PSDT(x) ((x) << 14)
-#define NVME_CMD_SDW0_FUSE(x) ((x) << 8)
-#define NVME_CMD_SDW0_OP(x) ((x))
+#include "nvme.h"
 
 static void nvme_cmd_init_identify(struct nvme_cmd *cmd, uint8_t cns, uint8_t nsid, uint64_t addr)
 {
@@ -142,54 +20,6 @@ static void nvme_cmd_init_identify(struct nvme_cmd *cmd, uint8_t cns, uint8_t ns
 	cmd->hdr.dptr.prpp[0].addr = addr;
 	cmd->cmd_dword_10[0] = cns;
 }
-
-_Static_assert(sizeof(struct nvme_cmd) == 64, "");
-
-struct nvme_cmp {
-	// Command specific
-	uint32_t cmp_dword[4];
-};
-
-_Static_assert(sizeof(struct nvme_cmp) == 16, "");
-
-struct nvme_namespace {
-	uint64_t size;
-	uint64_t cap;
-	uint64_t use;
-	uint32_t id;
-	uint32_t lba_size;
-	struct nvme_namespace *next;
-};
-
-struct nvme_controller {
-	struct object co;
-	struct object qo;
-	int dstride;
-	bool init, msix;
-	uint64_t aq_pin;
-	_Atomic uint64_t sp_error;
-	struct nvme_queue *queues;
-	size_t nr_queues;
-	struct nvme_namespace *namespaces;
-};
-
-struct nvme_queue {
-	struct {
-		volatile uint32_t *tail_doorbell;
-		uint32_t head, tail;
-		volatile struct nvme_cmd *entries;
-		bool phase;
-	} subq;
-	struct {
-		volatile uint32_t *head_doorbell;
-		uint32_t head, tail;
-		volatile struct nvme_cmp *entries;
-		bool phase;
-	} cmpq;
-	_Atomic uint64_t *sps;
-	uint32_t count;
-};
-
 void nvmeq_init(struct nvme_queue *q,
   struct nvme_cmd *sentries,
   struct nvme_cmp *centries,
@@ -545,16 +375,10 @@ int nvmec_identify(struct nvme_controller *nc)
 	}
 
 	struct nvme_controller_ident *ci = ci_memory;
+	(void)ci; // TODO: check features
+
 	struct nvme_namespace_ident *nsi = ns_memory;
 	uint32_t *nsl = nsl_memory;
-	fprintf(stderr,
-	  "[nvme] ident: %ld %d %d %s %s %s\n",
-	  ci->nn,
-	  ci->sqes,
-	  ci->cqes,
-	  ci->serial,
-	  ci->model,
-	  ci->subnqn);
 
 	nvme_cmd_init_identify(&cmd, 2, 0, nc->aq_pin + 0x200000 + 0x2000);
 	if(nvmec_execute_cmd(nc, &cmd, &status, &cres))
@@ -672,7 +496,6 @@ void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
 void nvme_wait_for_event(struct nvme_controller *nc)
 {
 	struct device_repr *repr = twz_device_getrepr(&nc->co);
-	struct pcie_function_header *hdr = twz_device_getds(&nc->co);
 	struct sys_thread_sync_args sa[2] = { [0] = { .addr = &repr->syncs[DEVICE_SYNC_IOV_FAULT],
 		                                    .op = THREAD_SYNC_SLEEP },
 		[1] = { .addr = &repr->interrupts[0].sp, .op = THREAD_SYNC_SLEEP
@@ -738,7 +561,7 @@ void *ptm(void *arg)
 
 int main(int argc, char **argv)
 {
-	if(!argv[1]) {
+	if(!argv[1] || argc == 1) {
 		fprintf(stderr, "usage: nvme controller-name\n");
 		return 1;
 	}

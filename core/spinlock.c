@@ -33,6 +33,9 @@ bool __spinlock_acquire(struct spinlock *lock, const char *f, int l)
 
 void __spinlock_release(struct spinlock *lock, bool flags, const char *f, int l)
 {
+	(void)f;
+	(void)l;
+	/* TODO: when not debugging locks, dont have these arguments */
 	// if(f)
 	//	printk("SLR: %s:%d\n", f, l);
 	atomic_store_explicit(&lock->data, 0, memory_order_release);

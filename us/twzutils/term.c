@@ -69,6 +69,7 @@ void process_keyboard(struct object *, char *, size_t);
 
 void kbmain(void *a)
 {
+	(void)a;
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term.input");
 
 	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
@@ -79,7 +80,6 @@ void kbmain(void *a)
 	}
 
 	for(;;) {
-		int x;
 		char buf[128];
 		ssize_t r = twzio_read(&kbobj, buf, 128, 0, 0);
 		if(r < 0) {
@@ -169,8 +169,8 @@ static void draw_glyph(const struct fb *restrict fb,
   int c)
 {
 	unsigned int x, y, i, m;
-	uint32_t pen_x = fb->x * (fb->gl_w + fb->spacing);
-	uint32_t pen_y = fb->y * fb->gl_h;
+	int32_t pen_x = fb->x * (fb->gl_w + fb->spacing);
+	int32_t pen_y = fb->y * fb->gl_h;
 	/* align glyph properly, we may have received a vertical letter */
 
 	if(glyph->adv_y)
@@ -187,7 +187,7 @@ static void draw_glyph(const struct fb *restrict fb,
 
 	uint32_t bpmul = fb->pitch / 4;
 	uint32_t set = 0xff | fgcolor;
-	uint64_t start = rdtsc();
+	// uint64_t start = rdtsc();
 
 	switch(glyph->mode) {
 		case SSFN_MODE_BITMAP:
@@ -209,7 +209,6 @@ static void draw_glyph(const struct fb *restrict fb,
 				uint32_t ys = (pen_y + y) * bpmul;
 				uint32_t ygs = y * glyph->pitch;
 				for(x = 0; x < glyph->w; x++) {
-					assert(ys + pen_x + x >= 0);
 					assert(ys + pen_x + x < (fb->pitch * fb->fbh / 4));
 					buffer[ys + pen_x + x] = ablend((glyph->data[ygs + x] << 24) | fgcolor,
 					  fb->bg ? (fb->bg | 0xff000000) : fb->bg);
@@ -230,14 +229,27 @@ static void draw_glyph(const struct fb *restrict fb,
 		default:
 			debug_printf("Unsupported mode for %x: %d\n", c, glyph->mode);
 	}
-	uint64_t end = rdtsc();
+	// uint64_t end = rdtsc();
 	// debug_printf("TSC: %ld\n", end - start);
+}
+void fb_render_cursor(struct fb *fb)
+{
+	uint32_t *px = (uint32_t *)fb->front_buffer;
+	uint32_t *pxb = (uint32_t *)fb->back_buffer;
+	size_t pen_x = fb->x * (fb->gl_w + fb->spacing);
+	size_t yinc = fb->pitch / 4;
+	size_t pen_y = fb->y * (fb->gl_h) * yinc;
+	for(size_t y = pen_y; y < (pen_y + (fb->gl_h) * yinc); y += yinc) {
+		for(size_t x = 0; x < fb->gl_w; x++) {
+			px[y + pen_x + x + 1] = ~pxb[y + pen_x + x + 1] | 0xff000000;
+		}
+	}
 }
 
 OPTIMIZE
 static void fb_flip(struct fb *fb)
 {
-	uint64_t s = rdtsc();
+	// uint64_t s = rdtsc();
 	if(fb->flip) {
 		uint32_t *src1 = (uint32_t *)fb->back_buffer;
 		uint32_t *src2 = (uint32_t *)fb->background_buffer;
@@ -253,7 +265,7 @@ static void fb_flip(struct fb *fb)
 	}
 	fb_render_cursor(fb);
 
-	uint64_t e = rdtsc();
+	// uint64_t e = rdtsc();
 	// debug_printf("flip: %ld\n", e - s);
 }
 
@@ -346,20 +358,6 @@ void fb_clear_screen(struct fb *fb, int sl, int el)
 {
 	for(int i = sl; i < el; i++) {
 		fb_clear_line(fb, i, 0, fb->max_x);
-	}
-}
-
-void fb_render_cursor(struct fb *fb)
-{
-	uint32_t *px = (uint32_t *)fb->front_buffer;
-	uint32_t *pxb = (uint32_t *)fb->back_buffer;
-	size_t pen_x = fb->x * (fb->gl_w + fb->spacing);
-	size_t yinc = fb->pitch / 4;
-	size_t pen_y = fb->y * (fb->gl_h) * yinc;
-	for(size_t y = pen_y; y < (pen_y + (fb->gl_h) * yinc); y += yinc) {
-		for(size_t x = 0; x < fb->gl_w; x++) {
-			px[y + pen_x + x + 1] = ~pxb[y + pen_x + x + 1];
-		}
 	}
 }
 
@@ -561,6 +559,8 @@ void init_fb(struct fb *fb)
 
 void process_esc(struct fb *fb, int c)
 {
+	(void)fb;
+	(void)c;
 	debug_printf(" -- unhandled ESC %c\n", c);
 }
 
@@ -729,7 +729,7 @@ int main(int argc, char **argv)
 {
 	int r;
 
-	char *input, *output, *pty;
+	char *input = NULL, *output = NULL, *pty = NULL;
 
 	int c;
 	while((c = getopt(argc, argv, "i:o:p:")) != -1) {
@@ -747,6 +747,11 @@ int main(int argc, char **argv)
 				fprintf(stderr, "unrecognized option: %c\n", c);
 				exit(1);
 		}
+	}
+
+	if(!input || !output || !pty) {
+		fprintf(stderr, "term: usage: term -i <input> -o <output> -p <pty>\n");
+		exit(1);
 	}
 
 	twz_object_open_name(&kbobj, input, FE_READ | FE_WRITE);

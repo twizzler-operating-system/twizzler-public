@@ -152,7 +152,7 @@ static long thread_sync_single_norestore(int operation,
 	return ret;
 }
 
-static long thread_sync_sleep_wakeup(long *addr, int wake, int idx)
+static long thread_sync_sleep_wakeup(long *addr, int idx)
 {
 	objid_t id;
 	uint64_t off;
@@ -234,7 +234,7 @@ long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args)
 	if(wake) {
 		for(size_t i = 0; i < count; i++) {
 			if(args[i].op == THREAD_SYNC_SLEEP)
-				thread_sync_sleep_wakeup((long *)args[i].addr, 1, i);
+				thread_sync_sleep_wakeup((long *)args[i].addr, i);
 		}
 	}
 	return ok ? 0 : -1;

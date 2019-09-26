@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include <twz/debug.h>
+#include <twz/driver/device.h>
 #include <twz/sys.h>
 #include <twz/thread.h>
 
@@ -164,7 +165,7 @@ int pcie_init_function(struct pcie_function *pf)
 		return r;
 	}
 	if(args.result) {
-		fprintf(stderr, "kaction-result: %d\n", args.result);
+		fprintf(stderr, "kaction-result: %ld\n", args.result);
 		return r;
 	}
 
@@ -172,12 +173,6 @@ int pcie_init_function(struct pcie_function *pf)
 	uint32_t fid = pf->bus << 8 | pf->device << 3 | pf->function;
 	if((pf->cid = hdr->functions[fid])) {
 		twz_object_open(&pf->cobj, pf->cid, FE_READ | FE_WRITE);
-		struct pcie_function_header *fh = twz_obj_base(&pf->cobj);
-		fh->deviceid = pf->config->header.device_id;
-		fh->vendorid = pf->config->header.vendor_id;
-		fh->classid = pf->config->header.class_code;
-		fh->subclassid = pf->config->header.subclass;
-		fh->progif = pf->config->header.progif;
 	}
 	return pf->cid ? 0 : -1;
 }
@@ -246,9 +241,9 @@ static void pcie_init_space(struct pcie_bus_header *space)
 #include <twz/name.h>
 void pcie_load_driver(struct pcie_function *pf)
 {
-	int r = sys_opin(pf->cid, NULL, 0);
+	// int r = sys_opin(pf->cid, NULL, 0);
 
-	struct pcie_function_header *hdr = twz_obj_base(&pf->cobj);
+	struct pcie_function_header *hdr = twz_device_getds(&pf->cobj);
 	if(hdr->vendorid == 0x1234 && hdr->deviceid == 0x1111) {
 		twz_name_assign(pf->cid, "dev:output:framebuffer");
 		return;
@@ -263,13 +258,16 @@ int main(int argc, char **argv)
 {
 	debug_printf("[pcie] loading PCIe bus %s\n", argv[1]);
 
-	if(!objid_parse(argv[1], strlen(argv[1]), &pcie_cs_oid)) {
+	if(!objid_parse(argv[1], strlen(argv[1]), &pcie_cs_oid) || argc == 1) {
 		printf("invalid object ID: %s\n", argv[1]);
 		exit(1);
 	}
 
 	int r = twz_object_open(&pcie_cs_obj, pcie_cs_oid, FE_READ | FE_WRITE);
-	debug_printf(":: %d\n", r);
+	if(r) {
+		fprintf(stderr, "failed to open pcie bus: %d\n", r);
+		exit(1);
+	}
 
 	pcie_init_space(twz_obj_base(&pcie_cs_obj));
 

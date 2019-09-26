@@ -156,10 +156,10 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 static void x86_64_initrd(void *u)
 {
 	(void)u;
-	static int __id = 0;
 	if(mb->mods_count == 0)
 		return;
 	struct mboot_module *m = mm_ptov(mb->mods_addr);
+	size_t _count = 0;
 	for(unsigned i = 0; i < mb->mods_count; i++, m++) {
 		size_t modlen = m->end - m->start;
 		printk("Loading objects from module %d (len=%ld bytes)\n", i, modlen);
@@ -182,7 +182,7 @@ static void x86_64_initrd(void *u)
 				case '0':
 				case '7':
 					nl = strlen(name);
-					printk("Loading object: %s\n", name);
+					printk("Loading object: %s\e[K\r", name);
 					if(!strncmp(name, "kc", 2) && nl == 2) {
 						kc_parse(data, len);
 					} else {
@@ -196,7 +196,6 @@ static void x86_64_initrd(void *u)
 							printk("Malformed object name: %s\n", name);
 							break;
 						}
-						bool meta = nl == 38;
 						objid_t id;
 						if(!objid_parse(name, &id)) {
 							printk("Malformed object name: %s\n", name);
@@ -208,8 +207,8 @@ static void x86_64_initrd(void *u)
 							obj = obj_create(id, KSO_NONE);
 						}
 						obj->flags |= OF_NOTYPECHECK;
-						size_t idx = 0;
 						load_object_data(obj, data, len);
+						_count++;
 					}
 					break;
 				default:
@@ -220,6 +219,7 @@ static void x86_64_initrd(void *u)
 			h = (struct ustar_header *)((char *)h + 512 + reclen);
 		}
 	}
+	printk("loaded %ld objects\e[0K\n", _count);
 }
 POST_INIT(x86_64_initrd);
 

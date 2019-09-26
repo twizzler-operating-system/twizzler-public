@@ -219,6 +219,10 @@ long syscall_ocreate(uint64_t kulo,
 
 long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags)
 {
+	printk("warning - NI: odelete\n");
+	(void)olo;
+	(void)ohi;
+	(void)flags;
 	return 0;
 }
 

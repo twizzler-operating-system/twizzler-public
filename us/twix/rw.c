@@ -192,8 +192,14 @@ long linux_sys_pselect6(int nfds,
   fd_set *readfds,
   fd_set *writefds,
   fd_set *exceptfds,
-  const struct timespec *timout,
+  const struct timespec *timeout,
   const sigset_t *sigmask)
 {
+	(void)nfds;
+	(void)readfds;
+	(void)writefds;
+	(void)exceptfds;
+	(void)timeout;
+	(void)sigmask;
 	return 0;
 }

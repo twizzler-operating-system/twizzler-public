@@ -128,5 +128,5 @@ struct object *device_register(uint32_t bustype, uint32_t devid)
 
 void device_unregister(struct object *obj)
 {
-	panic("NI - device_unregister");
+	panic("NI - device_unregister %p", obj);
 }

@@ -175,7 +175,6 @@ static long pcie_function_init(struct object *pbobj,
 	pcief_register(segment, bus, device, function, fobj);
 
 	/* init the headers */
-	struct device_repr *repr = device_get_repr(fobj);
 	struct pcie_function_header *hdr = device_get_devspecific(fobj);
 	*hdr = (struct pcie_function_header){
 		.bus = bus,

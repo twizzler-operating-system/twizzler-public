@@ -1,4 +1,4 @@
-include doc/include.mk
+    include doc/include.mk
 
 ifndef PROJECT
 $(error PROJECT is not set. Please choose one of ($(shell ls --format=commas projects)), or create a new one in projects/)
@@ -105,15 +105,15 @@ export BUILDDIR
 
 $(BUILDDIR)/kernel: $(BUILDDIR)/link.ld $(OBJECTS) $(BUILDDIR)/symbols.o $(KLIBS)
 	@mkdir -p $(BUILDDIR)
-	@echo "[LD]  $@"
+	@echo "[LD]      $@"
 	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(KLIBS) $(BUILDDIR)/symbols.o $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
 
 $(BUILDDIR)/symbols.o: $(BUILDDIR)/symbols.c
-	@echo "[CC]  $@"
+	@echo "[CC]      $@"
 	@$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) -c -o $@ $<
 
 $(BUILDDIR)/symbols.c: $(BUILDDIR)/kernel.sym.c
-	@echo "[GEN] $@"
+	@echo "[GEN]     $@"
 	@echo '#include <ksymbol.h>' > $(BUILDDIR)/symbols.c
 	@echo '__attribute__((section(".ksyms"))) const struct ksymbol kernel_symbol_table[] = {' >> $(BUILDDIR)/symbols.c
 	@cat $(BUILDDIR)/kernel.sym.c >> $(BUILDDIR)/symbols.c
@@ -122,21 +122,21 @@ $(BUILDDIR)/symbols.c: $(BUILDDIR)/kernel.sym.c
 	@echo '__attribute__((section(".ksyms"))) const size_t kernel_symbol_table_length = ' $$(wc -l < $(BUILDDIR)/kernel.sym.c) ';' >> $(BUILDDIR)/symbols.c
 
 $(BUILDDIR)/kernel.sym.c: $(BUILDDIR)/kernel.stage1
-	@echo "[GEN] $@"
+	@echo "[GEN]     $@"
 	@$(TOOLCHAIN_PREFIX)objdump -t $(BUILDDIR)/kernel.stage1 | grep '^.* [lg]' | awk '{print $$1 " " $$(NF-1) " " $$NF}' | grep -v '.hidden' | sed -rn 's|([0-9a-f]+) ([0-9a-f]+) ([a-zA-Z0-9_/\.]+)|{.value=0x\1, .size=0x\2, .name="\3"},|p' > $(BUILDDIR)/kernel.sym.c
 
 $(BUILDDIR)/kernel.stage1: $(BUILDDIR)/link.ld $(OBJECTS) $(KLIBS)
-	@echo "[LD]  $@"
+	@echo "[LD]      $@"
 	@mkdir -p $(BUILDDIR)
 	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(KLIBS) $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel.stage1 -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
 
 $(BUILDDIR)/%.o : %.S $(CONFIGFILE)
-	@echo "[AS]  $@"
+	@echo "[AS]      $@"
 	@mkdir -p $(@D)
 	@$(TOOLCHAIN_PREFIX)gcc $(ASFLAGS) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
 
 $(BUILDDIR)/%.o : %.c $(CONFIGFILE) $(BUILDDIR)/third-party/libtomcrypt/include/tomcrypt.h
-	@echo "[CC]  $@"
+	@echo "[CC]      $@"
 	@mkdir -p $(@D)
 	@$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) $($(addprefix CFLAGS_,$(subst /,_,$<))) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
 

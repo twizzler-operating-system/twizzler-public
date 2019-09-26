@@ -29,8 +29,12 @@ ssize_t twzio_write(struct object *obj, const void *buf, size_t len, size_t off,
 	return fn(obj, buf, len, off, flags);
 }
 
-ssize_t twzio_ioctl(struct object *obj, int req, long arg)
+ssize_t twzio_ioctl(struct object *obj, int req, ...)
 {
+	va_list vp;
+	va_start(vp, req);
+	long arg = va_arg(vp, long);
+	va_end(vp);
 	struct twzio_hdr *hdr = twz_object_getext(obj, TWZIO_METAEXT_TAG);
 	if(!hdr || !hdr->ioctl)
 		return -ENOTSUP;

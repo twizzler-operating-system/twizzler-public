@@ -193,7 +193,6 @@ void arch_vm_unmap_object(struct vm_context *ctx, struct vmap *map, struct objec
 		panic("tried to map an unslotted object");
 	}
 	uintptr_t vaddr = map->slot * mm_page_size(MAX_PGLEVEL);
-	uintptr_t oaddr = obj->slot * mm_page_size(obj->pglevel);
 
 	if(arch_vm_unmap(ctx, vaddr) == false) {
 		/* TODO (major): is this a problem? */
@@ -238,7 +237,6 @@ static void _remap(void)
 __initializer static void _x86_64_init_vm(void)
 {
 	_remap();
-	printk("Switching to new page tables\n");
 	asm volatile("mov %0, %%cr3" ::"r"(mm_vtop(kernel_pml4)) : "memory");
 }
 

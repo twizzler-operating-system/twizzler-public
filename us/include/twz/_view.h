@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stddef.h>
 #include <twz/_kso.h>
 #include <twz/_obj.h>
 
@@ -16,4 +17,7 @@ struct viewentry {
 	uint64_t res0;
 	_Atomic uint32_t flags;
 	uint32_t res1;
-} __attribute__((packed));
+};
+
+_Static_assert(sizeof(struct viewentry) == 32, "");
+_Static_assert(offsetof(struct viewentry, flags) == 24, "");

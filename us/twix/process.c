@@ -103,6 +103,8 @@ long linux_sys_clone(struct twix_register_frame *frame,
   int *ctid,
   unsigned long newtls)
 {
+	(void)ptid;
+	(void)ctid;
 	if(flags != 0x7d0f00) {
 		return -ENOSYS;
 	}
@@ -130,6 +132,8 @@ long linux_sys_clone(struct twix_register_frame *frame,
 #include <sys/mman.h>
 long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t off)
 {
+	(void)prot;
+	(void)off;
 	if(addr != NULL && (flags & MAP_FIXED)) {
 		return -ENOTSUP;
 	}
@@ -166,6 +170,7 @@ long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t 
 #include <twz/thread.h>
 long linux_sys_exit(int code)
 {
+	(void)code;
 	/* TODO: code */
 	twz_thread_exit();
 	return 0;
@@ -203,8 +208,6 @@ long linux_sys_fork(struct twix_register_frame *frame)
 	}
 	pds[pid].pid = pid;
 	twz_thread_create(&pds[pid].thrd);
-
-	struct twzthread_repr *newrepr = twz_obj_base(&pds[pid].thrd.obj);
 
 	objid_t sid;
 	for(size_t i = 0; i <= TWZSLOT_MAX_SLOT; i++) {
@@ -278,6 +281,9 @@ long linux_sys_wait4(long pid, int *wstatus, int options, struct rusage *rusage)
 {
 	// debug_printf("WAIT: %ld %p %x\n", pid, wstatus, options);
 
+	(void)pid;
+	(void)options;
+	(void)rusage;
 	while(1) {
 		struct thread *thrd[MAX_PID];
 		int sps[MAX_PID];
@@ -293,6 +299,8 @@ long linux_sys_wait4(long pid, int *wstatus, int options, struct rusage *rusage)
 			}
 		}
 		int r = twz_thread_wait(c, thrd, sps, event, info);
+		if(r)
+			return r;
 
 		for(unsigned int i = 0; i < c; i++) {
 			if(event[i] && pds[pids[i]].pid) {

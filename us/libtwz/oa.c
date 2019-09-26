@@ -89,6 +89,7 @@ void *oa_hdr_alloc(struct object *obj, struct twzoa_header *hdr, size_t s)
 
 int oa_hdr_init(struct object *obj, struct twzoa_header *h, size_t start, size_t end)
 {
+	(void)obj;
 	start += 16;
 	h->start = start;
 	h->end = end;

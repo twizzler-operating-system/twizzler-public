@@ -39,7 +39,7 @@ struct metainfo {
 	uint32_t hashstart;
 	nonce_t nonce;
 	objid_t kuid;
-	struct metaext exts[];
+	_Alignas(16) struct metaext exts[];
 } __attribute__((packed));
 
 #define FE_READ MIP_DFL_READ

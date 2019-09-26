@@ -110,14 +110,9 @@ void tmain(char *cmd)
 	twz_thread_exit();
 }
 
-int main(int argc, char **argv)
+int main()
 {
 	char buffer[1024];
-
-	for(char **env = environ; *env != 0; env++) {
-		char *thisEnv = *env;
-		// printf("%s\n", thisEnv);
-	}
 
 	/*
 	debug_printf("Okay, trying to fork\n");

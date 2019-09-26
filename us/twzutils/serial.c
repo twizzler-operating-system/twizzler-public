@@ -173,6 +173,7 @@ ssize_t get_input(char *buf, size_t len)
 
 void somain(void *a)
 {
+	(void)a;
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] serial.output");
 
 	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
@@ -183,7 +184,6 @@ void somain(void *a)
 	}
 
 	for(;;) {
-		int x;
 		char buf[128];
 		ssize_t r = twzio_read(&so_obj, buf, 128, 0, 0);
 		if(r < 0) {
@@ -203,6 +203,8 @@ void somain(void *a)
 int main(int argc, char **argv)
 {
 	int r;
+	if(argc < 2)
+		abort();
 	char *kernel_side = argv[1];
 	char *user_side = argv[2];
 
@@ -263,9 +265,9 @@ int main(int argc, char **argv)
 			return 1;
 		}
 		size_t count = 0;
-		ssize_t w;
+		ssize_t w = 0;
 		do {
-			ssize_t w = twzio_write(&us_obj, buf + count, r - count, 0, 0);
+			w = twzio_write(&us_obj, buf + count, r - count, 0, 0);
 			if(w < 0)
 				break;
 			count += w;

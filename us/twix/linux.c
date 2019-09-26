@@ -1,5 +1,6 @@
 #include "syscalls.h"
 #include <errno.h>
+#include <string.h>
 #include <twz/_slots.h>
 #include <twz/view.h>
 

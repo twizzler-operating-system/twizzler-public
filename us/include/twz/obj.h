@@ -25,9 +25,9 @@ struct object {
 int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id);
 _Bool objid_parse(const char *name, size_t len, objid_t *id);
 
-void *__twz_ptr_lea_foreign(const struct object *o, const void *p);
+void *__twz_ptr_lea_foreign(struct object *o, const void *p);
 
-static inline void *__twz_ptr_lea(const struct object *o, const void *p)
+static inline void *__twz_ptr_lea(struct object *o, const void *p)
 {
 	if((uintptr_t)p < OBJ_MAXSIZE) {
 		return (void *)((uintptr_t)o->base + (uintptr_t)p);

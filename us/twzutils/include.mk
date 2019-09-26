@@ -6,18 +6,18 @@ EXTRAS_term=$(BUILDDIR)/us/twzutils/kbd.o
 ALL_EXTRAS=$(EXTRAS_term)
 
 $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
-	@echo [LD] $@
+	@echo "[LD]      $@"
 	@$(TWZCC) -static $(TWZLDFLAGS) -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@))
-	@echo [SPLIT] $@
+	@echo "[SPLIT]   $@"
 	@$(BUILDDIR)/utils/elfsplit $@.elf
 	@mv $@.elf.text $@
 	@mv $@.elf.data $@.data
 	@mv $@.elf $(BUILDDIR)/us/twzutils/$(notdir $@)
 
 $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.opp $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
-	@echo [LD] $@
+	@echo "[LD]      $@"
 	@$(TWZCXX) -static $(TWZLDFLAGS) -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@))
-	@echo [SPLIT] $@
+	@echo "[SPLIT]   $@"
 	@$(BUILDDIR)/utils/elfsplit $@.elf
 	@mv $@.elf.text $@
 	@mv $@.elf.data $@.data
@@ -26,12 +26,12 @@ $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.opp $(SYSROOT_READY)
 
 $(BUILDDIR)/us/twzutils/%.o: us/twzutils/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
-	@echo [CC] $@
-	$(TWZCC) $(TWZCFLAGS) -o $@ $(CFLAGS_$(basename $(notdir $@))) -c -MD $<
+	@echo "[CC]      $@"
+	@$(TWZCC) $(TWZCFLAGS) -o $@ $(CFLAGS_$(basename $(notdir $@))) -c -MD $<
 
 $(BUILDDIR)/us/twzutils/%.opp: us/twzutils/%.cpp $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
-	@echo [CC] $@
+	@echo "[CC]      $@"
 	@$(TWZCXX) $(TWZCFLAGS) -o $@ -c -MD $<
 
 $(BUILDDIR)/us/sysroot/usr/share/pcieids: /usr/share/hwdata/pci.ids

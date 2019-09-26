@@ -59,7 +59,7 @@ void tmain(const char *username)
 	exit(1);
 }
 
-int main(int argc, char **argv)
+int main()
 {
 	printf("Setting SCE to AUX.\n");
 	for(;;) {

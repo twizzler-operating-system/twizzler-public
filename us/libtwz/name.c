@@ -9,15 +9,16 @@
 #include <twz/obj.h>
 
 #include <twz/debug.h>
+/* TODO: make a real function for this */
 bool objid_parse(const char *name, size_t len, objid_t *id)
 {
-	int i;
+	size_t i;
 	*id = 0;
 	int shift = 128;
 
 	if(len < 33)
 		return false;
-	int extra = 0;
+	size_t extra = 0;
 	for(i = 0; i < 32 + extra && i < len; i++) {
 		char c = *(name + i);
 		if(c == ':') {
@@ -130,7 +131,7 @@ int twz_name_assign(objid_t id, const char *name)
 		strncpy(par_name, name, sl - par_name);
 		strcpy(ch_name, sl + 1);
 	} else {
-		ch_name = name;
+		strcpy(ch_name, name);
 	}
 
 	struct object *parent;
@@ -225,6 +226,8 @@ static int __twz_name_dfl_reverse(objid_t id, char *name, size_t *nl, int flags)
 
 static int __twz_name_dfl_resolve(struct object *obj, const char *name, int flags, objid_t *id)
 {
+	(void)obj;
+	(void)flags;
 	if(!__name_init())
 		return -ENOTSUP;
 
@@ -273,6 +276,9 @@ static int __twz_name_dfl_resolve(struct object *obj, const char *name, int flag
 
 ssize_t twz_name_dfl_getnames(const char *startname, struct twz_nament *ents, size_t len)
 {
+	(void)startname;
+	(void)ents;
+	(void)len;
 	return -ENOTSUP;
 #if 0
 	if(!__name_init())

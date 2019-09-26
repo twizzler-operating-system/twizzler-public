@@ -15,7 +15,7 @@ int __name_bootstrap(void);
 
 struct service_info {
 	objid_t sctx;
-	const char *name;
+	char *name;
 	char arg[1024];
 	char arg2[1024];
 };
@@ -84,7 +84,7 @@ void start_terminal(char *input, char *output, char *pty)
 	execv(
 	  "/usr/bin/term", (char *[]){ "/usr/bin/term", "-i", input, "-o", output, "-p", pty, NULL });
 	// EPRINTF("failed to exec '%s': %s\n", strerror(errno));
-	EPRINTF("failed to exec '%s'\n");
+	EPRINTF("failed to exec /usr/bin/term\n");
 	exit(1);
 }
 
@@ -181,7 +181,7 @@ static __inline__ unsigned long long rdtsc(void)
 }
 
 struct object bs;
-int main(int argc, char **argv)
+int main()
 {
 	debug_printf("Bootstrapping naming system\n");
 	if(__name_bootstrap() == -1) {
@@ -204,12 +204,6 @@ int main(int argc, char **argv)
 		;
 #endif
 	int r;
-	struct thread tthr;
-
-	struct service_info term_info = {
-		.name = "term",
-		.sctx = 0,
-	};
 
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] init");
 

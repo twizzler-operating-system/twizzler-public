@@ -18,6 +18,6 @@ struct twzio_hdr {
 
 ssize_t twzio_read(struct object *obj, void *buf, size_t len, size_t off, unsigned flags);
 ssize_t twzio_write(struct object *obj, const void *buf, size_t len, size_t off, unsigned flags);
-ssize_t twzio_ioctl(struct object *obj, int req, long arg);
+ssize_t twzio_ioctl(struct object *obj, int req, ...);
 
 #define TWZIO_NONBLOCK 1

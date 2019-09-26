@@ -6,6 +6,7 @@
 
 long linux_sys_open(const char *path, int flags, int mode)
 {
+	(void)mode;
 	objid_t id;
 	int r;
 	if((r = twz_name_resolve(NULL, path, NULL, 0, &id))) {

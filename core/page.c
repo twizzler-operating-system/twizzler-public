@@ -50,12 +50,15 @@ struct page *page_alloc(int type)
 	return p;
 }
 
+/* TODO: implement page pinning */
 void page_pin(struct page *page)
 {
+	(void)page;
 }
 
 void page_unpin(struct page *page)
 {
+	(void)page;
 }
 
 struct page *page_alloc_nophys(void)

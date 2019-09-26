@@ -19,6 +19,8 @@ ssize_t bstream_hdr_read(struct object *obj,
   size_t len,
   unsigned flags)
 {
+	(void)obj;
+	(void)flags;
 	mutex_acquire(&hdr->rlock);
 
 	size_t count = 0;
@@ -54,6 +56,8 @@ ssize_t bstream_hdr_write(struct object *obj,
   size_t len,
   unsigned flags)
 {
+	(void)flags;
+	(void)obj;
 	mutex_acquire(&hdr->wlock);
 
 	size_t count = 0;

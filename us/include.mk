@@ -38,27 +38,31 @@ $(BUILDDIR)/us/$(MUSL)/configure: $(MUSL_SRCS)
 	@touch $@
 
 $(BUILDDIR)/us/$(MUSL)/lib/libc.a: $(BUILDDIR)/us/musl-config.mk
+	@echo "[INSTL]   musl-libs-bootstrap"
 	@mkdir -p $(BUILDDIR)/us
 	@mkdir -p $(BUILDDIR)/us/sysroot
-	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) lib/libc.a
+	@TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) lib/libc.a
 	@touch $@
 
 $(MUSL_HDRS): $(BUILDDIR)/us/musl-config.mk $(MUSL_SRCS)
-	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) $(MUSL_H_GEN)
-	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install-headers DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
+	@echo "[INSTL]   musl-headers"
+	@TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) $(MUSL_H_GEN)
+	@TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install-headers DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
 	-@cd $(BUILDDIR)/us/sysroot/usr/include && [ ! -e twz ] && ln -s ../../../../../../../us/include/twz twz
 	@touch $@
 
 $(BUILDDIR)/us/sysroot/usr/include/%.h: $(MUSL_HDRS)
 
 $(BUILDDIR)/us/sysroot/usr/lib/libc.a: $(BUILDDIR)/us/$(MUSL)/lib/libc.a
+	@echo "[INSTL]   musl-libraries"
 	@mkdir -p $(BUILDDIR)/us/sysroot
 	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) $(shell pwd)/$(BUILDDIR)/us/sysroot/usr/lib/libc.a DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
 	@touch $(BUILDDIR)/us/sysroot/usr/lib/libc.a
 
 $(BUILDDIR)/us/sysroot/usr/lib/crt1.o: $(MUSL_SRCS) $(MUSL_HDRS) $(BUILDDIR)/us/sysroot/usr/lib/libc.a $(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a
+	@echo "[INSTL]   crt-libraries"
 	@mkdir -p $(BUILDDIR)/us/sysroot
-	TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
+	@TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
 	@touch $(BUILDDIR)/us/sysroot/usr/lib/crt1.o
 
 
@@ -74,44 +78,21 @@ include us/twix/include.mk
 
 all_progs: $(addsuffix _all,$(PROGS))
 
-#$(BUILDDIR)/us/%.flags: us/%.flags
-#	@-cp $< $@
-#	@echo "" > $@
-
-#$(BUILDDIR)/us/twzutils/%.data.obj $(BUILDDIR)/us/twzutils/%.text.obj: $(BUILDDIR)/us/twzutils/% $(UTILS)
-#	@echo [split] $<
-#	@$(BUILDDIR)/utils/elfsplit $<
-#	@echo [obj] $<.data.obj
-#	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p rh
-#	@echo [obj] $<.text.obj
-#	@dataid=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
-#	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p rxh -f 1:rwd:$$dataid
-
-#$(BUILDDIR)/us/libtwz/libtwz.so.data.obj $(BUILDDIR)/us/libtwz/libtwz.so.text.obj: $(BUILDDIR)/us/libtwz/libtwz.so $(BUILDDIR)/us/libtwz/libtwz.so.flags $(UTILS)
-#	@echo [SPLIT] $<
-#	@$(BUILDDIR)/utils/elfsplit $<
-#	@echo [OBJ] $<.data.obj
-#	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p RH
-#	@echo [OBJ] $<.text.obj
-#	@DATAID=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
-#	FLAGS=$$(cat $<.flags);\
-#	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p RXH -f 1:RWD:$$DATAID $$FLAGS
-
 $(BUILDDIR)/us/sysroot/usr/lib/libtwz.a: $(BUILDDIR)/us/libtwz/libtwz.a
-	mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
-	cp $< $@
+	@mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
+	@cp $< $@
 
 $(BUILDDIR)/us/sysroot/usr/lib/libtwz.so: $(BUILDDIR)/us/libtwz/libtwz.so
-	mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
-	cp $< $@
+	@mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
+	@cp $< $@
 
 $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a: $(BUILDDIR)/us/twix/libtwix.a
-	mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
-	cp $< $@
+	@mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
+	@cp $< $@
 
 $(BUILDDIR)/us/sysroot/usr/lib/libtwix.so: $(BUILDDIR)/us/twix/libtwix.so
-	mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
-	cp $< $@
+	@mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
+	@cp $< $@
 
 SYSLIBS=$(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/libtwz.so $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a $(BUILDDIR)/us/sysroot/usr/lib/libc.a
 
@@ -144,6 +125,7 @@ include us/users.mk
 #TWZOBJS+=$(BUILDDIR)/us/sysroot/usr/bin/bash.data.obj
 
 $(BUILDDIR)/us/objroot/__ns: $(shell find $(BUILDDIR)/us/sysroot) $(SYSROOT_FILES) $(KEYOBJS)
+	@echo "[GEN]     objroot"
 	@mv $(BUILDDIR)/us/sysroot/usr/share/terminfo/l/linux $(BUILDDIR)/us/sysroot/linux
 	@rm -rf $(BUILDDIR)/us/sysroot/usr/share/doc
 	@rm -rf $(BUILDDIR)/us/sysroot/usr/share/info
@@ -151,22 +133,20 @@ $(BUILDDIR)/us/objroot/__ns: $(shell find $(BUILDDIR)/us/sysroot) $(SYSROOT_FILE
 	@rm -rf $(BUILDDIR)/us/sysroot/usr/share/terminfo
 	@mkdir -p $(BUILDDIR)/us/sysroot/usr/share/terminfo/l
 	@mv $(BUILDDIR)/us/sysroot/linux $(BUILDDIR)/us/sysroot/usr/share/terminfo/l/linux
-	export PROJECT=$(PROJECT) && ./us/gen_root.sh | ./us/gen_root.py projects/x86_64/build/us/objroot/ | ./us/append_ns.sh >/dev/null
+	@export PROJECT=$(PROJECT) && ./us/gen_root.sh | ./us/gen_root.py projects/x86_64/build/us/objroot/ | ./us/append_ns.sh >/dev/null
 
 $(BUILDDIR)/us/root-tmp.tar: $(BUILDDIR)/us/objroot/__ns $(CTXOBJS) $(UTILS)
-	for i in $(CTXOBJS); do \
-		echo $$i;\
+	@for i in $(CTXOBJS); do \
 		ID=$$($(BUILDDIR)/utils/objstat -i $$i) ;\
 		ln $$i $(BUILDDIR)/us/objroot/$$ID ;\
-		echo $i; \
 		echo "r $$ID $$(basename -s .obj $$i)" | $(BUILDDIR)/utils/hier -A | $(BUILDDIR)/utils/appendobj $(BUILDDIR)/us/objroot/__ns;\
 	done
-	@echo [TAR] $@
+	@echo "[TAR]     $@"
 	@tar cf $(BUILDDIR)/us/root-tmp.tar -C $(BUILDDIR)/us/objroot --exclude='__ns*' --exclude='*.obj' --xform s:'./':: .
 
 $(BUILDDIR)/us/root.tar: $(BUILDDIR)/us/root-tmp.tar $(BUILDDIR)/us/kc
 	@cp $< $@
-	@echo [TAR] $@
+	@echo "[TAR]     $@"
 	@tar rf $@ -C $(BUILDDIR)/us kc
 	@tar rf $@ -C $(BUILDDIR)/us/keyroot --exclude='*.obj' --xform s:'./':: .
 
@@ -189,7 +169,7 @@ $(BUILDDIR)/us/root-old.tar: $(TWZOBJS) $(SYSLIBS)
 	@echo "init=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/twzutils/init.text.obj)" >> $(BUILDDIR)/us/kc
 	@echo "name=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/names.obj)" >> $(BUILDDIR)/us/kc
 	@cp $(BUILDDIR)/us/kc $(BUILDDIR)/us/root/kc
-	@echo [TAR] $@
+	@echo "[TAR]     $@"
 	@tar cf $(BUILDDIR)/us/root.tar -C $(BUILDDIR)/us/root --xform s:'./':: .
 
 userspace: $(BUILDDIR)/us/root.tar

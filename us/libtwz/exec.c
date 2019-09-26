@@ -29,6 +29,7 @@ __attribute__((used)) static int __do_exec(uint64_t entry,
   uint64_t vidhi,
   void *vector)
 {
+	(void)_flags;
 	objid_t vid = MKID(vidhi, vidlo);
 
 	struct sys_become_args ba = {
@@ -48,6 +49,7 @@ int twz_exec_view(struct object *view,
   char const *const *argv,
   char *const *env)
 {
+	(void)view;
 	if(env == NULL)
 		env = environ;
 

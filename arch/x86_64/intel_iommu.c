@@ -194,6 +194,8 @@ static uintptr_t ept_phys;
 
 static void do_iommu_object_map_slot(struct object *obj, uint64_t flags)
 {
+	/* TODO: map w/ permissions */
+	(void)flags;
 	uintptr_t virt = obj->slot * (1024 * 1024 * 1024ull);
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);

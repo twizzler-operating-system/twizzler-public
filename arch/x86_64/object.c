@@ -11,62 +11,6 @@ static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
 	}
 }
 
-static bool x86_64_ept_getmap(uintptr_t ept_phys,
-  uintptr_t virt,
-  uintptr_t *phys,
-  int *level,
-  uint64_t *flags)
-{
-	int pml4_idx = PML4_IDX(virt);
-	int pdpt_idx = PDPT_IDX(virt);
-	int pd_idx = PD_IDX(virt);
-	int pt_idx = PT_IDX(virt);
-
-	uintptr_t *pml4 = GET_VIRT_TABLE(ept_phys);
-	if(!pml4[pml4_idx])
-		return false;
-
-	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
-
-	if(!pdpt[pdpt_idx])
-		return false;
-	else if(pdpt[pdpt_idx] & PAGE_LARGE) {
-		if(phys)
-			*phys = pdpt[pdpt_idx] & VM_PHYS_MASK;
-		if(flags)
-			*flags = pdpt[pdpt_idx] & ~VM_PHYS_MASK;
-		if(level)
-			*level = 2;
-		return true;
-	}
-
-	uintptr_t *pd = GET_VIRT_TABLE(pdpt[pdpt_idx]);
-
-	if(!pd[pd_idx])
-		return false;
-	else if(pd[pd_idx] & PAGE_LARGE) {
-		if(phys)
-			*phys = pd[pd_idx] & VM_PHYS_MASK;
-		if(flags)
-			*flags = pd[pd_idx] & ~VM_PHYS_MASK;
-		if(level)
-			*level = 1;
-		return true;
-	}
-
-	uintptr_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
-
-	if(!pt[pt_idx])
-		return false;
-	if(phys)
-		*phys = pt[pt_idx] & VM_PHYS_MASK;
-	if(flags)
-		*flags = pt[pt_idx] & ~VM_PHYS_MASK;
-	if(level)
-		*level = 0;
-	return true;
-}
-
 bool arch_object_getmap_slot_flags(struct object *obj, uint64_t *flags)
 {
 	uint64_t ef = 0;
@@ -115,7 +59,6 @@ void arch_object_map_slot(struct object *obj, uint64_t flags)
 	test_and_allocate(&pml4[pml4_idx], EPT_READ | EPT_WRITE | EPT_EXEC);
 
 	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
-	// printk("mapping slot %ld -> %lx\n", obj->slot, obj->arch.pt_root | ef);
 	pdpt[pdpt_idx] = obj->arch.pt_root | ef;
 }
 
@@ -125,7 +68,6 @@ void arch_object_unmap_page(struct object *obj, size_t idx)
 	uintptr_t virt = idx * mm_page_size(0);
 	int pd_idx = PD_IDX(virt);
 	int pt_idx = PT_IDX(virt);
-	uint64_t flags = 0;
 	if(pd[pd_idx] & PAGE_LARGE) {
 		pd[pd_idx] = 0;
 	} else {

@@ -1,47 +1,58 @@
 $(BUILDDIR)/utils/file2obj: utils/file2obj.c
-	mkdir -p $(BUILDDIR)/utils
-	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ $< -MD
+	@echo "[HOSTCC]  $@"
+	@mkdir -p $(BUILDDIR)/utils
+	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ $< -MD
 
 $(BUILDDIR)/utils/appendobj: utils/appendobj.c
-	mkdir -p $(BUILDDIR)/utils
-	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ $< -MD
+	@echo "[HOSTCC]  $@"
+	@mkdir -p $(BUILDDIR)/utils
+	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ $< -MD
 
 $(BUILDDIR)/utils/objstat: utils/objstat.c utils/blake2.h utils/blake2.c
-	mkdir -p $(BUILDDIR)/utils
-	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/objstat.c utils/blake2.c -MD
+	@echo "[HOSTCC]  $@"
+	@mkdir -p $(BUILDDIR)/utils
+	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/objstat.c utils/blake2.c -MD
 
 $(BUILDDIR)/utils/elfsplit: utils/elfsplit.c
-	mkdir -p $(BUILDDIR)/utils
-	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ $< -MD
+	@echo "[HOSTCC]  $@"
+	@mkdir -p $(BUILDDIR)/utils
+	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ $< -MD
 
 $(BUILDDIR)/utils/bsv: utils/bsv.c
-	mkdir -p $(BUILDDIR)/utils
-	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ $< -Ius/include -MD
+	@echo "[HOSTCC]  $@"
+	@mkdir -p $(BUILDDIR)/utils
+	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ $< -Ius/include -MD
 
 $(BUILDDIR)/utils/sctx: utils/sctx.c
-	mkdir -p $(BUILDDIR)/utils
-	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ $< -Ius/include -MD
+	@echo "[HOSTCC]  $@"
+	@mkdir -p $(BUILDDIR)/utils
+	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ $< -Ius/include -MD
 
 $(BUILDDIR)/utils/mkcap: utils/mkcap.c
-	mkdir -p $(BUILDDIR)/utils
-	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/mkcap.c -Ius/include -ltomcrypt -MD
+	@echo "[HOSTCC]  $@"
+	@mkdir -p $(BUILDDIR)/utils
+	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/mkcap.c -Ius/include -ltomcrypt -MD
 
 $(BUILDDIR)/utils/mkdlg: utils/mkdlg.c
-	mkdir -p $(BUILDDIR)/utils
-	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/mkdlg.c -Ius/include -ltomcrypt -MD
+	@echo "[HOSTCC]  $@"
+	@mkdir -p $(BUILDDIR)/utils
+	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/mkdlg.c -Ius/include -ltomcrypt -MD
 
 $(BUILDDIR)/utils/makekey: utils/makekey.c
-	mkdir -p $(BUILDDIR)/utils
-	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/makekey.c -Ius/include -MD
+	@echo "[HOSTCC]  $@"
+	@mkdir -p $(BUILDDIR)/utils
+	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/makekey.c -Ius/include -MD
 
 $(BUILDDIR)/utils/mkuser: utils/user.c
-	mkdir -p $(BUILDDIR)/utils
-	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/user.c -Ius/include -MD
+	@echo "[HOSTCC]  $@"
+	@mkdir -p $(BUILDDIR)/utils
+	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/user.c -Ius/include -MD
 
 
 $(BUILDDIR)/utils/hier: utils/hier.c
-	mkdir -p $(BUILDDIR)/utils
-	$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/hier.c -Ius/include -MD
+	@echo "[HOSTCC]  $@"
+	@mkdir -p $(BUILDDIR)/utils
+	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/hier.c -Ius/include -MD
 
 
 UTILS=$(addprefix $(BUILDDIR)/utils/,objstat file2obj elfsplit bsv appendobj sctx mkcap mkdlg makekey mkuser hier)

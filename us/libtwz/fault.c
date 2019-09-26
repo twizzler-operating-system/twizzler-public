@@ -10,7 +10,7 @@ static struct {
 	void (*fn)(int, void *);
 } _fault_table[NUM_FAULTS];
 
-int twz_map_fot_entry(struct object *obj, size_t slot, struct fotentry *fe)
+static int twz_map_fot_entry(struct object *obj, size_t slot, struct fotentry *fe)
 {
 	objid_t id;
 	if(fe->flags & FE_NAME) {
@@ -42,8 +42,10 @@ int twz_map_fot_entry(struct object *obj, size_t slot, struct fotentry *fe)
 	return 0;
 }
 
-int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t id)
+static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t id)
 {
+	(void)source;
+	(void)id;
 	// debug_printf("%lx %x %lx (" IDFMT ")\n", addr, cause, source, IDPR(id));
 	uint64_t offset = addr % OBJ_MAXSIZE;
 	if(offset < OBJ_NULLPAGE_SIZE) {
@@ -112,8 +114,9 @@ int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t id)
 	return twz_map_fot_entry(&o0, slot, &fot[slot]);
 }
 
-int __fault_obj_default(int fault, struct fault_object_info *info)
+static int __fault_obj_default(int fault, struct fault_object_info *info)
 {
+	(void)fault;
 	return twz_handle_fault(info->addr, info->flags, info->ip, info->objid);
 }
 
@@ -204,12 +207,9 @@ static __attribute__((used)) void __twz_fault_entry_c(int fault,
   struct fault_frame *frame)
 {
 	if(fault == FAULT_OBJECT) {
-		struct fault_object_info *fi = _info;
-		// if(fi->addr == (uintptr_t)&_fault_table[fault] || !_fault_table[fault].fn) {
 		if(__fault_obj_default(fault, _info) < 0) {
 			twz_thread_exit();
 		}
-		//}
 	} else if(fault == FAULT_FAULT) {
 		__twz_fault_unhandled(_info, frame);
 		twz_thread_exit();

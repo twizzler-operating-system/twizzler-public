@@ -22,7 +22,7 @@ objid_t get_target(char *data)
 
 void add_hash(struct secctx *ctx, objid_t target, char *ptr)
 {
-	fprintf(stderr, "adding perm object for " IDFMT " %p\n", IDPR(target), ptr);
+	// fprintf(stderr, "adding perm object for " IDFMT " %p\n", IDPR(target), ptr);
 	size_t slot = target % ctx->nbuckets;
 	while(1) {
 		struct scbucket *b = &ctx->buckets[slot];
@@ -54,7 +54,7 @@ void add_hash(struct secctx *ctx, objid_t target, char *ptr)
 int main(int argc, char **argv)
 {
 	int c;
-	char *name;
+	char *name = NULL;
 	while((c = getopt(argc, argv, "hn:")) != EOF) {
 		switch(c) {
 			case 'n':
@@ -77,7 +77,8 @@ int main(int argc, char **argv)
 	  MAP_SHARED,
 	  fd,
 	  0);
-	strncpy(ctx->hdr.name, name, KSO_NAME_MAXLEN);
+	if(name)
+		strncpy(ctx->hdr.name, name, KSO_NAME_MAXLEN - 1);
 	if(ctx == MAP_FAILED) {
 		perror("mmap");
 		ftruncate(fd, 0);
@@ -122,8 +123,8 @@ int main(int argc, char **argv)
 				break;
 			default:
 				fprintf(stderr, "unknown cap or dlg magic! (%x)\n", cap->magic);
-				fprintf(stderr, "Off: %d\n", offsetof(struct sccap, magic));
-				for(int i = 0; i < sizeof(buffer); i++) {
+				fprintf(stderr, "Off: %ld\n", offsetof(struct sccap, magic));
+				for(unsigned int i = 0; i < sizeof(buffer); i++) {
 					if(i % 16 == 0)
 						fprintf(stderr, "\n");
 					fprintf(stderr, "%2x ", (unsigned char)buffer[i]);

@@ -159,8 +159,8 @@ static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 bool vm_setview(struct thread *t, struct object *viewobj)
 {
 	obj_kso_init(viewobj, KSO_VIEW); // TODO
-	struct object *old = (t->ctx && t->ctx->view) ? kso_get_obj(t->ctx->view, view) : NULL;
-	struct vm_context *oldctx = t->ctx;
+	// struct object *old = (t->ctx && t->ctx->view) ? kso_get_obj(t->ctx->view, view) : NULL;
+	// struct vm_context *oldctx = t->ctx;
 	t->ctx = vm_context_create();
 	krc_get(&viewobj->refs);
 	t->ctx->view = &viewobj->view;

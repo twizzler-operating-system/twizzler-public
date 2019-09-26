@@ -124,7 +124,7 @@ int __twz_ptr_store(struct object *obj, const void *p, uint32_t flags, const voi
 	return __twz_ptr_make(obj, target, p, flags, res);
 }
 
-void *__twz_ptr_lea_foreign(const struct object *o, const void *p)
+void *__twz_ptr_lea_foreign(struct object *o, const void *p)
 {
 	struct metainfo *mi = twz_object_meta(o);
 	struct fotentry *fe = (void *)((char *)mi + mi->milen);

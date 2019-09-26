@@ -15,6 +15,8 @@ long syscall_thread_spawn(uint64_t tidlo,
   struct sys_thrd_spawn_args *tsa,
   int flags)
 {
+	if(flags)
+		return -EINVAL;
 	objid_t tid = MKID(tidhi, tidlo);
 	struct object *repr = obj_lookup(tid);
 	if(!repr) {
@@ -64,7 +66,6 @@ long syscall_thread_spawn(uint64_t tidlo,
 
 	if(current_thread) {
 		spinlock_acquire_save(&current_thread->sc_lock);
-		bool active_noi = false;
 		for(int i = 0; i < MAX_SC; i++) {
 			if(current_thread->attached_scs[i]) {
 				krc_get(&current_thread->attached_scs[i]->refs);

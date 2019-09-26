@@ -4,18 +4,17 @@ LIBTWZ_OBJ=$(addprefix $(BUILDDIR)/,$(LIBTWZ_SRC:.c=.o))
 
 $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
-	@echo "[CC] $@"
+	@echo "[CC]      $@"
 	@$(TWZCC) $(TWZCFLAGS) -c -o $@ -MD -fPIC $<
 
 $(BUILDDIR)/us/libtwz/libtwz.a: $(LIBTWZ_OBJ)
 	@mkdir -p $(dir $@)
-	@echo "[AR]  $@"
+	@echo "[AR]      $@"
 	@ar rcs $(BUILDDIR)/us/libtwz/libtwz.a $(LIBTWZ_OBJ)
 
 $(BUILDDIR)/us/libtwz/libtwz.so: $(LIBTWZ_OBJ) $(BUILDDIR)/us/twix/libtwix.a
 	@mkdir -p $(dir $@)
-	@echo "[LD]  $@"
-	#@$(TOOLCHAIN_PREFIX)gcc -o $(BUILDDIR)/us/libtwz/libtwz.so -fpic -shared $(LIBTWZ_OBJ) -T us/elf.ld -Wl,-z,max-page-size=0x1000
+	@echo "[LD]      $@"
 	@$(TWZCC) -o $(BUILDDIR)/us/libtwz/libtwz.so -shared $(LIBTWZ_OBJ) -nostdlib
 
 -include $(LIBTWZ_OBJ:.o=.d)
