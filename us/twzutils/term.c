@@ -102,26 +102,32 @@ struct __packed bga_regs {
 };
 #define SDL_PIXEL ((uint32_t *)(fb->back_buffer))[(pen_y + y) * fb->pitch / 4 + (pen_x + x)]
 
-static inline uint32_t ARGB_TO_BGR(uint32_t x)
-{
-	uint32_t a = (x >> 24) & 0xff;
-	uint32_t r = (x >> 16) & 0xff;
-	uint32_t g = (x >> 8) & 0xff;
-	uint32_t b = x & 0xff;
-	r *= a;
-	r /= 0xff;
-	g *= a;
-	g /= 0xff;
-	b *= a;
-	b /= 0xff;
-	return (r << 16 | g << 8 | b);
-}
+#define OPTIMIZE __attribute__((target("sse", "sse2", "avx"), optimize("Ofast")))
 
+OPTIMIZE
 static inline uint32_t clamp(uint32_t x, uint32_t c)
 {
 	return x > c ? c : x;
 }
 
+OPTIMIZE
+static inline uint32_t ARGB_TO_BGR(uint32_t x)
+{
+	float aa = (((x >> 24) & 0xff) + 1) / (float)0x100;
+	float ar = (((x >> 16) & 0xff) + 1) / (float)0x100;
+	float ag = (((x >> 8) & 0xff) + 1) / (float)0x100;
+	float ab = ((x & 0xff) + 1) / (float)0x100;
+
+	float rr = ar * aa;
+	float rb = ab * aa;
+	float rg = ag * aa;
+
+	uint32_t r = 0xff << 24 | clamp((uint32_t)(rr * 0x100), 0xff) << 16
+	             | clamp((uint32_t)(rg * 0x100), 0xff) << 8 | clamp((uint32_t)(rb * 0x100), 0xff);
+
+	return r;
+}
+OPTIMIZE
 static inline uint32_t ablend(uint32_t a, uint32_t b)
 {
 	float aa = (((a >> 24) & 0xff) + 1) / (float)0x100;
@@ -154,6 +160,7 @@ static __inline__ unsigned long long rdtsc(void)
 }
 
 #include <assert.h>
+OPTIMIZE
 static void draw_glyph(const struct fb *restrict fb,
   ssfn_glyph_t *restrict glyph,
   uint32_t fgcolor,
@@ -223,6 +230,29 @@ static void draw_glyph(const struct fb *restrict fb,
 	}
 	uint64_t end = rdtsc();
 	// debug_printf("TSC: %ld\n", end - start);
+}
+
+OPTIMIZE
+static void fb_flip(struct fb *fb)
+{
+	uint64_t s = rdtsc();
+	if(fb->flip) {
+		uint32_t *src1 = (uint32_t *)fb->back_buffer;
+		uint32_t *src2 = (uint32_t *)fb->background_buffer;
+		uint32_t *dest = (uint32_t *)fb->front_buffer;
+		for(size_t i = 0; i < fb->fbh * fb->pitch / 4; i++) {
+			dest[i] = ARGB_TO_BGR(ablend(src1[i], src2[i]));
+			// fb->front_buffer[i] = ARGB_TO_BGR(fb->back_buffer[i]);
+		}
+		// fastMemcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
+		// memcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
+		// fb->front_buffer[i] = 0; // fb->back_buffer[i];
+		// x += fb->back_buffer[i];
+	}
+	fb_render_cursor(fb);
+
+	uint64_t e = rdtsc();
+	// debug_printf("flip: %ld\n", e - s);
 }
 
 #if 0
@@ -676,28 +706,6 @@ void process_incoming(struct fb *fb, int c)
 	} else if(fb->esc_state == ES_DONE) {
 		fb->esc_state = ES_NORM;
 	}
-}
-
-void fb_flip(struct fb *fb)
-{
-	uint64_t s = rdtsc();
-	if(fb->flip) {
-		uint32_t *src1 = (uint32_t *)fb->back_buffer;
-		uint32_t *src2 = (uint32_t *)fb->background_buffer;
-		uint32_t *dest = (uint32_t *)fb->front_buffer;
-		for(size_t i = 0; i < fb->fbh * fb->pitch / 4; i++) {
-			dest[i] = ARGB_TO_BGR(ablend(src1[i], src2[i]));
-			// fb->front_buffer[i] = ARGB_TO_BGR(fb->back_buffer[i]);
-		}
-		// fastMemcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
-		// memcpy(fb->front_buffer, fb->back_buffer, fb->fbh * fb->pitch);
-		// fb->front_buffer[i] = 0; // fb->back_buffer[i];
-		// x += fb->back_buffer[i];
-	}
-	fb_render_cursor(fb);
-
-	uint64_t e = rdtsc();
-	// debug_printf("flip: %ld\n", e - s);
 }
 
 void fb_putc(struct fb *fb, int c)

@@ -1,6 +1,7 @@
 TWZUTILS=init login nls shell input pcie serial term bstream pty tst nvme
 
 LIBS_tst=-lncurses
+CFLAGS_term=-O3 -march=native -msse2 -msse4 -msse -mavx -ffast-math
 EXTRAS_term=$(BUILDDIR)/us/twzutils/kbd.o
 ALL_EXTRAS=$(EXTRAS_term)
 
@@ -26,7 +27,7 @@ $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.opp $(SYSROOT_READY)
 $(BUILDDIR)/us/twzutils/%.o: us/twzutils/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo [CC] $@
-	@$(TWZCC) $(TWZCFLAGS) -o $@ -c -MD $<
+	$(TWZCC) $(TWZCFLAGS) -o $@ $(CFLAGS_$(basename $(notdir $@))) -c -MD $<
 
 $(BUILDDIR)/us/twzutils/%.opp: us/twzutils/%.cpp $(MUSL_HDRS)
 	@mkdir -p $(dir $@)

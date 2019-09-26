@@ -702,14 +702,14 @@ void nvme_wait_for_event(struct nvme_controller *nc)
 			for(size_t i = 0; i < nc->nr_queues; i++) {
 				nvmeq_interrupt(nc, &nc->queues[i]);
 			}
-			/*volatile struct nvme_cmp *cmp = nc->queues[0].cmpq.entries;
+			volatile struct nvme_cmp *cmp = nc->queues[0].cmpq.entries;
 			for(int i = 0; i < 10; i++) {
-			    debug_printf("CMP %x %x %x %x\n",
-			      cmp[i].cmp_dword[0],
-			      cmp[i].cmp_dword[1],
-			      cmp[i].cmp_dword[2],
-			      cmp[i].cmp_dword[3]);
-			}*/
+				debug_printf("CMP %x %x %x %x\n",
+				  cmp[i].cmp_dword[0],
+				  cmp[i].cmp_dword[1],
+				  cmp[i].cmp_dword[2],
+				  cmp[i].cmp_dword[3]);
+			}
 		}
 		if(!iovf && !irq) {
 			int r = sys_thread_sync(2, sa);
@@ -727,8 +727,6 @@ void *ptm(void *arg)
 {
 	nvmec_identify(arg);
 
-	for(;;)
-		;
 	return 0;
 }
 
