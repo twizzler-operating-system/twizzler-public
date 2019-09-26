@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <twz/_err.h>
 #include <twz/debug.h>
@@ -52,6 +53,23 @@ int twz_object_open_name(struct object *obj, const char *name, int flags)
 	obj->flags = 0;
 	// debug_printf("opened name %s : " IDFMT " -> %p\n", name, IDPR(id), obj->base);
 	return 0;
+}
+
+int twz_object_kaction(struct object *obj, long cmd, ...)
+{
+	va_list va;
+	va_start(va, cmd);
+	long arg = va_arg(va, long);
+	va_end(va);
+
+	struct sys_kaction_args ka = {
+		.id = twz_object_id(obj),
+		.cmd = cmd,
+		.arg = arg,
+		.flags = KACTION_VALID,
+	};
+	int r = sys_kaction(1, &ka);
+	return r ? r : ka.result;
 }
 
 void *twz_object_getext(struct object *obj, uint64_t tag)

@@ -99,20 +99,9 @@ int nvmec_pcie_init(struct nvme_controller *nc)
 	space->header.command =
 	  COMMAND_MEMORYSPACE | COMMAND_BUSMASTER | COMMAND_INTDISABLE | COMMAND_SERRENABLE;
 	/* allocate an interrupt vector */
-	struct sys_kaction_args args = {
-		.id = twz_object_id(&nc->co),
-		.cmd = KACTION_CMD_DEVICE_SETUP_INTERRUPTS,
-		.arg = 1,
-		.flags = KACTION_VALID,
-	};
 	int r;
-	if((r = sys_kaction(1, &args)) < 0) {
+	if((r = twz_object_kaction(&nc->co, KACTION_CMD_DEVICE_SETUP_INTERRUPTS, 1)) < 0) {
 		fprintf(stderr, "kaction: %d\n", r);
-		return r;
-	}
-	if(args.result) {
-		fprintf(stderr, "kaction-result: %ld\n", args.result);
-		return r;
 	}
 	fprintf(stderr, "[nvme] allocated vector %d for interrupts\n", repr->interrupts[0].vec);
 
@@ -226,22 +215,6 @@ int nvmec_init(struct nvme_controller *nc)
 	if(r)
 		return r;
 
-	/*
-	struct sys_kaction_args args = {
-	    .id = twz_object_id(&nc->co),
-	    .cmd = KACTION_CMD_DEVICE_ENABLE_IOMMU,
-	    .arg = 0,
-	    .flags = KACTION_VALID,
-	};
-	if((r = sys_kaction(1, &args)) < 0) {
-	    fprintf(stderr, "kaction: %d\n", r);
-	    return r;
-	}
-	if(args.result) {
-	    fprintf(stderr, "kaction-result: %d\n", args.result);
-	    return r;
-	}
-	*/
 	twz_object_open(&nc->qo, aq_id, FE_READ | FE_WRITE);
 
 	fprintf(stderr, "[nvme] allocated aq @ %lx\n", nc->aq_pin);

@@ -153,19 +153,12 @@ int pcie_init_function(struct pcie_function *pf)
 		/* TODO: generalize */
 		wc = 1;
 	}
-	struct sys_kaction_args args = {
-		.id = pcie_cs_oid,
-		.cmd = KACTION_CMD_PCIE_INIT_DEVICE,
-		.arg = pf->segment << 16 | pf->bus << 8 | pf->device << 3 | pf->function | (wc << 32),
-		.flags = KACTION_VALID,
-	};
 	int r;
-	if((r = sys_kaction(1, &args)) < 0) {
+	if((r = twz_object_kaction(&pcie_cs_obj,
+	      KACTION_CMD_PCIE_INIT_DEVICE,
+	      pf->segment << 16 | pf->bus << 8 | pf->device << 3 | pf->function | (wc << 32)))
+	   < 0) {
 		fprintf(stderr, "kaction: %d\n", r);
-		return r;
-	}
-	if(args.result) {
-		fprintf(stderr, "kaction-result: %ld\n", args.result);
 		return r;
 	}
 
