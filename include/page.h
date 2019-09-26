@@ -11,6 +11,7 @@ struct page {
 	uint8_t type;
 	uint8_t level;
 	struct krc rc;
+	size_t pin_count;
 	struct spinlock lock;
 };
 

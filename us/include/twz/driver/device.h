@@ -1,6 +1,6 @@
 #include <twz/_kso.h>
 
-#define MAX_DEVICE_SYNCS 64
+enum device_sync { DEVICE_SYNC_READY, DEVICE_SYNC_ERROR, DEVICE_SYNC_IOV_FAULT, MAX_DEVICE_SYNCS };
 
 #define DEVICE_INPUT 1
 #define DEVICE_IO 2
@@ -8,17 +8,26 @@
 #define DEVICE_ID_KEYBOARD 1
 #define DEVICE_ID_SERIAL 2
 
+struct device_interrupt {
+	uint64_t sp;
+	uint32_t flags;
+	uint16_t resv;
+	uint16_t vec;
+};
+
+#define MAX_DEVICE_INTERRUPTS 32
+
 struct device_repr {
 	struct kso_hdr hdr;
 	uint64_t device_type;
-	uint64_t device_id;
-
-	void *dshdr;
-
-	long syncs[MAX_DEVICE_SYNCS];
+	uint32_t device_bustype;
+	uint32_t device_id;
+	uint64_t syncs[MAX_DEVICE_SYNCS];
+	struct device_interrupt interrupts[MAX_DEVICE_INTERRUPTS];
 };
 
-#define DEVICE_TYPE_PCIE 0
-#define DEVICE_TYPE_USB 1
+#define DEVICE_BT_ISA 0
+#define DEVICE_BT_PCIE 1
+#define DEVICE_BT_USB 2
 
 #define KACTION_CMD_DEVICE_ENABLE_IOMMU 1002
