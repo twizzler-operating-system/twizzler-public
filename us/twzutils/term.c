@@ -1,9 +1,15 @@
 #include <libgen.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
+#include <termios.h>
 #include <twz/bstream.h>
 #include <twz/debug.h>
+#include <twz/driver/device.h>
+#include <twz/driver/pcie.h>
+#include <twz/io.h>
 #include <twz/name.h>
 #include <twz/obj.h>
+#include <twz/pty.h>
 #include <twz/thread.h>
 #include <unistd.h>
 
@@ -59,8 +65,6 @@ static uint32_t color_map[8] = {
 static struct object ptyobj, kbobj;
 static struct termios *termios;
 
-#include <twz/io.h>
-
 void process_keyboard(struct object *, char *, size_t);
 
 void kbmain(void *a)
@@ -85,8 +89,6 @@ void kbmain(void *a)
 		process_keyboard(&ptyobj, buf, r);
 	}
 }
-
-#include <twz/driver/pcie.h>
 
 struct __packed bga_regs {
 	uint16_t index;
@@ -271,9 +273,6 @@ void fastMemcpy(void *pvDest, void *pvSrc, size_t nBytes)
 }
 #endif
 
-#include <sys/ioctl.h>
-#include <termios.h>
-#include <twz/pty.h>
 void fb_scroll(struct fb *fb, int nlines)
 {
 	// memmove(&fb->char_buffer[0], &fb->char_buffer[fb->cw], fb->cw * (fb->ch - 1));
@@ -458,7 +457,7 @@ void setup_pty(int cw, int ch)
 void init_fb(struct fb *fb)
 {
 	if(fb->init == 1) {
-		struct pcie_function_header *hdr = twz_obj_base(&fb->obj);
+		struct pcie_function_header *hdr = twz_device_getds(&fb->obj);
 		fb->front_buffer = twz_ptr_lea(&fb->obj, (void *)hdr->bars[0]);
 		volatile struct bga_regs *regs = twz_ptr_lea(&fb->obj, (void *)hdr->bars[2] + 0x500);
 		regs->index = 0xb0c5;

@@ -80,6 +80,11 @@ void kso_detach_event(struct thread *thr, bool entry, int sysc)
 	}
 }
 
+void obj_pin(struct object *obj)
+{
+	obj->pinned = true;
+}
+
 void obj_kso_init(struct object *obj, enum kso_type ksot)
 {
 	obj->kso_type = ksot;

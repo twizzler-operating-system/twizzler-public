@@ -212,8 +212,8 @@ void iommu_object_map_slot(struct device *dev, struct object *obj)
 	if(obj)
 		do_iommu_object_map_slot(obj, 0);
 	if(dev) {
-		uint16_t seg = dev->did >> 16;
-		uint16_t sid = dev->did & 0xffff;
+		uint16_t seg = (dev->uid >> 16) & 0xffff;
+		uint16_t sid = dev->uid & 0xffff;
 		for(size_t i = 0; i < MAX_IOMMUS; i++) {
 			if(iommus[i].base && iommus[i].pcie_seg == seg) {
 				iommu_set_context_entry(&iommus[i], sid >> 8, sid & 0xff, ept_phys, 1);

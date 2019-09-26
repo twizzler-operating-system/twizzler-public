@@ -1,23 +1,48 @@
+#include <device.h>
+#include <kalloc.h>
+#include <limits.h>
+#include <memory.h>
 #include <object.h>
+#include <page.h>
+#include <syscall.h>
+#include <thread.h>
+
+static void __kso_device_ctor(struct object *obj)
+{
+	struct device *dev = obj->data = kalloc(sizeof(struct device));
+	dev->co = obj;
+	dev->flags = 0;
+}
+
+static struct kso_calls _kso_device = {
+	.ctor = __kso_device_ctor,
+};
+
+__initializer static void __device_init(void)
+{
+	kso_register(KSO_DEVICE, &_kso_device);
+}
 
 struct device_repr *device_get_repr(struct object *obj)
 {
+	/* repr is at object base */
+	struct objpage *op = obj_get_page(obj, 1, true);
+	page_pin(op->page);
+	return (struct device_repr *)mm_ptov(op->page->addr);
 }
 
 void *device_get_devspecific(struct object *obj)
 {
+	struct device_repr *repr = device_get_repr(obj);
+	return (void *)(repr + 1);
 }
 
 void device_release_headers(struct object *obj)
 {
-}
-
-struct object *device_register(uint32_t bustype, uint32_t devid)
-{
-}
-
-void device_unregister(struct object *obj)
-{
+	struct objpage *op = obj_get_page(obj, 1, true);
+	page_unpin(op->page);
+	obj_put_page(op); /* once for this function */
+	obj_put_page(op); /* once for device_get_<header> */
 }
 
 void device_signal_interrupt(struct object *obj, int inum, uint64_t val)
@@ -45,18 +70,18 @@ static int __device_alloc_interrupts(struct object *obj, size_t count)
 
 	int ret;
 	struct device_repr *repr = device_get_repr(obj);
-	struct device_data *data = obj->data;
-	assert(data);
+	struct device *data = obj->data;
+	assert(data != NULL);
 
 	for(size_t i = 0; i < count; i++) {
-		data->irs = (struct interrupt_alloc_req){
+		data->irs[i] = (struct interrupt_alloc_req){
 			.flags = INTERRUPT_ALLOC_REQ_VALID,
 			.handler.fn = __device_interrupt,
 			.handler.devobj = obj,
 			.handler.arg = i,
 		};
 	}
-	if(interrupt_allocate_vectors(hdr.nr_interrupts, data->ir)) {
+	if(interrupt_allocate_vectors(count, data->irs)) {
 		ret = -EIO;
 		goto out;
 	}
@@ -73,7 +98,7 @@ out:
 	return ret;
 }
 
-static int __device_kaction(struct object *obj, int op, long arg)
+static long __device_kaction(struct object *obj, long op, long arg)
 {
 	int ret = -ENOTSUP;
 	switch(op) {
@@ -82,4 +107,26 @@ static int __device_kaction(struct object *obj, int op, long arg)
 			break;
 	}
 	return ret;
+}
+
+struct object *device_register(uint32_t bustype, uint32_t devid)
+{
+	int r;
+	objid_t psid;
+	/* TODO: restrict write access. In fact, do this for ALL KSOs. */
+	r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &psid);
+	if(r < 0)
+		panic("failed to create PCIe object: %d", r);
+	struct object *obj = obj_lookup(psid);
+	assert(obj != NULL);
+	obj->kaction = __device_kaction;
+	obj_kso_init(obj, KSO_DEVICE);
+	struct device *data = obj->data;
+	data->uid = ((uint64_t)bustype << 32) | devid;
+	return obj;
+}
+
+void device_unregister(struct object *obj)
+{
+	panic("NI - device_unregister");
 }

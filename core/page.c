@@ -50,6 +50,14 @@ struct page *page_alloc(int type)
 	return p;
 }
 
+void page_pin(struct page *page)
+{
+}
+
+void page_unpin(struct page *page)
+{
+}
+
 struct page *page_alloc_nophys(void)
 {
 	return slabcache_alloc(&sc_page_unalloc);

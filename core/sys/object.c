@@ -286,8 +286,10 @@ long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long a
 				if(!dobj) {
 					return -ENOENT;
 				}
+				if(dobj->kso_type != KSO_DEVICE)
+					return -EINVAL;
 				/* TODO: actually lookup the device */
-				iommu_object_map_slot(NULL /*dobj */, o);
+				iommu_object_map_slot(dobj->data, o);
 			}
 
 			break;

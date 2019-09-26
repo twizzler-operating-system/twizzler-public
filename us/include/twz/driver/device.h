@@ -1,3 +1,5 @@
+#pragma once
+
 #include <twz/_kso.h>
 
 enum device_sync { DEVICE_SYNC_READY, DEVICE_SYNC_ERROR, DEVICE_SYNC_IOV_FAULT, MAX_DEVICE_SYNCS };
@@ -30,4 +32,20 @@ struct device_repr {
 #define DEVICE_BT_PCIE 1
 #define DEVICE_BT_USB 2
 
-#define KACTION_CMD_DEVICE_ENABLE_IOMMU 1002
+#define KACTION_CMD_DEVICE_SETUP_INTERRUPTS 1
+
+#ifndef __KERNEL__
+
+#include <twz/obj.h>
+
+static inline struct device_repr *twz_device_getrepr(struct object *obj)
+{
+	return twz_obj_base(obj);
+}
+
+static inline void *twz_device_getds(struct object *obj)
+{
+	return (void *)(twz_device_getrepr(obj) + 1);
+}
+
+#endif

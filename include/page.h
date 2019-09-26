@@ -30,3 +30,5 @@ struct page {
 
 struct page *page_alloc(int type);
 struct page *page_alloc_nophys(void);
+void page_unpin(struct page *page);
+void page_pin(struct page *page);

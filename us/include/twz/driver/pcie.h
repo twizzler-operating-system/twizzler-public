@@ -9,19 +9,6 @@
 
 #define KACTION_CMD_PCIE_INIT_DEVICE 1
 
-#define KACTION_CMD_PF_INTERRUPTS_SETUP 2
-
-#define PCIE_FUNCTION_INT_ENABLE 1
-
-struct pcie_function_interrupt {
-	uint64_t sp;
-	uint32_t flags;
-	uint16_t resv;
-	uint16_t vec;
-};
-
-#define IOVF_HANDLED 1
-
 struct pcie_function_header {
 	struct kso_hdr hdr;
 	uint16_t deviceid;
@@ -39,9 +26,6 @@ struct pcie_function_header {
 	volatile void *bars[6];
 	size_t barsz[6];
 	struct pcie_config_space *space;
-	uint64_t iov_fault;
-	size_t nr_interrupts;
-	struct pcie_function_interrupt interrupts[];
 };
 
 struct pcie_config_space;

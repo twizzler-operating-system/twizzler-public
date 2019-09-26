@@ -7,6 +7,7 @@
 #include <twz/sys.h>
 
 #include <twz/debug.h>
+#include <twz/driver/device.h>
 #include <twz/driver/pcie.h>
 
 #define NVME_REG_CAP 0
@@ -227,7 +228,7 @@ uint16_t nvmeq_submit_cmd(struct nvme_queue *q, struct nvme_cmd *cmd)
 
 void *nvme_co_get_regs(struct object *co)
 {
-	struct pcie_function_header *hdr = twz_obj_base(co);
+	struct pcie_function_header *hdr = twz_device_getds(co);
 	return twz_ptr_lea(co, (void *)hdr->bars[0]);
 }
 
@@ -260,19 +261,18 @@ void nvme_reg_write64(struct nvme_controller *nc, int r, uint64_t v)
 #include <twz/driver/msi.h>
 int nvmec_pcie_init(struct nvme_controller *nc)
 {
-	struct pcie_function_header *hdr = twz_obj_base(&nc->co);
+	struct pcie_function_header *hdr = twz_device_getds(&nc->co);
+	struct device_repr *repr = twz_device_getrepr(&nc->co);
 	struct pcie_config_space *space = twz_ptr_lea(&nc->co, hdr->space);
 	/* bus-master enable, memory space enable. We can do interrupt disable too, since we'll be using
 	 * MSI */
 	space->header.command =
 	  COMMAND_MEMORYSPACE | COMMAND_BUSMASTER | COMMAND_INTDISABLE | COMMAND_SERRENABLE;
 	/* allocate an interrupt vector */
-	hdr->nr_interrupts = 1;
-	hdr->interrupts[0].flags = PCIE_FUNCTION_INT_ENABLE;
 	struct sys_kaction_args args = {
 		.id = twz_object_id(&nc->co),
-		.cmd = KACTION_CMD_PF_INTERRUPTS_SETUP,
-		.arg = 0,
+		.cmd = KACTION_CMD_DEVICE_SETUP_INTERRUPTS,
+		.arg = 1,
 		.flags = KACTION_VALID,
 	};
 	int r;
@@ -281,10 +281,10 @@ int nvmec_pcie_init(struct nvme_controller *nc)
 		return r;
 	}
 	if(args.result) {
-		fprintf(stderr, "kaction-result: %d\n", args.result);
+		fprintf(stderr, "kaction-result: %ld\n", args.result);
 		return r;
 	}
-	fprintf(stderr, "[nvme] allocated vector %d for interrupts\n", hdr->interrupts[0].vec);
+	fprintf(stderr, "[nvme] allocated vector %d for interrupts\n", repr->interrupts[0].vec);
 
 	/* try to use MSI-X, but fall back to MSI if not available */
 	union pcie_capability_ptr cp;
@@ -307,7 +307,7 @@ int nvmec_pcie_init(struct nvme_controller *nc)
 		volatile struct pcie_msix_table_entry *tbl =
 		  twz_ptr_lea(&nc->co, (void *)((long)hdr->bars[bir] + off));
 		fprintf(stderr, "[nvme] MSIx: %p %p %d\n", hdr->bars[bir], tbl, off);
-		tbl->data = device_msi_data(hdr->interrupts[0].vec, MSI_LEVEL);
+		tbl->data = device_msi_data(repr->interrupts[0].vec, MSI_LEVEL);
 		tbl->addr = device_msi_addr(0);
 		tbl->ctl = 0;
 		msix->fn_mask = 0;
@@ -396,21 +396,22 @@ int nvmec_init(struct nvme_controller *nc)
 	if(r)
 		return r;
 
+	/*
 	struct sys_kaction_args args = {
-		.id = twz_object_id(&nc->co),
-		.cmd = KACTION_CMD_DEVICE_ENABLE_IOMMU,
-		.arg = 0,
-		.flags = KACTION_VALID,
+	    .id = twz_object_id(&nc->co),
+	    .cmd = KACTION_CMD_DEVICE_ENABLE_IOMMU,
+	    .arg = 0,
+	    .flags = KACTION_VALID,
 	};
 	if((r = sys_kaction(1, &args)) < 0) {
-		fprintf(stderr, "kaction: %d\n", r);
-		return r;
+	    fprintf(stderr, "kaction: %d\n", r);
+	    return r;
 	}
 	if(args.result) {
-		fprintf(stderr, "kaction-result: %d\n", args.result);
-		return r;
+	    fprintf(stderr, "kaction-result: %d\n", args.result);
+	    return r;
 	}
-
+	*/
 	twz_object_open(&nc->qo, aq_id, FE_READ | FE_WRITE);
 
 	fprintf(stderr, "[nvme] allocated aq @ %lx\n", nc->aq_pin);
@@ -451,9 +452,13 @@ int nvmec_init(struct nvme_controller *nc)
 
 int nvmec_check_features(struct nvme_controller *nc)
 {
-	struct pcie_function_header *hdr = twz_obj_base(&nc->co);
+	struct pcie_function_header *hdr = twz_device_getds(&nc->co);
 	if(hdr->classid != 1 || hdr->subclassid != 8 || hdr->progif != 2) {
-		fprintf(stderr, "[nvme]: controller is not an NVMe controller\n");
+		fprintf(stderr,
+		  "[nvme]: controller is not an NVMe controller (%x %x %x)\n",
+		  hdr->classid,
+		  hdr->subclassid,
+		  hdr->progif);
 		return -1;
 	}
 
@@ -666,16 +671,17 @@ void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
 
 void nvme_wait_for_event(struct nvme_controller *nc)
 {
-	struct pcie_function_header *hdr = twz_obj_base(&nc->co);
-	struct sys_thread_sync_args sa[2] = { [0] = { .addr = &hdr->iov_fault,
+	struct device_repr *repr = twz_device_getrepr(&nc->co);
+	struct pcie_function_header *hdr = twz_device_getds(&nc->co);
+	struct sys_thread_sync_args sa[2] = { [0] = { .addr = &repr->syncs[DEVICE_SYNC_IOV_FAULT],
 		                                    .op = THREAD_SYNC_SLEEP },
-		[1] = { .addr = &hdr->interrupts[0].sp, .op = THREAD_SYNC_SLEEP
+		[1] = { .addr = &repr->interrupts[0].sp, .op = THREAD_SYNC_SLEEP
 
 		} };
 	for(;;) {
 		debug_printf("NVME WAIT\n");
-		uint64_t iovf = atomic_exchange(&hdr->iov_fault, 0);
-		uint64_t irq = atomic_exchange(&hdr->interrupts[0].sp, 0);
+		uint64_t iovf = atomic_exchange(&repr->syncs[DEVICE_SYNC_IOV_FAULT], 0);
+		uint64_t irq = atomic_exchange(&repr->interrupts[0].sp, 0);
 		debug_printf(":: %lx %lx\n", iovf, irq);
 		if(iovf & 1) {
 			/* handled; retry */

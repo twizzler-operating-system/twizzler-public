@@ -1,12 +1,15 @@
 #include <arch/x86_64-acpi.h>
 #include <debug.h>
+#include <device.h>
 #include <init.h>
+#include <kalloc.h>
 #include <machine/pc-pcie.h>
 #include <memory.h>
 #include <page.h>
 #include <slab.h>
 #include <syscall.h>
 #include <system.h>
+#include <twz/driver/device.h>
 
 /* The PCI subsystem. We make some simplifying assumptions:
  *   - Our system bus is PCIe. Thus everything is memory-mapped. We do not support IO-based access.
@@ -129,37 +132,6 @@ static void __alloc_bar(struct object *obj,
 	}
 }
 
-#define MAX_INT_PER_DEV 8
-struct kso_pcie_data {
-	uint16_t segment;
-	uint8_t bus;
-	uint8_t device;
-	uint8_t function;
-	struct interrupt_alloc_req ir[MAX_INT_PER_DEV];
-};
-
-#include <limits.h>
-void __pcie_fn_interrupt(int v, struct interrupt_handler *ih)
-{
-	printk("[pcie] interrupt!\n");
-	struct pcie_function_header hdr;
-	if(!ih->devobj)
-		return;
-	obj_read_data(ih->devobj, 0, sizeof(hdr), &hdr);
-	for(unsigned i = 0; i < hdr.nr_interrupts; i++) {
-		struct pcie_function_interrupt irq;
-		obj_read_data(ih->devobj, sizeof(hdr) + i * sizeof(irq), sizeof(irq), &irq);
-		if(irq.vec == v) {
-			printk("FOUND! %d\n", v);
-			obj_write_data_atomic64(
-			  ih->devobj, offsetof(struct pcie_function_header, interrupts[i]), 1);
-			thread_wake_object(ih->devobj,
-			  offsetof(struct pcie_function_header, interrupts[i]) + OBJ_NULLPAGE_SIZE,
-			  INT_MAX);
-		}
-	}
-}
-
 void pcie_iommu_fault(uint16_t seg, uint16_t sid, uint64_t addr, bool handled)
 {
 	addr |= handled ? 1 : 0;
@@ -171,67 +143,7 @@ void pcie_iommu_fault(uint16_t seg, uint16_t sid, uint64_t addr, bool handled)
 		return;
 	}
 	/* TODO: what to do if we overflow? */
-	obj_write_data_atomic64(pf->obj, offsetof(struct pcie_function_header, iov_fault), addr);
-	thread_wake_object(
-	  pf->obj, offsetof(struct pcie_function_header, iov_fault) + OBJ_NULLPAGE_SIZE, INT_MAX);
-}
-
-#include <device.h>
-#include <kalloc.h>
-#include <twz/driver/device.h>
-static long __pcie_fn_kaction(struct object *obj, long cmd, long arg)
-{
-	struct pcie_function_header hdr;
-	struct kso_pcie_data *data;
-	data = obj->data;
-	switch(cmd) {
-		case KACTION_CMD_PF_INTERRUPTS_SETUP:
-			obj_read_data(obj, 0, sizeof(hdr), &hdr);
-			printk("[pcie]: setup interrupts (%x:%x:%x.%x)\n",
-			  data->segment,
-			  data->bus,
-			  data->device,
-			  data->function);
-			if(hdr.nr_interrupts > MAX_INT_PER_DEV)
-				hdr.nr_interrupts = MAX_INT_PER_DEV;
-			for(unsigned i = 0; i < hdr.nr_interrupts; i++) {
-				struct pcie_function_interrupt irq;
-				obj_read_data(obj, sizeof(hdr) + i * sizeof(irq), sizeof(irq), &irq);
-				if(irq.flags & PCIE_FUNCTION_INT_ENABLE) {
-					data->ir[i].flags |= INTERRUPT_ALLOC_REQ_VALID;
-					data->ir[i].handler.fn = __pcie_fn_interrupt;
-					data->ir[i].handler.devobj = obj;
-					krc_get(&obj->refs);
-				}
-			}
-			if(interrupt_allocate_vectors(hdr.nr_interrupts, data->ir)) {
-				return -EIO;
-			}
-			for(unsigned i = 0; i < hdr.nr_interrupts; i++) {
-				struct pcie_function_interrupt irq;
-				obj_read_data(obj, sizeof(hdr) + i * sizeof(irq), sizeof(irq), &irq);
-				if(irq.flags & PCIE_FUNCTION_INT_ENABLE) {
-					if(data->ir[i].flags & INTERRUPT_ALLOC_REQ_ENABLED) {
-						irq.vec = data->ir[i].vec;
-						obj_write_data(obj, sizeof(hdr) + i * sizeof(irq), sizeof(irq), &irq);
-					}
-				}
-			}
-			obj_write_data(obj, 0, sizeof(hdr), &hdr);
-
-			break;
-		case KACTION_CMD_DEVICE_ENABLE_IOMMU: {
-			struct device dev;
-			dev.co = obj;
-			dev.did = ((uint32_t)data->segment << 16) | (data->bus << 8) | data->device << 3
-			          | data->function;
-			dev.type = DEVICE_TYPE_PCIE;
-			iommu_object_map_slot(&dev, NULL);
-		} break;
-		default:
-			return -EINVAL;
-	}
-	return 0;
+	device_signal_sync(pf->obj, DEVICE_SYNC_IOV_FAULT, addr);
 }
 
 static long pcie_function_init(struct object *pbobj,
@@ -241,6 +153,7 @@ static long pcie_function_init(struct object *pbobj,
   int function,
   int wc)
 {
+	/* locate the base address for the config space */
 	uintptr_t ba = 0;
 	for(size_t i = 0; i < mcfg_entries; i++) {
 		if(mcfg->spaces[i].pci_seg_group_nr == segment) {
@@ -252,28 +165,31 @@ static long pcie_function_init(struct object *pbobj,
 	if(!ba) {
 		return -ENOENT;
 	}
-	int r;
-	objid_t psid;
-	/* TODO: restrict write access. In fact, do this for ALL KSOs. */
-	r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &psid);
-	if(r < 0)
-		panic("failed to create PCIe object: %d", r);
+	struct pcie_config_space *space = mm_ptov(ba);
 
-	struct object *fobj = obj_lookup(psid);
+	/* register a new device */
+	uint32_t sid = (uint32_t)segment << 16 | bus << 8 | device << 3 | function;
+	struct object *fobj = device_register(DEVICE_BT_PCIE, sid);
 	assert(fobj != NULL);
 
 	pcief_register(segment, bus, device, function, fobj);
-	fobj->pinned = true;
 
-	struct pcie_function_header hdr = {
+	/* init the headers */
+	struct device_repr *repr = device_get_repr(fobj);
+	struct pcie_function_header *hdr = device_get_devspecific(fobj);
+	*hdr = (struct pcie_function_header){
 		.bus = bus,
 		.device = device,
 		.function = function,
 		.segment = segment,
+		.classid = space->header.class_code,
+		.subclassid = space->header.subclass,
+		.vendorid = space->header.vendor_id,
+		.deviceid = space->header.device_id,
+		.progif = space->header.progif,
 	};
 
-	struct pcie_config_space *space = mm_ptov(ba);
-
+	/* map the BARs */
 	size_t start = mm_page_size(1);
 	for(int i = 0; i < 6; i++) {
 		uint32_t bar = space->device.bar[i];
@@ -302,10 +218,10 @@ static long pcie_function_init(struct object *pbobj,
 		}
 
 		__alloc_bar(fobj, start, sz, pref, (wc >> i) & 1, addr);
-		hdr.bars[i] = (volatile void *)start;
-		hdr.prefetch[i] = pref;
-		hdr.barsz[i] = sz;
-#if 1
+		hdr->bars[i] = (volatile void *)start;
+		hdr->prefetch[i] = pref;
+		hdr->barsz[i] = sz;
+#if 0
 		printk("init bar %d for addr %lx at %lx len=%ld, type=%d (p=%d,wc=%d)\n",
 		  i,
 		  addr,
@@ -324,18 +240,12 @@ static long pcie_function_init(struct object *pbobj,
 	}
 	start += 0x1000;
 	__alloc_bar(fobj, start, 0x1000, 0, 0, ba);
-	hdr.space = (void *)start;
-	obj_write_data(fobj, 0, sizeof(hdr), &hdr);
-	struct kso_pcie_data *data = fobj->data = kalloc(sizeof(struct kso_pcie_data));
-	data->bus = bus;
-	data->device = device;
-	data->function = function;
-	data->segment = segment;
+	hdr->space = (void *)start;
 
-	fobj->kaction = __pcie_fn_kaction;
-
+	/* attach to PCIe */
 	unsigned int fnid = function | device << 3 | bus << 8;
-	obj_write_data(pbobj, offsetof(struct pcie_bus_header, functions[fnid]), sizeof(psid), &psid);
+	obj_write_data(
+	  pbobj, offsetof(struct pcie_bus_header, functions[fnid]), sizeof(fobj->id), &fobj->id);
 
 	return 0;
 }
