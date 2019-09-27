@@ -147,18 +147,6 @@ struct nvme_namespace {
 	struct nvme_namespace *next;
 };
 
-struct nvme_controller {
-	struct object co;
-	struct object qo;
-	int dstride;
-	bool init, msix;
-	uint64_t aq_pin;
-	_Atomic uint64_t sp_error;
-	struct nvme_queue *queues;
-	size_t nr_queues;
-	struct nvme_namespace *namespaces;
-};
-
 struct nvme_queue {
 	struct {
 		volatile uint32_t *tail_doorbell;
@@ -174,4 +162,17 @@ struct nvme_queue {
 	} cmpq;
 	_Atomic uint64_t *sps;
 	uint32_t count;
+};
+
+struct nvme_controller {
+	struct object co;
+	struct object qo;
+	int dstride;
+	bool init, msix;
+	uint64_t aq_pin;
+	_Atomic uint64_t sp_error;
+	struct nvme_queue admin_queue;
+	struct nvme_queue *queues;
+	size_t nr_queues;
+	struct nvme_namespace *namespaces;
 };

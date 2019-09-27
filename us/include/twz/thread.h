@@ -50,3 +50,36 @@ int twz_exec_view(struct object *view,
 	{                                                                                              \
 		.base = SLOT_TO_VADDR(TWZSLOT_STACK)                                                       \
 	}
+struct timespec;
+int twz_thread_sync(int op, _Atomic uint64_t *addr, uint64_t val, struct timespec *timeout);
+struct sys_thread_sync_args;
+void twz_thread_sync_init(struct sys_thread_sync_args *args,
+  int op,
+  _Atomic uint64_t *addr,
+  uint64_t val,
+  struct timespec *timeout);
+
+int twz_thread_sync_multiple(size_t count, struct sys_thread_sync_args *);
+
+#ifndef __KERNEL__
+#include <stdatomic.h>
+#include <twz/_sys.h>
+static inline uint64_t twz_thread_cword_consume(_Atomic uint64_t *w, uint64_t reset)
+{
+	while(true) {
+		uint64_t tmp = atomic_exchange(w, reset);
+		if(tmp != reset) {
+			return tmp;
+		}
+		twz_thread_sync(THREAD_SYNC_SLEEP, w, reset, NULL);
+	}
+}
+
+#include <limits.h>
+static inline void twz_thread_cword_wake(_Atomic uint64_t *w, uint64_t val)
+{
+	*w = val;
+	twz_thread_sync(THREAD_SYNC_WAKE, w, INT_MAX, NULL);
+}
+
+#endif

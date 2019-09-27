@@ -11,7 +11,7 @@ enum device_sync { DEVICE_SYNC_READY, DEVICE_SYNC_ERROR, DEVICE_SYNC_IOV_FAULT, 
 #define DEVICE_ID_SERIAL 2
 
 struct device_interrupt {
-	uint64_t sp;
+	_Atomic uint64_t sp;
 	uint32_t flags;
 	uint16_t resv;
 	uint16_t vec;
@@ -24,7 +24,7 @@ struct device_repr {
 	uint64_t device_type;
 	uint32_t device_bustype;
 	uint32_t device_id;
-	uint64_t syncs[MAX_DEVICE_SYNCS];
+	_Atomic uint64_t syncs[MAX_DEVICE_SYNCS];
 	struct device_interrupt interrupts[MAX_DEVICE_INTERRUPTS];
 };
 
@@ -46,6 +46,16 @@ static inline struct device_repr *twz_device_getrepr(struct object *obj)
 static inline void *twz_device_getds(struct object *obj)
 {
 	return (void *)(twz_device_getrepr(obj) + 1);
+}
+
+#include <twz/_sys.h>
+static inline int twz_device_map_object(struct object *dev,
+  struct object *obj,
+  size_t off,
+  size_t len)
+{
+	objid_t cid = twz_object_id(dev);
+	return twz_object_ctl(obj, OCO_MAP, off, len, &cid);
 }
 
 #endif

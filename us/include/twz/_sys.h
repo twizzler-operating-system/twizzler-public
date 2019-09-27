@@ -1,3 +1,5 @@
+#pragma once
+
 #define SYS_NULL 0
 #define SYS_THRD_SPAWN 1
 #define SYS_DEBUG_PRINT 2

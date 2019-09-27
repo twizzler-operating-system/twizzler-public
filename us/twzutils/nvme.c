@@ -5,12 +5,17 @@
 #include <twz/name.h>
 #include <twz/obj.h>
 #include <twz/sys.h>
+#include <twz/thread.h>
 
 #include <twz/debug.h>
 #include <twz/driver/device.h>
 #include <twz/driver/pcie.h>
 
 #include "nvme.h"
+
+#define NVME_ASQS 1024
+#define NVME_ACQS 1024
+#define LOG2(X) ((unsigned)(8 * sizeof(unsigned long long) - __builtin_clzll((X)) - 1))
 
 static void nvme_cmd_init_identify(struct nvme_cmd *cmd, uint8_t cns, uint8_t nsid, uint64_t addr)
 {
@@ -163,11 +168,6 @@ int nvmec_wait_for_ready(struct nvme_controller *nc)
 	return 0;
 }
 
-#define NVME_ASQS 1024
-#define NVME_ACQS 1024
-
-#define LOG2(X) ((unsigned)(8 * sizeof(unsigned long long) - __builtin_clzll((X)) - 1))
-
 uint32_t *nvmec_get_doorbell(struct nvme_controller *nc, uint32_t dnr, bool tail)
 {
 	void *regs = nvme_co_get_regs(&nc->co);
@@ -198,40 +198,38 @@ int nvmec_init(struct nvme_controller *nc)
 	int r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &aq_id);
 	if(r)
 		return r;
+	twz_object_open(&nc->qo, aq_id, FE_READ | FE_WRITE);
 
-	r = sys_opin(aq_id, &nc->aq_pin, 0);
+	r = twz_object_pin(&nc->qo, &nc->aq_pin, 0);
 	if(r)
 		return r;
 
 	size_t q_total_len = NVME_ASQS * sizeof(struct nvme_cmd) + NVME_ASQS * sizeof(struct nvme_cmp);
 
-	r = sys_octl(aq_id, OCO_CACHE_MODE, 0x1000, q_total_len, OC_CM_UC);
+	r = twz_object_ctl(&nc->qo, OCO_CACHE_MODE, 0, q_total_len, OC_CM_UC);
 	if(r)
 		return r;
 	twz_object_open(&nc->qo, aq_id, FE_READ | FE_WRITE);
 
-	objid_t cid = twz_object_id(&nc->co);
-	r = sys_octl(aq_id, OCO_MAP, 0x1000, q_total_len, (long)&cid);
+	r = twz_device_map_object(&nc->co, &nc->qo, 0, q_total_len);
 	if(r)
 		return r;
-
-	twz_object_open(&nc->qo, aq_id, FE_READ | FE_WRITE);
-
-	fprintf(stderr, "[nvme] allocated aq @ %lx\n", nc->aq_pin);
+#if 0
 	struct nvme_queue *queues =
 	  calloc(1024 /* TODO: read max nr queues */, sizeof(struct nvme_queue));
 	nc->queues = queues;
 	nc->nr_queues = 1;
+#endif
+	nc->nr_queues = 0;
 
-	nvmeq_init(&queues[0],
+	nvmeq_init(&nc->admin_queue,
 	  (void *)((uint64_t)twz_obj_base(&nc->qo)),
 	  (void *)((uint64_t)twz_obj_base(&nc->qo) + NVME_ASQS * sizeof(struct nvme_cmd)),
 	  NVME_ASQS,
 	  nvmec_get_doorbell(nc, 0, false),
 	  nvmec_get_doorbell(nc, 0, true));
-	nvme_reg_write64(nc, NVME_REG_ASQ, nc->aq_pin + OBJ_NULLPAGE_SIZE);
-	nvme_reg_write64(
-	  nc, NVME_REG_ACQ, nc->aq_pin + OBJ_NULLPAGE_SIZE + NVME_ASQS * sizeof(struct nvme_cmd));
+	nvme_reg_write64(nc, NVME_REG_ASQ, nc->aq_pin);
+	nvme_reg_write64(nc, NVME_REG_ACQ, nc->aq_pin + NVME_ASQS * sizeof(struct nvme_cmd));
 
 	if(!nc->msix) {
 		/* disable all interrupts for now */
@@ -250,6 +248,13 @@ int nvmec_init(struct nvme_controller *nc)
 		/* unmask all interrupts */
 		nvme_reg_write32(nc, NVME_REG_INTMC, 0xFFFFFFFF);
 	}
+	return 0;
+}
+
+int nvmec_create_queues(struct nvme_controller *nc, size_t nrqueues)
+{
+	nc->queues = calloc(nrqueues, sizeof(struct nvme_queue));
+	nc->nr_queues = nrqueues;
 	return 0;
 }
 
@@ -290,33 +295,14 @@ void nvme_cmp_decode(uint64_t sp, uint32_t *dw0, uint32_t *dw3)
 
 int nvmec_execute_cmd(struct nvme_controller *nc,
   struct nvme_cmd *cmd,
+  struct nvme_queue *q,
   uint16_t *sr,
   uint32_t *cres)
 {
-	uint16_t cid = nvmeq_submit_cmd(&nc->queues[0], cmd);
-	struct sys_thread_sync_args sa[2] = {
-		[0] = {
-		.addr = (uint64_t *)&nc->queues[0].sps[cid],
-		.op = THREAD_SYNC_SLEEP,
-		}, [1] = {
-			.addr = (uint64_t *)&nc->sp_error,
-			.op = THREAD_SYNC_SLEEP,
-		},
-	};
-	uint64_t res, err;
-	while(1) {
-		res = nc->queues[0].sps[cid];
-		err = atomic_exchange(&nc->sp_error, 0);
-		if(res || err)
-			break;
-		int r = sys_thread_sync(2, sa);
-		if(r < 0) {
-			return r;
-		}
-	}
-	if(err == 1) {
-		return -1;
-	}
+	(void)nc;
+	uint16_t cid = nvmeq_submit_cmd(q, cmd);
+
+	uint64_t res = twz_thread_cword_consume(&q->sps[cid], 0);
 	uint32_t cr, _sr;
 	nvme_cmp_decode(res, &cr, &_sr);
 	uint16_t status = NVME_CMP_DW3_STATUS(_sr);
@@ -331,16 +317,14 @@ int nvmec_identify(struct nvme_controller *nc)
 	void *nsl_memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000 + 0x1000);
 	void *ns_memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000 + 0x2000);
 
-	objid_t id = twz_object_id(&nc->co);
-	int r =
-	  sys_octl(twz_object_id(&nc->qo), OCO_MAP, OBJ_NULLPAGE_SIZE + 0x200000, 0x3000, (long)&id);
+	int r = twz_device_map_object(&nc->co, &nc->qo, 0x200000, 0x3000);
 	if(r)
 		return r;
 
-	nvme_cmd_init_identify(&cmd, 1, 0, nc->aq_pin + 0x200000 + 0x1000);
+	nvme_cmd_init_identify(&cmd, 1, 0, nc->aq_pin + 0x200000);
 	uint32_t cres;
 	uint16_t status;
-	if(nvmec_execute_cmd(nc, &cmd, &status, &cres))
+	if(nvmec_execute_cmd(nc, &cmd, &nc->admin_queue, &status, &cres))
 		return -1;
 	if(status) {
 		fprintf(stderr, "[nvme] identify failed (command error %x)\n", status);
@@ -353,8 +337,8 @@ int nvmec_identify(struct nvme_controller *nc)
 	struct nvme_namespace_ident *nsi = ns_memory;
 	uint32_t *nsl = nsl_memory;
 
-	nvme_cmd_init_identify(&cmd, 2, 0, nc->aq_pin + 0x200000 + 0x2000);
-	if(nvmec_execute_cmd(nc, &cmd, &status, &cres))
+	nvme_cmd_init_identify(&cmd, 2, 0, nc->aq_pin + 0x200000 + 0x1000);
+	if(nvmec_execute_cmd(nc, &cmd, &nc->admin_queue, &status, &cres))
 		return -1;
 	if(status) {
 		fprintf(stderr, "[nvme] identify namespace IDs failed (command error %x)\n", status);
@@ -364,8 +348,8 @@ int nvmec_identify(struct nvme_controller *nc)
 	for(uint32_t n = 0; n < 1024; n++) {
 		if(!nsl[n])
 			continue;
-		nvme_cmd_init_identify(&cmd, 0, nsl[n], nc->aq_pin + 0x200000 + 0x3000);
-		if(nvmec_execute_cmd(nc, &cmd, &status, &cres))
+		nvme_cmd_init_identify(&cmd, 0, nsl[n], nc->aq_pin + 0x200000 + 0x2000);
+		if(nvmec_execute_cmd(nc, &cmd, &nc->admin_queue, &status, &cres))
 			return -1;
 		if(status) {
 			fprintf(stderr, "[nvme] identify namespace failed (command error %x)\n", status);
@@ -398,7 +382,6 @@ int nvmec_identify(struct nvme_controller *nc)
 struct nvme_cmp *nvmeq_cq_peek(struct nvme_queue *q, uint32_t i, bool *phase)
 {
 	uint32_t index = (q->cmpq.head + i) & (q->count - 1);
-	debug_printf("peek %d (%d %d) %p\n", index, q->cmpq.head, i, q->cmpq.entries);
 	struct nvme_cmp *c = (struct nvme_cmp *)&q->cmpq.entries[index];
 	*phase = q->cmpq.phase ^ (index < q->cmpq.head);
 	return c;
@@ -455,13 +438,9 @@ void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
 		uint16_t cid = buf[j]->cmp_dword[3] & 0xffff;
 		uint64_t result = ((uint64_t)buf[j]->cmp_dword[0] << 32) | buf[j]->cmp_dword[3];
 		q->sps[cid] = result;
-		sas[j] = (struct sys_thread_sync_args){
-			.addr = (uint64_t *)&q->sps[cid],
-			.arg = INT_MAX,
-			.op = THREAD_SYNC_WAKE,
-		};
+		twz_thread_sync_init(&sas[j], THREAD_SYNC_WAKE, &q->sps[cid], INT_MAX, NULL);
 	}
-	sys_thread_sync(i, sas);
+	twz_thread_sync_multiple(i, sas);
 	if(more)
 		nvmeq_interrupt(nc, q);
 }
@@ -469,29 +448,20 @@ void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
 void nvme_wait_for_event(struct nvme_controller *nc)
 {
 	struct device_repr *repr = twz_device_getrepr(&nc->co);
-	struct sys_thread_sync_args sa[2] = { [0] = { .addr = &repr->syncs[DEVICE_SYNC_IOV_FAULT],
-		                                    .op = THREAD_SYNC_SLEEP },
-		[1] = { .addr = &repr->interrupts[0].sp, .op = THREAD_SYNC_SLEEP
-
-		} };
+	struct sys_thread_sync_args sa[2];
+	twz_thread_sync_init(&sa[0], THREAD_SYNC_SLEEP, &repr->syncs[DEVICE_SYNC_IOV_FAULT], 0, NULL);
+	twz_thread_sync_init(&sa[1], THREAD_SYNC_SLEEP, &repr->interrupts[0].sp, 0, NULL);
 	for(;;) {
-		debug_printf("NVME WAIT\n");
 		uint64_t iovf = atomic_exchange(&repr->syncs[DEVICE_SYNC_IOV_FAULT], 0);
 		uint64_t irq = atomic_exchange(&repr->interrupts[0].sp, 0);
-		debug_printf(":: %lx %lx\n", iovf, irq);
 		if(iovf & 1) {
 			/* handled; retry */
+			nvmeq_interrupt(nc, &nc->admin_queue);
 			for(size_t i = 0; i < nc->nr_queues; i++) {
 				nvmeq_interrupt(nc, &nc->queues[i]);
 			}
 			nc->sp_error = 1;
-			struct sys_thread_sync_args sa_er = {
-				.addr = (uint64_t *)&nc->sp_error,
-				.op = THREAD_SYNC_WAKE,
-				.arg = INT_MAX,
-			};
-			debug_printf("Notifying wakeup on error\n");
-			int r = sys_thread_sync(1, &sa_er);
+			int r = twz_thread_sync(THREAD_SYNC_WAKE, &nc->sp_error, INT_MAX, NULL);
 			if(r) {
 				fprintf(stderr, "[nvme] thread_sync error: %d\n", r);
 				return;
@@ -501,20 +471,13 @@ void nvme_wait_for_event(struct nvme_controller *nc)
 			exit(1);
 		}
 		if(irq) {
+			nvmeq_interrupt(nc, &nc->admin_queue);
 			for(size_t i = 0; i < nc->nr_queues; i++) {
 				nvmeq_interrupt(nc, &nc->queues[i]);
 			}
-			volatile struct nvme_cmp *cmp = nc->queues[0].cmpq.entries;
-			for(int i = 0; i < 10; i++) {
-				debug_printf("CMP %x %x %x %x\n",
-				  cmp[i].cmp_dword[0],
-				  cmp[i].cmp_dword[1],
-				  cmp[i].cmp_dword[2],
-				  cmp[i].cmp_dword[3]);
-			}
 		}
 		if(!iovf && !irq) {
-			int r = sys_thread_sync(2, sa);
+			int r = twz_thread_sync_multiple(2, sa);
 			if(r < 0) {
 				fprintf(stderr, "[nvme] thread_sync error: %d\n", r);
 				return;
@@ -567,15 +530,5 @@ int main(int argc, char **argv)
 	pthread_t pt;
 	pthread_create(&pt, NULL, ptm, &nc);
 	nvme_wait_for_event(&nc);
-	for(volatile long i = 0; i < 1000000000; i++) {
-	}
-	debug_printf("TRYING IDENT AGAIN\n");
-	nvmec_identify(&nc);
-	for(volatile long i = 0; i < 1000000000; i++) {
-	}
-	debug_printf("TRYING IDENT AGAIN\n");
-	nvmec_identify(&nc);
-
-	printf("[nvme] successfully started controller\n");
 	return 0;
 }

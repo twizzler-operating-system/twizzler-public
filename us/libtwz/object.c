@@ -72,6 +72,27 @@ int twz_object_kaction(struct object *obj, long cmd, ...)
 	return r ? r : ka.result;
 }
 
+int twz_object_ctl(struct object *obj, int cmd, ...)
+{
+	va_list va;
+	va_start(va, cmd);
+	long arg1 = va_arg(va, long);
+	long arg2 = va_arg(va, long);
+	long arg3 = va_arg(va, long);
+	va_end(va);
+
+	return sys_octl(twz_object_id(obj), cmd, arg1, arg2, arg3);
+}
+
+int twz_object_pin(struct object *obj, uintptr_t *oaddr, int flags)
+{
+	uintptr_t pa;
+	int r = sys_opin(twz_object_id(obj), &pa, flags);
+	if(oaddr)
+		*oaddr = pa + OBJ_NULLPAGE_SIZE;
+	return r;
+}
+
 void *twz_object_getext(struct object *obj, uint64_t tag)
 {
 	struct metainfo *mi = twz_object_meta(obj);

@@ -77,3 +77,5 @@ int __twz_ptr_make(struct object *obj, objid_t id, const void *p, uint32_t flags
 	({ __twz_ptr_make((o), (id), (p), (f), (const void **)(res)); })
 
 int twz_object_kaction(struct object *obj, long cmd, ...);
+int twz_object_pin(struct object *obj, uintptr_t *oaddr, int flags);
+int twz_object_ctl(struct object *obj, int cmd, ...);

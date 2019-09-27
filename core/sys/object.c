@@ -259,6 +259,7 @@ long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long a
 		size_t pnb, pne;
 		case OCO_CACHE_MODE:
 			o->cache_mode = arg3;
+			arg1 += OBJ_NULLPAGE_SIZE;
 			pnb = arg1 / mm_page_size(0);
 			pne = (arg1 + arg2) / mm_page_size(0);
 			/* TODO: bounds check */
@@ -273,6 +274,7 @@ long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long a
 			}
 			break;
 		case OCO_MAP:
+			arg1 += OBJ_NULLPAGE_SIZE;
 			pnb = arg1 / mm_page_size(0);
 			pne = (arg1 + arg2) / mm_page_size(0);
 
