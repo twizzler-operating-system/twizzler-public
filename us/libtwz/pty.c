@@ -39,7 +39,6 @@ int pty_ioctl_server(struct object *obj, int request, long arg)
 
 int pty_ioctl_client(struct object *obj, int request, long arg)
 {
-	debug_printf("PTY IOCTL\n");
 	struct pty_client_hdr *hdr = twz_obj_base(obj);
 	struct pty_hdr *sh = twz_ptr_lea(obj, hdr->server);
 	struct object sh_obj = TWZ_OBJECT_FROM_PTR(sh);
