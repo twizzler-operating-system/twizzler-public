@@ -167,6 +167,7 @@ struct nvme_namespace {
 	uint32_t id;
 	uint32_t lba_size;
 	struct nvme_namespace *next;
+	struct nvme_controller *nc;
 };
 
 struct nvme_queue {
@@ -192,6 +193,8 @@ struct nvme_controller {
 	int dstride;
 	bool init, msix;
 	uint64_t aq_pin;
+	size_t page_size;
+	size_t max_queue_slots;
 	_Atomic uint64_t sp_error;
 	struct nvme_queue admin_queue;
 	struct nvme_queue *queues;
