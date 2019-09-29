@@ -540,20 +540,19 @@ void init_fb(struct fb *fb)
 
 		int x, y, n;
 		unsigned char *data = stbi_load("/usr/share/mountains.jpeg", &x, &y, &n, 4);
-		n = 4;
-		for(int i = 0; i < y * 2; i++) {
-			for(int j = 0; j < x * 2; j++) {
-				int dpos = (i * fb->pitch) + j * fb->bpp;
-				int spos = ((i / 2) * x * n) + (j / 2) * n;
-				((char *)fb->background_buffer)[dpos + 0] = data[spos + 2];
-				((char *)fb->background_buffer)[dpos + 1] = data[spos + 1];
-				((char *)fb->background_buffer)[dpos + 2] = data[spos + 0];
-				((char *)fb->background_buffer)[dpos + 3] = 0x55;
+		if(data) {
+			n = 4;
+			for(int i = 0; i < y * 2; i++) {
+				for(int j = 0; j < x * 2; j++) {
+					int dpos = (i * fb->pitch) + j * fb->bpp;
+					int spos = ((i / 2) * x * n) + (j / 2) * n;
+					((char *)fb->background_buffer)[dpos + 0] = data[spos + 2];
+					((char *)fb->background_buffer)[dpos + 1] = data[spos + 1];
+					((char *)fb->background_buffer)[dpos + 2] = data[spos + 0];
+					((char *)fb->background_buffer)[dpos + 3] = 0x55;
+				}
 			}
 		}
-		debug_printf("TERM: %d %d %d %p\n", x, y, n, data);
-		if(!data)
-			debug_printf("    -> %s\n", stbi_failure_reason());
 	}
 }
 
@@ -574,7 +573,7 @@ void process_csi(struct fb *fb, int c)
 		fb->esc_argc++;
 	} else {
 		fb->esc_argc++;
-		debug_printf("CSI seq %c (%d %d)\n", c, fb->esc_args[0], fb->esc_args[1]);
+		// debug_printf("CSI seq %c (%d %d)\n", c, fb->esc_args[0], fb->esc_args[1]);
 		switch(c) {
 			case 'P':
 				fb_del_chars(fb, fb->esc_args[0]);
@@ -634,7 +633,7 @@ void process_csi(struct fb *fb, int c)
 
 				fb->x = fb->esc_args[1];
 				fb->y = fb->esc_args[0];
-				debug_printf(" got H CSI: %d %d\n", fb->x, fb->y);
+				// debug_printf(" got H CSI: %d %d\n", fb->x, fb->y);
 
 				break;
 			case 'm':
