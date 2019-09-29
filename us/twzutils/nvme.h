@@ -122,12 +122,29 @@ struct nvme_cmd {
 
 enum nvme_admin_op {
 	NVME_ADMIN_OP_IDENTIFY = 0x6,
+	NVME_ADMIN_SET_FEATURES = 0x9,
+	NVME_ADMIN_CREATE_CQ = 0x5,
+	NVME_ADMIN_CREATE_SQ = 0x1,
+};
+
+enum nvme_feature_ident {
+	NVME_CMD_SET_FEATURES_NQ = 0x7,
+};
+
+enum nvme_queue_priority {
+	NVME_PRIORITY_URGENT = 0,
+	NVME_PRIORITY_HIGH = 1,
+	NVME_PRIORITY_MEDIUM = 2,
+	NVME_PRIORITY_LOW = 3,
 };
 
 #define NVME_CMD_SDW0_CID(x) ((x) << 16)
 #define NVME_CMD_SDW0_PSDT(x) ((x) << 14)
 #define NVME_CMD_SDW0_FUSE(x) ((x) << 8)
 #define NVME_CMD_SDW0_OP(x) ((x))
+
+#define NVME_CMD_CREATE_CQ_CDW11_INT_EN (1 << 1)
+#define NVME_CMD_CREATE_CQ_CDW11_PHYS_CONT (1 << 0)
 
 _Static_assert(sizeof(struct nvme_cmd) == 64, "");
 

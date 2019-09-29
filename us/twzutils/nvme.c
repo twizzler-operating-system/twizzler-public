@@ -17,14 +17,54 @@
 #define NVME_ACQS 1024
 #define LOG2(X) ((unsigned)(8 * sizeof(unsigned long long) - __builtin_clzll((X)) - 1))
 
+#define MIN(a, b) ({ (a) < (b) ? (a) : (b); })
+
 static void nvme_cmd_init_identify(struct nvme_cmd *cmd, uint8_t cns, uint8_t nsid, uint64_t addr)
 {
-	memset(cmd, 0, sizeof(*cmd));
+	*cmd = (struct nvme_cmd){};
 	cmd->hdr.cdw0 = NVME_CMD_SDW0_OP(NVME_ADMIN_OP_IDENTIFY);
 	cmd->hdr.nsid = nsid;
 	cmd->hdr.dptr.prpp[0].addr = addr;
 	cmd->cmd_dword_10[0] = cns;
 }
+
+static void nvme_cmd_init_setfeatures_nq(struct nvme_cmd *cmd, uint16_t nsq, uint16_t ncq)
+{
+	*cmd = (struct nvme_cmd){};
+	cmd->hdr.cdw0 = NVME_CMD_SDW0_OP(NVME_ADMIN_SET_FEATURES);
+	cmd->cmd_dword_10[0] = NVME_CMD_SET_FEATURES_NQ;
+	cmd->cmd_dword_10[1] = ((uint32_t)ncq << 16) | nsq;
+}
+
+static void nvme_cmd_init_create_sq(struct nvme_cmd *cmd,
+  uintptr_t mem,
+  size_t qs,
+  uint16_t qid,
+  uint16_t cmp_id,
+  uint16_t pri)
+{
+	*cmd = (struct nvme_cmd){};
+	cmd->hdr.cdw0 = NVME_CMD_SDW0_OP(NVME_ADMIN_CREATE_SQ);
+	cmd->hdr.dptr.prpp[0].addr = mem;
+	cmd->cmd_dword_10[0] = (qs << 16) | qid;
+	cmd->cmd_dword_10[1] =
+	  ((uint32_t)cmp_id << 16) | (pri << 1) | NVME_CMD_CREATE_CQ_CDW11_PHYS_CONT;
+}
+
+static void nvme_cmd_init_create_cq(struct nvme_cmd *cmd,
+  uintptr_t mem,
+  size_t qs,
+  uint16_t qid,
+  uint16_t iv)
+{
+	*cmd = (struct nvme_cmd){};
+	cmd->hdr.cdw0 = NVME_CMD_SDW0_OP(NVME_ADMIN_CREATE_CQ);
+	cmd->hdr.dptr.prpp[0].addr = mem;
+	cmd->cmd_dword_10[0] = (qs << 16) | qid;
+	cmd->cmd_dword_10[1] =
+	  ((uint32_t)iv << 16) | NVME_CMD_CREATE_CQ_CDW11_INT_EN | NVME_CMD_CREATE_CQ_CDW11_PHYS_CONT;
+}
+
 void nvmeq_init(struct nvme_queue *q,
   struct nvme_cmd *sentries,
   struct nvme_cmp *centries,
@@ -251,13 +291,6 @@ int nvmec_init(struct nvme_controller *nc)
 	return 0;
 }
 
-int nvmec_create_queues(struct nvme_controller *nc, size_t nrqueues)
-{
-	nc->queues = calloc(nrqueues, sizeof(struct nvme_queue));
-	nc->nr_queues = nrqueues;
-	return 0;
-}
-
 int nvmec_check_features(struct nvme_controller *nc)
 {
 	struct pcie_function_header *hdr = twz_device_getds(&nc->co);
@@ -310,6 +343,73 @@ int nvmec_execute_cmd(struct nvme_controller *nc,
 	*cres = cr;
 	return 0;
 }
+
+int nvmec_create_queues(struct nvme_controller *nc, size_t nrqueues, size_t slots)
+{
+	struct nvme_cmd cmd;
+	nvme_cmd_init_setfeatures_nq(&cmd, nrqueues, nrqueues);
+
+	uint32_t cres;
+	uint16_t status;
+	if(nvmec_execute_cmd(nc, &cmd, &nc->admin_queue, &status, &cres))
+		return -1;
+	if(status) {
+		fprintf(stderr, "[nvme] set features: %x\n", status);
+		return -1;
+	}
+
+	size_t ncsq = cres & 0xffff;
+	size_t nccq = cres >> 16;
+	size_t cqs = MIN(ncsq, nccq);
+	nrqueues = MIN(cqs, nrqueues);
+	fprintf(stderr,
+	  "[nvme] allocated %ld queue pairs, %ld slots (cqs = %ld bytes, sqs = %ld bytes)\n",
+	  nrqueues,
+	  slots,
+	  sizeof(struct nvme_cmp) * slots,
+	  sizeof(struct nvme_cmd) * slots);
+
+	nc->queues = calloc(nrqueues, sizeof(struct nvme_queue));
+	struct nvme_cmd *squeue_start =
+	  (void *)(NVME_ASQS * (sizeof(struct nvme_cmd) + sizeof(struct nvme_cmp)));
+	struct nvme_cmp *cqueue_start =
+	  (void *)(NVME_ASQS * (sizeof(struct nvme_cmd) + sizeof(struct nvme_cmp))
+	           + slots * nrqueues * sizeof(struct nvme_cmd));
+	for(size_t i = 0; i < nrqueues; i++, squeue_start += slots, cqueue_start += slots) {
+		nvmeq_init(&nc->queues[i],
+		  twz_ptr_lea(&nc->qo, squeue_start),
+		  twz_ptr_lea(&nc->qo, cqueue_start),
+		  slots,
+		  nvmec_get_doorbell(nc, i + 1, false),
+		  nvmec_get_doorbell(nc, i + 1, true));
+
+		nvme_cmd_init_create_cq(&cmd,
+		  nc->aq_pin + (uintptr_t)(cqueue_start),
+		  slots,
+		  i + 1,
+		  0 /* TODO: mult. interrupts */);
+
+		if(nvmec_execute_cmd(nc, &cmd, &nc->admin_queue, &status, &cres))
+			return -1;
+		if(status) {
+			fprintf(stderr, "[nvme] create cq: %x\n", status);
+			return -1;
+		}
+
+		nvme_cmd_init_create_sq(
+		  &cmd, nc->aq_pin + (uintptr_t)(squeue_start), slots, i + 1, i + 1, NVME_PRIORITY_HIGH);
+
+		if(nvmec_execute_cmd(nc, &cmd, &nc->admin_queue, &status, &cres))
+			return -1;
+		if(status) {
+			fprintf(stderr, "[nvme] create sq: %x\n", status);
+			return -1;
+		}
+	}
+	nc->nr_queues = nrqueues;
+	return 0;
+}
+
 int nvmec_identify(struct nvme_controller *nc)
 {
 	struct nvme_cmd cmd;
@@ -490,6 +590,7 @@ void nvme_wait_for_event(struct nvme_controller *nc)
 
 void *ptm(void *arg)
 {
+	nvmec_create_queues(arg, 4, 1024 /* TODO */);
 	nvmec_identify(arg);
 
 	return 0;
