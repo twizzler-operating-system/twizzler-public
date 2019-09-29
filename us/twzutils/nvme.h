@@ -15,8 +15,8 @@
 #define NVME_REG_AQA 0x24
 #define NVME_REG_ASQ 0x28
 #define NVME_REG_ACQ 0x30
-#define NVME_REG_SQnTDBL(n, s) (0x1000 + ((n) * (s)))
-#define NVME_REG_CQnHDBL(n, s) (0x1000 + (((n) + 1) * (s)))
+#define NVME_REG_SQnTDBL(n, s) (0x1000 + (2 * (n) * (s)))
+#define NVME_REG_CQnHDBL(n, s) (0x1000 + ((2 * (n) + 1) * (s)))
 
 #define NVME_CAP_MPSMAX(c) (((c) >> 52) & 0xf)
 #define NVME_CAP_MPSMIN(c) (((c) >> 48) & 0xf)
@@ -125,6 +125,11 @@ enum nvme_admin_op {
 	NVME_ADMIN_SET_FEATURES = 0x9,
 	NVME_ADMIN_CREATE_CQ = 0x5,
 	NVME_ADMIN_CREATE_SQ = 0x1,
+};
+
+enum nvme_nvm_op {
+	NVME_NVM_CMD_WRITE = 0x1,
+	NVME_NVM_CMD_READ = 0x2,
 };
 
 enum nvme_feature_ident {

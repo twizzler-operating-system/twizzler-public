@@ -13,13 +13,15 @@
 
 #include "nvme.h"
 
+/* TODO: can we define a large page-size? */
+
 #define NVME_ASQS 1024
 #define NVME_ACQS 1024
 #define LOG2(X) ((unsigned)(8 * sizeof(unsigned long long) - __builtin_clzll((X)) - 1))
 
 #define MIN(a, b) ({ (a) < (b) ? (a) : (b); })
 
-static void nvme_cmd_init_identify(struct nvme_cmd *cmd, uint8_t cns, uint8_t nsid, uint64_t addr)
+static void nvme_cmd_init_identify(struct nvme_cmd *cmd, uint8_t cns, uint32_t nsid, uint64_t addr)
 {
 	*cmd = (struct nvme_cmd){};
 	cmd->hdr.cdw0 = NVME_CMD_SDW0_OP(NVME_ADMIN_OP_IDENTIFY);
@@ -34,6 +36,30 @@ static void nvme_cmd_init_setfeatures_nq(struct nvme_cmd *cmd, uint16_t nsq, uin
 	cmd->hdr.cdw0 = NVME_CMD_SDW0_OP(NVME_ADMIN_SET_FEATURES);
 	cmd->cmd_dword_10[0] = NVME_CMD_SET_FEATURES_NQ;
 	cmd->cmd_dword_10[1] = ((uint32_t)ncq << 16) | nsq;
+}
+
+static void nvme_cmd_init_read(struct nvme_cmd *cmd,
+  uintptr_t addr,
+  uint32_t nsid,
+  uint64_t lba,
+  uint16_t nrblks,
+  uint32_t blksz,
+  uint32_t pagesz)
+{
+	*cmd = (struct nvme_cmd){};
+	cmd->hdr.cdw0 = NVME_CMD_SDW0_OP(NVME_NVM_CMD_READ);
+	cmd->hdr.dptr.prpp[0].addr = addr;
+	size_t bytes = blksz * nrblks;
+	if(bytes > pagesz) {
+		cmd->hdr.dptr.prpp[1].addr = addr + pagesz;
+	}
+	if(addr % pagesz || nrblks * blksz > 2 * pagesz) {
+		fprintf(stderr, "[nvme]: WARNING - NI: large transfer\n");
+	}
+	cmd->hdr.nsid = nsid;
+	cmd->cmd_dword_10[0] = lba & 0xffffffff;
+	cmd->cmd_dword_10[1] = lba >> 32;
+	cmd->cmd_dword_10[2] = nrblks;
 }
 
 static void nvme_cmd_init_create_sq(struct nvme_cmd *cmd,
@@ -377,12 +403,26 @@ int nvmec_create_queues(struct nvme_controller *nc, size_t nrqueues, size_t slot
 	           + slots * nrqueues * sizeof(struct nvme_cmd));
 	for(size_t i = 0; i < nrqueues; i++, squeue_start += slots, cqueue_start += slots) {
 		nvmeq_init(&nc->queues[i],
-		  twz_ptr_lea(&nc->qo, squeue_start),
-		  twz_ptr_lea(&nc->qo, cqueue_start),
+		  (void *)((uint64_t)twz_obj_base(&nc->qo) + (uint64_t)squeue_start),
+		  (void *)((uint64_t)twz_obj_base(&nc->qo) + (uint64_t)cqueue_start),
 		  slots,
 		  nvmec_get_doorbell(nc, i + 1, false),
 		  nvmec_get_doorbell(nc, i + 1, true));
 
+		int r;
+		r = twz_device_map_object(
+		  &nc->co, &nc->qo, (uintptr_t)squeue_start, slots * sizeof(struct nvme_cmd));
+		if(r)
+			return r;
+		r = twz_device_map_object(
+		  &nc->co, &nc->qo, (uintptr_t)cqueue_start, slots * sizeof(struct nvme_cmp));
+		if(r)
+			return r;
+
+		debug_printf("CREATE CQ: %p %lx %lx\n",
+		  twz_ptr_lea(&nc->qo, cqueue_start),
+		  nc->aq_pin + (uintptr_t)cqueue_start,
+		  nc->aq_pin);
 		nvme_cmd_init_create_cq(&cmd,
 		  nc->aq_pin + (uintptr_t)(cqueue_start),
 		  slots,
@@ -416,8 +456,9 @@ int nvmec_identify(struct nvme_controller *nc)
 	void *ci_memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000);
 	void *nsl_memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000 + 0x1000);
 	void *ns_memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000 + 0x2000);
+	void *r_memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000 + 0x3000);
 
-	int r = twz_device_map_object(&nc->co, &nc->qo, 0x200000, 0x3000);
+	int r = twz_device_map_object(&nc->co, &nc->qo, 0x200000, 0x4000);
 	if(r)
 		return r;
 
@@ -476,6 +517,16 @@ int nvmec_identify(struct nvme_controller *nc)
 		  ns->lba_size);
 	}
 
+	nvme_cmd_init_read(&cmd, nc->aq_pin + 0x200000 + 0x3000, 1, 0, 0, 512, 4096);
+	if(nvmec_execute_cmd(nc, &cmd, &nc->queues[0], &status, &cres))
+		return -1;
+	if(status) {
+		fprintf(stderr, "[nvme] identify namespace IDs failed (command error %x)\n", status);
+		return -1;
+	}
+	fprintf(stderr, "READ: %x %x\n", status, cres);
+	fprintf(stderr, "%s\n", r_memory);
+
 	return 0;
 }
 
@@ -515,11 +566,11 @@ void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
 	while(i < 16) {
 		bool phase;
 		struct nvme_cmp *cmp = nvmeq_cq_peek(q, i, &phase);
-		// debug_printf("peeked at %x (%d %d) -> %d\n",
-		// cmp->cmp_dword[3],
-		//!!(cmp->cmp_dword[3] & NVME_CMP_DW3_PHASE),
-		// phase,
-		// cmp->cmp_dword[3] & 0xffff);
+		debug_printf("peeked at %x (%d %d) -> %d\n",
+		  cmp->cmp_dword[3],
+		  !!(cmp->cmp_dword[3] & NVME_CMP_DW3_PHASE),
+		  phase,
+		  cmp->cmp_dword[3] & 0xffff);
 		if(!!(cmp->cmp_dword[3] & NVME_CMP_DW3_PHASE) != phase) {
 			more = false;
 			break;
@@ -573,6 +624,7 @@ void nvme_wait_for_event(struct nvme_controller *nc)
 		if(irq) {
 			nvmeq_interrupt(nc, &nc->admin_queue);
 			for(size_t i = 0; i < nc->nr_queues; i++) {
+				debug_printf("QI: %ld\n", i);
 				nvmeq_interrupt(nc, &nc->queues[i]);
 			}
 		}
