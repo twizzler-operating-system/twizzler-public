@@ -559,6 +559,56 @@ int nvmec_identify(struct nvme_controller *nc)
 	return 0;
 }
 
+struct twzk_prq_vec {
+	uint64_t start_block;
+	uint32_t result;
+	uint16_t flags;
+	uint8_t iotype;
+	uint8_t resv;
+	uintptr_t oaddr;
+	size_t len;
+};
+
+#define TWZK_PRQ_READ 1
+#define TWZK_PRQ_WRITE 2
+
+struct twzk_prq {
+	uint64_t devid;
+	uint32_t flags;
+	uint32_t nrvec;
+	struct twzk_prq_vec vecs[];
+};
+
+int nvme_io(struct nvme_namespace *ns, struct twzk_prq *prq)
+{
+	for(size_t i = 0; i < prq->nrvec; i++) {
+		struct twzk_prq_vec *v = &prq->vecs[i];
+		struct nvme_cmd cmd;
+		size_t nrblks = v->len / ns->lba_size;
+		switch(v->iotype) {
+			case TWZK_PRQ_READ:
+				nvme_cmd_init_read(
+				  &cmd, v->oaddr, ns->id, v->start_block, nrblks, ns->lba_size, ns->nc->page_size);
+				break;
+			case TWZK_PRQ_WRITE:
+				nvme_cmd_init_write(
+				  &cmd, v->oaddr, ns->id, v->start_block, nrblks, ns->lba_size, ns->nc->page_size);
+				break;
+			default:
+				v->result = -ENOTSUP;
+				continue;
+		}
+		uint32_t cres;
+		uint16_t status;
+		if(nvmec_execute_cmd(ns->nc, &cmd, &ns->nc->queues[0], &status, &cres) || status) {
+			v->result = -EIO;
+			continue;
+		}
+		v->result = 0;
+	}
+	return 0;
+}
+
 struct nvme_cmp *nvmeq_cq_peek(struct nvme_queue *q, uint32_t i, bool *phase)
 {
 	uint32_t index = (q->cmpq.head + i) & (q->count - 1);
