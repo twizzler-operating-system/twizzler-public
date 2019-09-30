@@ -21,6 +21,11 @@
 
 #define MIN(a, b) ({ (a) < (b) ? (a) : (b); })
 
+static size_t nvme_get_ideal_nr_queues(void)
+{
+	return 4;
+}
+
 static void nvme_cmd_init_identify(struct nvme_cmd *cmd, uint8_t cns, uint32_t nsid, uint64_t addr)
 {
 	*cmd = (struct nvme_cmd){};
@@ -187,18 +192,17 @@ void nvme_reg_write64(struct nvme_controller *nc, int r, uint64_t v)
 int nvmec_pcie_init(struct nvme_controller *nc)
 {
 	struct pcie_function_header *hdr = twz_device_getds(&nc->co);
-	struct device_repr *repr = twz_device_getrepr(&nc->co);
 	struct pcie_config_space *space = twz_ptr_lea(&nc->co, hdr->space);
 	/* bus-master enable, memory space enable. We can do interrupt disable too, since we'll be using
 	 * MSI */
 	space->header.command =
 	  COMMAND_MEMORYSPACE | COMMAND_BUSMASTER | COMMAND_INTDISABLE | COMMAND_SERRENABLE;
 	/* allocate an interrupt vector */
+	nc->nrvec = nvme_get_ideal_nr_queues();
 	int r;
-	if((r = twz_object_kaction(&nc->co, KACTION_CMD_DEVICE_SETUP_INTERRUPTS, 1)) < 0) {
+	if((r = twz_object_kaction(&nc->co, KACTION_CMD_DEVICE_SETUP_INTERRUPTS, nc->nrvec)) < 0) {
 		fprintf(stderr, "kaction: %d\n", r);
 	}
-	fprintf(stderr, "[nvme] allocated vector %d for interrupts\n", repr->interrupts[0].vec);
 
 	/* try to use MSI-X, but fall back to MSI if not available */
 	union pcie_capability_ptr cp;
@@ -209,23 +213,7 @@ int nvmec_pcie_init(struct nvme_controller *nc)
 	}
 
 	if(nc->msix) {
-		volatile struct pcie_msix_capability *msix = cp.msix;
-		fprintf(
-		  stderr, "[nvme] table sz = %d; tob = %x\n", msix->table_size, msix->table_offset_bir);
-		uint8_t bir = msix->table_offset_bir & 0x7;
-		if(bir != 0 && bir != 4 && bir != 5) {
-			fprintf(stderr, "[nvme] invalid BIR in table offset\n");
-			return -EINVAL;
-		}
-		uint32_t off = msix->table_offset_bir & ~0x7;
-		volatile struct pcie_msix_table_entry *tbl =
-		  twz_ptr_lea(&nc->co, (void *)((long)hdr->bars[bir] + off));
-		fprintf(stderr, "[nvme] MSIx: %p %p %d\n", hdr->bars[bir], tbl, off);
-		tbl->data = device_msi_data(repr->interrupts[0].vec, MSI_LEVEL);
-		tbl->addr = device_msi_addr(0);
-		tbl->ctl = 0;
-		msix->fn_mask = 0;
-		msix->msix_enable = 1;
+		msix_configure(&nc->co, cp.msix, nc->nrvec);
 	} else {
 		fprintf(stderr, "[nvme] TODO: not implemented: MSI (not MSI-X support)\n");
 		return -ENOTSUP;
@@ -281,7 +269,6 @@ int nvmec_init(struct nvme_controller *nc)
 
 	nc->max_queue_slots = (caps & 0xffff) + 1;
 	nc->page_size = 4096;
-	debug_printf("::::: %ld\n", nc->max_queue_slots);
 
 	/* controller requires we set the AQA register before enabling. */
 	uint32_t aqa = NVME_ASQS | (NVME_ACQS << 16);
@@ -451,11 +438,8 @@ int nvmec_create_queues(struct nvme_controller *nc, size_t nrqueues, size_t slot
 		//  twz_ptr_lea(&nc->qo, cqueue_start),
 		//  nc->aq_pin + (uintptr_t)cqueue_start,
 		//  nc->aq_pin);
-		nvme_cmd_init_create_cq(&cmd,
-		  nc->aq_pin + (uintptr_t)(cqueue_start),
-		  slots,
-		  i + 1,
-		  0 /* TODO: mult. interrupts */);
+		nvme_cmd_init_create_cq(
+		  &cmd, nc->aq_pin + (uintptr_t)(cqueue_start), slots, i + 1, i % nc->nrvec);
 
 		if(nvmec_execute_cmd(nc, &cmd, &nc->admin_queue, &status, &cres))
 			return -1;
@@ -547,7 +531,7 @@ int nvmec_identify(struct nvme_controller *nc)
 	}
 
 	nvme_cmd_init_read(&cmd, nc->aq_pin + 0x200000 + 0x3000, 1, 0, 1, 512, 4096);
-	if(nvmec_execute_cmd(nc, &cmd, &nc->queues[0], &status, &cres))
+	if(nvmec_execute_cmd(nc, &cmd, &nc->queues[1], &status, &cres))
 		return -1;
 	if(status) {
 		fprintf(stderr, "[nvme] identify namespace IDs failed (command error %x)\n", status);
@@ -581,6 +565,7 @@ struct twzk_prq {
 
 int nvme_io(struct nvme_namespace *ns, struct twzk_prq *prq)
 {
+	/* TODO: this should actually wait after submitting _all_ requests */
 	for(size_t i = 0; i < prq->nrvec; i++) {
 		struct twzk_prq_vec *v = &prq->vecs[i];
 		struct nvme_cmd cmd;
@@ -678,12 +663,13 @@ void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
 void nvme_wait_for_event(struct nvme_controller *nc)
 {
 	struct device_repr *repr = twz_device_getrepr(&nc->co);
-	struct sys_thread_sync_args sa[2];
+	struct sys_thread_sync_args sa[MAX_DEVICE_INTERRUPTS + 1];
 	twz_thread_sync_init(&sa[0], THREAD_SYNC_SLEEP, &repr->syncs[DEVICE_SYNC_IOV_FAULT], 0, NULL);
-	twz_thread_sync_init(&sa[1], THREAD_SYNC_SLEEP, &repr->interrupts[0].sp, 0, NULL);
+	for(int i = 1; i <= nc->nrvec; i++) {
+		twz_thread_sync_init(&sa[i], THREAD_SYNC_SLEEP, &repr->interrupts[i - 1].sp, 0, NULL);
+	}
 	for(;;) {
 		uint64_t iovf = atomic_exchange(&repr->syncs[DEVICE_SYNC_IOV_FAULT], 0);
-		uint64_t irq = atomic_exchange(&repr->interrupts[0].sp, 0);
 		if(iovf & 1) {
 			/* handled; retry */
 			nvmeq_interrupt(nc, &nc->admin_queue);
@@ -700,14 +686,21 @@ void nvme_wait_for_event(struct nvme_controller *nc)
 			fprintf(stderr, "[nvme] unhandled IOMMU error!\n");
 			exit(1);
 		}
-		if(irq) {
-			nvmeq_interrupt(nc, &nc->admin_queue);
-			for(size_t i = 0; i < nc->nr_queues; i++) {
-				nvmeq_interrupt(nc, &nc->queues[i]);
+		bool worked = false;
+		for(int i = 0; i < nc->nrvec; i++) {
+			uint64_t irq = atomic_exchange(&repr->interrupts[i].sp, 0);
+			if(irq) {
+				worked = true;
+				if(i == 0) {
+					nvmeq_interrupt(nc, &nc->admin_queue);
+				}
+				for(size_t q = i; q < nc->nr_queues; q += nc->nrvec) {
+					nvmeq_interrupt(nc, &nc->queues[q]);
+				}
 			}
 		}
-		if(!iovf && !irq) {
-			int r = twz_thread_sync_multiple(2, sa);
+		if(!iovf && !worked) {
+			int r = twz_thread_sync_multiple(nc->nrvec + 1, sa);
 			if(r < 0) {
 				fprintf(stderr, "[nvme] thread_sync error: %d\n", r);
 				return;

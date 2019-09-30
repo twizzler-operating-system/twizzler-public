@@ -193,6 +193,7 @@ struct nvme_controller {
 	int dstride;
 	bool init, msix;
 	uint64_t aq_pin;
+	int nrvec;
 	size_t page_size;
 	size_t max_queue_slots;
 	_Atomic uint64_t sp_error;
