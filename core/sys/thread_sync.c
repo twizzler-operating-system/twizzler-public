@@ -64,6 +64,8 @@ static int sp_sleep_prep(struct syncpoint *sp, long *addr, long val, struct time
 	spinlock_acquire_save(&current_thread->lock);
 	thread_sleep(current_thread, 0, ns);
 	current_thread->sleep_entries[idx].thr = current_thread;
+	current_thread->sleep_entries[idx].active = true;
+	current_thread->sleep_entries[idx].sp = sp;
 	list_insert(&sp->waiters, &current_thread->sleep_entries[idx].entry);
 
 	/* TODO: verify that addr is a valid address that we can access */
@@ -79,7 +81,11 @@ static void sp_sleep_finish(struct syncpoint *sp, int stay_asleep, int idx)
 		return;
 	spinlock_acquire_save(&sp->lock);
 	spinlock_acquire_save(&current_thread->lock);
-	list_remove(&current_thread->sleep_entries[idx].entry);
+	if(current_thread->sleep_entries[idx].active) {
+		list_remove(&current_thread->sleep_entries[idx].entry);
+		current_thread->sleep_entries[idx].active = false;
+	}
+
 	if(current_thread->state == THREADSTATE_BLOCKED) {
 		thread_wake(current_thread);
 	}
@@ -112,7 +118,21 @@ static int sp_wake(struct syncpoint *sp, long arg)
 			arg--;
 
 		list_remove(&se->entry);
+		struct thread *thr = se->thr;
+		spinlock_acquire_save(&thr->lock);
+
+		for(size_t i = 0; i < thr->sleep_count; i++) {
+			if(thr->sleep_entries[i].active && se != &thr->sleep_entries[i]) {
+				struct syncpoint *op = thr->sleep_entries[i].sp;
+				spinlock_acquire_save(&op->lock);
+				list_remove(&thr->sleep_entries[i].entry);
+				spinlock_release_restore(&op->lock);
+				krc_put_call(op, refs, _sp_release);
+			}
+		}
+
 		thread_wake(se->thr);
+		spinlock_release_restore(&thr->lock);
 		krc_put_call(sp, refs, _sp_release);
 		count++;
 	}

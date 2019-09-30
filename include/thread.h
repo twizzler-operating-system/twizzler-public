@@ -23,7 +23,9 @@ enum thread_state {
 
 struct sleep_entry {
 	struct thread *thr;
+	struct syncpoint *sp;
 	struct list entry;
+	bool active;
 };
 
 struct thread {
