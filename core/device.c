@@ -6,6 +6,7 @@
 #include <page.h>
 #include <syscall.h>
 #include <thread.h>
+#include <twz/driver/bus.h>
 
 static void __kso_device_ctor(struct object *obj)
 {
@@ -21,6 +22,20 @@ static struct kso_calls _kso_device = {
 __initializer static void __device_init(void)
 {
 	kso_register(KSO_DEVICE, &_kso_device);
+}
+
+struct bus_repr *bus_get_repr(struct object *obj)
+{
+	/* repr is at object base */
+	struct objpage *op = obj_get_page(obj, 1, true);
+	page_pin(op->page);
+	return (struct bus_repr *)mm_ptov(op->page->addr);
+}
+
+void *bus_get_busspecific(struct object *obj)
+{
+	struct bus_repr *repr = bus_get_repr(obj);
+	return (void *)(repr + 1);
 }
 
 struct device_repr *device_get_repr(struct object *obj)
@@ -116,13 +131,34 @@ struct object *device_register(uint32_t bustype, uint32_t devid)
 	/* TODO: restrict write access. In fact, do this for ALL KSOs. */
 	r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &psid);
 	if(r < 0)
-		panic("failed to create PCIe object: %d", r);
+		panic("failed to create device object: %d", r);
 	struct object *obj = obj_lookup(psid);
 	assert(obj != NULL);
 	obj->kaction = __device_kaction;
 	obj_kso_init(obj, KSO_DEVICE);
 	struct device *data = obj->data;
 	data->uid = ((uint64_t)bustype << 32) | devid;
+	return obj;
+}
+
+struct object *bus_register(uint32_t bustype, uint32_t busid, size_t bssz)
+{
+	int r;
+	objid_t psid;
+	/* TODO: restrict write access. In fact, do this for ALL KSOs. */
+	r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &psid);
+	if(r < 0)
+		panic("failed to create bus object: %d", r);
+	struct object *obj = obj_lookup(psid);
+	assert(obj != NULL);
+	// obj->kaction = __device_kaction;
+	obj_kso_init(obj, KSO_DEVBUS);
+
+	struct bus_repr *repr = bus_get_repr(obj);
+	repr->bus_id = busid;
+	repr->bus_type = bustype;
+	repr->children = (void *)(sizeof(struct bus_repr) + bssz + OBJ_NULLPAGE_SIZE);
+	device_release_headers(obj);
 	return obj;
 }
 

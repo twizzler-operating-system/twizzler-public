@@ -30,14 +30,12 @@ struct pcie_function_header {
 
 struct pcie_config_space;
 struct pcie_bus_header {
-	struct kso_hdr hdr;
 	uint32_t magic;
 	uint32_t start_bus;
 	uint32_t end_bus;
 	uint32_t segnr;
 	uint64_t flags;
 	struct pcie_config_space *spaces;
-	objid_t functions[];
 };
 
 /* PCIe extends the PCI configuration space in a backwards compatible way:

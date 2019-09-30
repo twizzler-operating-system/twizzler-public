@@ -9,6 +9,7 @@
 #include <slab.h>
 #include <syscall.h>
 #include <system.h>
+#include <twz/driver/bus.h>
 #include <twz/driver/device.h>
 
 /* The PCI subsystem. We make some simplifying assumptions:
@@ -241,10 +242,8 @@ static long pcie_function_init(struct object *pbobj,
 	__alloc_bar(fobj, start, 0x1000, 0, 0, ba);
 	hdr->space = (void *)start;
 
-	/* attach to PCIe */
 	unsigned int fnid = function | device << 3 | bus << 8;
-	obj_write_data(
-	  pbobj, offsetof(struct pcie_bus_header, functions[fnid]), sizeof(fobj->id), &fobj->id);
+	kso_attach(pbobj, fobj, fnid);
 
 	return 0;
 }
@@ -279,18 +278,12 @@ __attribute__((no_sanitize("undefined"))) static void pcie_init_space(struct mcf
 	  space->start_bus_nr,
 	  space->end_bus_nr);
 
-	int r;
-	objid_t psid;
-	/* TODO: restrict write access. In fact, do this for ALL KSOs. */
-	r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &psid);
-	if(r < 0)
-		panic("failed to create PCIe space object: %d", r);
-
 	uintptr_t start_addr = space->ba;
 	uintptr_t end_addr =
 	  space->ba + ((space->end_bus_nr - space->start_bus_nr) << 20 | 32 << 15 | 8 << 12);
 
-	struct object *obj = obj_lookup(psid);
+	struct object *obj =
+	  bus_register(DEVICE_BT_PCIE, space->pci_seg_group_nr, sizeof(struct pcie_bus_header));
 	assert(obj != NULL);
 	size_t idx = mm_page_size(1) / mm_page_size(0);
 
@@ -303,25 +296,25 @@ __attribute__((no_sanitize("undefined"))) static void pcie_init_space(struct mcf
 		obj_cache_page(obj, idx, pg);
 		idx += mm_page_size(1) / mm_page_size(0);
 	}
+	struct bus_repr *repr = bus_get_repr(obj);
+	struct pcie_bus_header *hdr = bus_get_busspecific(obj);
 
-	struct pcie_bus_header hdr = {
+	*hdr = (struct pcie_bus_header){
 		.magic = PCIE_BUS_HEADER_MAGIC,
 		.start_bus = space->start_bus_nr,
 		.end_bus = space->end_bus_nr,
 		.segnr = space->pci_seg_group_nr,
 		.spaces = (void *)(mm_page_size(1)),
 	};
-	snprintf(hdr.hdr.name,
+	snprintf(repr->hdr.name,
 	  KSO_NAME_MAXLEN,
 	  "PCIe bus %.2x::%.2x-%.2x",
-	  hdr.segnr,
-	  hdr.start_bus,
-	  hdr.end_bus);
-	obj_write_data(obj, 0, sizeof(struct pcie_bus_header), &hdr);
-	kso_root_attach(obj, 0, KSO_DEVBUS);
+	  hdr->segnr,
+	  hdr->start_bus,
+	  hdr->end_bus);
 	obj->kaction = __pcie_kaction;
-
-	printk("[pcie] attached PCIe bus KSO: " IDFMT "\n", IDPR(psid));
+	device_release_headers(obj);
+	kso_root_attach(obj, 0, KSO_DEVBUS);
 }
 
 static void __pcie_init(void *arg __unused)

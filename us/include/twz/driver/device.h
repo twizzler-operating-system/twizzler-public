@@ -31,6 +31,7 @@ struct device_repr {
 #define DEVICE_BT_ISA 0
 #define DEVICE_BT_PCIE 1
 #define DEVICE_BT_USB 2
+#define DEVICE_BT_SYSTEM 1024
 
 #define KACTION_CMD_DEVICE_SETUP_INTERRUPTS 1
 
@@ -47,7 +48,6 @@ static inline void *twz_device_getds(struct object *obj)
 {
 	return (void *)(twz_device_getrepr(obj) + 1);
 }
-
 #include <twz/_sys.h>
 static inline int twz_device_map_object(struct object *dev,
   struct object *obj,

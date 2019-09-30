@@ -434,10 +434,6 @@ int nvmec_create_queues(struct nvme_controller *nc, size_t nrqueues, size_t slot
 		if(r)
 			return r;
 
-		// debug_printf("CREATE CQ: %p %lx %lx\n",
-		//  twz_ptr_lea(&nc->qo, cqueue_start),
-		//  nc->aq_pin + (uintptr_t)cqueue_start,
-		//  nc->aq_pin);
 		nvme_cmd_init_create_cq(
 		  &cmd, nc->aq_pin + (uintptr_t)(cqueue_start), slots, i + 1, i % nc->nrvec);
 

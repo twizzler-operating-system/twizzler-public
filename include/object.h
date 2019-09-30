@@ -44,6 +44,7 @@ void kso_register(int t, struct kso_calls *);
 struct kso_calls *kso_lookup_calls(int t);
 void kso_detach_event(struct thread *thr, bool entry, int sysc);
 void kso_root_attach(struct object *obj, uint64_t flags, int type);
+void kso_attach(struct object *parent, struct object *child, size_t);
 
 struct object {
 	uint128_t id;

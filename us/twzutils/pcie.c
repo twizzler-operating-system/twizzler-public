@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include <twz/debug.h>
+#include <twz/driver/bus.h>
 #include <twz/driver/device.h>
 #include <twz/sys.h>
 #include <twz/thread.h>
@@ -161,13 +162,14 @@ int pcie_init_function(struct pcie_function *pf)
 		fprintf(stderr, "kaction: %d\n", r);
 		return r;
 	}
-
-	struct pcie_bus_header *hdr = twz_obj_base(&pcie_cs_obj);
 	uint32_t fid = pf->bus << 8 | pf->device << 3 | pf->function;
-	if((pf->cid = hdr->functions[fid])) {
-		twz_object_open(&pf->cobj, pf->cid, FE_READ | FE_WRITE);
+	if(twz_bus_open_child(&pcie_cs_obj, &pf->cobj, fid, FE_READ | FE_WRITE)) {
+		return -1;
 	}
-	return pf->cid ? 0 : -1;
+	kso_set_name(
+	  &pf->cobj, "pcie device %x:%x:%x.%x", pf->segment, pf->bus, pf->device, pf->function);
+	pf->cid = twz_object_id(&pf->cobj);
+	return 0;
 }
 
 static struct pcie_function *pcie_register_device(struct pcie_bus_header *space,
@@ -234,8 +236,6 @@ static void pcie_init_space(struct pcie_bus_header *space)
 #include <twz/name.h>
 void pcie_load_driver(struct pcie_function *pf)
 {
-	// int r = sys_opin(pf->cid, NULL, 0);
-
 	struct pcie_function_header *hdr = twz_device_getds(&pf->cobj);
 	if(hdr->vendorid == 0x1234 && hdr->deviceid == 0x1111) {
 		twz_name_assign(pf->cid, "dev:output:framebuffer");
@@ -262,7 +262,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	pcie_init_space(twz_obj_base(&pcie_cs_obj));
+	pcie_init_space(twz_bus_getbs(&pcie_cs_obj));
 
 	for(struct pcie_function *pf = pcie_list; pf; pf = pf->next) {
 		pcie_print_function(pf, false);

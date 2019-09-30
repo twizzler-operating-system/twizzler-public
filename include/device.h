@@ -18,3 +18,6 @@ struct object *device_register(uint32_t bustype, uint32_t devid);
 void device_unregister(struct object *obj);
 void device_signal_interrupt(struct object *obj, int inum, uint64_t val);
 void device_signal_sync(struct object *obj, int snum, uint64_t val);
+struct object *bus_register(uint32_t bustype, uint32_t busid, size_t bssz);
+void *bus_get_busspecific(struct object *obj);
+struct bus_repr *bus_get_repr(struct object *obj);
