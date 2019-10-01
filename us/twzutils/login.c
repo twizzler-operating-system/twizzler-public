@@ -52,8 +52,7 @@ void tmain(const char *username)
 		}
 	}
 
-	snprintf(
-	  twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] shell [user %s]", username);
+	kso_set_name(NULL, "[instance] shell [user %s]", username);
 	r = execv("/usr/bin/bash", (char *[]){ "/usr/bin/bash", NULL });
 	fprintf(stderr, "failed to exec shell: %d", r);
 	exit(1);

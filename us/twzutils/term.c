@@ -70,7 +70,7 @@ void process_keyboard(struct object *, char *, size_t);
 void kbmain(void *a)
 {
 	(void)a;
-	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term.input");
+	kso_set_name(NULL, "[instance] term.input");
 
 	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
 	int r;

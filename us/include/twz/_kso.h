@@ -29,17 +29,6 @@ struct kso_root_repr {
 #define KSO_ROOT_ID 1
 
 #ifndef __KERNEL__
-
-#include <stdarg.h>
-#include <twz/obj.h>
-static inline int kso_set_name(struct object *obj, const char *name, ...)
-{
-	va_list va;
-	va_start(va, name);
-	struct kso_hdr *hdr = twz_obj_base(obj);
-	int r = vsnprintf(hdr->name, KSO_NAME_MAXLEN, name, va);
-	va_end(va);
-	return r;
-}
-
+struct object;
+int kso_set_name(struct object *obj, const char *name, ...);
 #endif

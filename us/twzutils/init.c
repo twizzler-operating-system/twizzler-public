@@ -4,6 +4,7 @@
 #include <sys/wait.h>
 #include <twz/bstream.h>
 #include <twz/debug.h>
+#include <twz/driver/bus.h>
 #include <twz/name.h>
 #include <twz/obj.h>
 #include <twz/thread.h>
@@ -45,7 +46,7 @@ void tmain(void *a)
 		}
 	}
 
-	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] %s", info->name);
+	kso_set_name(NULL, "[instance] %s", info->name);
 	r = execv(buffer,
 	  (char *[]){
 	    info->name, info->arg[0] ? info->arg : NULL, info->arg2[0] ? info->arg2 : NULL, NULL });
@@ -70,7 +71,7 @@ void start_service(struct service_info *info)
 		}
 	}
 
-	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] %s", info->name);
+	kso_set_name(NULL, "[instance] %s", info->name);
 	r = execv(info->name,
 	  (char *[]){
 	    info->name, info->arg[0] ? info->arg : NULL, info->arg2[0] ? info->arg2 : NULL, NULL });
@@ -78,9 +79,52 @@ void start_service(struct service_info *info)
 	exit(1);
 }
 
+void start_stream_device(objid_t id)
+{
+	struct service_info drv_info = {
+		.name = "/usr/bin/pcie",
+		.sctx = 0,
+	};
+	int r;
+
+	struct object dobj;
+	twz_object_open(&dobj, id, FE_READ);
+
+	objid_t uid;
+	twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &uid);
+	sprintf(drv_info.arg2, IDFMT, IDPR(uid));
+
+	struct object stream;
+	twz_object_open(&stream, uid, FE_READ | FE_WRITE);
+
+	if((r = bstream_obj_init(&stream, twz_obj_base(&stream), 16))) {
+		debug_printf("failed to init bstream");
+		abort();
+	}
+
+	struct device_repr *dr = twz_obj_base(&dobj);
+	debug_printf("[init] starting device driver: %d %s\n", dr->device_id, dr->hdr.name);
+	if(dr->device_id == DEVICE_ID_KEYBOARD) {
+		if(!fork()) {
+			sprintf(drv_info.arg, IDFMT, IDPR(id));
+			drv_info.name = "/usr/bin/input";
+			start_service(&drv_info);
+		}
+		twz_name_assign(uid, "dev:input:keyboard");
+	}
+	if(dr->device_id == DEVICE_ID_SERIAL) {
+		if(!fork()) {
+			sprintf(drv_info.arg, IDFMT, IDPR(id));
+			drv_info.name = "/usr/bin/serial";
+			start_service(&drv_info);
+		}
+		twz_name_assign(uid, "dev:input:serial");
+	}
+}
+
 void start_terminal(char *input, char *output, char *pty)
 {
-	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] term");
+	kso_set_name(NULL, "[instance] term");
 	execv(
 	  "/usr/bin/term", (char *[]){ "/usr/bin/term", "-i", input, "-o", output, "-p", pty, NULL });
 	// EPRINTF("failed to exec '%s': %s\n", strerror(errno));
@@ -109,7 +153,7 @@ void start_login(void)
 		twz_thread_exit();
 	}
 
-	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] login");
+	kso_set_name(NULL, "[instance] login");
 
 	r = execv("/usr/bin/login", (char *[]){ "/usr/bin/login", NULL });
 	EPRINTF("execv failed: %d\n", r);
@@ -118,7 +162,7 @@ void start_login(void)
 #include <twz/view.h>
 void logmain(void *arg)
 {
-	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] init-logger");
+	kso_set_name(NULL, "[instance] init-logger");
 	objid_t *lid = twz_ptr_lea(&twz_stdstack, arg);
 
 	objid_t target;
@@ -205,7 +249,7 @@ int main()
 #endif
 	int r;
 
-	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] init");
+	kso_set_name(NULL, "[instance] init");
 
 	objid_t lid;
 	struct object lobj;
@@ -290,46 +334,26 @@ int main()
 			struct object dobj;
 			int pid, status;
 			case KSO_DEVBUS:
-				debug_printf("STARTING PCIE\n");
-				if(!(pid = fork())) {
-					sprintf(drv_info.arg, IDFMT, IDPR(k->id));
-					drv_info.name = "/usr/bin/pcie";
-					start_service(&drv_info);
-				}
-				wait(&status);
-
-				break;
-			case KSO_DEVICE:
 				twz_object_open(&dobj, k->id, FE_READ);
-
-				objid_t uid;
-				twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &uid);
-				sprintf(drv_info.arg2, IDFMT, IDPR(uid));
-
-				struct object stream;
-				twz_object_open(&stream, uid, FE_READ | FE_WRITE);
-
-				if((r = bstream_obj_init(&stream, twz_obj_base(&stream), 16))) {
-					debug_printf("failed to init bstream");
-					abort();
-				}
-
-				struct device_repr *dr = twz_obj_base(&dobj);
-				if(dr->device_type == DEVICE_INPUT) {
-					if(!fork()) {
+				struct bus_repr *br = twz_bus_getrepr(&dobj);
+				if(br->bus_type == DEVICE_BT_PCIE) {
+					if(!(pid = fork())) {
 						sprintf(drv_info.arg, IDFMT, IDPR(k->id));
-						drv_info.name = "/usr/bin/input";
+						drv_info.name = "/usr/bin/pcie";
 						start_service(&drv_info);
 					}
-					twz_name_assign(uid, "dev:input:keyboard");
-				}
-				if(dr->device_type == DEVICE_IO && dr->device_type == DEVICE_ID_SERIAL) {
-					if(!fork()) {
-						sprintf(drv_info.arg, IDFMT, IDPR(k->id));
-						drv_info.name = "/usr/bin/serial";
-						start_service(&drv_info);
+					wait(&status);
+				} else if(br->bus_type == DEVICE_BT_ISA) {
+					/* TODO: REALLY NEED TO GENERIC THIS KSO CHILDREN STUFF */
+					for(size_t i = 0; i < br->max_children; i++) {
+						struct kso_attachment *k = twz_ptr_lea(&dobj, &br->children[i]);
+						if(k->id == 0)
+							continue;
+						start_stream_device(k->id);
 					}
-					twz_name_assign(uid, "dev:input:serial");
+
+				} else {
+					fprintf(stderr, "unknown bus_type: %d\n", br->bus_type);
 				}
 
 				break;
@@ -337,7 +361,7 @@ int main()
 	}
 
 	if(!fork()) {
-		snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] nvme-driver");
+		kso_set_name(NULL, "[instance] nvme-driver");
 		r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
 		if(r) {
 			EPRINTF("failed to detach: %d\n", r);

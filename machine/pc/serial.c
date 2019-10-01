@@ -1,7 +1,9 @@
 #include <arch/x86_64-io.h>
 #include <debug.h>
+#include <device.h>
 #include <instrument.h>
 #include <interrupt.h>
+#include <machine/isa.h>
 #include <processor.h>
 #define COM1_PORT 0x3f8 /* COM1 */
 #define COM1_IRQ 0x24
@@ -323,25 +325,9 @@ __noinstrument static void _serial_interrupt(int i, struct interrupt_handler *h 
 
 static void __late_init_serial(void *a __unused)
 {
-	int r;
-	objid_t id;
-	/* TODO: restrict write access. In fact, do this for ALL KSOs. */
-	r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &id);
-	if(r < 0)
-		panic("failed to create serial object: %d", r);
-
-	ser_obj = obj_lookup(id);
-
-	assert(ser_obj != NULL);
-
-	struct device_repr repr = {
-		.hdr.name = "UART0",
-		.device_type = DEVICE_IO,
-		.device_id = DEVICE_ID_SERIAL,
-	};
-
-	obj_write_data(ser_obj, 0, sizeof(repr), &repr);
-	kso_root_attach(ser_obj, 0, KSO_DEVICE);
+	ser_obj = device_register(DEVICE_BT_ISA, DEVICE_ID_SERIAL);
+	kso_setname(ser_obj, "UART0");
+	kso_attach(pc_get_isa_bus(), ser_obj, DEVICE_ID_SERIAL);
 }
 POST_INIT(__late_init_serial, NULL);
 

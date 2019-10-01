@@ -57,3 +57,9 @@ void kso_attach(struct object *parent, struct object *child, size_t loc)
 			panic("NI - kso_attach");
 	}
 }
+
+#include <string.h>
+void kso_setname(struct object *obj, const char *name)
+{
+	obj_write_data(obj, offsetof(struct kso_hdr, name), strlen(name) + 1, (void *)name);
+}

@@ -138,6 +138,11 @@ struct object *device_register(uint32_t bustype, uint32_t devid)
 	obj_kso_init(obj, KSO_DEVICE);
 	struct device *data = obj->data;
 	data->uid = ((uint64_t)bustype << 32) | devid;
+
+	struct device_repr *repr = device_get_repr(obj);
+	repr->device_bustype = bustype;
+	repr->device_id = devid;
+	device_release_headers(obj);
 	return obj;
 }
 

@@ -1,5 +1,8 @@
+#include <device.h>
 #include <init.h>
 #include <interrupt.h>
+#include <machine/isa.h>
+#include <object.h>
 #include <processor.h>
 #include <syscall.h>
 
@@ -33,25 +36,10 @@ static struct interrupt_handler _kbd_ih = {
 
 static void __late_init_kbd(void *a __unused)
 {
-	int r;
-	objid_t id;
-	/* TODO: restrict write access. In fact, do this for ALL KSOs. */
-	r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &id);
-	if(r < 0)
-		panic("failed to create keyboard object: %d", r);
+	kbd_obj = device_register(DEVICE_BT_ISA, DEVICE_ID_KEYBOARD);
+	kso_setname(kbd_obj, "PS/2 Keyboard");
 
-	kbd_obj = obj_lookup(id);
-
-	assert(kbd_obj != NULL);
-
-	struct device_repr repr = {
-		.hdr.name = "PS/2 Keyboard",
-		.device_type = DEVICE_INPUT,
-		.device_id = DEVICE_ID_KEYBOARD,
-	};
-
-	obj_write_data(kbd_obj, 0, sizeof(repr), &repr);
-	kso_root_attach(kbd_obj, 0, KSO_DEVICE);
+	kso_attach(pc_get_isa_bus(), kbd_obj, DEVICE_ID_KEYBOARD);
 
 	interrupt_register_handler(33, &_kbd_ih);
 }
