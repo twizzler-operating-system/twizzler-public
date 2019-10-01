@@ -1,16 +1,40 @@
 #include <arena.h>
 #include <clksrc.h>
 #include <debug.h>
+#include <device.h>
 #include <init.h>
 #include <memory.h>
+#include <object.h>
 #include <processor.h>
 #include <secctx.h>
 #include <thread.h>
 #include <time.h>
+#include <twz/driver/bus.h>
+#include <twz/driver/device.h>
+#include <twz/driver/system.h>
 
 #include <twz/_objid.h>
 #include <twz/_slots.h>
 #include <twz/_thrd.h>
+
+struct object *get_system_object(void)
+{
+	static struct object *system_bus;
+	static struct spinlock lock = SPINLOCK_INIT;
+	static _Atomic bool init = false;
+
+	if(!init) {
+		spinlock_acquire_save(&lock);
+		if(!init) {
+			system_bus = bus_register(DEVICE_BT_SYSTEM, 0, sizeof(struct system_header));
+			kso_setname(system_bus, "System");
+			kso_root_attach(system_bus, 0, KSO_DEVBUS);
+			init = true;
+		}
+		spinlock_release_restore(&lock);
+	}
+	return system_bus;
+}
 
 static struct arena post_init_call_arena;
 static struct init_call *post_init_call_head = NULL;
@@ -213,6 +237,10 @@ void kernel_main(struct processor *proc)
 
 		obj_write_data(
 		  root, OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + OBJ_METAPAGE_SIZE), sizeof(mi), &mi);
+		struct object *so = get_system_object();
+		struct system_header *hdr = bus_get_busspecific(so);
+		hdr->pagesz = mm_page_size(0);
+		device_release_headers(so);
 	}
 	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
 

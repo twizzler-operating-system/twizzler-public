@@ -4,6 +4,8 @@
 #include <twz/bstream.h>
 #include <twz/debug.h>
 #include <twz/driver/bus.h>
+#include <twz/driver/device.h>
+#include <twz/driver/system.h>
 #include <twz/name.h>
 #include <twz/obj.h>
 #include <twz/thread.h>
@@ -40,6 +42,11 @@ void kls_devbus(struct kso_attachment *p, int indent)
 	struct object bus;
 	twz_object_open(&bus, p->id, FE_READ);
 	struct bus_repr *r = twz_bus_getrepr(&bus);
+	if(r->bus_type == DEVICE_BT_SYSTEM) {
+		struct system_header *sh = twz_bus_getbs(&bus);
+		printf("%*snrcpus: %ld\n", indent, "", sh->nrcpus);
+		printf("%*spagesz: %ld\n", indent, "", sh->pagesz);
+	}
 	for(size_t i = 0; i < r->max_children; i++) {
 		struct kso_attachment *k = twz_ptr_lea(&bus, &r->children[i]);
 		if(k->id == 0)
