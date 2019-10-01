@@ -165,6 +165,8 @@ __noinstrument void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 		frame->rdx = 0;
 	}
 
+	/* TODO: do this somewhere better */
+	processor_update_stats();
 	arch_interrupt_set(false);
 	thread_schedule_resume();
 }

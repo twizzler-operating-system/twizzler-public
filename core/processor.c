@@ -214,6 +214,7 @@ static void __init_processor_objects(void *_a __unused)
 
 			kso_attach(so, d, i);
 			count++;
+			processors[i].obj = d;
 		}
 	}
 	struct system_header *hdr = bus_get_busspecific(so);
@@ -221,3 +222,17 @@ static void __init_processor_objects(void *_a __unused)
 	device_release_headers(so);
 }
 POST_INIT(__init_processor_objects, NULL);
+
+void processor_update_stats(void)
+{
+	for(int i = 0; i < PROCESSOR_MAX_CPUS; i++) {
+		if((processors[i].flags & PROCESSOR_UP)) {
+			struct object *d = processors[i].obj;
+			if(d) {
+				struct processor_header *ph = device_get_devspecific(d);
+				ph->stats = processors[i].stats;
+				device_release_headers(d);
+			}
+		}
+	}
+}
