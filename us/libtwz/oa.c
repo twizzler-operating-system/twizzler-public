@@ -31,7 +31,7 @@ static void *__buddy_alloc(twzobj *o, struct twzoa_header *hdr, size_t size)
 	}
 
 	void *block = hdr->bdy.flist[i];
-	void *vblock = twz_ptr_lea(o, block);
+	void *vblock = twz_object_lea(o, block);
 	hdr->bdy.flist[i] = *(void **)vblock;
 
 	while(i-- > order) {
@@ -46,7 +46,7 @@ static void __buddy_free(twzobj *o, struct twzoa_header *hdr, void *block)
 {
 	// debug_printf("FREE\n");
 	// return ;
-	void *vblock = twz_ptr_lea(o, block);
+	void *vblock = twz_object_lea(o, block);
 	debug_printf(":: %p %p\n", vblock, block);
 	// fetch order in previous byte
 	int i = *((uint8_t *)(vblock - 1));
@@ -58,7 +58,7 @@ static void __buddy_free(twzobj *o, struct twzoa_header *hdr, void *block)
 
 		// find buddy in list
 		while((*p != NULL) && (*p != buddy)) {
-			void **vp = twz_ptr_lea(o, (*p));
+			void **vp = twz_object_lea(o, (*p));
 			p = (void **)*vp;
 		}
 
@@ -71,7 +71,7 @@ static void __buddy_free(twzobj *o, struct twzoa_header *hdr, void *block)
 		// found, merged block starts from the lower one
 		block = (block < buddy) ? block : buddy;
 		// remove buddy out of list
-		void **vp = twz_ptr_lea(o, (*p));
+		void **vp = twz_object_lea(o, (*p));
 		*p = (void *)*vp;
 		//	*p = *(void **)*p;
 	}

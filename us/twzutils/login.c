@@ -28,7 +28,7 @@ void tmain(const char *username)
 	}
 
 	twzobj user;
-	twz_object_open(&user, uid, FE_READ);
+	twz_object_init_guid(&user, uid, FE_READ);
 	struct user_hdr *uh = twz_object_base(&user);
 
 	char userstring[128];

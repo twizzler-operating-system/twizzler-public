@@ -31,7 +31,7 @@ void print_system(twzobj *sys)
 int main()
 {
 	twzobj root, bus;
-	twz_object_open(&root, 1, FE_READ);
+	twz_object_init_guid(&root, 1, FE_READ);
 
 	struct kso_root_repr *r = twz_object_base(&root);
 	for(size_t i = 0; i < r->count; i++) {
@@ -40,7 +40,7 @@ int main()
 			continue;
 		switch(k->type) {
 			case KSO_DEVBUS:
-				twz_object_open(&bus, k->id, FE_READ);
+				twz_object_init_guid(&bus, k->id, FE_READ);
 				struct bus_repr *rep = twz_bus_getrepr(&bus);
 				struct system_header *sh = twz_bus_getbs(&bus);
 				if(rep->bus_type == DEVICE_BT_SYSTEM) {

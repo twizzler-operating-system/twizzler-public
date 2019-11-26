@@ -27,7 +27,7 @@ void print_kat(struct kso_attachment *k, int indent)
 	}
 
 	twzobj obj;
-	twz_object_open(&obj, k->id, FE_READ);
+	twz_object_init_guid(&obj, k->id, FE_READ);
 	struct kso_hdr *hdr = twz_object_base(&obj);
 
 	printf("%s", hdr->name);
@@ -37,7 +37,7 @@ void print_kat(struct kso_attachment *k, int indent)
 void kls_thread(struct kso_attachment *p, int indent)
 {
 	twzobj thr;
-	twz_object_open(&thr, p->id, FE_READ);
+	twz_object_init_guid(&thr, p->id, FE_READ);
 	struct twzthread_repr *r = twz_object_base(&thr);
 	for(int i = 0; i < TWZ_THRD_MAX_SCS; i++) {
 		struct kso_attachment *k = &r->attached[i];
@@ -50,7 +50,7 @@ void kls_thread(struct kso_attachment *p, int indent)
 void kls(void)
 {
 	twzobj root;
-	twz_object_open(&root, 1, FE_READ);
+	twz_object_init_guid(&root, 1, FE_READ);
 
 	struct kso_root_repr *r = twz_object_base(&root);
 	for(size_t i = 0; i < r->count; i++) {

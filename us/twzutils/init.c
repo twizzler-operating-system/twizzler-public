@@ -26,7 +26,7 @@ bool term_ready = false;
 #define EPRINTF(...) ({ term_ready ? fprintf(stderr, ##__VA_ARGS__) : debug_printf(__VA_ARGS__); })
 void tmain(void *a)
 {
-	struct service_info *info = twz_ptr_lea(&twz_stdstack, a);
+	struct service_info *info = twz_object_lea(&twz_stdstack, a);
 	int r;
 
 	char buffer[1024];
@@ -88,14 +88,14 @@ void start_stream_device(objid_t id)
 	int r;
 
 	twzobj dobj;
-	twz_object_open(&dobj, id, FE_READ);
+	twz_object_init_guid(&dobj, id, FE_READ);
 
 	objid_t uid;
 	twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &uid);
 	sprintf(drv_info.arg2, IDFMT, IDPR(uid));
 
 	twzobj stream;
-	twz_object_open(&stream, uid, FE_READ | FE_WRITE);
+	twz_object_init_guid(&stream, uid, FE_READ | FE_WRITE);
 
 	if((r = bstream_obj_init(&stream, twz_object_base(&stream), 16))) {
 		debug_printf("failed to init bstream");
@@ -163,12 +163,12 @@ void start_login(void)
 void logmain(void *arg)
 {
 	kso_set_name(NULL, "[instance] init-logger");
-	objid_t *lid = twz_ptr_lea(&twz_stdstack, arg);
+	objid_t *lid = twz_object_lea(&twz_stdstack, arg);
 
 	objid_t target;
 	twz_vaddr_to_obj(lid, &target, NULL);
 	twzobj sobj;
-	twz_object_open(&sobj, *lid, FE_READ | FE_WRITE);
+	twz_object_init_guid(&sobj, *lid, FE_READ | FE_WRITE);
 	twz_thread_ready(NULL, THRD_SYNC_READY, 1);
 	for(;;) {
 		char buf[128];
@@ -192,10 +192,10 @@ int create_pty_pair(char *server, char *client)
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &pcid)))
 		return r;
 
-	if((r = twz_object_open(&pty_s, psid, FE_READ | FE_WRITE))) {
+	if((r = twz_object_init_guid(&pty_s, psid, FE_READ | FE_WRITE))) {
 		return r;
 	}
-	if((r = twz_object_open(&pty_c, pcid, FE_READ | FE_WRITE))) {
+	if((r = twz_object_init_guid(&pty_c, pcid, FE_READ | FE_WRITE))) {
 		return r;
 	}
 
@@ -257,7 +257,7 @@ int main()
 		debug_printf("failed to create log object");
 		abort();
 	}
-	if((r = twz_object_open(&lobj, lid, FE_READ | FE_WRITE))) {
+	if((r = twz_object_init_guid(&lobj, lid, FE_READ | FE_WRITE))) {
 		debug_printf("failed to open log object");
 		abort();
 	}
@@ -317,7 +317,7 @@ int main()
 
 	/* start devices */
 	twzobj root;
-	twz_object_open(&root, 1, FE_READ);
+	twz_object_init_guid(&root, 1, FE_READ);
 
 	struct kso_root_repr *rr = twz_object_base(&root);
 	struct service_info drv_info = {
@@ -334,7 +334,7 @@ int main()
 			twzobj dobj;
 			int pid, status;
 			case KSO_DEVBUS:
-				twz_object_open(&dobj, k->id, FE_READ);
+				twz_object_init_guid(&dobj, k->id, FE_READ);
 				struct bus_repr *br = twz_bus_getrepr(&dobj);
 				if(br->bus_type == DEVICE_BT_PCIE) {
 					if(!(pid = fork())) {
@@ -346,7 +346,7 @@ int main()
 				} else if(br->bus_type == DEVICE_BT_ISA) {
 					/* TODO: REALLY NEED TO GENERIC THIS KSO CHILDREN STUFF */
 					for(size_t i = 0; i < br->max_children; i++) {
-						struct kso_attachment *k = twz_ptr_lea(&dobj, &br->children[i]);
+						struct kso_attachment *k = twz_object_lea(&dobj, &br->children[i]);
 						if(k->id == 0)
 							continue;
 						start_stream_device(k->id);

@@ -17,7 +17,7 @@ int twz_thread_create(struct thread *thrd)
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &thrd->tid))) {
 		return r;
 	}
-	if((r = twz_object_open(&thrd->obj, thrd->tid, FE_READ | FE_WRITE))) {
+	if((r = twz_object_init_guid(&thrd->obj, thrd->tid, FE_READ | FE_WRITE))) {
 		return r;
 	}
 
@@ -42,7 +42,7 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &thrd->tid))) {
 		return r;
 	}
-	if((r = twz_object_open(&thrd->obj, thrd->tid, FE_READ | FE_WRITE))) {
+	if((r = twz_object_init_guid(&thrd->obj, thrd->tid, FE_READ | FE_WRITE))) {
 		return r;
 	}
 
@@ -83,9 +83,9 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 		  (char *)SLOT_TO_VADDR(TWZSLOT_STACK) + OBJ_NULLPAGE_SIZE + TWZ_THREAD_STACK_SIZE;
 
 		twzobj stack;
-		twz_object_open(&stack, sid, FE_READ | FE_WRITE);
+		twz_object_init_guid(&stack, sid, FE_READ | FE_WRITE);
 		/* TODO: can we reduce these permissions? */
-		r = twz_ptr_store(&stack, args->arg, FE_READ | FE_WRITE, &sa.arg);
+		r = twz_ptr_store_guid(&stack, &sa.arg, NULL, args->arg, FE_READ | FE_WRITE);
 		if(r) {
 			return r;
 		}

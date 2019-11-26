@@ -18,7 +18,7 @@ __attribute__((const)) static inline struct btree_node *__l(twzobj *obj, void *x
 {
 	if(x == NULL)
 		return NULL;
-	struct btree_node *r = twz_ptr_lea(obj, x);
+	struct btree_node *r = twz_object_lea(obj, x);
 	return r;
 }
 
@@ -64,12 +64,12 @@ static struct btree_node *BSTInsert(twzobj *obj,
 	}
 
 	struct btree_val rkey = {
-		.mv_data = twz_ptr_lea(obj, root->mk.mv_data),
+		.mv_data = twz_object_lea(obj, root->mk.mv_data),
 		.mv_size = root->mk.mv_size,
 	};
 
 	/*struct btree_val pkey = {
-	    .mv_data = twz_ptr_lea(obj, pt->mk.mv_data),
+	    .mv_data = twz_object_lea(obj, pt->mk.mv_data),
 	    .mv_size = pt->mk.mv_size,
 	};*/
 
@@ -256,7 +256,7 @@ int bt_insert(twzobj *obj,
 	pt->mk.mv_size = k->mv_size;
 	pt->md.mv_size = d->mv_size;
 	pt->mk.mv_data = k->mv_data;
-	k->mv_data = twz_ptr_lea(obj, k->mv_data);
+	k->mv_data = twz_object_lea(obj, k->mv_data);
 
 	pt->md.mv_data = d->mv_data;
 
@@ -289,7 +289,7 @@ static struct btree_node *_dolookup(twzobj *obj,
 	if(!root)
 		return NULL;
 	struct btree_val rootkey = {
-		.mv_data = twz_ptr_lea(obj, root->mk.mv_data),
+		.mv_data = twz_object_lea(obj, root->mk.mv_data),
 		.mv_size = root->mk.mv_size,
 	};
 	int c = __cf_default(&rootkey, k);
@@ -391,7 +391,7 @@ int bt_node_get(twzobj *obj,
 {
 	(void)hdr;
 	v->mv_size = n->md.mv_size;
-	v->mv_data = twz_ptr_lea(obj, n->md.mv_data);
+	v->mv_data = twz_object_lea(obj, n->md.mv_data);
 	return 0;
 }
 
@@ -402,7 +402,7 @@ int bt_node_getkey(twzobj *obj,
 {
 	(void)hdr;
 	v->mv_size = n->mk.mv_size;
-	v->mv_data = twz_ptr_lea(obj, n->mk.mv_data);
+	v->mv_data = twz_object_lea(obj, n->mk.mv_data);
 	return 0;
 }
 
@@ -415,7 +415,7 @@ int bt_put(twzobj *obj,
 	void *dest_k = oa_hdr_alloc(obj, &hdr->oa, k->mv_size);
 	if(!dest_k)
 		return -ENOSPC;
-	void *vdest_k = twz_ptr_lea(obj, dest_k);
+	void *vdest_k = twz_object_lea(obj, dest_k);
 	memcpy(vdest_k, k->mv_data, k->mv_size);
 
 	void *dest_v = oa_hdr_alloc(obj, &hdr->oa, v->mv_size);
@@ -423,7 +423,7 @@ int bt_put(twzobj *obj,
 		oa_hdr_free(obj, &hdr->oa, dest_k);
 		return -ENOSPC;
 	}
-	void *vdest_v = twz_ptr_lea(obj, dest_v);
+	void *vdest_v = twz_object_lea(obj, dest_v);
 	memcpy(vdest_v, v->mv_data, v->mv_size);
 
 	struct btree_val nk = { .mv_data = dest_k, .mv_size = k->mv_size };
@@ -441,7 +441,7 @@ static void _doprint_tree(twzobj *obj, int indent, struct btree_node *root)
 		return;
 	}
 	struct btree_val rootkey = {
-		.mv_data = twz_ptr_lea(obj, root->mk.mv_data),
+		.mv_data = twz_object_lea(obj, root->mk.mv_data),
 		.mv_size = root->mk.mv_size,
 	};
 	debug_printf(" [");

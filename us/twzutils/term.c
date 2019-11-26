@@ -456,8 +456,8 @@ void init_fb(struct fb *fb)
 {
 	if(fb->init == 1) {
 		struct pcie_function_header *hdr = twz_device_getds(&fb->obj);
-		fb->front_buffer = twz_ptr_lea(&fb->obj, (void *)hdr->bars[0]);
-		volatile struct bga_regs *regs = twz_ptr_lea(&fb->obj, (void *)hdr->bars[2] + 0x500);
+		fb->front_buffer = twz_object_lea(&fb->obj, (void *)hdr->bars[0]);
+		volatile struct bga_regs *regs = twz_object_lea(&fb->obj, (void *)hdr->bars[2] + 0x500);
 		regs->index = 0xb0c5;
 		regs->enable = 0;
 		regs->xres = 1024;
@@ -491,7 +491,7 @@ void init_fb(struct fb *fb)
 
 		twzobj font;
 		int r;
-		if((r = twz_object_open_name(&font, "/usr/share/inconsolata.sfn", FE_READ))) {
+		if((r = twz_object_init_name(&font, "/usr/share/inconsolata.sfn", FE_READ))) {
 			printf("ERR opening font: %d\n", r);
 			fb->init = 0;
 			return;
@@ -753,8 +753,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	twz_object_open_name(&kbobj, input, FE_READ | FE_WRITE);
-	twz_object_open_name(&ptyobj, pty, FE_READ | FE_WRITE);
+	twz_object_init_name(&kbobj, input, FE_READ | FE_WRITE);
+	twz_object_init_name(&ptyobj, pty, FE_READ | FE_WRITE);
 
 #if 0
 	objid_t kid;
@@ -763,7 +763,7 @@ int main(int argc, char **argv)
 		abort();
 	}
 
-	if((r = twz_object_open(&out_obj, kid, FE_READ | FE_WRITE))) {
+	if((r = twz_object_init_guid(&out_obj, kid, FE_READ | FE_WRITE))) {
 		debug_printf("failed to open screen object");
 		abort();
 	}
@@ -784,7 +784,7 @@ int main(int argc, char **argv)
 		abort();
 	}
 
-	if((r = twz_object_open(&screen_obj, sid, FE_READ | FE_WRITE))) {
+	if((r = twz_object_init_guid(&screen_obj, sid, FE_READ | FE_WRITE))) {
 		debug_printf("failed to open screen object");
 		abort();
 	}
@@ -801,7 +801,7 @@ int main(int argc, char **argv)
 #endif
 
 	fb.init = 1;
-	if((r = twz_object_open_name(&fb.obj, output, FE_READ | FE_WRITE))) {
+	if((r = twz_object_init_name(&fb.obj, output, FE_READ | FE_WRITE))) {
 		debug_printf("term: failed to open framebuffer: %d\n", r);
 		fb.init = 0;
 	}

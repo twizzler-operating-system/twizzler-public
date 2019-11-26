@@ -159,7 +159,7 @@ uint16_t nvmeq_submit_cmd(struct nvme_queue *q, struct nvme_cmd *cmd)
 void *nvme_co_get_regs(twzobj *co)
 {
 	struct pcie_function_header *hdr = twz_device_getds(co);
-	return twz_ptr_lea(co, (void *)hdr->bars[0]);
+	return twz_object_lea(co, (void *)hdr->bars[0]);
 }
 
 uint32_t nvme_reg_read32(struct nvme_controller *nc, int r)
@@ -192,7 +192,7 @@ void nvme_reg_write64(struct nvme_controller *nc, int r, uint64_t v)
 int nvmec_pcie_init(struct nvme_controller *nc)
 {
 	struct pcie_function_header *hdr = twz_device_getds(&nc->co);
-	struct pcie_config_space *space = twz_ptr_lea(&nc->co, hdr->space);
+	struct pcie_config_space *space = twz_object_lea(&nc->co, hdr->space);
 	/* bus-master enable, memory space enable. We can do interrupt disable too, since we'll be using
 	 * MSI */
 	space->header.command =
@@ -279,7 +279,7 @@ int nvmec_init(struct nvme_controller *nc)
 	int r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &aq_id);
 	if(r)
 		return r;
-	twz_object_open(&nc->qo, aq_id, FE_READ | FE_WRITE);
+	twz_object_init_guid(&nc->qo, aq_id, FE_READ | FE_WRITE);
 
 	r = twz_object_pin(&nc->qo, &nc->aq_pin, 0);
 	if(r)
@@ -290,7 +290,7 @@ int nvmec_init(struct nvme_controller *nc)
 	r = twz_object_ctl(&nc->qo, OCO_CACHE_MODE, 0, q_total_len, OC_CM_UC);
 	if(r)
 		return r;
-	twz_object_open(&nc->qo, aq_id, FE_READ | FE_WRITE);
+	twz_object_init_guid(&nc->qo, aq_id, FE_READ | FE_WRITE);
 
 	r = twz_device_map_object(&nc->co, &nc->qo, 0, q_total_len);
 	if(r)
@@ -724,7 +724,7 @@ int main(int argc, char **argv)
 	}
 
 	struct nvme_controller nc = {};
-	int r = twz_object_open_name(&nc.co, argv[1], FE_READ | FE_WRITE);
+	int r = twz_object_init_name(&nc.co, argv[1], FE_READ | FE_WRITE);
 	if(r) {
 		fprintf(stderr, "nvme: failed to open controller %s: %d\n", argv[1], r);
 		return 1;

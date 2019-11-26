@@ -38,7 +38,7 @@ void __fd_sys_init(void)
 	fds_init = true;
 	for(size_t i = 0; i < MAX_FD; i++)
 		__check_fd_valid(i);
-	twz_object_open_name(&cur_dir.obj, ".", FE_READ);
+	twz_object_init_name(&cur_dir.obj, ".", FE_READ);
 	cur_dir.taken = true;
 	cur_dir.valid = true;
 }

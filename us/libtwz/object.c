@@ -1,5 +1,6 @@
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <twz/_err.h>
 #include <twz/debug.h>
 #include <twz/name.h>
@@ -22,10 +23,13 @@ int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 	if(flags & TWZ_OC_ZERONONCE) {
 		flags = (flags & ~TWZ_OC_ZERONONCE) | TWZ_SYS_OC_ZERONONCE;
 	}
+	if(flags & TWZ_OC_VOLATILE) {
+		flags = (flags & ~TWZ_OC_VOLATILE) | TWZ_SYS_OC_VOLATILE;
+	}
 	return sys_ocreate(flags, kuid, src, id);
 }
 
-int twz_object_open(twzobj *obj, objid_t id, int flags)
+int twz_object_init_guid(twzobj *obj, objid_t id, int flags)
 {
 	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);
 	if(slot < 0)
@@ -38,7 +42,7 @@ int twz_object_open(twzobj *obj, objid_t id, int flags)
 	return 0;
 }
 
-objid_t twz_object_id(twzobj *o)
+objid_t twz_object_guid(twzobj *o)
 {
 	if(o->id)
 		return o->id;
@@ -49,7 +53,25 @@ objid_t twz_object_id(twzobj *o)
 	return (o->id = id);
 }
 
-int twz_object_open_name(twzobj *obj, const char *name, int flags)
+int twz_object_new(twzobj *obj, twzobj *src, twzobj *ku, uint64_t flags)
+{
+	objid_t kuid;
+	if(ku == TWZ_KU_USER) {
+		const char *k = getenv("TWZUSERKU");
+		if(!k) {
+			return -EINVAL;
+		}
+		if(!objid_parse(k, strlen(k), &kuid))
+			return -EINVAL;
+	}
+	objid_t id;
+	int r = twz_object_create(flags, kuid, twz_object_guid(src), &id);
+	if(r)
+		return r;
+	return twz_object_init_guid(obj, id, FE_READ | FE_WRITE);
+}
+
+int twz_object_init_name(twzobj *obj, const char *name, int flags)
 {
 	objid_t id;
 	int r = twz_name_resolve(NULL, name, NULL, 0, &id);
@@ -74,7 +96,7 @@ int twz_object_kaction(twzobj *obj, long cmd, ...)
 	va_end(va);
 
 	struct sys_kaction_args ka = {
-		.id = twz_object_id(obj),
+		.id = twz_object_guid(obj),
 		.cmd = cmd,
 		.arg = arg,
 		.flags = KACTION_VALID,
@@ -92,13 +114,13 @@ int twz_object_ctl(twzobj *obj, int cmd, ...)
 	long arg3 = va_arg(va, long);
 	va_end(va);
 
-	return sys_octl(twz_object_id(obj), cmd, arg1, arg2, arg3);
+	return sys_octl(twz_object_guid(obj), cmd, arg1, arg2, arg3);
 }
 
 int twz_object_pin(twzobj *obj, uintptr_t *oaddr, int flags)
 {
 	uintptr_t pa;
-	int r = sys_opin(twz_object_id(obj), &pa, flags);
+	int r = sys_opin(twz_object_guid(obj), &pa, flags);
 	if(oaddr)
 		*oaddr = pa + OBJ_NULLPAGE_SIZE;
 	return r;
@@ -111,7 +133,7 @@ void *twz_object_getext(twzobj *obj, uint64_t tag)
 
 	while((char *)e < (char *)mi + mi->milen) {
 		if(e->tag == tag) {
-			return twz_ptr_lea(obj, e->ptr);
+			return twz_object_lea(obj, e->ptr);
 		}
 		e++;
 	}
@@ -153,7 +175,7 @@ ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags)
 	return -ENOSPC;
 }
 
-int __twz_ptr_make(twzobj *obj, objid_t id, const void *p, uint32_t flags, const void **res)
+static int __twz_ptr_make(twzobj *obj, objid_t id, const void *p, uint32_t flags, const void **res)
 {
 	ssize_t fe = twz_object_addfot(obj, id, flags);
 	if(fe < 0)
@@ -164,17 +186,19 @@ int __twz_ptr_make(twzobj *obj, objid_t id, const void *p, uint32_t flags, const
 	return 0;
 }
 
-int __twz_ptr_store(twzobj *obj, const void *p, uint32_t flags, const void **res)
+int __twz_ptr_store_guid(twzobj *obj, const void **res, twzobj *tgt, const void *p, uint64_t flags)
 {
 	objid_t target;
-	int r = twz_vaddr_to_obj(p, &target, NULL);
-	if(r)
-		return r;
+	if(!tgt) {
+		int r = twz_vaddr_to_obj(p, &target, NULL);
+		if(r)
+			return r;
+	}
 
-	return __twz_ptr_make(obj, target, p, flags, res);
+	return __twz_ptr_make(obj, tgt ? twz_object_guid(tgt) : target, p, flags, res);
 }
 
-void *__twz_ptr_lea_foreign(twzobj *o, const void *p)
+void *__twz_object_lea_foreign(twzobj *o, const void *p)
 {
 	struct metainfo *mi = twz_object_meta(o);
 	struct fotentry *fe = (void *)((char *)mi + mi->milen);

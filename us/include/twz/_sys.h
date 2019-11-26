@@ -23,6 +23,7 @@
 #define __TWZ_DETACH_RESVD 0x1000
 
 #define TWZ_SYS_OC_ZERONONCE 0x1000
+#define TWZ_SYS_OC_VOLATILE 0x2000
 
 struct sys_invalidate_op {
 	objid_t id;

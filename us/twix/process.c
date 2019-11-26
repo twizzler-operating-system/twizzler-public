@@ -50,7 +50,7 @@ long linux_sys_execve(const char *path, const char *const *argv, char *const *en
 	twix_copy_fds(&view);
 
 	twzobj exe;
-	twz_object_open(&exe, id, FE_READ);
+	twz_object_init_guid(&exe, id, FE_READ);
 	struct elf64_header *hdr = twz_object_base(&exe);
 
 	return twz_exec_view(&view, vid, hdr->e_entry, argv, env);
@@ -191,7 +191,7 @@ long linux_sys_fork(struct twix_register_frame *frame)
 	}
 
 	twzobj view;
-	if((r = twz_object_open(&view, vid, FE_READ | FE_WRITE))) {
+	if((r = twz_object_init_guid(&view, vid, FE_READ | FE_WRITE))) {
 		return r;
 	}
 
@@ -249,10 +249,10 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		return -EIO;
 
 	twzobj stack;
-	twz_object_open(&stack, sid, FE_READ | FE_WRITE);
+	twz_object_init_guid(&stack, sid, FE_READ | FE_WRITE);
 
 	size_t soff = (uint64_t)twz_ptr_local(frame) - 1024;
-	void *childstack = twz_ptr_lea(&stack, (void *)soff);
+	void *childstack = twz_object_lea(&stack, (void *)soff);
 
 	memcpy(childstack, frame, sizeof(struct twix_register_frame));
 

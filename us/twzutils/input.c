@@ -51,8 +51,8 @@ int main(int argc, char **argv)
 	objid_parse(kernel_side, strlen(kernel_side), &ksid);
 	objid_parse(user_side, strlen(user_side), &usid);
 
-	twz_object_open(&ks_obj, ksid, FE_READ | FE_WRITE);
-	twz_object_open(&us_obj, usid, FE_READ | FE_WRITE);
+	twz_object_init_guid(&ks_obj, ksid, FE_READ | FE_WRITE);
+	twz_object_init_guid(&us_obj, usid, FE_READ | FE_WRITE);
 
 	dr = twz_object_base(&ks_obj);
 

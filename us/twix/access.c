@@ -34,7 +34,7 @@ long linux_sys_stat(const char *path, struct stat *sb)
 {
 	twzobj obj;
 	debug_printf(":: stat %s\n", path);
-	int r = twz_object_open_name(&obj, path, FE_READ);
+	int r = twz_object_init_name(&obj, path, FE_READ);
 	if(r < 0) {
 		debug_printf("--- stat %s: no obj\n", path);
 		return r;
@@ -54,7 +54,7 @@ long linux_sys_faccessat(int dirfd, const char *pathname, int mode, int flags)
 	int r = twix_openpathat(dirfd, pathname, flags, &id);
 
 	twzobj obj;
-	r = twz_object_open(&obj, id, FE_READ);
+	r = twz_object_init_guid(&obj, id, FE_READ);
 	if(r)
 		return r;
 

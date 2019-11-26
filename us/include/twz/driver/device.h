@@ -54,7 +54,7 @@ static inline int twz_device_map_object(twzobj *dev,
   size_t off,
   size_t len)
 {
-	objid_t cid = twz_object_id(dev);
+	objid_t cid = twz_object_guid(dev);
 	return twz_object_ctl(obj, OCO_MAP, off, len, &cid);
 }
 

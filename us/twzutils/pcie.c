@@ -23,7 +23,7 @@ void pcie_print_function(struct pcie_function *pf, bool nums)
 {
 	static bool _init = false;
 	if(!_init && !nums) {
-		if(twz_object_open_name(&pids, "/usr/share/pcieids", FE_READ)) {
+		if(twz_object_init_name(&pids, "/usr/share/pcieids", FE_READ)) {
 			fprintf(stderr, "failed to open pcieids\n");
 			return;
 		}
@@ -168,7 +168,7 @@ int pcie_init_function(struct pcie_function *pf)
 	}
 	kso_set_name(
 	  &pf->cobj, "pcie device %x:%x:%x.%x", pf->segment, pf->bus, pf->device, pf->function);
-	pf->cid = twz_object_id(&pf->cobj);
+	pf->cid = twz_object_guid(&pf->cobj);
 	return 0;
 }
 
@@ -204,7 +204,7 @@ static void pcie_init_space(struct pcie_bus_header *space)
 		for(unsigned device = 0; device < 32; device++) {
 			uintptr_t addr = ((bus - space->start_bus) << 20 | device << 15);
 			volatile struct pcie_config_space *config =
-			  (void *)twz_ptr_lea(&pcie_cs_obj, (char *)space->spaces + addr);
+			  (void *)twz_object_lea(&pcie_cs_obj, (char *)space->spaces + addr);
 			/* if a device isn't plugged in, the lines go high */
 			if(config->header.vendor_id == 0xffff) {
 				continue;
@@ -215,7 +215,7 @@ static void pcie_init_space(struct pcie_bus_header *space)
 				 * before brute-force scanning all functions to reduce time by a factor of 8 */
 				for(unsigned function = 0; function < 8; function++) {
 					addr = ((bus - space->start_bus) << 20 | device << 15 | function << 12);
-					config = (void *)twz_ptr_lea(&pcie_cs_obj, (char *)space->spaces + addr);
+					config = (void *)twz_object_lea(&pcie_cs_obj, (char *)space->spaces + addr);
 					if(config->header.vendor_id != 0xffff) {
 						struct pcie_function *f =
 						  pcie_register_device(space, config, bus, device, function);
@@ -256,7 +256,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	int r = twz_object_open(&pcie_cs_obj, pcie_cs_oid, FE_READ | FE_WRITE);
+	int r = twz_object_init_guid(&pcie_cs_obj, pcie_cs_oid, FE_READ | FE_WRITE);
 	if(r) {
 		fprintf(stderr, "failed to open pcie bus: %d\n", r);
 		exit(1);

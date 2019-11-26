@@ -59,7 +59,7 @@ int twz_exec_view(twzobj *view,
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
 		return r;
 	}
-	if((r = twz_object_open(&stack, sid, FE_READ | FE_WRITE))) {
+	if((r = twz_object_init_guid(&stack, sid, FE_READ | FE_WRITE))) {
 		return r;
 	}
 
@@ -84,7 +84,7 @@ int twz_exec_view(twzobj *view,
 
 	/* 4 for: 1 NULL each for argv and env, argc, and final null after env */
 	long *vector_off = (void *)(sp - (str_space + (argc + envc + 4) * sizeof(char *)));
-	long *vector = twz_ptr_lea(&stack, vector_off);
+	long *vector = twz_object_lea(&stack, vector_off);
 
 	size_t v = 0;
 	vector[v++] = argc;
@@ -138,7 +138,7 @@ int twz_exec_create_view(twzobj *view, objid_t id, objid_t *vid)
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, vid))) {
 		return r;
 	}
-	if((r = twz_object_open(view, *vid, FE_READ | FE_WRITE))) {
+	if((r = twz_object_init_guid(view, *vid, FE_READ | FE_WRITE))) {
 		return r;
 	}
 
@@ -162,7 +162,7 @@ int twz_exec(objid_t id, char const *const *argv, char *const *env)
 	}
 
 	twzobj exe;
-	twz_object_open(&exe, id, FE_READ);
+	twz_object_init_guid(&exe, id, FE_READ);
 	struct elf64_header *hdr = twz_object_base(&exe);
 
 	return twz_exec_view(&view, vid, hdr->e_entry, argv, env);
@@ -179,7 +179,7 @@ int __twz_exec(objid_t id, char const *const *argv, char *const *env)
 		return r;
 	}
 	twzobj view;
-	if((r = twz_object_open(&view, vid, FE_READ | FE_WRITE))) {
+	if((r = twz_object_init_guid(&view, vid, FE_READ | FE_WRITE))) {
 		return r;
 	}
 
@@ -188,7 +188,7 @@ int __twz_exec(objid_t id, char const *const *argv, char *const *env)
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
 		return r;
 	}
-	if((r = twz_object_open(&stack, sid, FE_READ | FE_WRITE))) {
+	if((r = twz_object_init_guid(&stack, sid, FE_READ | FE_WRITE))) {
 		return r;
 	}
 
@@ -221,7 +221,7 @@ int __twz_exec(objid_t id, char const *const *argv, char *const *env)
 
 	/* 4 for: 1 NULL each for argv and env, argc, and final null after env */
 	long *vector_off = (void *)(sp - (str_space + (argc + envc + 4) * sizeof(char *)));
-	long *vector = twz_ptr_lea(&stack, vector_off);
+	long *vector = twz_object_lea(&stack, vector_off);
 
 	size_t v = 0;
 	vector[v++] = argc;

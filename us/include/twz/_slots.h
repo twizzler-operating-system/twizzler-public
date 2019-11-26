@@ -1,5 +1,7 @@
 #pragma once
 
+#include <twz/_obj.h>
+
 #define TWZSLOT_CVIEW 0x1fff0ul
 #define TWZSLOT_MAX_SLOT 0x1fffful
 
@@ -11,3 +13,6 @@
 #define TWZSLOT_ALLOC_MAX 0x19fff
 
 #define TWZSLOT_FILES_BASE 0x1a000
+
+#define SLOT_TO_VADDR(s) ({ (void *)((s)*OBJ_MAXSIZE); })
+#define VADDR_TO_SLOT(s) ({ (size_t)((uintptr_t)(s) / OBJ_MAXSIZE); })

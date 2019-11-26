@@ -30,10 +30,10 @@ static inline int twz_bus_open_child(twzobj *bus,
   uint32_t flags)
 {
 	struct bus_repr *br = twz_bus_getrepr(bus);
-	struct kso_attachment *ids = twz_ptr_lea(bus, br->children);
+	struct kso_attachment *ids = twz_object_lea(bus, br->children);
 	if(!ids[num].id)
 		return -ENOENT;
-	return twz_object_open(ch, ids[num].id, flags);
+	return twz_object_init_guid(ch, ids[num].id, flags);
 }
 
 #endif

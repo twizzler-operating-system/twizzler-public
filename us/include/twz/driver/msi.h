@@ -22,7 +22,7 @@ static void msix_configure(twzobj *co, struct pcie_msix_capability *m, int nrvec
 	uint8_t bir = m->table_offset_bir & 0x7;
 	uint32_t off = m->table_offset_bir & ~0x7;
 	volatile struct pcie_msix_table_entry *tbl =
-	  twz_ptr_lea(co, (void *)((long)hdr->bars[bir] + off));
+	  twz_object_lea(co, (void *)((long)hdr->bars[bir] + off));
 	for(int i = 0; i < nrvecs; i++, tbl++) {
 		tbl->data = device_msi_data(repr->interrupts[i].vec, MSI_LEVEL);
 		tbl->addr = device_msi_addr(0);

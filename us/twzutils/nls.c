@@ -50,7 +50,7 @@ void nls_print(struct twz_nament *ne, bool info, bool read, bool id)
 	} else {
 		if(read) {
 			twzobj obj;
-			twz_object_open(&obj, ne->id, FE_READ);
+			twz_object_init_guid(&obj, ne->id, FE_READ);
 
 			fflush(stdout);
 			struct metainfo *mi = twz_object_meta(&obj);

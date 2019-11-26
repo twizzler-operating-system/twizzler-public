@@ -94,7 +94,7 @@ static int __twz_hier_resolve_name(twzobj *ns,
 			return -ENOTDIR;
 		}
 		twzobj next;
-		twz_object_open(&next, ne->id, FE_READ);
+		twz_object_init_guid(&next, ne->id, FE_READ);
 		int r = twz_hier_resolve_name(&next, ndl + 1, flags, ent);
 		if(ent->id || r) {
 			return r;

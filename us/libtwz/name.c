@@ -64,7 +64,7 @@ static bool __name_init(void)
 	objid_t id;
 	objid_parse(nameid, strlen(nameid), &id);
 
-	twz_object_open(&nameobj, id, FE_READ);
+	twz_object_init_guid(&nameobj, id, FE_READ);
 
 	return true;
 }
@@ -76,7 +76,7 @@ static void copy_names(const char *bsname, twzobj *nobj)
 
 	objid_t id;
 	objid_parse(bsname, strlen(bsname), &id);
-	twz_object_open(&bobj, id, FE_READ);
+	twz_object_init_guid(&bobj, id, FE_READ);
 	char *names = twz_object_base(&bobj);
 	while(*names == ',')
 		names++;
@@ -139,7 +139,7 @@ int twz_name_assign(objid_t id, const char *name)
 	parent = &nameobj;
 	int r;
 	if(sl) {
-		r = twz_object_open_name(&tmp, par_name, FE_READ | FE_WRITE);
+		r = twz_object_init_name(&tmp, par_name, FE_READ | FE_WRITE);
 		if(r)
 			return r;
 		parent = &tmp;
@@ -186,7 +186,7 @@ int __name_bootstrap(void)
 		return r;
 
 	twzobj no;
-	twz_object_open(&no, id, FE_READ | FE_WRITE);
+	twz_object_init_guid(&no, id, FE_READ | FE_WRITE);
 	bt_init(&no, twz_object_base(&no));
 
 	char tmp[64];
@@ -242,7 +242,7 @@ static int __twz_name_dfl_resolve(twzobj *obj, const char *name, int flags, obji
 
 	if(name[0] == '.' && name[1] == '/')
 		name += 2;
-	const char *vname = obj ? twz_ptr_lea(obj, name) : name;
+	const char *vname = obj ? twz_object_lea(obj, name) : name;
 
 	struct btree_val kv = { .mv_data = vname, .mv_size = strlen(vname) + 1 };
 	struct btree_val dv;
@@ -253,7 +253,7 @@ static int __twz_name_dfl_resolve(twzobj *obj, const char *name, int flags, obji
 		static twzobj ur;
 		if(!unix_root) {
 			unix_root = 1;
-			if(twz_object_open_name(&ur, "__unix__root__", FE_READ)) {
+			if(twz_object_init_name(&ur, "__unix__root__", FE_READ)) {
 				unix_root = -1;
 				return -ENOENT;
 			}
@@ -335,7 +335,7 @@ int twz_name_resolve(twzobj *obj,
   objid_t *id)
 {
 	if(obj)
-		fn = twz_ptr_lea(obj, fn);
+		fn = twz_object_lea(obj, fn);
 	if(fn)
 		return fn(obj, name, flags, id);
 	return __twz_name_dfl_resolve(obj, name, flags, id);

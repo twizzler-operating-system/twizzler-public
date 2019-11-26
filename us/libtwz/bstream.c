@@ -110,16 +110,16 @@ int bstream_obj_init(twzobj *obj, struct bstream_hdr *hdr, uint32_t nbits)
 	hdr->nbits = nbits;
 	event_obj_init(obj, &hdr->ev);
 
-	objid_t id;
-	r = twz_name_resolve(NULL, BSTREAM_CTRL_OBJ, NULL, 0, &id);
+	twzobj co;
+	r = twz_object_init_name(&co, BSTREAM_CTRL_OBJ, FE_READ | FE_EXEC);
 	if(r)
 		return r;
-	r = twz_ptr_make(
-	  obj, id, TWZ_GATE_CALL(NULL, BSTREAM_GATE_READ), FE_READ | FE_EXEC, &hdr->io.read);
+	r = twz_ptr_store_guid(
+	  obj, &hdr->io.read, &co, TWZ_GATE_CALL(NULL, BSTREAM_GATE_READ), FE_READ | FE_EXEC);
 	if(r)
 		return r;
-	r = twz_ptr_make(
-	  obj, id, TWZ_GATE_CALL(NULL, BSTREAM_GATE_WRITE), FE_READ | FE_EXEC, &hdr->io.write);
+	r = twz_ptr_store_guid(
+	  obj, &hdr->io.write, &co, TWZ_GATE_CALL(NULL, BSTREAM_GATE_WRITE), FE_READ | FE_EXEC);
 	if(r)
 		return r;
 

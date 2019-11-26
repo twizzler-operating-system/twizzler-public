@@ -40,7 +40,7 @@ int pty_ioctl_server(twzobj *obj, int request, long arg)
 int pty_ioctl_client(twzobj *obj, int request, long arg)
 {
 	struct pty_client_hdr *hdr = twz_object_base(obj);
-	struct pty_hdr *sh = twz_ptr_lea(obj, hdr->server);
+	struct pty_hdr *sh = twz_object_lea(obj, hdr->server);
 	twzobj sh_obj = TWZ_OBJECT_FROM_PTR(sh);
 	return pty_ioctl_server(&sh_obj, request, arg);
 }
@@ -48,20 +48,20 @@ int pty_ioctl_client(twzobj *obj, int request, long arg)
 ssize_t pty_read_server(twzobj *obj, void *ptr, size_t len, unsigned flags)
 {
 	struct pty_hdr *hdr = twz_object_base(obj);
-	return bstream_hdr_read(obj, twz_ptr_lea(obj, hdr->ctos), ptr, len, flags);
+	return bstream_hdr_read(obj, twz_object_lea(obj, hdr->ctos), ptr, len, flags);
 }
 
 static void postprocess_char(twzobj *obj, struct pty_hdr *hdr, unsigned char c)
 {
 	if(c == '\n' && (hdr->termios.c_oflag & ONLCR)) {
 		char r = '\r';
-		bstream_hdr_write(obj, twz_ptr_lea(obj, hdr->ctos), &r, 1, 0);
-		bstream_hdr_write(obj, twz_ptr_lea(obj, hdr->ctos), &c, 1, 0);
+		bstream_hdr_write(obj, twz_object_lea(obj, hdr->ctos), &r, 1, 0);
+		bstream_hdr_write(obj, twz_object_lea(obj, hdr->ctos), &c, 1, 0);
 	} else if(c == '\r' && (hdr->termios.c_oflag & OCRNL)) {
 		char n = '\n';
-		bstream_hdr_write(obj, twz_ptr_lea(obj, hdr->ctos), &n, 1, 0);
+		bstream_hdr_write(obj, twz_object_lea(obj, hdr->ctos), &n, 1, 0);
 	} else {
-		bstream_hdr_write(obj, twz_ptr_lea(obj, hdr->ctos), &c, 1, 0);
+		bstream_hdr_write(obj, twz_object_lea(obj, hdr->ctos), &c, 1, 0);
 	}
 }
 
@@ -70,7 +70,7 @@ static void echo_char(twzobj *obj, struct pty_hdr *hdr, unsigned char c)
 	if(hdr->termios.c_oflag & OPOST) {
 		postprocess_char(obj, hdr, c);
 	} else {
-		bstream_hdr_write(obj, twz_ptr_lea(obj, hdr->ctos), &c, 1, 0);
+		bstream_hdr_write(obj, twz_object_lea(obj, hdr->ctos), &c, 1, 0);
 	}
 }
 
@@ -79,8 +79,8 @@ static void flush_input(twzobj *obj, struct pty_hdr *hdr)
 	size_t c = 0;
 	ssize_t r;
 	while(c < hdr->bufpos) {
-		r =
-		  bstream_hdr_write(obj, twz_ptr_lea(obj, hdr->stoc), hdr->buffer + c, hdr->bufpos - c, 0);
+		r = bstream_hdr_write(
+		  obj, twz_object_lea(obj, hdr->stoc), hdr->buffer + c, hdr->bufpos - c, 0);
 		/* TODO: what to do on error? */
 		if(r < 0)
 			break;
@@ -140,24 +140,24 @@ ssize_t pty_write_server(twzobj *obj, const void *ptr, size_t len, unsigned flag
 	} else {
 		size_t nl = len;
 		if(hdr->termios.c_lflag & ECHO) {
-			nl = bstream_hdr_write(obj, twz_ptr_lea(obj, hdr->ctos), ptr, len, flags);
+			nl = bstream_hdr_write(obj, twz_object_lea(obj, hdr->ctos), ptr, len, flags);
 		}
-		return bstream_hdr_write(obj, twz_ptr_lea(obj, hdr->stoc), ptr, nl, flags);
+		return bstream_hdr_write(obj, twz_object_lea(obj, hdr->stoc), ptr, nl, flags);
 	}
 }
 
 ssize_t pty_read_client(twzobj *obj, void *ptr, size_t len, unsigned flags)
 {
 	struct pty_client_hdr *hdr = twz_object_base(obj);
-	struct pty_hdr *sh = twz_ptr_lea(obj, hdr->server);
+	struct pty_hdr *sh = twz_object_lea(obj, hdr->server);
 	twzobj sh_obj = TWZ_OBJECT_FROM_PTR(sh);
-	return bstream_hdr_read(&sh_obj, twz_ptr_lea(&sh_obj, sh->stoc), ptr, len, flags);
+	return bstream_hdr_read(&sh_obj, twz_object_lea(&sh_obj, sh->stoc), ptr, len, flags);
 }
 
 ssize_t pty_write_client(twzobj *obj, const void *ptr, size_t len, unsigned flags)
 {
 	struct pty_client_hdr *hdr = twz_object_base(obj);
-	struct pty_hdr *sh = twz_ptr_lea(obj, hdr->server);
+	struct pty_hdr *sh = twz_object_lea(obj, hdr->server);
 	twzobj sh_obj = TWZ_OBJECT_FROM_PTR(sh);
 	if(sh->termios.c_oflag & OPOST) {
 		for(size_t i = 0; i < len; i++) {
@@ -165,7 +165,7 @@ ssize_t pty_write_client(twzobj *obj, const void *ptr, size_t len, unsigned flag
 		}
 		return len;
 	} else {
-		return bstream_hdr_write(&sh_obj, twz_ptr_lea(&sh_obj, sh->ctos), ptr, len, flags);
+		return bstream_hdr_write(&sh_obj, twz_object_lea(&sh_obj, sh->ctos), ptr, len, flags);
 	}
 }
 
@@ -178,25 +178,26 @@ int pty_obj_init_server(twzobj *obj, struct pty_hdr *hdr)
 	int r;
 	if((r = twz_object_addext(obj, TWZIO_METAEXT_TAG, &hdr->io)))
 		return r;
-	bstream_obj_init(obj, twz_ptr_lea(obj, hdr->stoc), PTY_NBITS);
-	bstream_obj_init(obj, twz_ptr_lea(obj, hdr->ctos), PTY_NBITS);
+	bstream_obj_init(obj, twz_object_lea(obj, hdr->stoc), PTY_NBITS);
+	bstream_obj_init(obj, twz_object_lea(obj, hdr->ctos), PTY_NBITS);
 	mutex_init(&hdr->buffer_lock);
 	hdr->bufpos = 0;
 
-	objid_t id;
-	r = twz_name_resolve(NULL, PTY_CTRL_OBJ, NULL, 0, &id);
+	twzobj co;
+	r = twz_object_init_name(&co, PTY_CTRL_OBJ, FE_READ | FE_EXEC);
 	if(r)
 		return r;
-	r = twz_ptr_make(
-	  obj, id, TWZ_GATE_CALL(NULL, PTY_GATE_READ_SERVER), FE_READ | FE_EXEC, &hdr->io.read);
+
+	r = twz_ptr_store_guid(
+	  obj, &hdr->io.read, &co, TWZ_GATE_CALL(NULL, PTY_GATE_READ_SERVER), FE_READ | FE_EXEC);
 	if(r)
 		return r;
-	r = twz_ptr_make(
-	  obj, id, TWZ_GATE_CALL(NULL, PTY_GATE_WRITE_SERVER), FE_READ | FE_EXEC, &hdr->io.write);
+	r = twz_ptr_store_guid(
+	  obj, &hdr->io.write, &co, TWZ_GATE_CALL(NULL, PTY_GATE_WRITE_SERVER), FE_READ | FE_EXEC);
 	if(r)
 		return r;
-	r = twz_ptr_make(
-	  obj, id, TWZ_GATE_CALL(NULL, PTY_GATE_IOCTL_SERVER), FE_READ | FE_EXEC, &hdr->io.ioctl);
+	r = twz_ptr_store_guid(
+	  obj, &hdr->io.ioctl, &co, TWZ_GATE_CALL(NULL, PTY_GATE_IOCTL_SERVER), FE_READ | FE_EXEC);
 	if(r)
 		return r;
 
@@ -205,25 +206,27 @@ int pty_obj_init_server(twzobj *obj, struct pty_hdr *hdr)
 
 int pty_obj_init_client(twzobj *obj, struct pty_client_hdr *hdr, struct pty_hdr *sh)
 {
-	twz_ptr_store(obj, sh, FE_READ | FE_WRITE, &hdr->server);
+	twz_ptr_store_guid(obj, &hdr->server, NULL, sh, FE_READ | FE_WRITE);
 
 	int r;
 	if((r = twz_object_addext(obj, TWZIO_METAEXT_TAG, &hdr->io)))
 		return r;
-	objid_t id;
-	r = twz_name_resolve(NULL, PTY_CTRL_OBJ, NULL, 0, &id);
+
+	twzobj co;
+	r = twz_object_init_name(&co, PTY_CTRL_OBJ, FE_READ | FE_EXEC);
 	if(r)
 		return r;
-	r = twz_ptr_make(
-	  obj, id, TWZ_GATE_CALL(NULL, PTY_GATE_READ_CLIENT), FE_READ | FE_EXEC, &hdr->io.read);
+
+	r = twz_ptr_store_guid(
+	  obj, &hdr->io.read, &co, TWZ_GATE_CALL(NULL, PTY_GATE_READ_CLIENT), FE_READ | FE_EXEC);
 	if(r)
 		return r;
-	r = twz_ptr_make(
-	  obj, id, TWZ_GATE_CALL(NULL, PTY_GATE_WRITE_CLIENT), FE_READ | FE_EXEC, &hdr->io.write);
+	r = twz_ptr_store_guid(
+	  obj, &hdr->io.write, &co, TWZ_GATE_CALL(NULL, PTY_GATE_WRITE_CLIENT), FE_READ | FE_EXEC);
 	if(r)
 		return r;
-	r = twz_ptr_make(
-	  obj, id, TWZ_GATE_CALL(NULL, PTY_GATE_IOCTL_CLIENT), FE_READ | FE_EXEC, &hdr->io.ioctl);
+	r = twz_ptr_store_guid(
+	  obj, &hdr->io.ioctl, &co, TWZ_GATE_CALL(NULL, PTY_GATE_IOCTL_CLIENT), FE_READ | FE_EXEC);
 	if(r)
 		return r;
 
