@@ -137,9 +137,9 @@ char serial_ready()
 
 #include <twz/driver/device.h>
 
-static struct object ks_obj;
-static struct object us_obj;
-static struct object so_obj;
+static twzobj ks_obj;
+static twzobj us_obj;
+static twzobj so_obj;
 
 static struct device_repr *dr;
 
@@ -220,7 +220,7 @@ int main(int argc, char **argv)
 	twz_object_open(&ks_obj, ksid, FE_READ | FE_WRITE);
 	twz_object_open(&us_obj, usid, FE_READ | FE_WRITE);
 
-	dr = twz_obj_base(&ks_obj);
+	dr = twz_object_base(&ks_obj);
 
 	objid_t sid;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
@@ -233,7 +233,7 @@ int main(int argc, char **argv)
 		abort();
 	}
 
-	if((r = bstream_obj_init(&so_obj, twz_obj_base(&so_obj), 16))) {
+	if((r = bstream_obj_init(&so_obj, twz_object_base(&so_obj), 16))) {
 		debug_printf("failed to init screen bstream");
 		abort();
 	}

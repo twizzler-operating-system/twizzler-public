@@ -11,13 +11,13 @@ struct keyring_hdr {
 	struct btree_hdr bt;
 };
 
-int twz_keyring_lookup(struct object *obj,
+int twz_keyring_lookup(twzobj *obj,
   unsigned char *fp,
   size_t fplen,
   objid_t *pub,
   objid_t *pri);
 
-int twz_keyring_insert(struct object *obj,
+int twz_keyring_insert(twzobj *obj,
   unsigned char *fp,
   size_t fplen,
   objid_t pub,

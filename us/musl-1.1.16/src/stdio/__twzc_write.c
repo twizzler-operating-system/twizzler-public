@@ -10,7 +10,7 @@
 
 size_t __stdio_write(FILE *f, const unsigned char *buf, size_t len)
 {
-	struct object so;
+	twzobj so;
 	twz_object_init(&so, TWZSLOT_FILES_BASE + f->fd);
 	struct iovec iovs[2] = {
 		{ .iov_base = f->wbase, .iov_len = f->wpos-f->wbase },
@@ -47,7 +47,7 @@ size_t __stdio_write(FILE *f, const unsigned char *buf, size_t len)
 
 size_t __stdio_read(FILE *f, unsigned char *buf, size_t len)
 {
-	struct object in;
+	twzobj in;
 	twz_object_init(&in, TWZSLOT_FILES_BASE + f->fd);
 	struct iovec iov[2] = {
 		{ .iov_base = buf, .iov_len = len - !!f->buf_size },

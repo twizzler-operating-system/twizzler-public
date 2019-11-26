@@ -352,12 +352,12 @@ unsigned int us_map_shift[128] = {
 #include <twz/io.h>
 #include <twz/obj.h>
 
-void sendkey(struct object *out_obj, unsigned char key)
+void sendkey(twzobj *out_obj, unsigned char key)
 {
 	twzio_write(out_obj, &key, 1, 0, 0);
 }
 #include <string.h>
-void sendescstr(struct object *out_obj, char *str)
+void sendescstr(twzobj *out_obj, char *str)
 {
 	char buf[16];
 	memset(buf, 0, sizeof(buf));
@@ -368,7 +368,7 @@ void sendescstr(struct object *out_obj, char *str)
 
 bool ctrl = false, shift = false, alt = false, capslock = false;
 
-void special_key(struct object *out_obj, unsigned int key)
+void special_key(twzobj *out_obj, unsigned int key)
 {
 	if(key == KEY_PAGE_DOWN && shift) {
 		// scroll_down(current_pty, 20);
@@ -425,7 +425,7 @@ void special_key(struct object *out_obj, unsigned int key)
 	}
 }
 
-void keyboard_state_machine(struct object *out_obj, unsigned char scancode)
+void keyboard_state_machine(twzobj *out_obj, unsigned char scancode)
 {
 	/* this will process the incoming scancodes, translate them to
 	 * a character stream, and write them to the masterfd of the
@@ -486,7 +486,7 @@ void keyboard_state_machine(struct object *out_obj, unsigned char scancode)
 	}
 }
 
-void process_keyboard(struct object *out_obj, char *buf, size_t len)
+void process_keyboard(twzobj *out_obj, char *buf, size_t len)
 {
 	while(len--) {
 		unsigned char c = *buf++;

@@ -21,7 +21,7 @@ int twz_thread_create(struct thread *thrd)
 		return r;
 	}
 
-	struct twzthread_repr *newrepr = twz_obj_base(&thrd->obj);
+	struct twzthread_repr *newrepr = twz_object_base(&thrd->obj);
 
 	newrepr->reprid = thrd->tid;
 	for(size_t i = 0; i < NUM_FAULTS; i++) {
@@ -46,7 +46,7 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 		return r;
 	}
 
-	struct twzthread_repr *newrepr = twz_obj_base(&thrd->obj);
+	struct twzthread_repr *newrepr = twz_object_base(&thrd->obj);
 
 	newrepr->reprid = thrd->tid;
 	for(size_t i = 0; i < NUM_FAULTS; i++) {
@@ -82,7 +82,7 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 		sa.tls_base =
 		  (char *)SLOT_TO_VADDR(TWZSLOT_STACK) + OBJ_NULLPAGE_SIZE + TWZ_THREAD_STACK_SIZE;
 
-		struct object stack;
+		twzobj stack;
 		twz_object_open(&stack, sid, FE_READ | FE_WRITE);
 		/* TODO: can we reduce these permissions? */
 		r = twz_ptr_store(&stack, args->arg, FE_READ | FE_WRITE, &sa.arg);
@@ -123,7 +123,7 @@ ssize_t twz_thread_wait(size_t count,
 		ready = 0;
 		struct sys_thread_sync_args args[count];
 		for(size_t i = 0; i < count; i++) {
-			struct twzthread_repr *r = twz_obj_base(&threads[i]->obj);
+			struct twzthread_repr *r = twz_object_base(&threads[i]->obj);
 
 			args[i].addr = (uint64_t *)&r->syncs[syncpoints[i]];
 			args[i].arg = 0;
@@ -151,7 +151,7 @@ int twz_thread_ready(struct thread *thread, int sp, uint64_t info)
 {
 	struct twzthread_repr *repr;
 	if(thread) {
-		repr = twz_obj_base(&thread->obj);
+		repr = twz_object_base(&thread->obj);
 	} else {
 		repr = twz_thread_repr_base();
 	}

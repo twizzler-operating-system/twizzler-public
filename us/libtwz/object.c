@@ -7,11 +7,11 @@
 #include <twz/sys.h>
 #include <twz/thread.h>
 #include <twz/view.h>
-int kso_set_name(struct object *obj, const char *name, ...)
+int kso_set_name(twzobj *obj, const char *name, ...)
 {
 	va_list va;
 	va_start(va, name);
-	struct kso_hdr *hdr = obj ? twz_obj_base(obj) : twz_thread_repr_base();
+	struct kso_hdr *hdr = obj ? twz_object_base(obj) : twz_thread_repr_base();
 	int r = vsnprintf(hdr->name, KSO_NAME_MAXLEN, name, va);
 	va_end(va);
 	return r;
@@ -25,7 +25,7 @@ int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 	return sys_ocreate(flags, kuid, src, id);
 }
 
-int twz_object_open(struct object *obj, objid_t id, int flags)
+int twz_object_open(twzobj *obj, objid_t id, int flags)
 {
 	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);
 	if(slot < 0)
@@ -38,7 +38,7 @@ int twz_object_open(struct object *obj, objid_t id, int flags)
 	return 0;
 }
 
-objid_t twz_object_id(struct object *o)
+objid_t twz_object_id(twzobj *o)
 {
 	if(o->id)
 		return o->id;
@@ -49,7 +49,7 @@ objid_t twz_object_id(struct object *o)
 	return (o->id = id);
 }
 
-int twz_object_open_name(struct object *obj, const char *name, int flags)
+int twz_object_open_name(twzobj *obj, const char *name, int flags)
 {
 	objid_t id;
 	int r = twz_name_resolve(NULL, name, NULL, 0, &id);
@@ -66,7 +66,7 @@ int twz_object_open_name(struct object *obj, const char *name, int flags)
 	return 0;
 }
 
-int twz_object_kaction(struct object *obj, long cmd, ...)
+int twz_object_kaction(twzobj *obj, long cmd, ...)
 {
 	va_list va;
 	va_start(va, cmd);
@@ -83,7 +83,7 @@ int twz_object_kaction(struct object *obj, long cmd, ...)
 	return r ? r : ka.result;
 }
 
-int twz_object_ctl(struct object *obj, int cmd, ...)
+int twz_object_ctl(twzobj *obj, int cmd, ...)
 {
 	va_list va;
 	va_start(va, cmd);
@@ -95,7 +95,7 @@ int twz_object_ctl(struct object *obj, int cmd, ...)
 	return sys_octl(twz_object_id(obj), cmd, arg1, arg2, arg3);
 }
 
-int twz_object_pin(struct object *obj, uintptr_t *oaddr, int flags)
+int twz_object_pin(twzobj *obj, uintptr_t *oaddr, int flags)
 {
 	uintptr_t pa;
 	int r = sys_opin(twz_object_id(obj), &pa, flags);
@@ -104,7 +104,7 @@ int twz_object_pin(struct object *obj, uintptr_t *oaddr, int flags)
 	return r;
 }
 
-void *twz_object_getext(struct object *obj, uint64_t tag)
+void *twz_object_getext(twzobj *obj, uint64_t tag)
 {
 	struct metainfo *mi = twz_object_meta(obj);
 	struct metaext *e = &mi->exts[0];
@@ -118,7 +118,7 @@ void *twz_object_getext(struct object *obj, uint64_t tag)
 	return NULL;
 }
 
-int twz_object_addext(struct object *obj, uint64_t tag, void *ptr)
+int twz_object_addext(twzobj *obj, uint64_t tag, void *ptr)
 {
 	struct metainfo *mi = twz_object_meta(obj);
 	struct metaext *e = &mi->exts[0];
@@ -134,7 +134,7 @@ int twz_object_addext(struct object *obj, uint64_t tag, void *ptr)
 	return -ENOSPC;
 }
 
-ssize_t twz_object_addfot(struct object *obj, objid_t id, uint64_t flags)
+ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags)
 {
 	struct metainfo *mi = twz_object_meta(obj);
 	struct fotentry *fe = (void *)((char *)mi + mi->milen);
@@ -153,7 +153,7 @@ ssize_t twz_object_addfot(struct object *obj, objid_t id, uint64_t flags)
 	return -ENOSPC;
 }
 
-int __twz_ptr_make(struct object *obj, objid_t id, const void *p, uint32_t flags, const void **res)
+int __twz_ptr_make(twzobj *obj, objid_t id, const void *p, uint32_t flags, const void **res)
 {
 	ssize_t fe = twz_object_addfot(obj, id, flags);
 	if(fe < 0)
@@ -164,7 +164,7 @@ int __twz_ptr_make(struct object *obj, objid_t id, const void *p, uint32_t flags
 	return 0;
 }
 
-int __twz_ptr_store(struct object *obj, const void *p, uint32_t flags, const void **res)
+int __twz_ptr_store(twzobj *obj, const void *p, uint32_t flags, const void **res)
 {
 	objid_t target;
 	int r = twz_vaddr_to_obj(p, &target, NULL);
@@ -174,7 +174,7 @@ int __twz_ptr_store(struct object *obj, const void *p, uint32_t flags, const voi
 	return __twz_ptr_make(obj, target, p, flags, res);
 }
 
-void *__twz_ptr_lea_foreign(struct object *o, const void *p)
+void *__twz_ptr_lea_foreign(twzobj *o, const void *p)
 {
 	struct metainfo *mi = twz_object_meta(o);
 	struct fotentry *fe = (void *)((char *)mi + mi->milen);

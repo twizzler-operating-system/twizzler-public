@@ -12,12 +12,12 @@
 #include <twz/_types.h>
 
 #include <twz/debug.h>
-int twz_view_set(struct object *obj, size_t slot, objid_t target, uint32_t flags)
+int twz_view_set(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 {
 	if(slot > TWZSLOT_MAX_SLOT) {
 		return -EINVAL;
 	}
-	struct viewentry *ves = obj ? ((struct twzview_repr *)twz_obj_base(obj))->ves
+	struct viewentry *ves = obj ? ((struct twzview_repr *)twz_object_base(obj))->ves
 	                            : ((struct twzview_repr *)twz_slot_to_base(TWZSLOT_CVIEW))->ves;
 	uint32_t old = atomic_fetch_and(&ves[slot].flags, ~VE_VALID);
 	ves[slot].id = target;
@@ -38,13 +38,13 @@ int twz_view_set(struct object *obj, size_t slot, objid_t target, uint32_t flags
 	return 0;
 }
 
-int twz_view_fixedset(struct object *obj, size_t slot, objid_t target, uint32_t flags)
+int twz_view_fixedset(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 {
 	if(slot > TWZSLOT_MAX_SLOT) {
 		return -EINVAL;
 	}
 	flags &= ~VE_FIXED;
-	struct viewentry *ves = obj ? ((struct twzthread_repr *)twz_obj_base(obj))->fixed_points
+	struct viewentry *ves = obj ? ((struct twzthread_repr *)twz_object_base(obj))->fixed_points
 	                            : (struct viewentry *)twz_thread_repr_base()->fixed_points;
 	uint32_t old = atomic_fetch_and(&ves[slot].flags, ~VE_VALID);
 	ves[slot].id = target;
@@ -65,7 +65,7 @@ int twz_view_fixedset(struct object *obj, size_t slot, objid_t target, uint32_t 
 	return 0;
 }
 
-int twz_view_get(struct object *obj, size_t slot, objid_t *target, uint32_t *flags)
+int twz_view_get(twzobj *obj, size_t slot, objid_t *target, uint32_t *flags)
 {
 	if(slot > TWZSLOT_MAX_SLOT) {
 		return -EINVAL;
@@ -73,7 +73,7 @@ int twz_view_get(struct object *obj, size_t slot, objid_t *target, uint32_t *fla
 	struct viewentry *ves;
 	uint32_t extra_flags = 0;
 	if(obj) {
-		ves = &(((struct twzview_repr *)twz_obj_base(obj))->ves[slot]);
+		ves = &(((struct twzview_repr *)twz_object_base(obj))->ves[slot]);
 	} else {
 		struct twzthread_repr *tr = twz_thread_repr_base();
 		ves = &tr->fixed_points[slot];
@@ -165,9 +165,9 @@ ssize_t __alloc_slot(struct twzview_repr *v)
 	return -ENOSPC;
 }
 
-ssize_t twz_view_allocate_slot(struct object *obj, objid_t id, uint32_t flags)
+ssize_t twz_view_allocate_slot(twzobj *obj, objid_t id, uint32_t flags)
 {
-	struct twzview_repr *v = obj ? (struct twzview_repr *)twz_obj_base(obj)
+	struct twzview_repr *v = obj ? (struct twzview_repr *)twz_object_base(obj)
 	                             : (struct twzview_repr *)twz_slot_to_base(TWZSLOT_CVIEW);
 
 	mutex_acquire(&v->lock);

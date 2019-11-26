@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <time.h>
 
+#include <twz/_types.h>
+
 struct evhdr {
 	_Atomic uint64_t point;
 };
@@ -18,12 +20,11 @@ struct event {
 	uint64_t flags;
 };
 
-struct object;
-void event_obj_init(struct object *obj, struct evhdr *hdr);
+void event_obj_init(twzobj *obj, struct evhdr *hdr);
 int event_init(struct event *ev, struct evhdr *hdr, uint64_t events, struct timespec *timeout);
 int event_wait(size_t count, struct event *ev);
 int event_wake(struct evhdr *ev, uint64_t events, long wcount);
 uint64_t event_clear(struct evhdr *hdr, uint64_t events);
-void event_obj_init(struct object *obj, struct evhdr *hdr);
+void event_obj_init(twzobj *obj, struct evhdr *hdr);
 
 #define EVENT_METAEXT_TAG 0x000000001122ee00eeee

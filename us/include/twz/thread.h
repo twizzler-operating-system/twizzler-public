@@ -6,7 +6,7 @@ void twz_thread_exit(void);
 
 struct thread {
 	objid_t tid;
-	struct object obj;
+	twzobj obj;
 };
 
 struct thrd_spawn_args {
@@ -38,15 +38,15 @@ int twz_thread_ready(struct thread *thread, int sp, uint64_t info);
 
 int twz_exec(objid_t id, char const *const *argv, char *const *env);
 
-int twz_exec_create_view(struct object *view, objid_t id, objid_t *vid);
-int twz_exec_view(struct object *view,
+int twz_exec_create_view(twzobj *view, objid_t id, objid_t *vid);
+int twz_exec_view(twzobj *view,
   objid_t vid,
   size_t entry,
   char const *const *argv,
   char *const *env);
 
 #define twz_stdstack                                                                               \
-	(struct object)                                                                                \
+	(twzobj)                                                                                \
 	{                                                                                              \
 		.base = SLOT_TO_VADDR(TWZSLOT_STACK)                                                       \
 	}

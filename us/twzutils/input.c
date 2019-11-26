@@ -6,8 +6,8 @@
 #include <twz/obj.h>
 #include <twz/thread.h>
 
-static struct object ks_obj;
-static struct object us_obj;
+static twzobj ks_obj;
+static twzobj us_obj;
 
 static struct device_repr *dr;
 
@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 	twz_object_open(&ks_obj, ksid, FE_READ | FE_WRITE);
 	twz_object_open(&us_obj, usid, FE_READ | FE_WRITE);
 
-	dr = twz_obj_base(&ks_obj);
+	dr = twz_object_base(&ks_obj);
 
 	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {

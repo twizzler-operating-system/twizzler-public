@@ -27,9 +27,9 @@ void tmain(const char *username)
 		exit(1);
 	}
 
-	struct object user;
+	twzobj user;
 	twz_object_open(&user, uid, FE_READ);
-	struct user_hdr *uh = twz_obj_base(&user);
+	struct user_hdr *uh = twz_object_base(&user);
 
 	char userstring[128];
 	snprintf(userstring, 128, IDFMT, IDPR(uid));

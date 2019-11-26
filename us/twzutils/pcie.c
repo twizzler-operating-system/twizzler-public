@@ -13,9 +13,9 @@
 
 //#define printf debug_printf
 
-struct object pcie_cs_obj;
+twzobj pcie_cs_obj;
 objid_t pcie_cs_oid;
-static struct object pids;
+static twzobj pids;
 
 static struct pcie_function *pcie_list = NULL;
 
@@ -36,7 +36,7 @@ void pcie_print_function(struct pcie_function *pf, bool nums)
 	uint16_t class = pf->config->header.class_code;
 	uint16_t subclass = pf->config->header.subclass;
 	uint16_t progif = pf->config->header.progif;
-	const char *str = twz_obj_base(&pids);
+	const char *str = twz_object_base(&pids);
 	const char *line;
 	for(line = str; line && *line; line = strchr(line, '\n')) {
 		while(*line == '\n')

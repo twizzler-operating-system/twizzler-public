@@ -10,7 +10,7 @@ static struct {
 	void (*fn)(int, void *);
 } _fault_table[NUM_FAULTS];
 
-static int twz_map_fot_entry(struct object *obj, size_t slot, struct fotentry *fe)
+static int twz_map_fot_entry(twzobj *obj, size_t slot, struct fotentry *fe)
 {
 	objid_t id;
 	if(fe->flags & FE_NAME) {
@@ -88,7 +88,7 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 		return -ENOTSUP;
 	}
 
-	// struct object obj0 = TWZ_OBJECT_INIT(0);
+	// twzobj obj0 = TWZ_OBJECT_INIT(0);
 	// struct fotentry *fot = twz_object_fot(&obj0, false);
 	// if(!fot) {
 	//	debug_printf("obj 0 has no FOT\n");
@@ -109,7 +109,7 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 	}
 #endif
 
-	struct object o0 = TWZ_OBJECT_INIT(0);
+	twzobj o0 = TWZ_OBJECT_INIT(0);
 
 	return twz_map_fot_entry(&o0, slot, &fot[slot]);
 }

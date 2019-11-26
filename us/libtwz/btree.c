@@ -14,7 +14,7 @@ __attribute__((const)) static inline struct btree_node *__c(void *x)
 	return (struct btree_node *)(twz_ptr_local(x));
 }
 
-__attribute__((const)) static inline struct btree_node *__l(struct object *obj, void *x)
+__attribute__((const)) static inline struct btree_node *__l(twzobj *obj, void *x)
 {
 	if(x == NULL)
 		return NULL;
@@ -52,7 +52,7 @@ static void swap(int *x, int *y)
    in BST */
 /* lea: 3 */
 /* can: 4 */
-static struct btree_node *BSTInsert(struct object *obj,
+static struct btree_node *BSTInsert(twzobj *obj,
   struct btree_node *root,
   struct btree_node *pt,
   struct btree_node **found,
@@ -97,7 +97,7 @@ static struct btree_node *BSTInsert(struct object *obj,
 /* lea: 11 */
 /* can: 8 */
 /* eq: 2 */
-static void rotateLeft(struct object *obj, struct btree_node **root, struct btree_node **pt)
+static void rotateLeft(twzobj *obj, struct btree_node **root, struct btree_node **pt)
 {
 	struct btree_node *pt_right = __l(obj, __l(obj, (*pt))->right);
 
@@ -124,7 +124,7 @@ static void rotateLeft(struct object *obj, struct btree_node **root, struct btre
 /* lea: 11 */
 /* can: 8 */
 /* eq: 2 */
-static void rotateRight(struct object *obj, struct btree_node **root, struct btree_node **pt)
+static void rotateRight(twzobj *obj, struct btree_node **root, struct btree_node **pt)
 {
 	struct btree_node *pt_left = __l(obj, __l(obj, (*pt))->left);
 
@@ -152,7 +152,7 @@ static void rotateRight(struct object *obj, struct btree_node **root, struct btr
 /* lea: 7 */
 /* can: 8 */
 /* eq: 4 */
-static void fixViolation(struct object *obj, struct btree_node **root, struct btree_node **pt)
+static void fixViolation(twzobj *obj, struct btree_node **root, struct btree_node **pt)
 {
 	struct btree_node *parent_pt = NULL;
 	struct btree_node *grand_parent_pt = NULL;
@@ -239,7 +239,7 @@ static void fixViolation(struct object *obj, struct btree_node **root, struct bt
 /* lea: 0 */
 /* can: 1 */
 /* eq: 0 */
-int bt_insert(struct object *obj,
+int bt_insert(twzobj *obj,
   struct btree_hdr *hdr,
   struct btree_val *k,
   struct btree_val *d,
@@ -281,7 +281,7 @@ int bt_insert(struct object *obj,
 /* lea: 1 */
 /* can: 0 */
 /* eq: 0 */
-static struct btree_node *_dolookup(struct object *obj,
+static struct btree_node *_dolookup(twzobj *obj,
   struct btree_node *root,
   struct btree_val *k)
 {
@@ -302,7 +302,7 @@ static struct btree_node *_dolookup(struct object *obj,
 		return _dolookup(obj, __l(obj, root->right), k);
 	}
 }
-static struct btree_node *__bt_leftmost(struct object *obj, struct btree_node *n)
+static struct btree_node *__bt_leftmost(twzobj *obj, struct btree_node *n)
 {
 	while(n->left) {
 		n = __l(obj, n->left);
@@ -310,7 +310,7 @@ static struct btree_node *__bt_leftmost(struct object *obj, struct btree_node *n
 	return n;
 }
 
-static struct btree_node *__bt_rightmost(struct object *obj, struct btree_node *n)
+static struct btree_node *__bt_rightmost(twzobj *obj, struct btree_node *n)
 {
 	while(n->right) {
 		n = __l(obj, n->right);
@@ -318,7 +318,7 @@ static struct btree_node *__bt_rightmost(struct object *obj, struct btree_node *
 	return n;
 }
 
-struct btree_node *bt_last(struct object *obj, struct btree_hdr *hdr)
+struct btree_node *bt_last(twzobj *obj, struct btree_hdr *hdr)
 {
 	if(hdr->magic != BTMAGIC) {
 		return NULL;
@@ -327,7 +327,7 @@ struct btree_node *bt_last(struct object *obj, struct btree_hdr *hdr)
 	return __bt_rightmost(obj, n);
 }
 
-struct btree_node *bt_first(struct object *obj, struct btree_hdr *hdr)
+struct btree_node *bt_first(twzobj *obj, struct btree_hdr *hdr)
 {
 	if(hdr->magic != BTMAGIC) {
 		return NULL;
@@ -336,7 +336,7 @@ struct btree_node *bt_first(struct object *obj, struct btree_hdr *hdr)
 	return __bt_leftmost(obj, n);
 }
 
-struct btree_node *bt_prev(struct object *obj, struct btree_hdr *hdr, struct btree_node *n)
+struct btree_node *bt_prev(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n)
 {
 	if(hdr->magic != BTMAGIC) {
 		return NULL;
@@ -353,7 +353,7 @@ struct btree_node *bt_prev(struct object *obj, struct btree_hdr *hdr, struct btr
 	return p;
 }
 
-struct btree_node *bt_next(struct object *obj, struct btree_hdr *hdr, struct btree_node *n)
+struct btree_node *bt_next(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n)
 {
 	if(hdr->magic != BTMAGIC) {
 		return NULL;
@@ -370,13 +370,13 @@ struct btree_node *bt_next(struct object *obj, struct btree_hdr *hdr, struct btr
 	return p;
 }
 
-int bt_init(struct object *obj, struct btree_hdr *hdr)
+int bt_init(twzobj *obj, struct btree_hdr *hdr)
 {
 	hdr->magic = BTMAGIC;
 	return oa_hdr_init(obj, &hdr->oa, 0x2000, OBJ_MAXSIZE - 0x8000);
 }
 
-struct btree_node *bt_lookup(struct object *obj, struct btree_hdr *hdr, struct btree_val *k)
+struct btree_node *bt_lookup(twzobj *obj, struct btree_hdr *hdr, struct btree_val *k)
 {
 	if(hdr->magic != BTMAGIC) {
 		return NULL;
@@ -384,7 +384,7 @@ struct btree_node *bt_lookup(struct object *obj, struct btree_hdr *hdr, struct b
 	return _dolookup(obj, __l(obj, hdr->root), k);
 }
 
-int bt_node_get(struct object *obj,
+int bt_node_get(twzobj *obj,
   struct btree_hdr *hdr,
   struct btree_node *n,
   struct btree_val *v)
@@ -395,7 +395,7 @@ int bt_node_get(struct object *obj,
 	return 0;
 }
 
-int bt_node_getkey(struct object *obj,
+int bt_node_getkey(twzobj *obj,
   struct btree_hdr *hdr,
   struct btree_node *n,
   struct btree_val *v)
@@ -406,7 +406,7 @@ int bt_node_getkey(struct object *obj,
 	return 0;
 }
 
-int bt_put(struct object *obj,
+int bt_put(twzobj *obj,
   struct btree_hdr *hdr,
   struct btree_val *k,
   struct btree_val *v,
@@ -433,7 +433,7 @@ int bt_put(struct object *obj,
 }
 
 #include <twz/debug.h>
-static void _doprint_tree(struct object *obj, int indent, struct btree_node *root)
+static void _doprint_tree(twzobj *obj, int indent, struct btree_node *root)
 {
 	debug_printf("%*s %p", indent, "", root);
 	if(!root) {
@@ -456,7 +456,7 @@ static void _doprint_tree(struct object *obj, int indent, struct btree_node *roo
 	_doprint_tree(obj, indent + 2, __l(obj, root->left));
 }
 
-void bt_print_tree(struct object *obj, struct btree_hdr *hdr)
+void bt_print_tree(twzobj *obj, struct btree_hdr *hdr)
 {
 	_doprint_tree(obj, 0, __l(obj, hdr->root));
 }

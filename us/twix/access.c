@@ -32,7 +32,7 @@ int twix_openpathat(int dfd, const char *path, int flags, objid_t *id)
 
 long linux_sys_stat(const char *path, struct stat *sb)
 {
-	struct object obj;
+	twzobj obj;
 	debug_printf(":: stat %s\n", path);
 	int r = twz_object_open_name(&obj, path, FE_READ);
 	if(r < 0) {
@@ -53,7 +53,7 @@ long linux_sys_faccessat(int dirfd, const char *pathname, int mode, int flags)
 	objid_t id;
 	int r = twix_openpathat(dirfd, pathname, flags, &id);
 
-	struct object obj;
+	twzobj obj;
 	r = twz_object_open(&obj, id, FE_READ);
 	if(r)
 		return r;

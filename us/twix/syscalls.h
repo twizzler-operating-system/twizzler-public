@@ -5,13 +5,14 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include <twz/_types.h>
+
 #define MAX_FD 1024
 
 struct iovec;
 struct stat;
 struct twix_register_frame;
 struct rusage;
-struct object;
 
 #include <sys/select.h>
 
@@ -19,12 +20,12 @@ void __linux_init(void);
 void __fd_sys_init(void);
 struct file *twix_alloc_fd(void);
 struct file *twix_get_fd(int fd);
-void twix_copy_fds(struct object *view);
+void twix_copy_fds(twzobj *view);
 struct file *twix_get_cwd(void);
 
 #include <twz/obj.h>
 struct file {
-	struct object obj;
+	twzobj obj;
 	size_t pos;
 	uint32_t fl;
 	int fd;

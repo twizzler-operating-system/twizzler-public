@@ -188,8 +188,8 @@ struct nvme_queue {
 };
 
 struct nvme_controller {
-	struct object co;
-	struct object qo;
+	twzobj co;
+	twzobj qo;
 	int dstride;
 	bool init, msix;
 	uint64_t aq_pin;

@@ -22,31 +22,31 @@ struct btree_hdr {
 	struct btree_node *root;
 };
 
-void bt_print_tree(struct object *obj, struct btree_hdr *);
-struct btree_node *bt_lookup(struct object *obj, struct btree_hdr *, struct btree_val *k);
-int bt_init(struct object *obj, struct btree_hdr *);
-int bt_insert(struct object *obj,
+void bt_print_tree(twzobj *obj, struct btree_hdr *);
+struct btree_node *bt_lookup(twzobj *obj, struct btree_hdr *, struct btree_val *k);
+int bt_init(twzobj *obj, struct btree_hdr *);
+int bt_insert(twzobj *obj,
   struct btree_hdr *,
   struct btree_val *k,
   struct btree_val *d,
   struct btree_node **);
 
-struct btree_node *bt_next(struct object *obj, struct btree_hdr *hdr, struct btree_node *n);
-struct btree_node *bt_prev(struct object *obj, struct btree_hdr *hdr, struct btree_node *n);
-struct btree_node *bt_first(struct object *obj, struct btree_hdr *hdr);
-struct btree_node *bt_last(struct object *obj, struct btree_hdr *hdr);
+struct btree_node *bt_next(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n);
+struct btree_node *bt_prev(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n);
+struct btree_node *bt_first(twzobj *obj, struct btree_hdr *hdr);
+struct btree_node *bt_last(twzobj *obj, struct btree_hdr *hdr);
 
-int bt_node_get(struct object *obj,
+int bt_node_get(twzobj *obj,
   struct btree_hdr *hdr,
   struct btree_node *n,
   struct btree_val *v);
 
-int bt_node_getkey(struct object *obj,
+int bt_node_getkey(twzobj *obj,
   struct btree_hdr *hdr,
   struct btree_node *n,
   struct btree_val *v);
 
-int bt_put(struct object *obj,
+int bt_put(twzobj *obj,
   struct btree_hdr *hdr,
   struct btree_val *k,
   struct btree_val *v,

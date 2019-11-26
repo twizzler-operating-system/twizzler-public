@@ -4,10 +4,10 @@
 #include <twz/hier.h>
 #include <twz/obj.h>
 
-static struct twz_name_ent *__get_name_ent(struct object *ns, const char *path, size_t plen)
+static struct twz_name_ent *__get_name_ent(twzobj *ns, const char *path, size_t plen)
 {
 	/* note that the dlen field includes the null terminator */
-	struct twz_namespace_hdr *hdr = twz_obj_base(ns);
+	struct twz_namespace_hdr *hdr = twz_object_base(ns);
 	if(hdr->magic != NAMESPACE_MAGIC) {
 		return NULL;
 	}
@@ -27,9 +27,9 @@ static struct twz_name_ent *__get_name_ent(struct object *ns, const char *path, 
 	return NULL;
 }
 
-int twz_hier_assign_name(struct object *ns, const char *name, int type, objid_t id)
+int twz_hier_assign_name(twzobj *ns, const char *name, int type, objid_t id)
 {
-	struct twz_namespace_hdr *hdr = twz_obj_base(ns);
+	struct twz_namespace_hdr *hdr = twz_object_base(ns);
 	if(hdr->magic != NAMESPACE_MAGIC) {
 		return -EINVAL;
 	}
@@ -65,7 +65,7 @@ int twz_hier_assign_name(struct object *ns, const char *name, int type, objid_t 
  *     /usr and usr are both treated the same way here. In this sense, 'ns' is more like the
  *     root of the unix path system.
  */
-static int __twz_hier_resolve_name(struct object *ns,
+static int __twz_hier_resolve_name(twzobj *ns,
   const char *path,
   int flags,
   struct twz_name_ent *ent)
@@ -93,7 +93,7 @@ static int __twz_hier_resolve_name(struct object *ns,
 		if(ne->type != NAME_ENT_NAMESPACE) {
 			return -ENOTDIR;
 		}
-		struct object next;
+		twzobj next;
 		twz_object_open(&next, ne->id, FE_READ);
 		int r = twz_hier_resolve_name(&next, ndl + 1, flags, ent);
 		if(ent->id || r) {
@@ -105,7 +105,7 @@ static int __twz_hier_resolve_name(struct object *ns,
 	return 0;
 }
 
-int twz_hier_resolve_name(struct object *ns, const char *path, int flags, struct twz_name_ent *ent)
+int twz_hier_resolve_name(twzobj *ns, const char *path, int flags, struct twz_name_ent *ent)
 {
 	int r = __twz_hier_resolve_name(ns, path, flags, ent);
 	if(r == 0 && ent->id == 0) {

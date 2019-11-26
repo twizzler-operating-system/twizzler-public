@@ -43,7 +43,7 @@ void __fd_sys_init(void)
 	cur_dir.valid = true;
 }
 
-void twix_copy_fds(struct object *view)
+void twix_copy_fds(twzobj *view)
 {
 	for(size_t i = 0; i < MAX_FD; i++) {
 		struct file *f = &fds[i];

@@ -34,9 +34,9 @@ struct pty_client_hdr {
 #define PTY_GATE_IOCTL_SERVER 5
 #define PTY_GATE_IOCTL_CLIENT 6
 
-ssize_t pty_write_server(struct object *obj, const void *ptr, size_t len, unsigned flags);
-ssize_t pty_read_server(struct object *obj, void *ptr, size_t len, unsigned flags);
-ssize_t pty_write_client(struct object *obj, const void *ptr, size_t len, unsigned flags);
-ssize_t pty_read_client(struct object *obj, void *ptr, size_t len, unsigned flags);
-int pty_obj_init_server(struct object *obj, struct pty_hdr *hdr);
-int pty_obj_init_client(struct object *obj, struct pty_client_hdr *hdr, struct pty_hdr *);
+ssize_t pty_write_server(twzobj *obj, const void *ptr, size_t len, unsigned flags);
+ssize_t pty_read_server(twzobj *obj, void *ptr, size_t len, unsigned flags);
+ssize_t pty_write_client(twzobj *obj, const void *ptr, size_t len, unsigned flags);
+ssize_t pty_read_client(twzobj *obj, void *ptr, size_t len, unsigned flags);
+int pty_obj_init_server(twzobj *obj, struct pty_hdr *hdr);
+int pty_obj_init_client(twzobj *obj, struct pty_client_hdr *hdr, struct pty_hdr *);

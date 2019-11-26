@@ -49,7 +49,7 @@ void nls_print(struct twz_nament *ne, bool info, bool read, bool id)
 		}
 	} else {
 		if(read) {
-			struct object obj;
+			twzobj obj;
 			twz_object_open(&obj, ne->id, FE_READ);
 
 			fflush(stdout);

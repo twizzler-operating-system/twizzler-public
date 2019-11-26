@@ -51,7 +51,7 @@ bool objid_parse(const char *name, size_t len, objid_t *id)
 	return i >= 33;
 }
 
-static struct object nameobj;
+static twzobj nameobj;
 static bool __name_init(void)
 {
 	static const char *nameid = NULL;
@@ -70,14 +70,14 @@ static bool __name_init(void)
 }
 
 #if 0
-static void copy_names(const char *bsname, struct object *nobj)
+static void copy_names(const char *bsname, twzobj *nobj)
 {
-	struct object bobj;
+	twzobj bobj;
 
 	objid_t id;
 	objid_parse(bsname, strlen(bsname), &id);
 	twz_object_open(&bobj, id, FE_READ);
-	char *names = twz_obj_base(&bobj);
+	char *names = twz_object_base(&bobj);
 	while(*names == ',')
 		names++;
 	while(names && *names) {
@@ -95,7 +95,7 @@ static void copy_names(const char *bsname, struct object *nobj)
 		objid_parse(eq, strlen(eq), &thisid);
 		struct btree_val dv = { .mv_data = &thisid, .mv_size = sizeof(thisid) };
 
-		int r = bt_put(nobj, twz_obj_base(nobj), &kv, &dv, NULL);
+		int r = bt_put(nobj, twz_object_base(nobj), &kv, &dv, NULL);
 		if(r) {
 			debug_printf("DUPLICATE NAME (%s)\n", names);
 			abort();
@@ -105,7 +105,7 @@ static void copy_names(const char *bsname, struct object *nobj)
 		snprintf(buf, 64, "#" IDFMT, IDPR(thisid));
 		struct btree_val rdv = { .mv_data = names, .mv_size = strlen(names) + 1 };
 		struct btree_val rkv = { .mv_data = buf, .mv_size = strlen(buf) + 1 };
-		r = bt_put(nobj, twz_obj_base(nobj), &rkv, &rdv, NULL);
+		r = bt_put(nobj, twz_object_base(nobj), &rkv, &rdv, NULL);
 		if(r) {
 			debug_printf("DUPLICATE NAME\n");
 			abort();
@@ -134,8 +134,8 @@ int twz_name_assign(objid_t id, const char *name)
 		strcpy(ch_name, name);
 	}
 
-	struct object *parent;
-	struct object tmp;
+	twzobj *parent;
+	twzobj tmp;
 	parent = &nameobj;
 	int r;
 	if(sl) {
@@ -155,7 +155,7 @@ int twz_name_assign(objid_t id, const char *name)
 	struct btree_val kv = { .mv_data = name, .mv_size = strlen(name) + 1 };
 	struct btree_val dv = { .mv_data = &id, .mv_size = sizeof(id) };
 
-	int r = bt_put(&nameobj, twz_obj_base(&nameobj), &kv, &dv, NULL);
+	int r = bt_put(&nameobj, twz_object_base(&nameobj), &kv, &dv, NULL);
 	if(r)
 		return r;
 
@@ -163,7 +163,7 @@ int twz_name_assign(objid_t id, const char *name)
 	snprintf(buf, 64, "#" IDFMT, IDPR(id));
 	struct btree_val rdv = { .mv_data = name, .mv_size = strlen(name) + 1 };
 	struct btree_val rkv = { .mv_data = buf, .mv_size = strlen(buf) + 1 };
-	bt_put(&nameobj, twz_obj_base(&nameobj), &rkv, &rdv, NULL);
+	bt_put(&nameobj, twz_object_base(&nameobj), &rkv, &rdv, NULL);
 	return 0;
 #endif
 }
@@ -185,9 +185,9 @@ int __name_bootstrap(void)
 	if(r < 0)
 		return r;
 
-	struct object no;
+	twzobj no;
 	twz_object_open(&no, id, FE_READ | FE_WRITE);
-	bt_init(&no, twz_obj_base(&no));
+	bt_init(&no, twz_object_base(&no));
 
 	char tmp[64];
 	snprintf(tmp, 64, IDFMT, IDPR(id));
@@ -209,10 +209,10 @@ static int __twz_name_dfl_reverse(objid_t id, char *name, size_t *nl, int flags)
 	struct btree_val kv = { .mv_data = buf, .mv_size = strlen(buf) + 1 };
 	struct btree_val dv;
 
-	struct btree_node *n = bt_lookup(&nameobj, twz_obj_base(&nameobj), &kv);
+	struct btree_node *n = bt_lookup(&nameobj, twz_object_base(&nameobj), &kv);
 	if(!n)
 		return -ENOENT;
-	bt_node_get(&nameobj, twz_obj_base(&nameobj), n, &dv);
+	bt_node_get(&nameobj, twz_object_base(&nameobj), n, &dv);
 
 	if(*nl >= dv.mv_size) {
 		memcpy(name, dv.mv_data, dv.mv_size);
@@ -224,7 +224,7 @@ static int __twz_name_dfl_reverse(objid_t id, char *name, size_t *nl, int flags)
 }
 #endif
 
-static int __twz_name_dfl_resolve(struct object *obj, const char *name, int flags, objid_t *id)
+static int __twz_name_dfl_resolve(twzobj *obj, const char *name, int flags, objid_t *id)
 {
 	(void)obj;
 	(void)flags;
@@ -247,10 +247,10 @@ static int __twz_name_dfl_resolve(struct object *obj, const char *name, int flag
 	struct btree_val kv = { .mv_data = vname, .mv_size = strlen(vname) + 1 };
 	struct btree_val dv;
 
-	struct btree_node *n = bt_lookup(&nameobj, twz_obj_base(&nameobj), &kv);
+	struct btree_node *n = bt_lookup(&nameobj, twz_object_base(&nameobj), &kv);
 	if(!n) {
 		static int unix_root = 0;
-		static struct object ur;
+		static twzobj ur;
 		if(!unix_root) {
 			unix_root = 1;
 			if(twz_object_open_name(&ur, "__unix__root__", FE_READ)) {
@@ -265,7 +265,7 @@ static int __twz_name_dfl_resolve(struct object *obj, const char *name, int flag
 		*id = ent.id;
 		return 0;
 	}
-	bt_node_get(&nameobj, twz_obj_base(&nameobj), n, &dv);
+	bt_node_get(&nameobj, twz_object_base(&nameobj), n, &dv);
 
 	if(id)
 		*id = *(objid_t *)dv.mv_data;
@@ -288,20 +288,20 @@ ssize_t twz_name_dfl_getnames(const char *startname, struct twz_nament *ents, si
 		struct btree_val kv = { .mv_data = startname, .mv_size = strlen(startname) + 1 };
 		struct btree_val dv;
 
-		n = bt_lookup(&nameobj, twz_obj_base(&nameobj), &kv);
+		n = bt_lookup(&nameobj, twz_object_base(&nameobj), &kv);
 		if(!n)
 			return -ENOENT;
-		n = bt_next(&nameobj, twz_obj_base(&nameobj), n);
+		n = bt_next(&nameobj, twz_object_base(&nameobj), n);
 	} else {
-		n = bt_first(&nameobj, twz_obj_base(&nameobj));
+		n = bt_first(&nameobj, twz_object_base(&nameobj));
 	}
 
 	size_t recs = 0;
-	for(; n; n = bt_next(&nameobj, twz_obj_base(&nameobj), n)) {
+	for(; n; n = bt_next(&nameobj, twz_object_base(&nameobj), n)) {
 		struct btree_val dv;
 		struct btree_val kv;
-		bt_node_get(&nameobj, twz_obj_base(&nameobj), n, &dv);
-		bt_node_getkey(&nameobj, twz_obj_base(&nameobj), n, &kv);
+		bt_node_get(&nameobj, twz_object_base(&nameobj), n, &dv);
+		bt_node_getkey(&nameobj, twz_object_base(&nameobj), n, &kv);
 		if(*(char *)kv.mv_data == '#') {
 			/* name for reverse lookup. Skip */
 			continue;
@@ -328,9 +328,9 @@ ssize_t twz_name_dfl_getnames(const char *startname, struct twz_nament *ents, si
 #endif
 }
 
-int twz_name_resolve(struct object *obj,
+int twz_name_resolve(twzobj *obj,
   const char *name,
-  int (*fn)(struct object *, const char *, int, objid_t *),
+  int (*fn)(twzobj *, const char *, int, objid_t *),
   int flags,
   objid_t *id)
 {

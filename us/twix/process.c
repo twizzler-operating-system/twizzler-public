@@ -42,16 +42,16 @@ long linux_sys_execve(const char *path, const char *const *argv, char *const *en
 	}
 
 	objid_t vid;
-	struct object view;
+	twzobj view;
 	if((r = twz_exec_create_view(&view, id, &vid)) < 0) {
 		return r;
 	}
 
 	twix_copy_fds(&view);
 
-	struct object exe;
+	twzobj exe;
 	twz_object_open(&exe, id, FE_READ);
-	struct elf64_header *hdr = twz_obj_base(&exe);
+	struct elf64_header *hdr = twz_object_base(&exe);
 
 	return twz_exec_view(&view, vid, hdr->e_entry, argv, env);
 }
@@ -190,7 +190,7 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		return r;
 	}
 
-	struct object view;
+	twzobj view;
 	if((r = twz_object_open(&view, vid, FE_READ | FE_WRITE))) {
 		return r;
 	}
@@ -248,7 +248,7 @@ long linux_sys_fork(struct twix_register_frame *frame)
 	if(!sid) /* TODO */
 		return -EIO;
 
-	struct object stack;
+	twzobj stack;
 	twz_object_open(&stack, sid, FE_READ | FE_WRITE);
 
 	size_t soff = (uint64_t)twz_ptr_local(frame) - 1024;

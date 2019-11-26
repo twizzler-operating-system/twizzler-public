@@ -87,22 +87,22 @@ void start_stream_device(objid_t id)
 	};
 	int r;
 
-	struct object dobj;
+	twzobj dobj;
 	twz_object_open(&dobj, id, FE_READ);
 
 	objid_t uid;
 	twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &uid);
 	sprintf(drv_info.arg2, IDFMT, IDPR(uid));
 
-	struct object stream;
+	twzobj stream;
 	twz_object_open(&stream, uid, FE_READ | FE_WRITE);
 
-	if((r = bstream_obj_init(&stream, twz_obj_base(&stream), 16))) {
+	if((r = bstream_obj_init(&stream, twz_object_base(&stream), 16))) {
 		debug_printf("failed to init bstream");
 		abort();
 	}
 
-	struct device_repr *dr = twz_obj_base(&dobj);
+	struct device_repr *dr = twz_object_base(&dobj);
 	debug_printf("[init] starting device driver: %d %s\n", dr->device_id, dr->hdr.name);
 	if(dr->device_id == DEVICE_ID_KEYBOARD) {
 		if(!fork()) {
@@ -167,7 +167,7 @@ void logmain(void *arg)
 
 	objid_t target;
 	twz_vaddr_to_obj(lid, &target, NULL);
-	struct object sobj;
+	twzobj sobj;
 	twz_object_open(&sobj, *lid, FE_READ | FE_WRITE);
 	twz_thread_ready(NULL, THRD_SYNC_READY, 1);
 	for(;;) {
@@ -182,7 +182,7 @@ void logmain(void *arg)
 
 int create_pty_pair(char *server, char *client)
 {
-	struct object pty_s, pty_c;
+	twzobj pty_s, pty_c;
 
 	objid_t psid, pcid;
 
@@ -199,10 +199,10 @@ int create_pty_pair(char *server, char *client)
 		return r;
 	}
 
-	if((r = pty_obj_init_server(&pty_s, twz_obj_base(&pty_s))))
+	if((r = pty_obj_init_server(&pty_s, twz_object_base(&pty_s))))
 		return r;
-	struct pty_hdr *ps = twz_obj_base(&pty_s);
-	if((r = pty_obj_init_client(&pty_c, twz_obj_base(&pty_c), ps)))
+	struct pty_hdr *ps = twz_object_base(&pty_s);
+	if((r = pty_obj_init_client(&pty_c, twz_object_base(&pty_c), ps)))
 		return r;
 
 	if((r = twz_name_assign(psid, server))) {
@@ -224,7 +224,7 @@ static __inline__ unsigned long long rdtsc(void)
 	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }
 
-struct object bs;
+twzobj bs;
 int main()
 {
 	debug_printf("Bootstrapping naming system\n");
@@ -252,7 +252,7 @@ int main()
 	kso_set_name(NULL, "[instance] init");
 
 	objid_t lid;
-	struct object lobj;
+	twzobj lobj;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &lid))) {
 		debug_printf("failed to create log object");
 		abort();
@@ -266,7 +266,7 @@ int main()
 		abort();
 	}
 
-	if((r = bstream_obj_init(&lobj, twz_obj_base(&lobj), 16))) {
+	if((r = bstream_obj_init(&lobj, twz_object_base(&lobj), 16))) {
 		debug_printf("failed to init log bstream");
 		abort();
 	}
@@ -316,10 +316,10 @@ int main()
 	}
 
 	/* start devices */
-	struct object root;
+	twzobj root;
 	twz_object_open(&root, 1, FE_READ);
 
-	struct kso_root_repr *rr = twz_obj_base(&root);
+	struct kso_root_repr *rr = twz_object_base(&root);
 	struct service_info drv_info = {
 		.name = "/usr/bin/pcie",
 		.sctx = 0,
@@ -331,7 +331,7 @@ int main()
 			continue;
 		struct thread *dt = malloc(sizeof(*dt));
 		switch(k->type) {
-			struct object dobj;
+			twzobj dobj;
 			int pid, status;
 			case KSO_DEVBUS:
 				twz_object_open(&dobj, k->id, FE_READ);

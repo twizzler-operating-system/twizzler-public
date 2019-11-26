@@ -6,12 +6,12 @@
 #include <twz/driver/system.h>
 #include <twz/obj.h>
 
-void print_system(struct object *sys)
+void print_system(twzobj *sys)
 {
 	struct bus_repr *rep = twz_bus_getrepr(sys);
 	struct system_header *sh = twz_bus_getbs(sys);
 	for(size_t i = 0; i < rep->max_children; i++) {
-		struct object cpu;
+		twzobj cpu;
 		twz_bus_open_child(sys, &cpu, i, FE_READ);
 
 		struct device_repr *dr = twz_device_getrepr(&cpu);
@@ -30,10 +30,10 @@ void print_system(struct object *sys)
 
 int main()
 {
-	struct object root, bus;
+	twzobj root, bus;
 	twz_object_open(&root, 1, FE_READ);
 
-	struct kso_root_repr *r = twz_obj_base(&root);
+	struct kso_root_repr *r = twz_object_base(&root);
 	for(size_t i = 0; i < r->count; i++) {
 		struct kso_attachment *k = &r->attached[i];
 		if(!k->id || !k->type)

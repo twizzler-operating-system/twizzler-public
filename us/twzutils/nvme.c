@@ -156,7 +156,7 @@ uint16_t nvmeq_submit_cmd(struct nvme_queue *q, struct nvme_cmd *cmd)
 	return (uint16_t)index;
 }
 
-void *nvme_co_get_regs(struct object *co)
+void *nvme_co_get_regs(twzobj *co)
 {
 	struct pcie_function_header *hdr = twz_device_getds(co);
 	return twz_ptr_lea(co, (void *)hdr->bars[0]);
@@ -304,8 +304,8 @@ int nvmec_init(struct nvme_controller *nc)
 	nc->nr_queues = 0;
 
 	nvmeq_init(&nc->admin_queue,
-	  (void *)((uint64_t)twz_obj_base(&nc->qo)),
-	  (void *)((uint64_t)twz_obj_base(&nc->qo) + NVME_ASQS * sizeof(struct nvme_cmd)),
+	  (void *)((uint64_t)twz_object_base(&nc->qo)),
+	  (void *)((uint64_t)twz_object_base(&nc->qo) + NVME_ASQS * sizeof(struct nvme_cmd)),
 	  NVME_ASQS,
 	  nvmec_get_doorbell(nc, 0, false),
 	  nvmec_get_doorbell(nc, 0, true));
@@ -418,8 +418,8 @@ int nvmec_create_queues(struct nvme_controller *nc, size_t nrqueues, size_t slot
 	           + slots * nrqueues * sizeof(struct nvme_cmd));
 	for(size_t i = 0; i < nrqueues; i++, squeue_start += slots, cqueue_start += slots) {
 		nvmeq_init(&nc->queues[i],
-		  (void *)((uint64_t)twz_obj_base(&nc->qo) + (uint64_t)squeue_start),
-		  (void *)((uint64_t)twz_obj_base(&nc->qo) + (uint64_t)cqueue_start),
+		  (void *)((uint64_t)twz_object_base(&nc->qo) + (uint64_t)squeue_start),
+		  (void *)((uint64_t)twz_object_base(&nc->qo) + (uint64_t)cqueue_start),
 		  slots,
 		  nvmec_get_doorbell(nc, i + 1, false),
 		  nvmec_get_doorbell(nc, i + 1, true));
@@ -461,10 +461,10 @@ int nvmec_create_queues(struct nvme_controller *nc, size_t nrqueues, size_t slot
 int nvmec_identify(struct nvme_controller *nc)
 {
 	struct nvme_cmd cmd;
-	void *ci_memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000);
-	void *nsl_memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000 + 0x1000);
-	void *ns_memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000 + 0x2000);
-	void *r_memory = (void *)((uintptr_t)twz_obj_base(&nc->qo) + 0x200000 + 0x3000);
+	void *ci_memory = (void *)((uintptr_t)twz_object_base(&nc->qo) + 0x200000);
+	void *nsl_memory = (void *)((uintptr_t)twz_object_base(&nc->qo) + 0x200000 + 0x1000);
+	void *ns_memory = (void *)((uintptr_t)twz_object_base(&nc->qo) + 0x200000 + 0x2000);
+	void *r_memory = (void *)((uintptr_t)twz_object_base(&nc->qo) + 0x200000 + 0x3000);
 
 	int r = twz_device_map_object(&nc->co, &nc->qo, 0x200000, 0x4000);
 	if(r)

@@ -17,14 +17,14 @@ struct iovec {
 	size_t len;
 };
 
-static ssize_t __do_write(struct object *o, size_t off, void *base, size_t len, int flags)
+static ssize_t __do_write(twzobj *o, size_t off, void *base, size_t len, int flags)
 {
 	/* TODO: more general cases */
 	ssize_t r = twzio_write(o, base, len, off, (flags & DW_NONBLOCK) ? TWZIO_NONBLOCK : 0);
 	// ssize_t r = bstream_write(o, base, len, 0);
 	if(r == -ENOTSUP) {
 		/* TODO: bounds check */
-		memcpy((char *)twz_obj_base(o) + off, base, len);
+		memcpy((char *)twz_object_base(o) + off, base, len);
 		r = len;
 		struct metainfo *mi = twz_object_meta(o);
 		/* TODO: append */
@@ -37,7 +37,7 @@ static ssize_t __do_write(struct object *o, size_t off, void *base, size_t len, 
 	return r;
 }
 
-static ssize_t __do_read(struct object *o, size_t off, void *base, size_t len, int flags)
+static ssize_t __do_read(twzobj *o, size_t off, void *base, size_t len, int flags)
 {
 	ssize_t r = twzio_read(o, base, len, off, (flags & DW_NONBLOCK) ? TWZIO_NONBLOCK : 0);
 	if(r == -ENOTSUP) {
@@ -52,7 +52,7 @@ static ssize_t __do_read(struct object *o, size_t off, void *base, size_t len, i
 		} else {
 			return -EIO;
 		}
-		memcpy(base, (char *)twz_obj_base(o) + off, len);
+		memcpy(base, (char *)twz_object_base(o) + off, len);
 		r = len;
 	}
 	return r;

@@ -29,9 +29,9 @@ void print_kat(struct kso_attachment *k, int indent)
 		printf("[%s] ", kso_names[k->type]);
 	}
 
-	struct object obj;
+	twzobj obj;
 	twz_object_open(&obj, k->id, FE_READ);
-	struct kso_hdr *hdr = twz_obj_base(&obj);
+	struct kso_hdr *hdr = twz_object_base(&obj);
 
 	printf("%s", hdr->name);
 	printf("\n");
@@ -39,7 +39,7 @@ void print_kat(struct kso_attachment *k, int indent)
 
 void kls_devbus(struct kso_attachment *p, int indent)
 {
-	struct object bus;
+	twzobj bus;
 	twz_object_open(&bus, p->id, FE_READ);
 	struct bus_repr *r = twz_bus_getrepr(&bus);
 	if(r->bus_type == DEVICE_BT_SYSTEM) {
@@ -57,9 +57,9 @@ void kls_devbus(struct kso_attachment *p, int indent)
 
 void kls_thread(struct kso_attachment *p, int indent)
 {
-	struct object thr;
+	twzobj thr;
 	twz_object_open(&thr, p->id, FE_READ);
-	struct twzthread_repr *r = twz_obj_base(&thr);
+	struct twzthread_repr *r = twz_object_base(&thr);
 	for(int i = 0; i < TWZ_THRD_MAX_SCS; i++) {
 		struct kso_attachment *k = &r->attached[i];
 		if(k->id == 0 || k->type != KSO_SECCTX)
@@ -70,10 +70,10 @@ void kls_thread(struct kso_attachment *p, int indent)
 
 void kls(void)
 {
-	struct object root;
+	twzobj root;
 	twz_object_open(&root, 1, FE_READ);
 
-	struct kso_root_repr *r = twz_obj_base(&root);
+	struct kso_root_repr *r = twz_object_base(&root);
 	for(size_t i = 0; i < r->count; i++) {
 		struct kso_attachment *k = &r->attached[i];
 		if(!k->id || !k->type)

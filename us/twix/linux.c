@@ -4,7 +4,7 @@
 #include <twz/_slots.h>
 #include <twz/view.h>
 
-static struct object unix_obj;
+static twzobj unix_obj;
 static bool unix_obj_init = false;
 static struct unix_repr *uh;
 
@@ -20,12 +20,12 @@ void __linux_init(void)
 			twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &id);
 			twz_view_set(NULL, TWZSLOT_UNIX, id, VE_READ | VE_WRITE);
 			unix_obj = TWZ_OBJECT_INIT(TWZSLOT_UNIX);
-			uh = twz_obj_base(&unix_obj);
+			uh = twz_object_base(&unix_obj);
 			uh->pid = 1;
 			uh->tid = 1;
 		}
 
-		uh = twz_obj_base(&unix_obj);
+		uh = twz_object_base(&unix_obj);
 	}
 }
 

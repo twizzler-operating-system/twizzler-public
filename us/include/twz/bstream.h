@@ -28,16 +28,16 @@ static inline size_t bstream_hdr_size(uint32_t nbits)
 #define BSTREAM_GATE_READ 1
 #define BSTREAM_GATE_WRITE 2
 
-ssize_t bstream_write(struct object *obj, const void *ptr, size_t len, unsigned flags);
-ssize_t bstream_read(struct object *obj, void *ptr, size_t len, unsigned flags);
-ssize_t bstream_hdr_write(struct object *obj,
+ssize_t bstream_write(twzobj *obj, const void *ptr, size_t len, unsigned flags);
+ssize_t bstream_read(twzobj *obj, void *ptr, size_t len, unsigned flags);
+ssize_t bstream_hdr_write(twzobj *obj,
   struct bstream_hdr *,
   const void *ptr,
   size_t len,
   unsigned flags);
-ssize_t bstream_hdr_read(struct object *obj,
+ssize_t bstream_hdr_read(twzobj *obj,
   struct bstream_hdr *,
   void *ptr,
   size_t len,
   unsigned flags);
-int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr, uint32_t nbits);
+int bstream_obj_init(twzobj *obj, struct bstream_hdr *hdr, uint32_t nbits);

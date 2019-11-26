@@ -13,7 +13,7 @@
 #define BOF(b, i, h) ((void *)(_BOF(b, i, h) + (h)->start))
 
 #include <twz/debug.h>
-static void *__buddy_alloc(struct object *o, struct twzoa_header *hdr, size_t size)
+static void *__buddy_alloc(twzobj *o, struct twzoa_header *hdr, size_t size)
 {
 	unsigned int i = 0, order;
 	size++;
@@ -42,7 +42,7 @@ static void *__buddy_alloc(struct object *o, struct twzoa_header *hdr, size_t si
 	return block;
 }
 
-static void __buddy_free(struct object *o, struct twzoa_header *hdr, void *block)
+static void __buddy_free(twzobj *o, struct twzoa_header *hdr, void *block)
 {
 	// debug_printf("FREE\n");
 	// return ;
@@ -77,17 +77,17 @@ static void __buddy_free(struct object *o, struct twzoa_header *hdr, void *block
 	}
 }
 
-void oa_hdr_free(struct object *obj, struct twzoa_header *hdr, void *p)
+void oa_hdr_free(twzobj *obj, struct twzoa_header *hdr, void *p)
 {
 	return __buddy_free(obj, hdr, p);
 }
 
-void *oa_hdr_alloc(struct object *obj, struct twzoa_header *hdr, size_t s)
+void *oa_hdr_alloc(twzobj *obj, struct twzoa_header *hdr, size_t s)
 {
 	return __buddy_alloc(obj, hdr, s);
 }
 
-int oa_hdr_init(struct object *obj, struct twzoa_header *h, size_t start, size_t end)
+int oa_hdr_init(twzobj *obj, struct twzoa_header *h, size_t start, size_t end)
 {
 	(void)obj;
 	start += 16;

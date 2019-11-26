@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <twz/_objid.h>
+#include <twz/_types.h>
 
 enum name_ent_type {
 	NAME_ENT_REGULAR,
@@ -30,6 +31,5 @@ struct twz_namespace_hdr {
 	struct twz_name_ent ents[];
 };
 
-struct object;
-int twz_hier_resolve_name(struct object *ns, const char *path, int flags, struct twz_name_ent *ent);
-int twz_hier_assign_name(struct object *ns, const char *name, int type, objid_t id);
+int twz_hier_resolve_name(twzobj *ns, const char *path, int flags, struct twz_name_ent *ent);
+int twz_hier_assign_name(twzobj *ns, const char *name, int type, objid_t id);

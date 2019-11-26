@@ -21,9 +21,9 @@ int twz_dlg_create(struct scdlg **dlg,
   uint16_t htype,
   uint16_t etype);
 
-struct object;
-int twz_sctx_add(struct object *obj, objid_t target, void *item, size_t itemlen);
-ssize_t twz_sctx_lookup(struct object *obj, objid_t target);
-ssize_t twz_sctx_next(struct object *obj, objid_t target, ssize_t bucket);
-int twz_sctx_read(struct object *obj, objid_t target, void *data, size_t *datalen);
-int twz_sctx_del(struct object *obj, objid_t target, ssize_t bucketnum);
+twzobj;
+int twz_sctx_add(twzobj *obj, objid_t target, void *item, size_t itemlen);
+ssize_t twz_sctx_lookup(twzobj *obj, objid_t target);
+ssize_t twz_sctx_next(twzobj *obj, objid_t target, ssize_t bucket);
+int twz_sctx_read(twzobj *obj, objid_t target, void *data, size_t *datalen);
+int twz_sctx_del(twzobj *obj, objid_t target, ssize_t bucketnum);

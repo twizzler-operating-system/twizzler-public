@@ -15,7 +15,7 @@
 #include <twz/driver/pcie.h>
 #include <twz/obj.h>
 
-static void msix_configure(struct object *co, struct pcie_msix_capability *m, int nrvecs)
+static void msix_configure(twzobj *co, struct pcie_msix_capability *m, int nrvecs)
 {
 	struct pcie_function_header *hdr = twz_device_getds(co);
 	struct device_repr *repr = twz_device_getrepr(co);

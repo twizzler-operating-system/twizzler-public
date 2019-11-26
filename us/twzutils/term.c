@@ -24,8 +24,8 @@
 #define ES_DONE 3
 
 struct fb {
-	struct object obj;
-	struct object font;
+	twzobj obj;
+	twzobj font;
 	size_t gl_w, gl_h;
 	ssfn_glyph_t *glyph_cache[256];
 	ssfn_glyph_t *bold_glyph_cache[256];
@@ -62,10 +62,10 @@ static uint32_t color_map[8] = {
 	[7] = 0x00ffffff, /* white */
 };
 
-static struct object ptyobj, kbobj;
+static twzobj ptyobj, kbobj;
 static struct termios *termios;
 
-void process_keyboard(struct object *, char *, size_t);
+void process_keyboard(twzobj *, char *, size_t);
 
 void kbmain(void *a)
 {
@@ -448,7 +448,7 @@ void setup_pty(int cw, int ch)
 	if((r = twzio_ioctl(&ptyobj, TIOCSWINSZ, &w)) < 0) {
 		fprintf(stderr, "failed to set pty winsize: %d\n", r);
 	}
-	struct pty_hdr *hdr = twz_obj_base(&ptyobj);
+	struct pty_hdr *hdr = twz_object_base(&ptyobj);
 	termios = &hdr->termios;
 }
 
@@ -489,7 +489,7 @@ void init_fb(struct fb *fb)
 		memset(fb->back_buffer, 0, fb->pitch * fb->fbh);
 		fb->char_buffer = calloc(sizeof(fb->char_buffer[0]), fb->max_x * fb->max_y);
 
-		struct object font;
+		twzobj font;
 		int r;
 		if((r = twz_object_open_name(&font, "/usr/share/inconsolata.sfn", FE_READ))) {
 			printf("ERR opening font: %d\n", r);
@@ -498,7 +498,7 @@ void init_fb(struct fb *fb)
 		}
 		memset(&fb->ctx, 0, sizeof(fb->ctx));
 		memset(&fb->bold_ctx, 0, sizeof(fb->ctx));
-		ssfn_font_t *_font_start = twz_obj_base(&font);
+		ssfn_font_t *_font_start = twz_object_base(&font);
 
 		if((r = ssfn_load(&fb->ctx, _font_start))) {
 			debug_printf("load:%d\n", r);
@@ -768,7 +768,7 @@ int main(int argc, char **argv)
 		abort();
 	}
 
-	if((r = bstream_obj_init(&out_obj, twz_obj_base(&out_obj), 16))) {
+	if((r = bstream_obj_init(&out_obj, twz_object_base(&out_obj), 16))) {
 		debug_printf("failed to init screen bstream");
 		abort();
 	}
@@ -789,7 +789,7 @@ int main(int argc, char **argv)
 		abort();
 	}
 
-	if((r = bstream_obj_init(&screen_obj, twz_obj_base(&screen_obj), 16))) {
+	if((r = bstream_obj_init(&screen_obj, twz_object_base(&screen_obj), 16))) {
 		debug_printf("failed to init screen bstream");
 		abort();
 	}

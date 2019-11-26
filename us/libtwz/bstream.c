@@ -13,7 +13,7 @@ static size_t free_space(size_t head, size_t tail, size_t length)
 	return (tail > head) ? tail - head : length - head + tail;
 }
 
-ssize_t bstream_hdr_read(struct object *obj,
+ssize_t bstream_hdr_read(twzobj *obj,
   struct bstream_hdr *hdr,
   void *ptr,
   size_t len,
@@ -50,7 +50,7 @@ ssize_t bstream_hdr_read(struct object *obj,
 	return count;
 }
 
-ssize_t bstream_hdr_write(struct object *obj,
+ssize_t bstream_hdr_write(twzobj *obj,
   struct bstream_hdr *hdr,
   const void *ptr,
   size_t len,
@@ -87,17 +87,17 @@ ssize_t bstream_hdr_write(struct object *obj,
 	return count;
 }
 
-ssize_t bstream_read(struct object *obj, void *ptr, size_t len, unsigned flags)
+ssize_t bstream_read(twzobj *obj, void *ptr, size_t len, unsigned flags)
 {
-	return bstream_hdr_read(obj, twz_obj_base(obj), ptr, len, flags);
+	return bstream_hdr_read(obj, twz_object_base(obj), ptr, len, flags);
 }
 
-ssize_t bstream_write(struct object *obj, const void *ptr, size_t len, unsigned flags)
+ssize_t bstream_write(twzobj *obj, const void *ptr, size_t len, unsigned flags)
 {
-	return bstream_hdr_write(obj, twz_obj_base(obj), ptr, len, flags);
+	return bstream_hdr_write(obj, twz_object_base(obj), ptr, len, flags);
 }
 
-int bstream_obj_init(struct object *obj, struct bstream_hdr *hdr, uint32_t nbits)
+int bstream_obj_init(twzobj *obj, struct bstream_hdr *hdr, uint32_t nbits)
 {
 	int r;
 	if((r = twz_object_addext(obj, TWZIO_METAEXT_TAG, &hdr->io)))

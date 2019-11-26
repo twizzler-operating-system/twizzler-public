@@ -43,7 +43,7 @@ __attribute__((used)) static int __do_exec(uint64_t entry,
 	return 0;
 }
 
-int twz_exec_view(struct object *view,
+int twz_exec_view(twzobj *view,
   objid_t vid,
   size_t entry,
   char const *const *argv,
@@ -53,7 +53,7 @@ int twz_exec_view(struct object *view,
 	if(env == NULL)
 		env = environ;
 
-	struct object stack;
+	twzobj stack;
 	objid_t sid;
 	int r;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
@@ -88,7 +88,7 @@ int twz_exec_view(struct object *view,
 
 	size_t v = 0;
 	vector[v++] = argc;
-	char *str = sp + (char *)twz_obj_base(&stack);
+	char *str = sp + (char *)twz_object_base(&stack);
 	for(size_t i = 0; i < argc; i++) {
 		const char *s = argv[i];
 		str -= strlen(s) + 1;
@@ -132,7 +132,7 @@ int twz_exec_view(struct object *view,
 	return ret;
 }
 
-int twz_exec_create_view(struct object *view, objid_t id, objid_t *vid)
+int twz_exec_create_view(twzobj *view, objid_t id, objid_t *vid)
 {
 	int r;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, vid))) {
@@ -155,15 +155,15 @@ int twz_exec_create_view(struct object *view, objid_t id, objid_t *vid)
 int twz_exec(objid_t id, char const *const *argv, char *const *env)
 {
 	objid_t vid;
-	struct object view;
+	twzobj view;
 	int r;
 	if((r = twz_exec_create_view(&view, id, &vid)) < 0) {
 		return r;
 	}
 
-	struct object exe;
+	twzobj exe;
 	twz_object_open(&exe, id, FE_READ);
-	struct elf64_header *hdr = twz_obj_base(&exe);
+	struct elf64_header *hdr = twz_object_base(&exe);
 
 	return twz_exec_view(&view, vid, hdr->e_entry, argv, env);
 }
@@ -178,12 +178,12 @@ int __twz_exec(objid_t id, char const *const *argv, char *const *env)
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &vid))) {
 		return r;
 	}
-	struct object view;
+	twzobj view;
 	if((r = twz_object_open(&view, vid, FE_READ | FE_WRITE))) {
 		return r;
 	}
 
-	struct object stack;
+	twzobj stack;
 	objid_t sid;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
 		return r;
@@ -225,7 +225,7 @@ int __twz_exec(objid_t id, char const *const *argv, char *const *env)
 
 	size_t v = 0;
 	vector[v++] = argc;
-	char *str = sp + (char *)twz_obj_base(&stack);
+	char *str = sp + (char *)twz_object_base(&stack);
 	for(size_t i = 0; i < argc; i++) {
 		const char *s = argv[i];
 		str -= strlen(s) + 1;

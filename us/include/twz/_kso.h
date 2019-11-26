@@ -29,6 +29,6 @@ struct kso_root_repr {
 #define KSO_ROOT_ID 1
 
 #ifndef __KERNEL__
-struct object;
-int kso_set_name(struct object *obj, const char *name, ...);
+#include <twz/_types.h>
+int kso_set_name(twzobj *obj, const char *name, ...);
 #endif

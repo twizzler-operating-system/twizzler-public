@@ -39,18 +39,18 @@ struct device_repr {
 
 #include <twz/obj.h>
 
-static inline struct device_repr *twz_device_getrepr(struct object *obj)
+static inline struct device_repr *twz_device_getrepr(twzobj *obj)
 {
-	return twz_obj_base(obj);
+	return twz_object_base(obj);
 }
 
-static inline void *twz_device_getds(struct object *obj)
+static inline void *twz_device_getds(twzobj *obj)
 {
 	return (void *)(twz_device_getrepr(obj) + 1);
 }
 #include <twz/_sys.h>
-static inline int twz_device_map_object(struct object *dev,
-  struct object *obj,
+static inline int twz_device_map_object(twzobj *dev,
+  twzobj *obj,
   size_t off,
   size_t len)
 {

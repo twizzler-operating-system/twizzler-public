@@ -14,18 +14,18 @@ struct bus_repr {
 #include <errno.h>
 #include <twz/obj.h>
 
-static inline struct bus_repr *twz_bus_getrepr(struct object *obj)
+static inline struct bus_repr *twz_bus_getrepr(twzobj *obj)
 {
-	return twz_obj_base(obj);
+	return twz_object_base(obj);
 }
 
-static inline void *twz_bus_getbs(struct object *obj)
+static inline void *twz_bus_getbs(twzobj *obj)
 {
 	return (void *)(twz_bus_getrepr(obj) + 1);
 }
 
-static inline int twz_bus_open_child(struct object *bus,
-  struct object *ch,
+static inline int twz_bus_open_child(twzobj *bus,
+  twzobj *ch,
   size_t num,
   uint32_t flags)
 {
