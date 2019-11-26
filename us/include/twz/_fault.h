@@ -8,6 +8,8 @@ enum {
 	FAULT_EXCEPTION,
 	FAULT_SCTX,
 	FAULT_FAULT,
+	FAULT_PAGE,
+	FAULT_PPTR,
 	NUM_FAULTS,
 };
 
@@ -58,4 +60,20 @@ struct fault_fault_info {
 	uint32_t len;
 	uint32_t resv;
 	char data[];
+} __attribute__((packed));
+
+struct fault_page_info {
+	objid_t objid;
+	uintptr_t vaddr;
+	size_t pgnr;
+	uint64_t info;
+	uintptr_t ip;
+} __attribute__((packed));
+
+struct fault_pptr_info {
+	objid_t objid;
+	size_t fote;
+	uintptr_t ip;
+	uint64_t flags;
+	uint64_t info;
 } __attribute__((packed));

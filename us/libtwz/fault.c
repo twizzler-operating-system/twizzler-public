@@ -302,3 +302,14 @@ int twz_fault_set(int fault, void (*fn)(int, void *))
 	};
 	return 0;
 }
+
+/* raise a fault for ourselves. */
+void twz_fault_raise(int fault, void *data)
+{
+	void (*fn)(int, void *) = atomic_load(&_fault_table[fault].fn);
+	if(fn) {
+		fn(fault, data);
+	} else {
+		twz_thread_exit();
+	}
+}
