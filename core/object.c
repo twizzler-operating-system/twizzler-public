@@ -272,9 +272,6 @@ void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 	if(len >= mm_page_size(0)) {
 		panic("NI - big KSO write");
 	}
-	if(start / mm_page_size(0) != (start + len) / mm_page_size(0)) {
-		//	panic("NI - cross-page KSO read (%ld %ld ; %lx %lx)", start, len, start, len);
-	}
 	char *data = ptr;
 	while(len > 0) {
 		size_t off = start % mm_page_size(0);
@@ -349,18 +346,17 @@ objid_t obj_compute_id(struct object *obj)
 			blake2b_update(&S, mm_ptov(p->page->addr), rem);
 			obj_put_page(p);
 		}
-		for(size_t s = 0; s < mi.mdbottom; s += mm_page_size(0)) {
-			size_t rem = mm_page_size(0);
-			if(s + mm_page_size(0) > mi.mdbottom) {
-				rem = mi.mdbottom - s;
-			}
-			assert(rem <= mm_page_size(0));
+		size_t mdbottom = OBJ_METAPAGE_SIZE + sizeof(struct fotentry) * mi.fotentries;
+		size_t pos = OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + mdbottom);
+		size_t thispage = mm_page_size(0);
+		for(size_t s = pos; s < OBJ_MAXSIZE - OBJ_NULLPAGE_SIZE; s += thispage) {
+			struct objpage *p = obj_get_page(obj, pos / mm_page_size(0) + 1, false);
 
-			struct objpage *p = obj_get_page(obj,
-			  (OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + (mi.mdbottom - s))) / mm_page_size(0) + 1,
-			  false);
+			size_t offset = pos % mm_page_size(0);
+			size_t len = mm_page_size(0) - offset;
 			atomic_thread_fence(memory_order_seq_cst);
-			blake2b_update(&S, mm_ptov(p->page->addr), rem);
+			blake2b_update(&S, mm_ptov(p->page->addr + offset), len);
+
 			obj_put_page(p);
 		}
 	}
@@ -437,6 +433,18 @@ static bool __objspace_fault_calculate_perms(struct object *o,
 	/* optimization: just check if default permissions are enough */
 	struct metainfo mi;
 	obj_read_data(o, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
+	if(mi.magic != MI_MAGIC) {
+		struct fault_object_info info = {
+			.ip = ip,
+			.addr = vaddr,
+			.objid = o->id,
+			.flags = FAULT_OBJECT_INVALID,
+		};
+		thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
+		obj_put(o);
+
+		return false;
+	}
 	uint32_t dfl = mi.p_flags & (MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE);
 	bool ok = true;
 	if(flags & OBJSPACE_FAULT_READ) {

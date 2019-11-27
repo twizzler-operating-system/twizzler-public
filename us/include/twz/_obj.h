@@ -16,7 +16,7 @@
 #define MIP_DFL_DEL 0x40
 
 #define OBJ_NULLPAGE_SIZE 0x1000
-#define OBJ_METAPAGE_SIZE 0x1000
+#define OBJ_METAPAGE_SIZE 0x800
 
 #define OBJ_MAXSIZE (1ul << 30)
 
@@ -31,15 +31,12 @@ struct metainfo {
 	uint32_t magic;
 	uint16_t flags;
 	uint16_t p_flags;
-	uint16_t milen;
-	uint16_t fotentries;
-	uint32_t mdbottom;
-	uint64_t sz;
-	uint32_t nbuckets;
-	uint32_t hashstart;
+	uint32_t fotentries;
+	uint32_t milen;
 	nonce_t nonce;
 	objid_t kuid;
-	_Alignas(16) struct metaext exts[];
+	uint64_t sz;
+	_Alignas(8) struct metaext exts[];
 } __attribute__((packed));
 
 #define FE_READ MIP_DFL_READ

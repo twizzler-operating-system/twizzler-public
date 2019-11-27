@@ -201,7 +201,6 @@ long syscall_ocreate(uint64_t kulo,
 		  flags & (MIP_HASHDATA | MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE),
 		.flags = flags,
 		.milen = sizeof(mi) + 128,
-		.mdbottom = 0x1000, // TODO: not if we're copying?
 		.kuid = kuid,
 		.nonce = nonce,
 	};

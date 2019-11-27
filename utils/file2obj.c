@@ -208,7 +208,6 @@ int main(int argc, char **argv)
 	struct list *fotlist = NULL;
 	char *outfile = NULL, *infile = NULL;
 	uint16_t pflags = 0;
-	uint16_t fotcount = 0;
 	char *kuidstr = NULL;
 	bool zero_nonce = false;
 	while((c = getopt(argc, argv, "f:o:i:k:p:z")) != EOF) {
@@ -219,7 +218,6 @@ int main(int argc, char **argv)
 				l->d = strdup(optarg);
 				l->next = fotlist;
 				fotlist = l;
-				fotcount++;
 				break;
 			case 'o':
 				outfile = strdup(optarg);
@@ -316,7 +314,21 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	ustar_fill(&header, outfile, "meta", 0x1000);
+	int max_fote = 0;
+	size_t nameln = 0;
+	for(struct list *l = fotlist; l; l = l->next) {
+		struct fotentry fe = { 0 };
+		char *name;
+		int e = parse_fotentry(&fe, strdup(l->d), &name);
+		if(e > max_fote)
+			max_fote = e;
+		if(name)
+			nameln += strlen(name) + 1;
+	}
+	size_t metaext_size = 128;
+	size_t ussz = OBJ_METAPAGE_SIZE + sizeof(struct metainfo) + metaext_size + nameln;
+	// sizeof(struct fotentry) * (max_fote + 1) + nameln + sizeof(struct metainfo) + metaext_size;
+	ustar_fill(&header, outfile, "meta", ussz);
 	if(write(outfd, &header, sizeof(header)) < 0) {
 		perror("write");
 		exit(1);
@@ -324,16 +336,13 @@ int main(int argc, char **argv)
 
 	objid_t kuid = str_to_objid(kuidstr);
 
-	fotcount++;
-	size_t metaext_size = 128;
 	struct metainfo mi = {
 		.magic = MI_MAGIC,
 		.sz = st.st_size,
 		.flags = MIF_SZ,
 		.p_flags = pflags,
 		.milen = sizeof(mi) + metaext_size,
-		.fotentries = fotcount,
-		.mdbottom = 0x1000,
+		.fotentries = max_fote + 1,
 		.kuid = kuid,
 	};
 	if(zero_nonce) {
@@ -345,35 +354,35 @@ int main(int argc, char **argv)
 		}
 	}
 
-	off_t metapage_start = lseek(outfd, 0, SEEK_CUR);
+	off_t metapage_start = lseek(outfd, OBJ_METAPAGE_SIZE, SEEK_CUR);
 	if(write(outfd, &mi, sizeof(mi)) < 0) {
 		perror("write");
 		exit(1);
 	}
 
-	off_t fotstart = lseek(outfd, 0, SEEK_CUR) + metaext_size;
-	off_t namestart = 64 * sizeof(struct fotentry);
+	off_t fotstart = metapage_start;
+	off_t namestart = metapage_start + metaext_size + sizeof(mi);
 	for(struct list *l = fotlist; l; l = l->next) {
 		struct fotentry fe = { 0 };
 		char *name = NULL;
-		int e = parse_fotentry(&fe, l->d, &name);
-		if(e >= 64) {
+		unsigned int e = parse_fotentry(&fe, l->d, &name);
+		if(e >= OBJ_METAPAGE_SIZE / sizeof(struct fotentry)) {
 			fprintf(stderr, "out of FOT entries\n");
 			return 1;
 		}
 		if(name) {
-			if(strlen(name) + 1 + namestart >= 4096) {
+			if((strlen(name) + 1 + namestart) - metapage_start >= OBJ_METAPAGE_SIZE) {
 				fprintf(stderr, "Out of space for names\n");
 				return 1;
 			}
-			if(pwrite(outfd, name, strlen(name) + 1, fotstart + namestart) < 0) {
+			if(pwrite(outfd, name, strlen(name) + 1, namestart) < 0) {
 				perror("pwrite");
 				return 1;
 			}
 			fe.name.data = (char *)(OBJ_MAXSIZE - OBJ_METAPAGE_SIZE + sizeof(mi) + namestart);
 			namestart += strlen(name) + 1;
 		}
-		if(pwrite(outfd, &fe, sizeof(fe), fotstart + e * sizeof(fe)) < 0) {
+		if(pwrite(outfd, &fe, sizeof(fe), fotstart - e * sizeof(fe)) < 0) {
 			perror("pwrite");
 			return 1;
 		}

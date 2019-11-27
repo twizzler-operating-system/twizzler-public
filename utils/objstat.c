@@ -60,7 +60,8 @@ objid_t compute_objid(char *base)
 	blake2b_update(&S, &mi->kuid, sizeof(mi->kuid));
 	if(mi->p_flags & MIP_HASHDATA) {
 		blake2b_update(&S, base + OBJ_NULLPAGE_SIZE, mi->sz);
-		blake2b_update(&S, base + OBJ_MAXSIZE - mi->mdbottom, mi->mdbottom);
+		size_t ml = OBJ_METAPAGE_SIZE + sizeof(struct fotentry) * mi->fotentries;
+		blake2b_update(&S, base + OBJ_MAXSIZE - ml, ml);
 	}
 	blake2b_final(&S, tmp, 32);
 	unsigned char out[16];
@@ -105,11 +106,13 @@ void objstat(char *path)
 		exit(1);
 	}
 	sz = octal_to_int(h.size);
-	if(sz != OBJ_METAPAGE_SIZE) {
-		fprintf(stderr, "UNSUP: meta more than 0x1000\n");
+
+	if(sz >= 0x1000) {
+		fprintf(stderr, "UNSUP: large meta\n");
 		exit(1);
 	}
-	if(read(fd, m + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE, sz) != sz) {
+	if((r = read(fd, m + OBJ_MAXSIZE - 0x1000, sz)) == -1) {
+		fprintf(stderr, "-> %ld %ld\n", r, sz);
 		perror("read4");
 		exit(1);
 	}
@@ -128,7 +131,6 @@ void objstat(char *path)
 		printf("   p_flags %x\n", mi->p_flags);
 		printf("     milen %d\n", mi->milen);
 		printf("fotentries %d\n", mi->fotentries);
-		printf("  mdbottom %x\n", mi->mdbottom);
 		printf("        sz %ld\n", mi->sz);
 		printf("     nonce " IDFMT "\n", IDPR(mi->nonce));
 		printf("      kuid " IDFMT "\n", IDPR(mi->kuid));

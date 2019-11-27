@@ -97,7 +97,7 @@ void appendobj(const char *path)
 		perror("UNSUP: large meta");
 		exit(1);
 	}
-	if(read(fd, m + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE, metalen) != (ssize_t)metalen) {
+	if(read(fd, m + OBJ_MAXSIZE - 0x1000, metalen) != (ssize_t)metalen) {
 		perror("read4");
 		exit(1);
 	}
@@ -149,7 +149,7 @@ void appendobj(const char *path)
 		exit(1);
 	}
 
-	if(write(fd, m + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE, metalen) != (ssize_t)metalen) {
+	if(write(fd, m + OBJ_MAXSIZE - 0x1000, metalen) != (ssize_t)metalen) {
 		perror("writeme");
 		exit(1);
 	}

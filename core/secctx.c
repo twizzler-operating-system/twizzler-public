@@ -79,6 +79,9 @@ static bool __verify_region(void *item,
 	struct metainfo mi;
 	obj_read_data(to, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
 	obj_put(to);
+	if(mi.magic != MI_MAGIC) {
+		printk("MAGIC FAILED\n");
+	}
 
 	if(!mi.kuid) {
 		/* TODO: should we know this earlier? */

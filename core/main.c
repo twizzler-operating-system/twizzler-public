@@ -228,9 +228,9 @@ void kernel_main(struct processor *proc)
 			.p_flags = MIP_DFL_READ,
 			.flags = 0,
 			.milen = sizeof(mi) + 128,
-			.mdbottom = 0x1000,
 			.kuid = 0,
 			.nonce = 0,
+			.magic = MI_MAGIC,
 		};
 		root->idversafe = true;
 		root->idvercache = true;

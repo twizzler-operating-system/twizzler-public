@@ -94,9 +94,9 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 	//	debug_printf("obj 0 has no FOT\n");
 	//}
 
-	struct fotentry *fot = (void *)((char *)mi + mi->milen);
+	struct fotentry *fot = (void *)((char *)mi - sizeof(struct fotentry) * slot);
 
-	if(fot[slot].id == 0) {
+	if(fot->id == 0) {
 		debug_printf("Invalid FOT entry\n");
 		return -ENOENT;
 	}
@@ -111,7 +111,7 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 
 	twzobj o0 = TWZ_OBJECT_INIT(0);
 
-	return twz_map_fot_entry(&o0, slot, &fot[slot]);
+	return twz_map_fot_entry(&o0, slot, fot);
 }
 
 static int __fault_obj_default(int fault, struct fault_object_info *info)
