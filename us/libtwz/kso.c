@@ -1,6 +1,8 @@
 #include <stdarg.h>
 #include <stdio.h>
+#include <twz/_kso.h>
 #include <twz/obj.h>
+#include <twz/thread.h>
 
 int kso_set_name(twzobj *obj, const char *name, ...)
 {
