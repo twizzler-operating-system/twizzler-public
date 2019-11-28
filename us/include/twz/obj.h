@@ -5,6 +5,8 @@
 
 #include <stddef.h>
 
+#define TWZ_OBJ_VALID 1
+
 typedef struct _twz_object {
 	void *base;
 	uint64_t flags;
@@ -79,6 +81,7 @@ objid_t twz_object_guid(twzobj *o);
 
 void *twz_object_getext(twzobj *obj, uint64_t tag);
 int twz_object_addext(twzobj *obj, uint64_t tag, void *ptr);
+int twz_object_delext(twzobj *obj, uint64_t tag, void *ptr);
 
 // TODO: audit uses of _store_
 #define TWZ_PTR_FLAGS_COPY 0xfffffffffffffffful
@@ -113,3 +116,9 @@ void *__twz_ptr_swizzle(twzobj *o, void *p, uint64_t flags);
 int twz_object_kaction(twzobj *obj, long cmd, ...);
 int twz_object_pin(twzobj *obj, uintptr_t *oaddr, int flags);
 int twz_object_ctl(twzobj *obj, int cmd, ...);
+
+static inline struct fotentry *_twz_object_get_fote(twzobj *obj, size_t e)
+{
+	struct metainfo *mi = twz_object_meta(obj);
+	return (struct fotentry *)((char *)mi - sizeof(struct fotentry) * e);
+}

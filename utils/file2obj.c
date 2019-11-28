@@ -179,7 +179,7 @@ int parse_fotentry(struct fotentry *fe, char *s, char **name)
 				break;
 		}
 	}
-	fe->flags = fl;
+	fe->flags = fl | _FE_VALID;
 
 	char *res = strtok(NULL, "");
 	if(!res) {

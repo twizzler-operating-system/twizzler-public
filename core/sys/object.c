@@ -203,6 +203,7 @@ long syscall_ocreate(uint64_t kulo,
 		.milen = sizeof(mi) + 128,
 		.kuid = kuid,
 		.nonce = nonce,
+		.fotentries = 0,
 	};
 
 	obj_write_data(o, OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + OBJ_METAPAGE_SIZE), sizeof(mi), &mi);

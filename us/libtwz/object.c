@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <twz/_err.h>
 #include <twz/debug.h>
+#include <twz/fault.h>
 #include <twz/name.h>
 #include <twz/obj.h>
 #include <twz/sys.h>
@@ -22,23 +23,32 @@ int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 int twz_object_init_guid(twzobj *obj, objid_t id, int flags)
 {
 	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);
-	if(slot < 0)
+	if(slot < 0) {
+		obj->flags = 0;
 		return slot;
+	}
 
 	obj->base = (void *)(OBJ_MAXSIZE * (slot));
 	obj->id = id;
-	obj->flags = 0;
-	// debug_printf("opened " IDFMT " -> %p\n", IDPR(id), obj->base);
+	obj->flags = TWZ_OBJ_VALID;
 	return 0;
 }
 
 objid_t twz_object_guid(twzobj *o)
 {
+	/* TODO: 128bit ATOMIC */
 	if(o->id)
 		return o->id;
 	objid_t id = 0;
 	if(twz_vaddr_to_obj(o->base, &id, NULL)) {
-		/* TODO: raise fault */
+		struct fault_object_info fi = {
+			.objid = 0,
+			.ip = (uintptr_t)&twz_object_guid,
+			.addr = (uintptr_t)o->base,
+			.flags = FAULT_OBJECT_UNKNOWN,
+		};
+		twz_fault_raise(FAULT_OBJECT, &fi);
+		return twz_object_guid(o);
 	}
 	return (o->id = id);
 }
@@ -68,13 +78,13 @@ int twz_object_init_name(twzobj *obj, const char *name, int flags)
 	if(r < 0)
 		return r;
 	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);
+	obj->flags = 0;
 	if(slot < 0)
 		return slot;
 
 	obj->base = (void *)(OBJ_MAXSIZE * (slot));
 	obj->id = id;
-	obj->flags = 0;
-	// debug_printf("opened name %s : " IDFMT " -> %p\n", name, IDPR(id), obj->base);
+	obj->flags = TWZ_OBJ_VALID;
 	return 0;
 }
 
@@ -122,8 +132,9 @@ void *twz_object_getext(twzobj *obj, uint64_t tag)
 	struct metaext *e = &mi->exts[0];
 
 	while((char *)e < (char *)mi + mi->milen) {
-		if(e->tag == tag) {
-			return twz_object_lea(obj, e->ptr);
+		void *p = atomic_load(&e->ptr);
+		if(atomic_load(&e->tag) == tag && p) {
+			return twz_object_lea(obj, p);
 		}
 		e++;
 	}
@@ -136,33 +147,81 @@ int twz_object_addext(twzobj *obj, uint64_t tag, void *ptr)
 	struct metaext *e = &mi->exts[0];
 
 	while((char *)e < (char *)mi + mi->milen) {
-		if(e->tag == 0) {
-			e->ptr = twz_ptr_local(ptr);
-			e->tag = tag;
-			return 0;
+		if(atomic_load(&e->tag) == 0) {
+			uint64_t exp = 0;
+			if(atomic_compare_exchange_strong(&e->tag, &exp, tag)) {
+				atomic_store(&e->ptr, twz_ptr_local(ptr));
+				return 0;
+			}
 		}
 		e++;
 	}
 	return -ENOSPC;
 }
 
-ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags)
+int twz_object_delext(twzobj *obj, uint64_t tag, void *ptr)
 {
 	struct metainfo *mi = twz_object_meta(obj);
-	struct fotentry *fe = (void *)((char *)mi + mi->milen);
-	/* TODO: large FOTs */
-	for(size_t e = 1; e < 64; e++) {
-		if(fe[e].id == id && fe[e].flags == flags)
-			return e;
-		if(fe[e].id == 0) {
-			fe[e].id = id;
-			fe[e].flags = flags;
-			if(mi->fotentries <= e)
-				mi->fotentries = e + 1;
-			return e;
+	struct metaext *e = &mi->exts[0];
+
+	while((char *)e < (char *)mi + mi->milen) {
+		if(atomic_load(&e->tag) == tag) {
+			void *exp = ptr;
+			if(atomic_compare_exchange_strong(&e->ptr, &exp, NULL)) {
+				atomic_store(&e->tag, 0);
+				return 0;
+			}
+		}
+		e++;
+	}
+	return -ENOENT;
+}
+
+/* FOT rules:
+ * * FOT additions and scans are mutually synchronized.
+ * * FOT updates and deletions require synchronization external to this library.
+ * Rationale: updates and deletions require either application-specific logic anyway or
+ * are done offline.
+ */
+
+static ssize_t _twz_object_scan_fot(twzobj *obj, objid_t id, uint64_t flags)
+{
+	struct metainfo *mi = twz_object_meta(obj);
+	for(size_t i = 1; i < mi->fotentries; i++) {
+		struct fotentry *fe = _twz_object_get_fote(obj, i);
+		if((atomic_load(&fe->flags) & _FE_VALID) && !(fe->flags & FE_NAME) && fe->id == id
+		   && fe->flags == flags) {
+			return i;
 		}
 	}
-	return -ENOSPC;
+	return -1;
+}
+
+ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags)
+{
+	ssize_t r = _twz_object_scan_fot(obj, id, flags);
+	if(r > 0) {
+		return r;
+	}
+	struct metainfo *mi = twz_object_meta(obj);
+
+	flags &= ~_FE_VALID;
+	while(1) {
+		uint32_t i = atomic_fetch_add(&mi->fotentries, 1);
+		if(i == 0)
+			i = atomic_fetch_add(&mi->fotentries, 1);
+		if(i == OBJ_MAXFOTE)
+			return -ENOSPC;
+		struct fotentry *fe = _twz_object_get_fote(obj, i);
+		if(!(atomic_fetch_or(&fe->flags, _FE_ALLOC) & _FE_ALLOC)) {
+			/* successfully allocated */
+			fe->id = id;
+			fe->flags = flags;
+			fe->info = 0;
+			atomic_fetch_or(&fe->flags, _FE_VALID);
+			return i;
+		}
+	}
 }
 
 static int __twz_ptr_make(twzobj *obj, objid_t id, const void *p, uint32_t flags, const void **res)
@@ -188,34 +247,50 @@ int __twz_ptr_store_guid(twzobj *obj, const void **res, twzobj *tgt, const void 
 	return __twz_ptr_make(obj, tgt ? twz_object_guid(tgt) : target, p, flags, res);
 }
 
+static void _twz_lea_fault(twzobj *o, const void *p, uintptr_t ip, uint32_t info, uint32_t retval)
+{
+	size_t slot = (uintptr_t)p / OBJ_MAXSIZE;
+	struct fault_pptr_info fi = {
+		.objid = twz_object_guid(o), .fote = slot, .ptr = p, .info = info, .ip = ip
+	};
+	twz_fault_raise(FAULT_PPTR, &fi);
+}
+
 void *__twz_object_lea_foreign(twzobj *o, const void *p)
 {
 	struct metainfo *mi = twz_object_meta(o);
-	struct fotentry *fe = (void *)((char *)mi + mi->milen);
-
-	int r;
 	size_t slot = (uintptr_t)p / OBJ_MAXSIZE;
-	if(slot >= mi->fotentries)
-		return NULL;
+	struct fotentry *fe = _twz_object_get_fote(o, slot);
 
-	if(fe[slot].id == 0)
-		return NULL;
+	uint64_t info = FAULT_PPTR_INVALID;
 
-	objid_t id;
-	if(fe[slot].flags & FE_NAME) {
-		r = twz_name_resolve(o, fe[slot].name.data, fe[slot].name.nresolver, 0, &id);
-		if(r)
-			return NULL;
-	} else {
-		id = fe[slot].id;
+	int r = 0;
+	if(slot >= mi->fotentries) {
+		goto fault;
 	}
 
-	ssize_t ns = twz_view_allocate_slot(NULL, id, fe[slot].flags & (FE_READ | FE_WRITE | FE_EXEC));
-	if(ns < 0)
-		return NULL;
+	if(!(atomic_load(&fe->flags) & _FE_VALID) || fe->id == 0) {
+		goto fault;
+	}
 
-	// debug_printf("---> %p : " IDFMT "\n", p, IDPR(id));
-	// if(twz_view_set(NULL, ns, id, fe[slot].flags & (FE_READ | FE_WRITE | FE_EXEC)))
-	//	return NULL;
+	objid_t id;
+	if(fe->flags & FE_NAME) {
+		r = twz_name_resolve(o, fe->name.data, fe->name.nresolver, 0, &id);
+		if(r) {
+			info = FAULT_PPTR_RESOLVE;
+			goto fault;
+		}
+	} else {
+		id = fe->id;
+	}
+
+	ssize_t ns = twz_view_allocate_slot(NULL, id, fe->flags & (FE_READ | FE_WRITE | FE_EXEC));
+	if(ns < 0) {
+		info = FAULT_PPTR_RESOURCES;
+	}
+
 	return twz_ptr_rebase(ns, (void *)p);
+fault:
+	_twz_lea_fault(o, p, __builtin_return_address(0), info, r);
+	return NULL;
 }

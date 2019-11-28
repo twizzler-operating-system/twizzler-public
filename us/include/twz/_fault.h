@@ -25,6 +25,7 @@ struct faultinfo {
 #define FAULT_OBJECT_NOMAP 8
 #define FAULT_OBJECT_EXIST 16
 #define FAULT_OBJECT_INVALID 32
+#define FAULT_OBJECT_UNKNOWN 64
 
 struct fault_object_info {
 	objid_t objid;
@@ -70,10 +71,19 @@ struct fault_page_info {
 	uintptr_t ip;
 } __attribute__((packed));
 
+enum {
+	FAULT_PPTR_UNKNOWN,
+	FAULT_PPTR_INVALID,
+	FAULT_PPTR_RESOLVE,
+	FAULT_PPTR_RESOURCES,
+	NUM_FAULT_PPTR_INFO
+};
+
 struct fault_pptr_info {
 	objid_t objid;
 	size_t fote;
 	uintptr_t ip;
-	uint64_t flags;
-	uint64_t info;
+	uint32_t info;
+	uint32_t retval;
+	const void *ptr;
 } __attribute__((packed));
