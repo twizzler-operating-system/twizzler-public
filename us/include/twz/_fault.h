@@ -76,6 +76,7 @@ enum {
 	FAULT_PPTR_INVALID,
 	FAULT_PPTR_RESOLVE,
 	FAULT_PPTR_RESOURCES,
+	FAULT_PPTR_DERIVE,
 	NUM_FAULT_PPTR_INFO
 };
 
@@ -85,5 +86,7 @@ struct fault_pptr_info {
 	uintptr_t ip;
 	uint32_t info;
 	uint32_t retval;
+	uint64_t flags;
+	const char *name;
 	const void *ptr;
 } __attribute__((packed));

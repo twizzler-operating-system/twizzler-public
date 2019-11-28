@@ -11,9 +11,13 @@ typedef struct _twz_object {
 	void *base;
 	uint64_t flags;
 	objid_t id;
+	uint32_t vf;
+	uint32_t pad;
+	uint64_t pad1;
 } twzobj;
 
 #define twz_slot_to_base(s) ({ (void *)((s)*OBJ_MAXSIZE + OBJ_NULLPAGE_SIZE); })
+#define twz_base_to_slot(s) ({ ((uintptr_t)(s) / OBJ_MAXSIZE); })
 #define twz_object_base(s) ({ (void *)((uintptr_t)((s)->base) + OBJ_NULLPAGE_SIZE); })
 
 #define TWZ_OC_HASHDATA MIP_HASHDATA

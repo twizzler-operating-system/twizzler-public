@@ -31,6 +31,7 @@ int twz_object_init_guid(twzobj *obj, objid_t id, int flags)
 	obj->base = (void *)(OBJ_MAXSIZE * (slot));
 	obj->id = id;
 	obj->flags = TWZ_OBJ_VALID;
+	obj->vf = flags;
 	return 0;
 }
 
@@ -82,10 +83,18 @@ int twz_object_init_name(twzobj *obj, const char *name, int flags)
 	if(slot < 0)
 		return slot;
 
+	obj->vf = flags;
 	obj->base = (void *)(OBJ_MAXSIZE * (slot));
 	obj->id = id;
 	obj->flags = TWZ_OBJ_VALID;
 	return 0;
+}
+
+void twz_object_release(twzobj *obj)
+{
+	twz_view_release_slot(NULL, twz_object_guid(obj), obj->vf, twz_base_to_slot(obj->base));
+	obj->base = NULL;
+	obj->flags = 0;
 }
 
 int twz_object_kaction(twzobj *obj, long cmd, ...)
@@ -263,6 +272,7 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 	struct fotentry *fe = _twz_object_get_fote(o, slot);
 
 	uint64_t info = FAULT_PPTR_INVALID;
+	const char *name;
 
 	int r = 0;
 	if(slot >= mi->fotentries) {
@@ -278,10 +288,18 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 		r = twz_name_resolve(o, fe->name.data, fe->name.nresolver, 0, &id);
 		if(r) {
 			info = FAULT_PPTR_RESOLVE;
+			name = fe->name.data;
 			goto fault;
 		}
 	} else {
 		id = fe->id;
+	}
+
+	if(fe->flags & FE_DERIVE) {
+		/* Currently, the derive bit can only be used for executables in slot 0. This may change in
+		 * the future. */
+		info = FAULT_PPTR_DERIVE;
+		goto fault;
 	}
 
 	ssize_t ns = twz_view_allocate_slot(NULL, id, fe->flags & (FE_READ | FE_WRITE | FE_EXEC));
@@ -291,6 +309,6 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 
 	return twz_ptr_rebase(ns, (void *)p);
 fault:
-	_twz_lea_fault(o, p, __builtin_return_address(0), info, r);
+	_twz_lea_fault(o, p, (uintptr_t)__builtin_return_address(0), info, r);
 	return NULL;
 }

@@ -130,6 +130,7 @@ static struct __viewrepr_bucket *__insert_obj(struct twzview_repr *v,
 			b[idx].id = id;
 			b[idx].slot = slot;
 			b[idx].flags = flags;
+			b[idx].refs = 1;
 			return &b[idx];
 		}
 		pb = &b[idx];
@@ -141,6 +142,7 @@ static struct __viewrepr_bucket *__insert_obj(struct twzview_repr *v,
 			b[i].id = id;
 			b[i].flags = flags;
 			b[i].slot = slot;
+			b[i].refs = 1;
 			b[i].chain = 0;
 			pb->chain = i + 1;
 			return &b[i];
@@ -165,6 +167,24 @@ ssize_t __alloc_slot(struct twzview_repr *v)
 	return -ENOSPC;
 }
 
+#include <assert.h>
+void twz_view_release_slot(twzobj *obj, objid_t id, uint32_t flags, size_t slot)
+{
+	struct twzview_repr *v = obj ? (struct twzview_repr *)twz_object_base(obj)
+	                             : (struct twzview_repr *)twz_slot_to_base(TWZSLOT_CVIEW);
+
+	mutex_acquire(&v->lock);
+	struct __viewrepr_bucket *b = __lookup_bucket(v, id, flags);
+	assert(b);
+	assert(b->slot == slot);
+
+	if(b->refs-- == 0) {
+		assert(0);
+	}
+
+	mutex_release(&v->lock);
+}
+
 ssize_t twz_view_allocate_slot(twzobj *obj, objid_t id, uint32_t flags)
 {
 	struct twzview_repr *v = obj ? (struct twzview_repr *)twz_object_base(obj)
@@ -176,6 +196,8 @@ ssize_t twz_view_allocate_slot(twzobj *obj, objid_t id, uint32_t flags)
 	ssize_t slot;
 	if(b) {
 		slot = b->slot;
+		assert(b->refs > 0);
+		b->refs++;
 	} else {
 		slot = __alloc_slot(v);
 		if(slot < 0) {

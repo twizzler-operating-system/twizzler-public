@@ -11,6 +11,8 @@ struct __viewrepr_bucket {
 	uint64_t slot;
 	uint32_t flags;
 	int32_t chain;
+	uint64_t info;
+	uint64_t refs;
 };
 
 struct twzview_repr {
@@ -31,3 +33,4 @@ int twz_view_set(twzobj *obj, size_t slot, objid_t target, uint32_t flags);
 int twz_view_fixedset(twzobj *obj, size_t slot, objid_t target, uint32_t flags);
 int twz_vaddr_to_obj(const void *v, objid_t *id, uint32_t *fl);
 ssize_t twz_view_allocate_slot(twzobj *obj, objid_t id, uint32_t flags);
+void twz_view_release_slot(twzobj *obj, objid_t id, uint32_t flags, size_t slot);
