@@ -9,6 +9,9 @@
 #include <twz/sys.h>
 #include <twz/thread.h>
 #include <twz/view.h>
+
+#include <twz/persist.h>
+
 int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 {
 	if(flags & TWZ_OC_ZERONONCE) {
@@ -66,7 +69,7 @@ int twz_object_new(twzobj *obj, twzobj *src, twzobj *ku, uint64_t flags)
 			return -EINVAL;
 	}
 	objid_t id;
-	int r = twz_object_create(flags, kuid, twz_object_guid(src), &id);
+	int r = twz_object_create(flags, kuid, src ? twz_object_guid(src) : 0, &id);
 	if(r)
 		return r;
 	return twz_object_init_guid(obj, id, FE_READ | FE_WRITE);
@@ -160,6 +163,8 @@ int twz_object_addext(twzobj *obj, uint64_t tag, void *ptr)
 			uint64_t exp = 0;
 			if(atomic_compare_exchange_strong(&e->tag, &exp, tag)) {
 				atomic_store(&e->ptr, twz_ptr_local(ptr));
+				_clwb(e);
+				_pfence();
 				return 0;
 			}
 		}
@@ -178,6 +183,8 @@ int twz_object_delext(twzobj *obj, uint64_t tag, void *ptr)
 			void *exp = ptr;
 			if(atomic_compare_exchange_strong(&e->ptr, &exp, NULL)) {
 				atomic_store(&e->tag, 0);
+				_clwb(e);
+				_pfence();
 				return 0;
 			}
 		}
@@ -227,7 +234,13 @@ ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags)
 			fe->id = id;
 			fe->flags = flags;
 			fe->info = 0;
+			/* flush the new entry */
+			_clwb(fe);
+			_pfence();
 			atomic_fetch_or(&fe->flags, _FE_VALID);
+			_clwb(fe);
+			_pfence();
+			/* flush the valid bit */
 			return i;
 		}
 	}
@@ -240,6 +253,8 @@ static int __twz_ptr_make(twzobj *obj, objid_t id, const void *p, uint32_t flags
 		return fe;
 
 	*res = twz_ptr_rebase(fe, p);
+	_clwb(res);
+	_pfence();
 
 	return 0;
 }

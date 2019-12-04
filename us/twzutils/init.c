@@ -217,6 +217,9 @@ int create_pty_pair(char *server, char *client)
 }
 
 #include <twz/hier.h>
+twzobj bs;
+void init_test_iter(void);
+void init_test_init(void);
 static __inline__ unsigned long long rdtsc(void)
 {
 	unsigned hi, lo;
@@ -224,7 +227,6 @@ static __inline__ unsigned long long rdtsc(void)
 	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }
 
-twzobj bs;
 int main()
 {
 	debug_printf("Bootstrapping naming system\n");
@@ -236,6 +238,18 @@ int main()
 	setenv("TERM", "linux", 1);
 	setenv("PATH", "/usr/bin", 1);
 
+	init_test_init();
+
+	long long start = rdtsc();
+	for(volatile long i = 0; i < 100000; i++) {
+		init_test_iter();
+	}
+	long long end = rdtsc();
+
+	debug_printf("OK: %d %ld\n", errno, (end - start) / 100000);
+
+	for(;;)
+		;
 #if 0
 	long s = rdtsc();
 	size_t i = 0;

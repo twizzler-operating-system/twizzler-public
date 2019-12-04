@@ -38,8 +38,11 @@ struct metainfo {
 	nonce_t nonce;
 	objid_t kuid;
 	uint64_t sz;
-	_Alignas(8) struct metaext exts[];
+	uint64_t pad;
+	_Alignas(16) struct metaext exts[];
 } __attribute__((packed));
+
+_Static_assert(sizeof(struct metainfo) == 64, "");
 
 #define FE_READ MIP_DFL_READ
 #define FE_WRITE MIP_DFL_WRITE

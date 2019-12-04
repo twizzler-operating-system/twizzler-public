@@ -5,6 +5,8 @@
 
 /* based on https://github.com/matianfu/buddy/blob/master/buddy.c */
 
+/* TODO: robust, persist */
+
 #define POOLSIZE (1ul << MAX_ORDER)
 #define BLOCKSIZE(i) (1ul << (i))
 
@@ -21,7 +23,6 @@ static void *__buddy_alloc(twzobj *o, struct twzoa_header *hdr, size_t size)
 	while(BLOCKSIZE(i) < size)
 		i++;
 	order = i = (i < MIN_ORDER) ? MIN_ORDER : i;
-	// debug_printf("ORDER: %d\n", order);
 
 	for(;; i++) {
 		if(i > hdr->bdy.max_order)
@@ -44,10 +45,7 @@ static void *__buddy_alloc(twzobj *o, struct twzoa_header *hdr, size_t size)
 
 static void __buddy_free(twzobj *o, struct twzoa_header *hdr, void *block)
 {
-	// debug_printf("FREE\n");
-	// return ;
 	void *vblock = twz_object_lea(o, block);
-	debug_printf(":: %p %p\n", vblock, block);
 	// fetch order in previous byte
 	int i = *((uint8_t *)(vblock - 1));
 
@@ -73,18 +71,22 @@ static void __buddy_free(twzobj *o, struct twzoa_header *hdr, void *block)
 		// remove buddy out of list
 		void **vp = twz_object_lea(o, (*p));
 		*p = (void *)*vp;
-		//	*p = *(void **)*p;
 	}
 }
 
 void oa_hdr_free(twzobj *obj, struct twzoa_header *hdr, void *p)
 {
-	return __buddy_free(obj, hdr, p);
+	mutex_acquire(&hdr->m);
+	__buddy_free(obj, hdr, p);
+	mutex_release(&hdr->m);
 }
 
 void *oa_hdr_alloc(twzobj *obj, struct twzoa_header *hdr, size_t s)
 {
-	return __buddy_alloc(obj, hdr, s);
+	mutex_acquire(&hdr->m);
+	void *r = __buddy_alloc(obj, hdr, s);
+	mutex_release(&hdr->m);
+	return r;
 }
 
 int oa_hdr_init(twzobj *obj, struct twzoa_header *h, size_t start, size_t end)
@@ -94,6 +96,7 @@ int oa_hdr_init(twzobj *obj, struct twzoa_header *h, size_t start, size_t end)
 	h->start = start;
 	h->end = end;
 	h->bdy.max_order = 0;
+	mutex_init(&h->m);
 	memset(h->bdy.flist, 0, sizeof(h->bdy.flist));
 	while(BLOCKSIZE(h->bdy.max_order + 1) < end - start && h->bdy.max_order < MAX_ORDER) {
 		h->bdy.max_order++;

@@ -4,6 +4,9 @@
 #include <twz/btree.h>
 #include <twz/debug.h>
 #include <twz/obj.h>
+
+/* TODO: persist */
+
 enum {
 	RED,
 	BLACK,
@@ -27,7 +30,6 @@ static int __cf_default(const struct btree_val *a, const struct btree_val *b)
 	const unsigned char *ac = a->mv_data;
 	const unsigned char *bc = b->mv_data;
 	for(size_t i = 0;; i++, ac++, bc++) {
-		//	debug_printf("((( %ld %ld %ld\n", i, a->mv_size, b->mv_size);
 		if(i >= a->mv_size && i >= b->mv_size)
 			return 0;
 		if(i >= a->mv_size)
@@ -35,7 +37,6 @@ static int __cf_default(const struct btree_val *a, const struct btree_val *b)
 		if(i >= b->mv_size)
 			return 1;
 		int c = *ac - *bc;
-		//	debug_printf("  ((( %d %x %x\n", c, *ac, *bc);
 		if(c)
 			return c;
 	}
@@ -68,16 +69,8 @@ static struct btree_node *BSTInsert(twzobj *obj,
 		.mv_size = root->mk.mv_size,
 	};
 
-	/*struct btree_val pkey = {
-	    .mv_data = twz_object_lea(obj, pt->mk.mv_data),
-	    .mv_size = pt->mk.mv_size,
-	};*/
-
 	/* Otherwise, recur down the tree */
-	// debug_printf("::::::: %p %p\n", key->mv_data, pkey.mv_data);
 	int c = __cf_default(&rkey, key);
-	// printf("COMPARE %ld %ld %lx %lx -> %d\n", rkey.mv_size, pkey.mv_size,
-	// *(uint64_t*)rkey.mv_data, *(uint64_t*)pkey.mv_data, c);
 	if(c > 0) {
 		root->left = __c(BSTInsert(obj, __l(obj, root->left), pt, found, key));
 		__l(obj, root->left)->parent = __c(root);
@@ -87,6 +80,8 @@ static struct btree_node *BSTInsert(twzobj *obj,
 	} else {
 		root->md.mv_data = pt->md.mv_data;
 		root->md.mv_size = pt->md.mv_size;
+		_clwb(root);
+		_pfence();
 		*found = root;
 	}
 
@@ -260,10 +255,12 @@ int bt_insert(twzobj *obj,
 
 	pt->md.mv_data = d->mv_data;
 
+	mutex_acquire(&hdr->m);
 	// Do a normal BST insert
 	struct btree_node *e = NULL;
 	hdr->root = __c(BSTInsert(obj, __l(obj, hdr->root), pt, &e, k));
 	if(e) {
+		mutex_release(&hdr->m);
 		if(nt)
 			*nt = e;
 		oa_hdr_free(obj, &hdr->oa, __c(pt));
@@ -275,15 +272,14 @@ int bt_insert(twzobj *obj,
 
 	// fix Red Black Tree violations
 	fixViolation(obj, &hdr->root, &pt);
+	mutex_release(&hdr->m);
 	return 0;
 }
 
 /* lea: 1 */
 /* can: 0 */
 /* eq: 0 */
-static struct btree_node *_dolookup(twzobj *obj,
-  struct btree_node *root,
-  struct btree_val *k)
+static struct btree_node *_dolookup(twzobj *obj, struct btree_node *root, struct btree_val *k)
 {
 	// debug_printf(":: root=%p\n", root);
 	if(!root)
@@ -323,8 +319,11 @@ struct btree_node *bt_last(twzobj *obj, struct btree_hdr *hdr)
 	if(hdr->magic != BTMAGIC) {
 		return NULL;
 	}
+	mutex_acquire(&hdr->m);
 	struct btree_node *n = __l(obj, hdr->root);
-	return __bt_rightmost(obj, n);
+	struct btree_node *l = __bt_rightmost(obj, n);
+	mutex_release(&hdr->m);
+	return l;
 }
 
 struct btree_node *bt_first(twzobj *obj, struct btree_hdr *hdr)
@@ -332,8 +331,12 @@ struct btree_node *bt_first(twzobj *obj, struct btree_hdr *hdr)
 	if(hdr->magic != BTMAGIC) {
 		return NULL;
 	}
+
+	mutex_acquire(&hdr->m);
 	struct btree_node *n = __l(obj, hdr->root);
-	return __bt_leftmost(obj, n);
+	struct btree_node *f = __bt_leftmost(obj, n);
+	mutex_release(&hdr->m);
+	return f;
 }
 
 struct btree_node *bt_prev(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n)
@@ -343,13 +346,18 @@ struct btree_node *bt_prev(twzobj *obj, struct btree_hdr *hdr, struct btree_node
 	}
 	if(!n)
 		return n;
-	if(n->left)
-		return __bt_rightmost(obj, __l(obj, n->left));
+	mutex_acquire(&hdr->m);
+	if(n->left) {
+		struct btree_node *r = __bt_rightmost(obj, __l(obj, n->left));
+		mutex_release(&hdr->m);
+		return r;
+	}
 	struct btree_node *p = __l(obj, n->parent);
 	while(p && n == __l(obj, p->left)) {
 		n = p;
 		p = __l(obj, p->parent);
 	}
+	mutex_release(&hdr->m);
 	return p;
 }
 
@@ -360,19 +368,25 @@ struct btree_node *bt_next(twzobj *obj, struct btree_hdr *hdr, struct btree_node
 	}
 	if(!n)
 		return n;
-	if(n->right)
-		return __bt_leftmost(obj, __l(obj, n->right));
+	mutex_acquire(&hdr->m);
+	if(n->right) {
+		struct btree_node *r = __bt_leftmost(obj, __l(obj, n->right));
+		mutex_release(&hdr->m);
+		return r;
+	}
 	struct btree_node *p = __l(obj, n->parent);
 	while(p && n == __l(obj, p->right)) {
 		n = p;
 		p = __l(obj, p->parent);
 	}
+	mutex_release(&hdr->m);
 	return p;
 }
 
 int bt_init(twzobj *obj, struct btree_hdr *hdr)
 {
 	hdr->magic = BTMAGIC;
+	mutex_init(&hdr->m);
 	return oa_hdr_init(obj, &hdr->oa, 0x2000, OBJ_MAXSIZE - 0x8000);
 }
 
@@ -381,13 +395,13 @@ struct btree_node *bt_lookup(twzobj *obj, struct btree_hdr *hdr, struct btree_va
 	if(hdr->magic != BTMAGIC) {
 		return NULL;
 	}
-	return _dolookup(obj, __l(obj, hdr->root), k);
+	mutex_acquire(&hdr->m);
+	struct btree_node *n = _dolookup(obj, __l(obj, hdr->root), k);
+	mutex_release(&hdr->m);
+	return n;
 }
 
-int bt_node_get(twzobj *obj,
-  struct btree_hdr *hdr,
-  struct btree_node *n,
-  struct btree_val *v)
+int bt_node_get(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n, struct btree_val *v)
 {
 	(void)hdr;
 	v->mv_size = n->md.mv_size;
@@ -395,10 +409,7 @@ int bt_node_get(twzobj *obj,
 	return 0;
 }
 
-int bt_node_getkey(twzobj *obj,
-  struct btree_hdr *hdr,
-  struct btree_node *n,
-  struct btree_val *v)
+int bt_node_getkey(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n, struct btree_val *v)
 {
 	(void)hdr;
 	v->mv_size = n->mk.mv_size;

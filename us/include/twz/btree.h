@@ -1,7 +1,9 @@
 #pragma once
 
 #include <twz/alloc.h>
+#include <twz/mutex.h>
 #include <twz/obj.h>
+#include <twz/persist.h>
 
 struct btree_val {
 	const void *mv_data;
@@ -14,12 +16,15 @@ struct btree_node {
 	int color;
 };
 
+_Static_assert(sizeof(struct btree_node) <= __CL_SIZE, "");
+
 #define BTMAGIC 0xcafed00ddeadbeef
 
 struct btree_hdr {
 	struct twzoa_header oa;
 	uint64_t magic;
 	struct btree_node *root;
+	struct mutex m;
 };
 
 void bt_print_tree(twzobj *obj, struct btree_hdr *);
@@ -36,15 +41,9 @@ struct btree_node *bt_prev(twzobj *obj, struct btree_hdr *hdr, struct btree_node
 struct btree_node *bt_first(twzobj *obj, struct btree_hdr *hdr);
 struct btree_node *bt_last(twzobj *obj, struct btree_hdr *hdr);
 
-int bt_node_get(twzobj *obj,
-  struct btree_hdr *hdr,
-  struct btree_node *n,
-  struct btree_val *v);
+int bt_node_get(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n, struct btree_val *v);
 
-int bt_node_getkey(twzobj *obj,
-  struct btree_hdr *hdr,
-  struct btree_node *n,
-  struct btree_val *v);
+int bt_node_getkey(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n, struct btree_val *v);
 
 int bt_put(twzobj *obj,
   struct btree_hdr *hdr,

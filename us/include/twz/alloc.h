@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <twz/mutex.h>
 #include <twz/obj.h>
 
 #define MAX_ORDER 28
@@ -14,6 +15,7 @@ struct twzoa_header {
 			void *flist[MAX_ORDER + 2];
 		} bdy;
 	};
+	struct mutex m;
 };
 
 int oa_init(twzobj *obj, size_t start, size_t end);
