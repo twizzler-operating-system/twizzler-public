@@ -39,6 +39,7 @@ long (*syscall_table[NUM_SYSCALLS])() = {
 	[SYS_KACTION] = syscall_kaction,
 	[SYS_OPIN] = syscall_opin,
 	[SYS_OCTL] = syscall_octl,
+	[SYS_KCONF] = syscall_kconf,
 };
 
 long syscall_prelude(int num)

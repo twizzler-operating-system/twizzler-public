@@ -58,58 +58,8 @@ void tmain(const char *username)
 	exit(1);
 }
 
-#include <twz/tx.h>
-
-struct foo {
-	int x, y;
-	struct twz_tx tx;
-};
-
-static __inline__ unsigned long long rdtsc(void)
-{
-	unsigned hi, lo;
-	__asm__ __volatile__("rdtscp" : "=a"(lo), "=d"(hi));
-	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
-}
-
 int main()
 {
-	twzobj o;
-	int r;
-	if((r = twz_object_new(&o, NULL, NULL, TWZ_OC_DFL_WRITE | TWZ_OC_DFL_READ))) {
-		abort();
-	}
-	struct foo *f = twz_object_base(&o);
-	f->tx.logsz = 1024;
-	f->x = f->y = 0;
-
-	long long start = rdtsc();
-	for(volatile long i = 0; i < 100000; i++) {
-#if 0
-		TXSTART(&o, &f->tx)
-		{
-			TXRECORD(&f->tx, &f->x);
-			TXRECORD(&f->tx, &f->y);
-			f->x = 5;
-			f->y = 6;
-			// TXABORT(<errcode>);
-			TXCOMMIT;
-		}
-		TXEND;
-#else
-		f->x = 5;
-		f->y = 6;
-		_clwb(&f->x);
-		_clwb(&f->y);
-		_pfence();
-#endif
-	}
-	long long end = rdtsc();
-
-	fprintf(stderr, "OK: %d %d %d %ld\n", f->x, f->y, errno, (end - start) / 100000);
-	for(;;)
-		;
-
 	printf("Setting SCE to AUX.\n");
 	for(;;) {
 		char buffer[1024];

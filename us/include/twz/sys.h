@@ -23,6 +23,11 @@ static inline long __sys_debug_print(const char *str, size_t len)
 	return __syscall6(SYS_DEBUG_PRINT, (long)str, len, 0, 0, 0, 0);
 }
 
+static inline long sys_kconf(int cmd, long arg)
+{
+	return __syscall6(SYS_KCONF, cmd, arg, 0, 0, 0, 0);
+}
+
 static inline long sys_ocreate(int flags, objid_t kuid, objid_t src, objid_t *id)
 {
 	return __syscall6(

@@ -9,14 +9,14 @@
 
 struct __tx_log_entry {
 	void *ptr;
-	uint32_t len;
-	uint32_t next;
+	uint16_t len;
+	uint16_t next;
 	char value[];
 };
 
 struct twz_tx {
-	size_t logsz;
-	size_t end;
+	uint32_t logsz;
+	uint32_t end;
 	char log[];
 };
 
@@ -25,7 +25,7 @@ struct twz_tx {
 #include <twz/obj.h>
 #include <twz/persist.h>
 
-static inline int __tx_add(struct twz_tx *tx, void *p, size_t len)
+static inline int __tx_add(struct twz_tx *tx, void *p, uint16_t len)
 {
 	if(tx->end + sizeof(struct __tx_log_entry) + len > tx->logsz)
 		return -ENOMEM;
@@ -33,7 +33,7 @@ static inline int __tx_add(struct twz_tx *tx, void *p, size_t len)
 	entry->ptr = twz_ptr_local(p);
 	entry->len = len;
 	memcpy(entry->value, p, len);
-	size_t next = sizeof(*entry) + len;
+	uint16_t next = sizeof(*entry) + len;
 	next = (next + 7) & ~7;
 	entry->next = next;
 	_clwb_len(entry, sizeof(*entry) + len);
@@ -82,7 +82,49 @@ static inline int __tx_abort(twzobj *obj, struct twz_tx *tx)
 #define __TX_SUCCESS 1
 #define __TX_ABORT 2
 
-#define TXCHECK(tx) __tx_abort(tx)
+#define TXOPT_START(obj, tx, rcode)                                                                \
+	do {                                                                                           \
+		int _type = __TX_NORMAL;                                                                   \
+		int _code = 0;                                                                             \
+		int _done = 0;                                                                             \
+		while(!_done) {                                                                            \
+			__tx_cleanup((obj), (tx), _type != __TX_SUCCESS);                                      \
+			switch(_type) {                                                                        \
+				default:                                                                           \
+					_done = 1;                                                                     \
+					break;                                                                         \
+				case __TX_NORMAL:
+
+#define TXOPT_END                                                                                  \
+	break;                                                                                         \
+	}                                                                                              \
+	}                                                                                              \
+	rcode = (_code << 8) | _type;                                                                  \
+	}                                                                                              \
+	while(0)
+
+#define TXOPT_ABORT(code)                                                                          \
+	_type = __TX_ABORT;                                                                            \
+	_code = code;                                                                                  \
+	break
+
+#define TXOPT_COMMIT                                                                               \
+	_type = __TX_SUCCESS;                                                                          \
+	break
+
+#define TXOPT_RECORD_LEN(tx, x, l)                                                                 \
+	({                                                                                             \
+		int _rr = __tx_add((tx), (x), (l));                                                        \
+		if(_rr) {                                                                                  \
+			_code = _rr;                                                                           \
+			_type = __TX_ABORT;                                                                    \
+			break;                                                                                 \
+		}                                                                                          \
+	})
+
+#define TXOPT_RECORD(tx, x) TXOPT_RECORD_LEN((tx), (x), sizeof(*(x)))
+
+#define TXCHECK(obj, tx) __tx_abort((obj), (tx))
 
 #define TXSTART(obj, tx)                                                                           \
 	{                                                                                              \

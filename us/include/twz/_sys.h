@@ -14,7 +14,10 @@
 #define SYS_KACTION 11
 #define SYS_OPIN 12
 #define SYS_OCTL 13
-#define NUM_SYSCALLS 14
+#define SYS_KCONF 14
+#define NUM_SYSCALLS 15
+
+#define KCONF_RDRESET 1
 
 #define TWZ_DETACH_ONSYSCALL(s) ((s) << 16)
 #define TWZ_DETACH_REATTACH 0

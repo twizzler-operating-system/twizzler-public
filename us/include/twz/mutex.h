@@ -4,6 +4,7 @@
 
 struct mutex {
 	_Atomic long sleep;
+	_Atomic uint64_t resetcode;
 };
 
 #define MUTEX_INIT                                                                                 \
