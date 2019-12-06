@@ -15,7 +15,9 @@ static __inline__ unsigned long long rdtsc(void)
 struct foo {
 #if MANUAL
 	int ox, oy;
+	char pad0[64];
 	int valid;
+	char pad1[64];
 #endif
 	int x, y;
 	struct twz_tx tx;
@@ -24,6 +26,30 @@ struct foo {
 #include <twz/debug.h>
 #include <twz/sys.h>
 twzobj o;
+
+/*ITER
+clwb 0x80000001088 (0x2000000042)
+fence
+clwb 0x80000001048 (0x2000000041)
+fence
+clwb 0x80000001000 (0x2000000040)
+clwb 0x80000001004 (0x2000000040)
+fence
+clwb 0x80000001048 (0x2000000041)
+fence
+*/
+
+/* ITER
+clwb 0x80000001000 (0x2000000040)
+fence
+clwb 0x80000001048 (0x2000000041)
+fence
+clwb 0x8000000108C (0x2000000042)
+fence
+clwb 0x80000001048 (0x2000000041)
+fence
+*/
+
 void init_test_init(void)
 {
 	if((twz_object_new(&o, NULL, NULL, TWZ_OC_DFL_WRITE | TWZ_OC_DFL_READ))) {
@@ -58,6 +84,7 @@ void init_test_init(void)
 
 void init_test_iter(void)
 {
+	// debug_printf("ITER\n");
 	struct foo *f = twz_object_base(&o);
 #if !MANUAL
 #if 1
@@ -67,8 +94,11 @@ void init_test_iter(void)
 	// 2101 (rel;clfopt)
 	TXSTART(&o, &f->tx)
 	{
-		TXRECORD(&f->tx, &f->x);
-		TXRECORD(&f->tx, &f->y);
+		//	TXRECORD(&f->tx, &f->x);
+		//	TXRECORD(&f->tx, &f->y);
+		TXRECORD_TMP(&f->tx, &f->x);
+		TXRECORD_TMP(&f->tx, &f->y);
+		TX_RECORD_COMMIT(&f->tx);
 		f->x = 5;
 		f->y = 6;
 		// TXABORT(<errcode>);
@@ -101,7 +131,7 @@ void init_test_iter(void)
 	f->ox = f->x;
 	f->oy = f->y;
 	_clwb(&f->ox);
-	_clwb(&f->oy);
+	//_clwb(&f->oy);
 	_pfence();
 	f->valid = 0;
 	_clwb(&f->valid);
@@ -110,7 +140,7 @@ void init_test_iter(void)
 	f->x = 5;
 	f->y = 6;
 	_clwb(&f->x);
-	_clwb(&f->y);
+	//_clwb(&f->y);
 	_pfence();
 	f->valid = 1;
 	_clwb(&f->valid);

@@ -14,22 +14,52 @@ struct __tx_log_entry {
 	char value[];
 };
 
+#include <twz/persist.h>
+
 struct twz_tx {
 	uint32_t logsz;
+	uint32_t tmpend;
+	uint8_t pad0[__CL_SIZE - 8];
 	uint32_t end;
+	uint8_t pad1[__CL_SIZE - 4];
 	char log[];
 };
 
+#include <errno.h>
 #include <setjmp.h>
 #include <stdio.h>
 #include <twz/obj.h>
-#include <twz/persist.h>
+
+static inline int __tx_add_noflush(struct twz_tx *tx, void *p, uint16_t len)
+{
+	if(tx->tmpend + sizeof(struct __tx_log_entry) + len > tx->logsz)
+		return -ENOMEM;
+	struct __tx_log_entry *entry = (void *)&tx->log[tx->tmpend];
+	entry->ptr = twz_ptr_local(p);
+	entry->len = len;
+	memcpy(entry->value, p, len);
+	uint16_t next = sizeof(*entry) + len;
+	next = (next + 7) & ~7;
+	entry->next = next;
+
+	tx->tmpend += next;
+	return 0;
+}
+
+static inline int __tx_add_commit(struct twz_tx *tx)
+{
+	_clwb_len(tx->log, tx->tmpend);
+	_pfence();
+	tx->end = tx->tmpend;
+	_clwb(&tx->end);
+	_pfence();
+}
 
 static inline int __tx_add(struct twz_tx *tx, void *p, uint16_t len)
 {
-	if(tx->end + sizeof(struct __tx_log_entry) + len > tx->logsz)
+	if(tx->tmpend + sizeof(struct __tx_log_entry) + len > tx->logsz)
 		return -ENOMEM;
-	struct __tx_log_entry *entry = (void *)&tx->log[tx->end];
+	struct __tx_log_entry *entry = (void *)&tx->log[tx->tmpend];
 	entry->ptr = twz_ptr_local(p);
 	entry->len = len;
 	memcpy(entry->value, p, len);
@@ -40,11 +70,62 @@ static inline int __tx_add(struct twz_tx *tx, void *p, uint16_t len)
 	_pfence();
 
 	tx->end += next;
+	tx->tmpend += next;
 	_clwb(&tx->end);
 	_pfence();
 	return 0;
 }
 
+static inline int __same_line(void *a, void *b)
+{
+	return ((uintptr_t)a & ~(__CL_SIZE - 1)) == ((uintptr_t)b & ~(__CL_SIZE - 1));
+}
+
+static inline int __tx_cleanup(twzobj *obj, struct twz_tx *tx, bool abort)
+{
+	size_t e = 0;
+	void *last_vp = NULL;
+	long long last_len = 0;
+	while(e < tx->end) {
+		struct __tx_log_entry *entry = (void *)&tx->log[e];
+		void *vp = twz_object_lea(obj, entry->ptr);
+		if(abort) {
+			memcpy(vp, entry->value, entry->len);
+		}
+
+#if 1
+		char *l = vp;
+		char *last_l = last_vp;
+		long long rem = entry->len;
+		while(rem > 0) {
+			if(last_len == 0 || !__same_line(last_l, l))
+				_clwb(l);
+			size_t off = (uintptr_t)l & (__CL_SIZE - 1);
+			size_t last_off = (uintptr_t)last_l & (__CL_SIZE - 1);
+			l += (__CL_SIZE - off);
+			last_l += (__CL_SIZE - off);
+			rem -= (__CL_SIZE - off);
+			last_len -= (__CL_SIZE - last_off);
+		}
+
+		last_len = entry->len;
+		last_vp = vp;
+#else
+		_clwb_len(vp, entry->len);
+#endif
+		e += entry->next;
+	}
+
+	if(tx->end) {
+		_pfence();
+		tx->end = 0;
+		_clwb(&tx->end);
+		_pfence();
+	}
+	tx->tmpend = 0;
+}
+
+#if 0
 static inline int __tx_cleanup(twzobj *obj, struct twz_tx *tx, bool abort)
 {
 	size_t e = 0;
@@ -65,6 +146,7 @@ static inline int __tx_cleanup(twzobj *obj, struct twz_tx *tx, bool abort)
 		_pfence();
 	}
 }
+#endif
 
 static inline int __tx_commit(twzobj *obj, struct twz_tx *tx)
 {
@@ -122,7 +204,21 @@ static inline int __tx_abort(twzobj *obj, struct twz_tx *tx)
 		}                                                                                          \
 	})
 
+#define TXOPT_RECORD_LEN_TMP(tx, x, l)                                                             \
+	({                                                                                             \
+		int _rr = __tx_add_noflush((tx), (x), (l));                                                \
+		if(_rr) {                                                                                  \
+			_code = _rr;                                                                           \
+			_type = __TX_ABORT;                                                                    \
+			break;                                                                                 \
+		}                                                                                          \
+	})
+
 #define TXOPT_RECORD(tx, x) TXOPT_RECORD_LEN((tx), (x), sizeof(*(x)))
+
+#define TXOPT_RECORD_TMP(tx, x) TXOPT_RECORD_LEN_TMP((tx), (x), sizeof(*(x)))
+
+#define TX_RECORD_COMMIT(tx) __tx_add_commit(tx)
 
 #define TXCHECK(obj, tx) __tx_abort((obj), (tx))
 
@@ -167,4 +263,13 @@ static inline int __tx_abort(twzobj *obj, struct twz_tx *tx)
 			longjmp(_env, (_rr << 8) | __TX_ABORT);                                                \
 	})
 
+#define TXRECORD_LEN_TMP(tx, x, l)                                                                 \
+	({                                                                                             \
+		int _rr = __tx_add_noflush((tx), (x), (l));                                                \
+		if(_rr)                                                                                    \
+			longjmp(_env, (_rr << 8) | __TX_ABORT);                                                \
+	})
+
 #define TXRECORD(tx, x) TXRECORD_LEN((tx), (x), sizeof(*(x)))
+
+#define TXRECORD_TMP(tx, x) TXRECORD_LEN_TMP((tx), (x), sizeof(*(x)))
