@@ -12,6 +12,7 @@ enum {
 	BLACK,
 };
 
+/*
 #define TXOPT_RECORD_TMP(...)
 #define TXOPT_RECORD(...)
 #define TX_RECORD_COMMIT(...)
@@ -21,7 +22,7 @@ enum {
 
 #define _clwb(...)
 #define _pfence()
-
+*/
 __attribute__((const)) static inline struct btree_node *__c(void *x)
 {
 	return (struct btree_node *)(twz_ptr_local(x));

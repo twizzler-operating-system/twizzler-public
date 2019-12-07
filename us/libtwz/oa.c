@@ -19,8 +19,8 @@ static __inline__ unsigned long long rdtsc(void)
 	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }
 
-#define DEBUG(...) debug_printf(__VA_ARGS__)
-//#define DEBUG(...)
+//#define DEBUG(...) debug_printf(__VA_ARGS__)
+#define DEBUG(...)
 static inline int get_size_class(size_t sz)
 {
 	for(unsigned int i = 0; i < NR_SZS; i++) {
@@ -126,24 +126,22 @@ static void *get_slab(twzobj *o, struct twzoa_header *hdr, int sc)
 
 	int i, x;
 	for(x = 0; x < 4; x++) {
+		DEBUG("    trying %lx\n", slab->alloc[x]);
 		if(slab->alloc[x]) {
 			i = __builtin_ffsll(slab->alloc[x]) - 1;
 			break;
 		}
 	}
 
-	slab->alloc[x] &= ~(1 << i);
+	slab->alloc[x] &= ~(1ull << i);
 	slab->nrobj++;
-	DEBUG("  i = %d (alloc -> %lx)\n", i, slab->alloc[x]);
+	DEBUG("  obj = %d,%d: %d (alloc -> %lx)\n", x, i, x * 64 + i, slab->alloc[x]);
 
 	void *ret = (char *)slab + sizeof(*slab) + ((x * 64) + i) * slab->sz;
 	DEBUG("  ret = %p\n", ret);
 	if(slab->nrobj == nr_objs(slab)) {
 		hdr->slb.lists[sc].partial = slab->next;
 	}
-
-	*((uint8_t *)ret - 1) = sc;
-	*((uint8_t *)ret - 2) = i + x * 64;
 
 	return twz_ptr_local(ret);
 }
@@ -152,13 +150,12 @@ static void __slab_free(twzobj *o, struct twzoa_header *hdr, void *p)
 {
 	void *vp = twz_object_lea(o, p);
 
-	int sc = *((uint8_t *)vp - 1);
-	int obj = *((uint8_t *)vp - 2);
-
 	DEBUG("--free %p\n", p);
-	DEBUG("  sc = %d, obj = %d\n", sc, obj);
 
-	struct slab *slab = (void *)((char *)vp - (sizeof(*slab) + obj * size_classes[sc] * MIN_SIZE));
+	struct slab *slab = (void *)((uintptr_t)vp & ~(PAGE_SIZE - 1));
+	int obj = ((char *)vp - ((char *)slab + sizeof(*slab))) / slab->sz;
+	int sc = get_size_class(slab->sz);
+	DEBUG("  sc = %d, obj = %d\n", sc, obj);
 	DEBUG("  slab calculated as %p\n", slab);
 
 	if(slab->nrobj == nr_objs(slab)) {
@@ -166,7 +163,7 @@ static void __slab_free(twzobj *o, struct twzoa_header *hdr, void *p)
 		slab->next = hdr->slb.lists[sc].partial;
 		hdr->slb.lists[sc].partial = twz_ptr_local(slab);
 	}
-	slab->alloc[obj / 64] |= (1 << (obj % 64));
+	slab->alloc[obj / 64] |= (1ull << (obj % 64));
 	slab->nrobj--;
 	if(slab->nrobj == 0) {
 		struct slab **prev = &hdr->slb.lists[sc].partial;
@@ -188,7 +185,6 @@ static void __slab_free(twzobj *o, struct twzoa_header *hdr, void *p)
 
 static void *__slab_alloc(twzobj *o, struct twzoa_header *hdr, size_t size)
 {
-	size += 2;
 	int sc = get_size_class(size);
 	if(sc == -1) {
 		/* TODO: large allocations */
