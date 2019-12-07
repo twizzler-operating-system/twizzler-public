@@ -4,6 +4,7 @@
 #include <twz/mutex.h>
 #include <twz/obj.h>
 #include <twz/persist.h>
+#include <twz/tx.h>
 
 struct btree_val {
 	const void *mv_data;
@@ -20,11 +21,18 @@ _Static_assert(sizeof(struct btree_node) <= __CL_SIZE, "");
 
 #define BTMAGIC 0xcafed00ddeadbeef
 
+#define __BT_HDR_LOG_SZ 512
+
 struct btree_hdr {
 	struct twzoa_header oa;
+	char pad[64];
 	uint64_t magic;
 	struct btree_node *root;
+	char pad1[64];
 	struct mutex m;
+	char pad2[64];
+	struct twz_tx tx;
+	char __tx_log[__BT_HDR_LOG_SZ];
 };
 
 void bt_print_tree(twzobj *obj, struct btree_hdr *);

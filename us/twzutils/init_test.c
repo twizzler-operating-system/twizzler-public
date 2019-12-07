@@ -9,17 +9,16 @@ static __inline__ unsigned long long rdtsc(void)
 	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }
 
-#define MANUAL 0
+#define MANUAL 1
 
 #include <twz/tx.h>
 struct foo {
-#if MANUAL
 	int ox, oy;
 	char pad0[64];
 	int valid;
 	char pad1[64];
-#endif
 	int x, y;
+	char pad2[64];
 	struct twz_tx tx;
 };
 
@@ -144,6 +143,6 @@ void init_test_iter(void)
 	_pfence();
 	f->valid = 1;
 	_clwb(&f->valid);
-	_pfence();
+	//_pfence();
 #endif
 }

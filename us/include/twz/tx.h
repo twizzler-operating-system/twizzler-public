@@ -3,8 +3,6 @@
 /* support for SMALL transactions. Larger transactions need to be done with a copy + atomic-swap
  * scheme */
 
-#include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 
 struct __tx_log_entry {
@@ -27,8 +25,15 @@ struct twz_tx {
 
 #include <errno.h>
 #include <setjmp.h>
-#include <stdio.h>
 #include <twz/obj.h>
+
+static void tx_init(struct twz_tx *tx, uint32_t logsz)
+{
+	tx->logsz = logsz;
+	tx->tmpend = tx->end = 0;
+	_clwb(&tx->end);
+	_pfence();
+}
 
 static inline int __tx_add_noflush(struct twz_tx *tx, void *p, uint16_t len)
 {
@@ -81,9 +86,9 @@ static inline int __same_line(void *a, void *b)
 	return ((uintptr_t)a & ~(__CL_SIZE - 1)) == ((uintptr_t)b & ~(__CL_SIZE - 1));
 }
 
-static inline int __tx_cleanup(twzobj *obj, struct twz_tx *tx, bool abort)
+static inline int __tx_cleanup(twzobj *obj, struct twz_tx *tx, _Bool abort)
 {
-	size_t e = 0;
+	uint32_t e = 0;
 	void *last_vp = NULL;
 	long long last_len = 0;
 	while(e < tx->end) {
@@ -94,14 +99,15 @@ static inline int __tx_cleanup(twzobj *obj, struct twz_tx *tx, bool abort)
 		}
 
 #if 1
+		/* TODO: verify correctness */
 		char *l = vp;
 		char *last_l = last_vp;
 		long long rem = entry->len;
 		while(rem > 0) {
 			if(last_len == 0 || !__same_line(last_l, l))
 				_clwb(l);
-			size_t off = (uintptr_t)l & (__CL_SIZE - 1);
-			size_t last_off = (uintptr_t)last_l & (__CL_SIZE - 1);
+			uint32_t off = (uintptr_t)l & (__CL_SIZE - 1);
+			uint32_t last_off = (uintptr_t)last_l & (__CL_SIZE - 1);
 			l += (__CL_SIZE - off);
 			last_l += (__CL_SIZE - off);
 			rem -= (__CL_SIZE - off);
@@ -125,37 +131,14 @@ static inline int __tx_cleanup(twzobj *obj, struct twz_tx *tx, bool abort)
 	tx->tmpend = 0;
 }
 
-#if 0
-static inline int __tx_cleanup(twzobj *obj, struct twz_tx *tx, bool abort)
-{
-	size_t e = 0;
-	while(e < tx->end) {
-		struct __tx_log_entry *entry = (void *)&tx->log[e];
-		void *vp = twz_object_lea(obj, entry->ptr);
-		if(abort) {
-			memcpy(vp, entry->value, entry->len);
-		}
-		_clwb_len(vp, entry->len);
-		e += entry->next;
-	}
-
-	if(tx->end) {
-		_pfence();
-		tx->end = 0;
-		_clwb(&tx->end);
-		_pfence();
-	}
-}
-#endif
-
 static inline int __tx_commit(twzobj *obj, struct twz_tx *tx)
 {
-	return __tx_cleanup(obj, tx, false);
+	return __tx_cleanup(obj, tx, 0);
 }
 
 static inline int __tx_abort(twzobj *obj, struct twz_tx *tx)
 {
-	return __tx_cleanup(obj, tx, true);
+	return __tx_cleanup(obj, tx, 1);
 }
 
 #include <assert.h>

@@ -1,0 +1,1 @@
+Mutexes are crash-consistent.

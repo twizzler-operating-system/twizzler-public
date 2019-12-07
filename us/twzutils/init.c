@@ -227,6 +227,8 @@ static __inline__ unsigned long long rdtsc(void)
 	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }
 
+#include <twz/btree.h>
+void slab_test();
 int main()
 {
 	debug_printf("Bootstrapping naming system\n");
@@ -238,6 +240,7 @@ int main()
 	setenv("TERM", "linux", 1);
 	setenv("PATH", "/usr/bin", 1);
 
+#if 0
 	init_test_init();
 
 	long long start = rdtsc();
@@ -250,6 +253,7 @@ int main()
 
 	for(;;)
 		;
+#endif
 #if 0
 	long s = rdtsc();
 	size_t i = 0;
@@ -260,7 +264,34 @@ int main()
 	debug_printf("----> %ld ;; %ld\n", e - s, (e - s) / i);
 	for(;;)
 		;
+	slab_test();
+	for(;;)
+		;
 #endif
+	twzobj o;
+	if((twz_object_new(&o, NULL, NULL, TWZ_OC_DFL_WRITE | TWZ_OC_DFL_READ))) {
+		abort();
+	}
+	bt_init(&o, twz_object_base(&o));
+
+	int x;
+	int k;
+	long long sa = rdtsc();
+	for(k = 0; k < 10000; k++) {
+		//	debug_printf("insert %d\n", k);
+		struct btree_val rdv = { .mv_data = &x, .mv_size = sizeof(x) };
+		struct btree_val rkv = { .mv_data = &k, .mv_size = sizeof(k) };
+		// long long s = rdtsc();
+		bt_put(&o, twz_object_base(&o), &rkv, &rdv, NULL);
+		// long long e = rdtsc();
+		// debug_printf("-> %ld\n", (e - s) / 4);
+	}
+	long long ea = rdtsc();
+
+	debug_printf(":::: %ld\n", (ea - sa) / (4 * 10000));
+	// bt_print_tree(&o, twz_object_base(&o));
+	for(;;)
+		;
 	int r;
 
 	kso_set_name(NULL, "[instance] init");

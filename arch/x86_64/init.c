@@ -182,7 +182,7 @@ static void x86_64_initrd(void *u)
 				case '0':
 				case '7':
 					nl = strlen(name);
-					printk("Loading object: %s\e[K\r", name);
+					// printk("Loading object: %s\e[K\r", name);
 					if(!strncmp(name, "kc", 2) && nl == 2) {
 						kc_parse(data, len);
 					} else {
