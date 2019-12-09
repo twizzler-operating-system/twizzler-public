@@ -382,6 +382,7 @@ int bt_insert(twzobj *obj,
 
 	/* TODO: if we are replacing, free the old data...?*/
 	mutex_acquire(&hdr->m);
+	TXCHECK(obj, &hdr->tx);
 	// Do a normal BST insert
 	struct btree_node *e = NULL;
 	hdr->root = __c(BSTInsert(obj, __l(obj, hdr->root), pt, &e, k));
@@ -450,6 +451,7 @@ struct btree_node *bt_last(twzobj *obj, struct btree_hdr *hdr)
 		return NULL;
 	}
 	mutex_acquire(&hdr->m);
+	TXCHECK(obj, &hdr->tx);
 	struct btree_node *n = __l(obj, hdr->root);
 	struct btree_node *l = __bt_rightmost(obj, n);
 	mutex_release(&hdr->m);
@@ -463,6 +465,7 @@ struct btree_node *bt_first(twzobj *obj, struct btree_hdr *hdr)
 	}
 
 	mutex_acquire(&hdr->m);
+	TXCHECK(obj, &hdr->tx);
 	struct btree_node *n = __l(obj, hdr->root);
 	struct btree_node *f = __bt_leftmost(obj, n);
 	mutex_release(&hdr->m);
@@ -477,6 +480,7 @@ struct btree_node *bt_prev(twzobj *obj, struct btree_hdr *hdr, struct btree_node
 	if(!n)
 		return n;
 	mutex_acquire(&hdr->m);
+	TXCHECK(obj, &hdr->tx);
 	if(n->left) {
 		struct btree_node *r = __bt_rightmost(obj, __l(obj, n->left));
 		mutex_release(&hdr->m);
@@ -499,6 +503,7 @@ struct btree_node *bt_next(twzobj *obj, struct btree_hdr *hdr, struct btree_node
 	if(!n)
 		return n;
 	mutex_acquire(&hdr->m);
+	TXCHECK(obj, &hdr->tx);
 	if(n->right) {
 		struct btree_node *r = __bt_leftmost(obj, __l(obj, n->right));
 		mutex_release(&hdr->m);
@@ -530,6 +535,7 @@ struct btree_node *bt_lookup(twzobj *obj, struct btree_hdr *hdr, struct btree_va
 		return NULL;
 	}
 	mutex_acquire(&hdr->m);
+	TXCHECK(obj, &hdr->tx);
 	struct btree_node *n = _dolookup(obj, __l(obj, hdr->root), k);
 	mutex_release(&hdr->m);
 	return n;
@@ -602,5 +608,8 @@ static void _doprint_tree(twzobj *obj, int indent, struct btree_node *root)
 
 void bt_print_tree(twzobj *obj, struct btree_hdr *hdr)
 {
+	mutex_acquire(&hdr->m);
+	TXCHECK(obj, &hdr->tx);
+	mutex_release(&hdr->m);
 	_doprint_tree(obj, 0, __l(obj, hdr->root));
 }
