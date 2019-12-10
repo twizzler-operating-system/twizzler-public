@@ -271,6 +271,8 @@ static uint64_t __failed_addr(int f, void *info)
 	return 0;
 }
 
+/* TODO: handle failure when no data object for executable exists (fault before default fault
+ * handler can be set */
 void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 {
 	struct object *to = kso_get_obj(t->throbj, thr);
@@ -283,6 +285,7 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 	if(fi.view) {
 		panic("NI - different view :: %d", fault);
 	}
+	__print_fault_info(t, fault, info);
 	if(fi.addr) {
 		if((void *)__failed_addr(fault, info) == fi.addr) {
 			/* probably a double-fault. Just die */

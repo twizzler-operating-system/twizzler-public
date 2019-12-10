@@ -7,7 +7,7 @@
 #include <twz/tx.h>
 
 struct btree_val {
-	const void *mv_data;
+	void *mv_data;
 	size_t mv_size;
 };
 
@@ -58,3 +58,22 @@ int bt_put(twzobj *obj,
   struct btree_val *k,
   struct btree_val *v,
   struct btree_node **node);
+
+int bt_put_cmp(twzobj *obj,
+  struct btree_hdr *hdr,
+  struct btree_val *k,
+  struct btree_val *v,
+  struct btree_node **node,
+  int (*cmp)(const struct btree_val *, const struct btree_val *));
+
+struct btree_node *bt_lookup_cmp(twzobj *obj,
+  struct btree_hdr *hdr,
+  struct btree_val *k,
+  int (*cmp)(const struct btree_val *, const struct btree_val *));
+
+int bt_insert_cmp(twzobj *obj,
+  struct btree_hdr *hdr,
+  struct btree_val *k,
+  struct btree_val *d,
+  struct btree_node **nt,
+  int (*cmp)(const struct btree_val *, const struct btree_val *));

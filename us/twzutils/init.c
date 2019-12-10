@@ -268,6 +268,7 @@ int main()
 	for(;;)
 		;
 #endif
+#if 0
 	twzobj o;
 	if((twz_object_new(&o, NULL, NULL, TWZ_OC_DFL_WRITE | TWZ_OC_DFL_READ))) {
 		abort();
@@ -292,6 +293,7 @@ int main()
 	// bt_print_tree(&o, twz_object_base(&o));
 	for(;;)
 		;
+#endif
 	int r;
 
 	kso_set_name(NULL, "[instance] init");

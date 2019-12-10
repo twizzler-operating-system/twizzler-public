@@ -28,6 +28,12 @@ long linux_sys_open(const char *path, int flags, int mode)
 	return file->fd;
 }
 
+long linux_sys_fcntl(int fd, int cmd, long arg)
+{
+	return -ENOTSUP;
+	return 0;
+}
+
 long linux_sys_close(int fd)
 {
 	struct file *f = twix_get_fd(fd);

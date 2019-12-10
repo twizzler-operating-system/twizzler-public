@@ -1,0 +1,33 @@
+#!/bin/sh
+
+NAME=sqlite
+VERSION=3
+DEPS=
+desc="SQLite Database (modified for Twizzler)"
+
+DOWNLOADS=()
+HASHES=()
+
+SPLITS=(usr/bin/sqlite3-static)
+
+function prepare() {
+	git clone https://gitlab.soe.ucsc.edu/gitlab/crss/twz-sqlite
+	cd twz-sqlite
+	git checkout twz
+	cd ..
+	cp -rf ../../../../../../us/ports/twz-sqlite .
+	cd twz-sqlite
+	./configure --prefix=/usr --host=$TARGET CFLAGS='-march=native' --disable-readline --disable-tcl
+}
+
+function build() {
+	cd twz-sqlite
+	make $MAKEFLAGS 
+}
+
+function install() {
+	cd twz-sqlite
+	make $MAKEFLAGS DESTDIR=$SYSROOT install
+}
+
+

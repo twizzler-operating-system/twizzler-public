@@ -50,6 +50,8 @@
 #define LINUX_SYS_preadv2 327
 #define LINUX_SYS_pwritev2 328
 
+#define LINUX_SYS_fcntl 72
+
 #include "syscalls.h"
 
 static long (*syscall_table[])() = {
@@ -62,6 +64,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_preadv] = linux_sys_preadv,
 	[LINUX_SYS_readv] = linux_sys_readv,
 	[LINUX_SYS_pread] = linux_sys_pread,
+	[LINUX_SYS_fcntl] = linux_sys_fcntl,
 	[LINUX_SYS_pwrite] = linux_sys_pwrite,
 	[LINUX_SYS_read] = linux_sys_read,
 	[LINUX_SYS_write] = linux_sys_write,

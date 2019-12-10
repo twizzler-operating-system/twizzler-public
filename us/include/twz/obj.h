@@ -126,3 +126,6 @@ static inline struct fotentry *_twz_object_get_fote(twzobj *obj, size_t e)
 	struct metainfo *mi = twz_object_meta(obj);
 	return (struct fotentry *)((char *)mi - sizeof(struct fotentry) * e);
 }
+
+#include <sys/types.h>
+ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags);

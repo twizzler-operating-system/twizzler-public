@@ -19,10 +19,12 @@ enum {
 #define TXOPT_START(...)
 #define TXOPT_END
 #define TXOPT_COMMIT
+#define TXCHECK(...)
 
 #define _clwb(...)
 #define _pfence()
 */
+
 __attribute__((const)) static inline struct btree_node *__c(void *x)
 {
 	return (struct btree_node *)(twz_ptr_local(x));
@@ -68,7 +70,8 @@ static struct btree_node *BSTInsert(twzobj *obj,
   struct btree_node *root,
   struct btree_node *pt,
   struct btree_node **found,
-  struct btree_val *key)
+  struct btree_val *key,
+  int (*cmp)(const struct btree_val *, const struct btree_val *))
 {
 	/* If the tree is empty, return a new node */
 	if(root == NULL) {
@@ -81,9 +84,9 @@ static struct btree_node *BSTInsert(twzobj *obj,
 	};
 
 	/* Otherwise, recur down the tree */
-	int c = __cf_default(&rkey, key);
+	int c = cmp(&rkey, key);
 	if(c > 0) {
-		struct btree_node *nn = __c(BSTInsert(obj, __l(obj, root->left), pt, found, key));
+		struct btree_node *nn = __c(BSTInsert(obj, __l(obj, root->left), pt, found, key, cmp));
 		if(root->left != nn) {
 			struct btree_node *vnn = __l(obj, nn);
 			vnn->parent = __c(root);
@@ -95,7 +98,7 @@ static struct btree_node *BSTInsert(twzobj *obj,
 			//__l(obj, root->left)->parent = __c(root);
 		}
 	} else if(c < 0) {
-		struct btree_node *nn = __c(BSTInsert(obj, __l(obj, root->right), pt, found, key));
+		struct btree_node *nn = __c(BSTInsert(obj, __l(obj, root->right), pt, found, key, cmp));
 		if(root->right != nn) {
 			struct btree_node *vnn = __l(obj, nn);
 			vnn->parent = __c(root);
@@ -359,11 +362,12 @@ static void fixViolation(twzobj *obj,
 /* lea: 0 */
 /* can: 1 */
 /* eq: 0 */
-int bt_insert(twzobj *obj,
+int bt_insert_cmp(twzobj *obj,
   struct btree_hdr *hdr,
   struct btree_val *k,
   struct btree_val *d,
-  struct btree_node **nt)
+  struct btree_node **nt,
+  int (*cmp)(const struct btree_val *, const struct btree_val *))
 {
 	if(hdr->magic != BTMAGIC) {
 		return -EINVAL;
@@ -385,7 +389,7 @@ int bt_insert(twzobj *obj,
 	TXCHECK(obj, &hdr->tx);
 	// Do a normal BST insert
 	struct btree_node *e = NULL;
-	hdr->root = __c(BSTInsert(obj, __l(obj, hdr->root), pt, &e, k));
+	hdr->root = __c(BSTInsert(obj, __l(obj, hdr->root), pt, &e, k, cmp));
 	if(e) {
 		mutex_release(&hdr->m);
 		if(nt)
@@ -407,10 +411,22 @@ int bt_insert(twzobj *obj,
 	return 0;
 }
 
+int bt_insert(twzobj *obj,
+  struct btree_hdr *hdr,
+  struct btree_val *k,
+  struct btree_val *d,
+  struct btree_node **nt)
+{
+	return bt_insert_cmp(obj, hdr, k, d, nt, __cf_default);
+}
+
 /* lea: 1 */
 /* can: 0 */
 /* eq: 0 */
-static struct btree_node *_dolookup(twzobj *obj, struct btree_node *root, struct btree_val *k)
+static struct btree_node *_dolookup(twzobj *obj,
+  struct btree_node *root,
+  struct btree_val *k,
+  int (*cmp)(const struct btree_val *, const struct btree_val *))
 {
 	// debug_printf(":: root=%p\n", root);
 	if(!root)
@@ -419,14 +435,14 @@ static struct btree_node *_dolookup(twzobj *obj, struct btree_node *root, struct
 		.mv_data = twz_object_lea(obj, root->mk.mv_data),
 		.mv_size = root->mk.mv_size,
 	};
-	int c = __cf_default(&rootkey, k);
+	int c = cmp(&rootkey, k);
 	// debug_printf("CMP: %s %s: %d\n", (uint32_t*)rootkey.mv_data, (uint32_t*)k->mv_data, c);
 	if(!c) {
 		return root;
 	} else if(c > 0) {
-		return _dolookup(obj, __l(obj, root->left), k);
+		return _dolookup(obj, __l(obj, root->left), k, cmp);
 	} else {
-		return _dolookup(obj, __l(obj, root->right), k);
+		return _dolookup(obj, __l(obj, root->right), k, cmp);
 	}
 }
 static struct btree_node *__bt_leftmost(twzobj *obj, struct btree_node *n)
@@ -529,16 +545,24 @@ int bt_init(twzobj *obj, struct btree_hdr *hdr)
 	return oa_hdr_init(obj, &hdr->oa, 0x3000, OBJ_MAXSIZE - 0x8000);
 }
 
-struct btree_node *bt_lookup(twzobj *obj, struct btree_hdr *hdr, struct btree_val *k)
+struct btree_node *bt_lookup_cmp(twzobj *obj,
+  struct btree_hdr *hdr,
+  struct btree_val *k,
+  int (*cmp)(const struct btree_val *, const struct btree_val *))
 {
 	if(hdr->magic != BTMAGIC) {
 		return NULL;
 	}
 	mutex_acquire(&hdr->m);
 	TXCHECK(obj, &hdr->tx);
-	struct btree_node *n = _dolookup(obj, __l(obj, hdr->root), k);
+	struct btree_node *n = _dolookup(obj, __l(obj, hdr->root), k, cmp);
 	mutex_release(&hdr->m);
 	return n;
+}
+
+struct btree_node *bt_lookup(twzobj *obj, struct btree_hdr *hdr, struct btree_val *k)
+{
+	return bt_lookup_cmp(obj, hdr, k, __cf_default);
 }
 
 int bt_node_get(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n, struct btree_val *v)
@@ -557,30 +581,46 @@ int bt_node_getkey(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n, str
 	return 0;
 }
 
-int bt_put(twzobj *obj,
+int bt_put_cmp(twzobj *obj,
   struct btree_hdr *hdr,
   struct btree_val *k,
   struct btree_val *v,
-  struct btree_node **node)
+  struct btree_node **node,
+  int (*cmp)(const struct btree_val *, const struct btree_val *))
 {
 	void *dest_k = oa_hdr_alloc(obj, &hdr->oa, k->mv_size);
 	if(!dest_k)
 		return -ENOSPC;
 	void *vdest_k = twz_object_lea(obj, dest_k);
 	memcpy(vdest_k, k->mv_data, k->mv_size);
+	_clwb_len(vdest_k, k->mv_size);
 
-	void *dest_v = oa_hdr_alloc(obj, &hdr->oa, v->mv_size);
-	if(!dest_v) {
-		oa_hdr_free(obj, &hdr->oa, dest_k);
-		return -ENOSPC;
+	void *dest_v = NULL;
+	if(v) {
+		dest_v = oa_hdr_alloc(obj, &hdr->oa, v->mv_size);
+		if(!dest_v) {
+			oa_hdr_free(obj, &hdr->oa, dest_k);
+			return -ENOSPC;
+		}
+		void *vdest_v = twz_object_lea(obj, dest_v);
+		memcpy(vdest_v, v->mv_data, v->mv_size);
+		_clwb_len(vdest_v, v->mv_size);
+		_pfence();
 	}
-	void *vdest_v = twz_object_lea(obj, dest_v);
-	memcpy(vdest_v, v->mv_data, v->mv_size);
 
 	struct btree_val nk = { .mv_data = dest_k, .mv_size = k->mv_size };
-	struct btree_val nv = { .mv_data = dest_v, .mv_size = v->mv_size };
+	struct btree_val nv = { .mv_data = dest_v, .mv_size = v ? v->mv_size : 0 };
 
-	return bt_insert(obj, hdr, &nk, &nv, node);
+	return bt_insert_cmp(obj, hdr, &nk, &nv, node, cmp);
+}
+
+int bt_put(twzobj *obj,
+  struct btree_hdr *hdr,
+  struct btree_val *k,
+  struct btree_val *v,
+  struct btree_node **node)
+{
+	return bt_put_cmp(obj, hdr, k, v, node, __cf_default);
 }
 
 static void _doprint_tree(twzobj *obj, int indent, struct btree_node *root)

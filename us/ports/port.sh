@@ -50,7 +50,8 @@ WORKDIR=$(pwd)/projects/$PROJECT/build/us/ports/$NAME
 #cleanup temporary files on error
 function cleanup () {
 	error_print "error occurred; cleaning up"
-	rm -rf $WORKDIR
+	rm -rf $WORKDIR-fail
+	mv $WORKDIR $WORKDIR-fail
 }
 trap cleanup 0
 
@@ -61,6 +62,7 @@ cd $WORKDIR
 
 status_print "retrieving sources: " $NAME
 
+if (( ${#DOWNLOADS[@]} )); then
 for i in "${!DOWNLOADS[*]}"; do
 	thefile=$(basename ${DOWNLOADS[$i]})
 	theurl=${DOWNLOADS[$i]}
@@ -78,21 +80,22 @@ for i in "${!DOWNLOADS[*]}"; do
 		fi
 	fi
 done
+fi
 
 PATH="$PATH:$TOOLCHAIN_PATH/bin"
 
 status_print "starting prepare(): " $NAME
 
 #do these in subshells in case they change directories
-( prepare ) > prepare.stdout
+( prepare ) > ../$NAME-prepare.stdout
 
 status_print "starting build(): " $NAME
 
-( build ) > build.stdout
+( build ) > ../$NAME-build.stdout
 
 status_print "starting install(): " $NAME
 
-( install ) > install.stdout
+( install ) > ../$NAME-install.stdout
 
 )
 status_print "post-processing executables: " $NAME
