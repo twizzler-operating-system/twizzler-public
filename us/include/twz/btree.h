@@ -52,6 +52,7 @@ struct btree_node *bt_last(twzobj *obj, struct btree_hdr *hdr);
 int bt_node_get(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n, struct btree_val *v);
 
 int bt_node_getkey(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n, struct btree_val *v);
+struct btree_node *bt_delete(twzobj *obj, struct btree_hdr *hdr, struct btree_node *node);
 
 int bt_put(twzobj *obj,
   struct btree_hdr *hdr,

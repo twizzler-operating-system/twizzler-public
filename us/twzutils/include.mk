@@ -1,6 +1,7 @@
-TWZUTILS=init login nls shell input pcie serial term bstream pty tst nvme kls lscpu
+TWZUTILS=init login nls shell input pcie serial term bstream pty tst nvme kls lscpu sqb
 
 LIBS_tst=-lncurses
+LIBS_sqb=-lsqlite3
 CFLAGS_term=-O3 -march=native -msse2 -msse4 -msse -mavx -ffast-math
 CFLAGS_init=-O3 -march=native
 CFLAGS_init_test=-O3 -march=native

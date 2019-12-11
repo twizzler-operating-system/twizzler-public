@@ -25,6 +25,7 @@ enum {
 #define _pfence()
 */
 
+static void _doprint_tree(twzobj *obj, int indent, struct btree_node *root);
 __attribute__((const)) static inline struct btree_node *__c(void *x)
 {
 	return (struct btree_node *)(twz_ptr_local(x));
@@ -84,7 +85,7 @@ static struct btree_node *BSTInsert(twzobj *obj,
 	};
 
 	/* Otherwise, recur down the tree */
-	int c = cmp(&rkey, key);
+	int c = -cmp(key, &rkey);
 	if(c > 0) {
 		struct btree_node *nn = __c(BSTInsert(obj, __l(obj, root->left), pt, found, key, cmp));
 		if(root->left != nn) {
@@ -419,6 +420,125 @@ int bt_insert(twzobj *obj,
 {
 	return bt_insert_cmp(obj, hdr, k, d, nt, __cf_default);
 }
+static struct btree_node *__bt_leftmost(twzobj *obj, struct btree_node *n)
+{
+	while(n->left) {
+		n = __l(obj, n->left);
+	}
+	return n;
+}
+
+static struct btree_node *__bt_rightmost(twzobj *obj, struct btree_node *n)
+{
+	while(n->right) {
+		n = __l(obj, n->right);
+	}
+	return n;
+}
+static struct btree_node *__bt_next(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n)
+{
+	if(n->right) {
+		struct btree_node *r = __bt_leftmost(obj, __l(obj, n->right));
+		return r;
+	}
+	struct btree_node *p = __l(obj, n->parent);
+	while(p && n == __l(obj, p->right)) {
+		n = p;
+		p = __l(obj, p->parent);
+	}
+	return p;
+}
+
+static struct btree_node *__bt_prev(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n)
+{
+	if(n->left) {
+		struct btree_node *r = __bt_rightmost(obj, __l(obj, n->left));
+		return r;
+	}
+	struct btree_node *p = __l(obj, n->parent);
+	while(p && n == __l(obj, p->left)) {
+		n = p;
+		p = __l(obj, p->parent);
+	}
+	return p;
+}
+
+static struct btree_node *__bt_delete(twzobj *obj, struct btree_hdr *hdr, struct btree_node *node)
+{
+	// debug_printf("=== BEFORE ===\n");
+	//_doprint_tree(obj, 0, __l(obj, hdr->root));
+	// debug_printf("=== ====== ===\n");
+	// debug_printf("DELETE: %p\n", __c(node));
+	struct btree_node *ret = NULL, *child = NULL;
+	int rcode;
+	if(node->left && node->right) {
+		/* two children case: swap a pred or succ node with us, delete that node. */
+		child = __bt_next(obj, hdr, node);
+		if(!child) {
+			child = __bt_prev(obj, hdr, node);
+		}
+		// debug_printf("  child(t): %p\n", __c(child));
+	} else if(!node->left && !node->right) {
+		/* no children case */
+		struct btree_node *next = __bt_next(obj, hdr, node);
+		if(!next) {
+			next = __bt_prev(obj, hdr, node);
+		}
+		// debug_printf("  next: %p\n", __c(next));
+		if(node->parent) {
+			struct btree_node *p = __l(obj, node->parent);
+			if(__c(node) == p->left) {
+				p->left = NULL;
+			} else {
+				p->right = NULL;
+			}
+		}
+		if(hdr->root == __c(node)) {
+			hdr->root = NULL;
+		}
+		oa_hdr_free(obj, &hdr->oa, __c(node));
+		ret = next;
+	} else {
+		/* one child case */
+		if(node->right)
+			child = __bt_next(obj, hdr, node);
+		else
+			child = __bt_prev(obj, hdr, node);
+		// debug_printf("  child(o): %p\n", __c(child));
+	}
+
+	if(!ret) {
+		TXOPT_START(obj, &hdr->tx, rcode)
+		{
+			TXOPT_RECORD_TMP(&hdr->tx, &node->mk);
+			TXOPT_RECORD_TMP(&hdr->tx, &node->md);
+			TXOPT_RECORD_TMP(&hdr->tx, &child->mk.mv_size);
+			TX_RECORD_COMMIT(&hdr->tx);
+			node->mk = child->mk;
+			node->md = child->md;
+			child->mk.mv_size = 0;
+			TXOPT_COMMIT;
+		}
+		TXOPT_END;
+		__bt_delete(obj, hdr, child);
+		ret = node;
+	}
+	// debug_printf("=== AFTER ===\n");
+	//_doprint_tree(obj, 0, __l(obj, hdr->root));
+	// debug_printf("=== ===== ===\n");
+	return ret;
+}
+
+struct btree_node *bt_delete(twzobj *obj, struct btree_hdr *hdr, struct btree_node *node)
+{
+	if(hdr->magic != BTMAGIC)
+		return NULL;
+	mutex_acquire(&hdr->m);
+	TXCHECK(obj, &hdr->tx);
+	struct btree_node *r = __bt_delete(obj, hdr, node);
+	mutex_release(&hdr->m);
+	return r;
+}
 
 /* lea: 1 */
 /* can: 0 */
@@ -435,7 +555,7 @@ static struct btree_node *_dolookup(twzobj *obj,
 		.mv_data = twz_object_lea(obj, root->mk.mv_data),
 		.mv_size = root->mk.mv_size,
 	};
-	int c = cmp(&rootkey, k);
+	int c = -cmp(k, &rootkey);
 	// debug_printf("CMP: %s %s: %d\n", (uint32_t*)rootkey.mv_data, (uint32_t*)k->mv_data, c);
 	if(!c) {
 		return root;
@@ -444,21 +564,6 @@ static struct btree_node *_dolookup(twzobj *obj,
 	} else {
 		return _dolookup(obj, __l(obj, root->right), k, cmp);
 	}
-}
-static struct btree_node *__bt_leftmost(twzobj *obj, struct btree_node *n)
-{
-	while(n->left) {
-		n = __l(obj, n->left);
-	}
-	return n;
-}
-
-static struct btree_node *__bt_rightmost(twzobj *obj, struct btree_node *n)
-{
-	while(n->right) {
-		n = __l(obj, n->right);
-	}
-	return n;
 }
 
 struct btree_node *bt_last(twzobj *obj, struct btree_hdr *hdr)
@@ -497,20 +602,10 @@ struct btree_node *bt_prev(twzobj *obj, struct btree_hdr *hdr, struct btree_node
 		return n;
 	mutex_acquire(&hdr->m);
 	TXCHECK(obj, &hdr->tx);
-	if(n->left) {
-		struct btree_node *r = __bt_rightmost(obj, __l(obj, n->left));
-		mutex_release(&hdr->m);
-		return r;
-	}
-	struct btree_node *p = __l(obj, n->parent);
-	while(p && n == __l(obj, p->left)) {
-		n = p;
-		p = __l(obj, p->parent);
-	}
+	struct btree_node *p = __bt_prev(obj, hdr, n);
 	mutex_release(&hdr->m);
 	return p;
 }
-
 struct btree_node *bt_next(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n)
 {
 	if(hdr->magic != BTMAGIC) {
@@ -520,16 +615,7 @@ struct btree_node *bt_next(twzobj *obj, struct btree_hdr *hdr, struct btree_node
 		return n;
 	mutex_acquire(&hdr->m);
 	TXCHECK(obj, &hdr->tx);
-	if(n->right) {
-		struct btree_node *r = __bt_leftmost(obj, __l(obj, n->right));
-		mutex_release(&hdr->m);
-		return r;
-	}
-	struct btree_node *p = __l(obj, n->parent);
-	while(p && n == __l(obj, p->right)) {
-		n = p;
-		p = __l(obj, p->parent);
-	}
+	struct btree_node *p = __bt_next(obj, hdr, n);
 	mutex_release(&hdr->m);
 	return p;
 }
@@ -594,24 +680,32 @@ int bt_put_cmp(twzobj *obj,
 	void *vdest_k = twz_object_lea(obj, dest_k);
 	memcpy(vdest_k, k->mv_data, k->mv_size);
 	_clwb_len(vdest_k, k->mv_size);
+	k->mv_data = dest_k;
 
 	void *dest_v = NULL;
+	void *vdest_v = NULL;
 	if(v) {
 		dest_v = oa_hdr_alloc(obj, &hdr->oa, v->mv_size);
 		if(!dest_v) {
 			oa_hdr_free(obj, &hdr->oa, dest_k);
 			return -ENOSPC;
 		}
-		void *vdest_v = twz_object_lea(obj, dest_v);
+		vdest_v = twz_object_lea(obj, dest_v);
 		memcpy(vdest_v, v->mv_data, v->mv_size);
 		_clwb_len(vdest_v, v->mv_size);
 		_pfence();
+		v->mv_data = dest_v;
 	}
 
-	struct btree_val nk = { .mv_data = dest_k, .mv_size = k->mv_size };
-	struct btree_val nv = { .mv_data = dest_v, .mv_size = v ? v->mv_size : 0 };
+	// struct btree_val nk = { .mv_data = dest_k, .mv_size = k->mv_size };
+	struct btree_val nv = { .mv_data = NULL, .mv_size = 0 };
+	if(!v)
+		v = &nv;
 
-	return bt_insert_cmp(obj, hdr, &nk, &nv, node, cmp);
+	int r = bt_insert_cmp(obj, hdr, k, v, node, cmp);
+	k->mv_data = vdest_k;
+	v->mv_data = vdest_v;
+	return r;
 }
 
 int bt_put(twzobj *obj,
@@ -625,7 +719,7 @@ int bt_put(twzobj *obj,
 
 static void _doprint_tree(twzobj *obj, int indent, struct btree_node *root)
 {
-	debug_printf("%*s %p", indent, "", root);
+	debug_printf("%*s %p", indent, "", __c(root));
 	if(!root) {
 		debug_printf("\n");
 		return;
@@ -636,8 +730,9 @@ static void _doprint_tree(twzobj *obj, int indent, struct btree_node *root)
 	};
 	debug_printf(" [");
 	for(unsigned int i = 0; i < 16 && rootkey.mv_size < 30 && i < rootkey.mv_size; i++) {
-		debug_printf("%x", ((unsigned char *)rootkey.mv_data)[i]);
+		debug_printf("%x ", ((unsigned char *)rootkey.mv_data)[i]);
 	}
+	// debug_printf("%lx", *(uint64_t *)rootkey.mv_data);
 	debug_printf("]\n");
 	if(!root->left && !root->right)
 		return;
