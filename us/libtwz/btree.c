@@ -463,69 +463,199 @@ static struct btree_node *__bt_prev(twzobj *obj, struct btree_hdr *hdr, struct b
 	return p;
 }
 
+static struct btree_node *__bt_sibling(twzobj *obj, struct btree_hdr *hdr, struct btree_node *node)
+{
+	struct btree_node *p = __l(obj, node->parent);
+	if(!p)
+		return NULL;
+	if(__c(node) == p->left)
+		return __l(obj, p->right);
+	return __l(obj, p->left);
+}
+
+static void __delete_fixup2(twzobj *obj, struct btree_hdr *hdr, struct btree_node *node);
+static void __delete_fixup6(twzobj *obj, struct btree_hdr *hdr, struct btree_node *node)
+{
+	struct btree_node *s = __bt_sibling(obj, hdr, node);
+	if(!s)
+		return;
+	struct btree_node *p = __l(obj, node->parent);
+	struct btree_node *slv = __l(obj, s->left);
+	struct btree_node *srv = __l(obj, s->right);
+	s->color = p->color;
+	p->color = BLACK;
+	if(__c(node) == p->left) {
+		if(srv)
+			srv->color = BLACK;
+		/* rotate left (p) */
+		struct btree_node *xp = __c(p);
+		rotateLeft(obj, &hdr->tx, &hdr->root, &xp);
+	} else {
+		if(slv)
+			slv->color = BLACK;
+		/* rotate right (p) */
+		struct btree_node *xp = __c(p);
+		rotateRight(obj, &hdr->tx, &hdr->root, &xp);
+	}
+}
+
+static void __delete_fixup5(twzobj *obj, struct btree_hdr *hdr, struct btree_node *node)
+{
+	struct btree_node *s = __bt_sibling(obj, hdr, node);
+	if(!s)
+		return;
+	struct btree_node *p = __l(obj, node->parent);
+	struct btree_node *slv = __l(obj, s->left);
+	struct btree_node *srv = __l(obj, s->right);
+	/* case 5 */
+	if(s->color == BLACK) {
+		if(__c(node) == p->left && srv && srv->color == BLACK && slv && slv->color == RED) {
+			s->color = RED;
+			slv->color = BLACK;
+			/* rotate right (s) */
+			struct btree_node *xp = __c(s);
+			rotateRight(obj, &hdr->tx, &hdr->root, &xp);
+		} else if(__c(node) == p->right && slv && slv->color == BLACK && srv && srv->color == RED) {
+			s->color = RED;
+			srv->color = BLACK;
+			/* rotate left (s) */
+			struct btree_node *xp = __c(s);
+			rotateLeft(obj, &hdr->tx, &hdr->root, &xp);
+		}
+	}
+	__delete_fixup6(obj, hdr, node);
+}
+
+static void __delete_fixup4(twzobj *obj, struct btree_hdr *hdr, struct btree_node *node)
+{
+	struct btree_node *s = __bt_sibling(obj, hdr, node);
+	if(!s)
+		return;
+	struct btree_node *p = __l(obj, node->parent);
+	struct btree_node *slv = __l(obj, s->left);
+	struct btree_node *srv = __l(obj, s->right);
+	if(p->color == RED && s->color == BLACK && slv && slv->color == BLACK && srv
+	   && srv->color == BLACK) {
+		s->color = RED;
+		p->color = BLACK;
+	} else {
+		__delete_fixup5(obj, hdr, node);
+	}
+}
+
+static void __delete_fixup3(twzobj *obj, struct btree_hdr *hdr, struct btree_node *node)
+{
+	struct btree_node *s = __bt_sibling(obj, hdr, node);
+	if(!s)
+		return;
+	struct btree_node *p = __l(obj, node->parent);
+	struct btree_node *slv = __l(obj, s->left);
+	struct btree_node *srv = __l(obj, s->right);
+	if(p->color == BLACK && s->color == BLACK && (srv && srv->color == BLACK)
+	   && (slv && slv->color == BLACK)) {
+		s->color = RED;
+		__delete_fixup2(obj, hdr, p);
+	} else {
+		__delete_fixup4(obj, hdr, node);
+	}
+}
+
+static void __delete_fixup2(twzobj *obj, struct btree_hdr *hdr, struct btree_node *node)
+{
+	if(node->parent == NULL)
+		return;
+	struct btree_node *s = __bt_sibling(obj, hdr, node);
+	struct btree_node *p = __l(obj, node->parent);
+	if(!s)
+		return;
+	if(s->color == RED) {
+		p->color = RED;
+		s->color = BLACK;
+		if(__c(node) == p->left) {
+			/* rotate left (p) */
+			struct btree_node *xp = __c(p);
+			rotateLeft(obj, &hdr->tx, &hdr->root, &xp);
+		} else {
+			/* rotate right (p) */
+			struct btree_node *xp = __c(p);
+			rotateRight(obj, &hdr->tx, &hdr->root, &xp);
+		}
+	}
+	__delete_fixup3(obj, hdr, node);
+}
+
 static struct btree_node *__bt_delete(twzobj *obj, struct btree_hdr *hdr, struct btree_node *node)
 {
-	// debug_printf("=== BEFORE ===\n");
-	//_doprint_tree(obj, 0, __l(obj, hdr->root));
-	// debug_printf("=== ====== ===\n");
-	// debug_printf("DELETE: %p\n", __c(node));
-	struct btree_node *ret = NULL, *child = NULL;
-	int rcode;
-	if(node->left && node->right) {
-		/* two children case: swap a pred or succ node with us, delete that node. */
-		child = __bt_next(obj, hdr, node);
-		if(!child) {
-			child = __bt_prev(obj, hdr, node);
-		}
-		// debug_printf("  child(t): %p\n", __c(child));
-	} else if(!node->left && !node->right) {
-		/* no children case */
-		struct btree_node *next = __bt_next(obj, hdr, node);
-		if(!next) {
-			next = __bt_prev(obj, hdr, node);
-		}
-		// debug_printf("  next: %p\n", __c(next));
-		if(node->parent) {
-			struct btree_node *p = __l(obj, node->parent);
-			if(__c(node) == p->left) {
-				p->left = NULL;
-			} else {
-				p->right = NULL;
-			}
-		}
-		if(hdr->root == __c(node)) {
-			hdr->root = NULL;
-		}
-		oa_hdr_free(obj, &hdr->oa, __c(node));
-		ret = next;
-	} else {
-		/* one child case */
-		if(node->right)
-			child = __bt_next(obj, hdr, node);
-		else
-			child = __bt_prev(obj, hdr, node);
-		// debug_printf("  child(o): %p\n", __c(child));
-	}
+	struct btree_node *ret = node, *child = NULL, *free = NULL, *fixup = NULL;
+	int rcode, done = 0;
 
-	if(!ret) {
-		TXOPT_START(obj, &hdr->tx, rcode)
-		{
-			TXOPT_RECORD_TMP(&hdr->tx, &node->mk);
-			TXOPT_RECORD_TMP(&hdr->tx, &node->md);
-			TXOPT_RECORD_TMP(&hdr->tx, &child->mk.mv_size);
-			TX_RECORD_COMMIT(&hdr->tx);
-			node->mk = child->mk;
-			node->md = child->md;
-			child->mk.mv_size = 0;
-			TXOPT_COMMIT;
-		}
-		TXOPT_END;
-		__bt_delete(obj, hdr, child);
-		ret = node;
-	}
-	// debug_printf("=== AFTER ===\n");
 	//_doprint_tree(obj, 0, __l(obj, hdr->root));
-	// debug_printf("=== ===== ===\n");
+
+	TXOPT_START(obj, &hdr->tx, rcode)
+	{
+		while(!done) {
+			//	debug_printf("DEL: %p\n", __c(node));
+			if(node->left && node->right) {
+				/* two children case: swap a pred or succ node with us, delete that node. */
+				child = __bt_next(obj, hdr, node);
+				if(!child) {
+					child = __bt_prev(obj, hdr, node);
+				}
+			} else if(!node->left && !node->right) {
+				/* no children case */
+				struct btree_node *next = __bt_next(obj, hdr, node);
+				if(!next) {
+					next = __bt_prev(obj, hdr, node);
+				}
+				if(node->parent) {
+					struct btree_node *p = __l(obj, node->parent);
+					if(__c(node) == p->left) {
+						TXOPT_RECORD(&hdr->tx, &p->left);
+						p->left = NULL;
+					} else {
+						TXOPT_RECORD(&hdr->tx, &p->right);
+						p->right = NULL;
+					}
+				}
+				if(hdr->root == __c(node)) {
+					TXOPT_RECORD(&hdr->tx, &hdr->root);
+					hdr->root = NULL;
+				}
+				free = node;
+				ret = next;
+				done = 1;
+			} else {
+				/* one child case */
+				if(node->right)
+					child = __bt_next(obj, hdr, node);
+				else
+					child = __bt_prev(obj, hdr, node);
+				if(child && child->color == BLACK)
+					fixup = child;
+			}
+
+			if(!done) {
+				TXOPT_RECORD_TMP(&hdr->tx, &node->mk);
+				TXOPT_RECORD_TMP(&hdr->tx, &node->md);
+				TXOPT_RECORD_TMP(&hdr->tx, &node->color);
+				TX_RECORD_COMMIT(&hdr->tx);
+				node->mk = child->mk;
+				node->md = child->md;
+				node->color = BLACK;
+			}
+			node = child;
+		}
+
+		TXOPT_COMMIT;
+	}
+	TXOPT_END;
+	if(free) {
+		oa_hdr_free(obj, &hdr->oa, __c(free));
+	}
+	//_doprint_tree(obj, 0, __l(obj, hdr->root));
+	if(fixup) {
+		__delete_fixup2(obj, hdr, fixup);
+	}
 	return ret;
 }
 
@@ -728,7 +858,7 @@ static void _doprint_tree(twzobj *obj, int indent, struct btree_node *root)
 		.mv_data = twz_object_lea(obj, root->mk.mv_data),
 		.mv_size = root->mk.mv_size,
 	};
-	debug_printf(" [");
+	debug_printf(" %s [", root->color == BLACK ? "BLACK" : "  RED");
 	for(unsigned int i = 0; i < 16 && rootkey.mv_size < 30 && i < rootkey.mv_size; i++) {
 		debug_printf("%x ", ((unsigned char *)rootkey.mv_data)[i]);
 	}
