@@ -69,7 +69,7 @@ make install
 
 cd ../build-gcc-hosted
 
-../gcc-${GCCVER}/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --with-sysroot="$SYSROOT" --enable-shared
+../gcc-${GCCVER}/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --with-sysroot="$SYSROOT" --enable-shared --enable-threads=posix
 
 make -j6 all-gcc
 make install-gcc
