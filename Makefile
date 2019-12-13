@@ -169,7 +169,12 @@ tools-build2:
 	@$(MAKE) clean-musl
 	@$(MAKE) $(SYSROOT_READY)
 	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace-libs2.sh 
-	
+
+tools-libs:
+	@$(MAKE) $(SYSROOT_READY)
+	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace-libs2.sh 
+
+
 sysroot-prep:
 	$(MAKE) bootstrap-musl
 	$(MAKE) $(BUILDDIR)/us/sysroot/usr/lib/libc.a

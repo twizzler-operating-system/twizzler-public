@@ -113,3 +113,10 @@ struct utsname;
 long linux_sys_uname(struct utsname *u);
 long linux_sys_fcntl(int fd, int cmd, long arg);
 long linux_sys_fstat(int fd, struct stat *sb);
+long linux_sys_futex(int *uaddr,
+  int op,
+  int val,
+  const struct timespec *timeout,
+  int *uaddr2,
+  int val3);
+long linux_sys_clock_gettime(clockid_t clock, struct timespec *tp);

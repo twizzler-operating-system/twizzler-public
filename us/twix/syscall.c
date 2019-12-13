@@ -38,7 +38,11 @@
 
 #define LINUX_SYS_arch_prctl 158
 
+#define LINUX_SYS_futex 202
+
 #define LINUX_SYS_set_tid_address 218
+
+#define LINUX_SYS_clock_gettime 228
 
 #define LINUX_SYS_exit_group 231
 
@@ -83,6 +87,8 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_stat] = linux_sys_stat,
 	[LINUX_SYS_fstat] = linux_sys_fstat,
 	[LINUX_SYS_access] = linux_sys_access,
+	[LINUX_SYS_futex] = linux_sys_futex,
+	[LINUX_SYS_clock_gettime] = linux_sys_clock_gettime,
 	[LINUX_SYS_faccessat] = linux_sys_faccessat,
 	[LINUX_SYS_getuid] = linux_sys_getuid,
 	[LINUX_SYS_getgid] = linux_sys_getgid,
