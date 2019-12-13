@@ -112,3 +112,4 @@ long linux_sys_getuid(void);
 struct utsname;
 long linux_sys_uname(struct utsname *u);
 long linux_sys_fcntl(int fd, int cmd, long arg);
+long linux_sys_fstat(int fd, struct stat *sb);

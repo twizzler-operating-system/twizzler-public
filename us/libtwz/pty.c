@@ -130,7 +130,7 @@ ssize_t pty_write_server(twzobj *obj, const void *ptr, size_t len, unsigned flag
 	if(hdr->termios.c_lflag & ICANON) {
 		size_t count = 0;
 		mutex_acquire(&hdr->buffer_lock);
-		for(size_t i = 0; i < len; i++) {
+		for(size_t i = 0; i < len; i++, count++) {
 			if(hdr->bufpos >= PTY_BUFFER_SZ)
 				break;
 			process_input(obj, hdr, ((char *)ptr)[i]);

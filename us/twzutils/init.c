@@ -114,11 +114,13 @@ void start_stream_device(objid_t id)
 	}
 	if(dr->device_id == DEVICE_ID_SERIAL) {
 		if(!fork()) {
-			sprintf(drv_info.arg, IDFMT, IDPR(id));
-			drv_info.name = "/usr/bin/serial";
-			start_service(&drv_info);
+			kso_set_name(NULL, "[instance] serial");
+			twz_name_assign(id, "dev:raw:serial");
+			create_pty_pair("dev:pty:ptyS0", "dev:pty:ptyS0c");
+			execv("/usr/bin/serial",
+			  (char *[]){ "/usr/bin/serial", "dev:raw:serial", "dev:pty:ptyS0" });
+			exit(1);
 		}
-		twz_name_assign(uid, "dev:input:serial");
 	}
 }
 
@@ -466,15 +468,15 @@ int main()
 		close(1);
 		close(2);
 
-		if((fd = open("dev:input:serial", O_RDONLY)) != 0) {
+		if((fd = open("dev:pty:ptyS0c", O_RDONLY)) != 0) {
 			EPRINTF("err opening stdin: %d\n", fd);
 			abort();
 		}
-		if((fd = open("dev:output:serial", O_RDWR)) != 1) {
+		if((fd = open("dev:pty:ptyS0c", O_RDWR)) != 1) {
 			EPRINTF("err opening stdout\n");
 			abort();
 		}
-		if((fd = open("dev:output:serial", O_RDWR)) != 2) {
+		if((fd = open("dev:pty:ptyS0c", O_RDWR)) != 2) {
 			EPRINTF("err opening stderr\n");
 			abort();
 		}

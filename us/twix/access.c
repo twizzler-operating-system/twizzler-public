@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <twz/debug.h>
 #include <twz/hier.h>
+#include <twz/io.h>
 #include <twz/name.h>
 #include <twz/obj.h>
 
@@ -43,6 +44,21 @@ long linux_sys_stat(const char *path, struct stat *sb)
 	struct metainfo *mi = twz_object_meta(&obj);
 	sb->st_size = mi->sz;
 	sb->st_mode = S_IFREG | S_IXOTH | S_IROTH | S_IRWXU | S_IRGRP | S_IXGRP;
+	return 0;
+	return -ENOSYS;
+}
+
+long linux_sys_fstat(int fd, struct stat *sb)
+{
+	struct file *fi = twix_get_fd(fd);
+	if(!fi)
+		return -EBADF;
+	int io = 0;
+	if(twz_object_getext(&fi->obj, TWZIO_METAEXT_TAG))
+		io = 1;
+	struct metainfo *mi = twz_object_meta(&fi->obj);
+	sb->st_size = mi->sz;
+	sb->st_mode = (io ? S_IFIFO : S_IFREG) | S_IXOTH | S_IROTH | S_IRWXU | S_IRGRP | S_IXGRP;
 	return 0;
 	return -ENOSYS;
 }

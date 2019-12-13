@@ -12,6 +12,7 @@
 #define LINUX_SYS_open 2
 #define LINUX_SYS_close 3
 #define LINUX_SYS_stat 4
+#define LINUX_SYS_fstat 5
 
 #define LINUX_SYS_mmap 9
 
@@ -80,6 +81,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_fork] = linux_sys_fork,
 	[LINUX_SYS_wait4] = linux_sys_wait4,
 	[LINUX_SYS_stat] = linux_sys_stat,
+	[LINUX_SYS_fstat] = linux_sys_fstat,
 	[LINUX_SYS_access] = linux_sys_access,
 	[LINUX_SYS_faccessat] = linux_sys_faccessat,
 	[LINUX_SYS_getuid] = linux_sys_getuid,

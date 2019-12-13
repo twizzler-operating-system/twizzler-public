@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <sys/ioctl.h>
+#include <termios.h>
 #include <twz/bstream.h>
 #include <twz/debug.h>
 #include <twz/name.h>
@@ -137,11 +139,36 @@ char serial_ready()
 
 #include <twz/driver/device.h>
 
+struct termios def_term = {
+	.c_iflag = BRKINT | ICRNL,
+	.c_oflag = ONLCR | OPOST,
+	.c_lflag = ICANON | ECHO | ISIG | ECHOE,
+	.c_cc[VEOF] = 4,
+	.c_cc[VEOL] = 0,
+	.c_cc[VERASE] = '\b',
+	.c_cc[VINTR] = 3,
+	.c_cc[VMIN] = 1,
+	.c_cc[VSUSP] = 26,
+};
+
 static twzobj ks_obj;
-static twzobj us_obj;
-static twzobj so_obj;
+static twzobj p_obj;
 
 static struct device_repr *dr;
+
+void setup_pty(int cw, int ch)
+{
+	struct winsize w = { .ws_row = ch, .ws_col = cw };
+	int r;
+	if((r = twzio_ioctl(&p_obj, TCSETS, &def_term)) < 0) {
+		fprintf(stderr, "failed to set pty termios: %d\n", r);
+	}
+	if((r = twzio_ioctl(&p_obj, TIOCSWINSZ, &w)) < 0) {
+		fprintf(stderr, "failed to set pty winsize: %d\n", r);
+	}
+	// struct pty_hdr *hdr = twz_object_base(&ptyobj);
+	// termios = &hdr->termios;
+}
 
 ssize_t get_input(char *buf, size_t len)
 {
@@ -160,12 +187,12 @@ ssize_t get_input(char *buf, size_t len)
 
 			sys_thread_sync(1, &args);
 		} else {
-			if(x == '\r')
-				x = '\n';
+			// if(x == '\r')
+			//	x = '\n';
 			buf[c++] = x;
-			serial_putc(x);
-			if(x == '\n')
-				serial_putc('\r');
+			// serial_putc(x);
+			// if(x == '\n')
+			//	serial_putc('\r');
 		}
 	}
 	return c;
@@ -185,16 +212,16 @@ void somain(void *a)
 
 	for(;;) {
 		char buf[128];
-		ssize_t r = twzio_read(&so_obj, buf, 128, 0, 0);
+		ssize_t r = twzio_read(&p_obj, buf, 128, 0, 0);
 		if(r < 0) {
 			debug_printf("ERR: %ld\n", r);
 			twz_thread_exit();
 		}
 		for(size_t i = 0; i < (size_t)r; i++) {
-			if(buf[i] == '\r')
-				serial_putc('\n');
-			if(buf[i] == '\n')
-				serial_putc('\r');
+			// if(buf[i] == '\r')
+			//	serial_putc('\n');
+			// if(buf[i] == '\n')
+			//	serial_putc('\r');
 			serial_putc(buf[i]);
 		}
 	}
@@ -206,13 +233,17 @@ int main(int argc, char **argv)
 	if(argc < 2)
 		abort();
 	char *kernel_side = argv[1];
-	char *user_side = argv[2];
+	char *primary = argv[2];
 
-	debug_printf("SERIAL start %s -> %s\n", kernel_side, user_side);
-
-	if(!kernel_side || !user_side)
+	if(!kernel_side || !primary)
 		abort();
 
+	twz_object_init_name(&ks_obj, kernel_side, FE_READ | FE_WRITE);
+	twz_object_init_name(&p_obj, primary, FE_READ | FE_WRITE);
+
+	setup_pty(80, 25);
+	dr = twz_object_base(&ks_obj);
+#if 0
 	objid_t ksid, usid;
 	objid_parse(kernel_side, strlen(kernel_side), &ksid);
 	objid_parse(user_side, strlen(user_side), &usid);
@@ -220,7 +251,6 @@ int main(int argc, char **argv)
 	twz_object_init_guid(&ks_obj, ksid, FE_READ | FE_WRITE);
 	twz_object_init_guid(&us_obj, usid, FE_READ | FE_WRITE);
 
-	dr = twz_object_base(&ks_obj);
 
 	objid_t sid;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
@@ -242,6 +272,7 @@ int main(int argc, char **argv)
 		debug_printf("failed to assign screen object name");
 		abort();
 	}
+#endif
 
 	struct thread kthr;
 	if((r = twz_thread_spawn(
@@ -267,7 +298,7 @@ int main(int argc, char **argv)
 		size_t count = 0;
 		ssize_t w = 0;
 		do {
-			w = twzio_write(&us_obj, buf + count, r - count, 0, 0);
+			w = twzio_write(&p_obj, buf + count, r - count, 0, 0);
 			if(w < 0)
 				break;
 			count += w;
