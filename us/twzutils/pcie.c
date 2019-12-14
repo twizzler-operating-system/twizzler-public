@@ -198,6 +198,9 @@ static void pcie_init_space(struct pcie_bus_header *space)
 	  space->start_bus,
 	  space->end_bus);
 
+	/* XXX - HACK to get real hw working */
+	if(space->end_bus < 0xff)
+		return;
 	/* brute-force scan. We _could_ detect areas to look in based on bridges and stuff, but this
 	 * doesn't take much longer and is still fast. */
 	for(unsigned bus = space->start_bus; bus < space->end_bus; bus++) {
@@ -209,6 +212,7 @@ static void pcie_init_space(struct pcie_bus_header *space)
 			if(config->header.vendor_id == 0xffff) {
 				continue;
 			}
+			printf(":: %d %d %lx -> %x\n", bus, device, addr, config->header.vendor_id);
 			if(config->header.header_type & HEADER_MULTIFUNC) {
 				/* for a multi-function device, brute-force scan all functions. We check for
 				 * this

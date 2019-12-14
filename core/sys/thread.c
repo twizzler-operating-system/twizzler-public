@@ -59,7 +59,6 @@ long syscall_thread_spawn(uint64_t tidlo,
 	t->throbj = &repr->thr; /* krc: move */
 	vm_setview(t, view);
 
-	printk("spawning thread %ld from %ld\n", t->id, current_thread ? (long)current_thread->id : -1);
 	obj_put(view);
 
 	kso_root_attach(repr, 0, KSO_THREAD);
@@ -92,6 +91,10 @@ long syscall_thread_spawn(uint64_t tidlo,
 
 	t->state = THREADSTATE_RUNNING;
 	processor_attach_thread(NULL, t);
+	printk("spawned thread %ld from %ld on processor %d\n",
+	  t->id,
+	  current_thread ? (long)current_thread->id : -1,
+	  t->processor->id);
 
 	return 0;
 }

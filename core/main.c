@@ -89,35 +89,34 @@ static void bench(void)
 {
 	printk("Starting benchmark\n");
 	arch_interrupt_set(true);
-
+	return;
 	int c = 0;
-	for(c=0;c<5;c++)
-	{
-		//uint64_t sr = rdtsc();
-		//uint64_t start = clksrc_get_nanoseconds();
-		//uint64_t end = clksrc_get_nanoseconds();
-		//uint64_t er = rdtsc();
-		//printk(":: %ld %ld\n", end - start, er - sr);
-		//printk(":: %ld\n", er - sr);
+	for(c = 0; c < 5; c++) {
+		// uint64_t sr = rdtsc();
+		// uint64_t start = clksrc_get_nanoseconds();
+		// uint64_t end = clksrc_get_nanoseconds();
+		// uint64_t er = rdtsc();
+		// printk(":: %ld %ld\n", end - start, er - sr);
+		// printk(":: %ld\n", er - sr);
 
-#if 1
+#if 0
 		uint64_t start = clksrc_get_nanoseconds();
 		volatile int i;
 		uint64_t c = 0;
 		int64_t max = 1000000000;
-		for(i=0;i<max;i++) {
-			volatile int x = i ^ (i-1);
-		//	uint64_t x = rdtsc();
-			//clksrc_get_nanoseconds();
-		//	uint64_t y = rdtsc();
-		//	c += (y - x);
+		for(i = 0; i < max; i++) {
+			volatile int x = i ^ (i - 1);
+			//	uint64_t x = rdtsc();
+			// clksrc_get_nanoseconds();
+			//	uint64_t y = rdtsc();
+			//	c += (y - x);
 		}
 		uint64_t end = clksrc_get_nanoseconds();
 		printk("Done: %ld (%ld)\n", end - start, (end - start) / i);
-		//printk("RD: %ld (%ld)\n", c, c / i);
+		// printk("RD: %ld (%ld)\n", c, c / i);
 		start = clksrc_get_nanoseconds();
-		for(i=0;i<max;i++) {
-			us1[i % 0x1000] = i&0xff;
+		for(i = 0; i < max; i++) {
+			us1[i % 0x1000] = i & 0xff;
 		}
 		end = clksrc_get_nanoseconds();
 		printk("MEMD: %ld (%ld)\n", end - start, (end - start) / i);
@@ -128,15 +127,17 @@ static void bench(void)
 				printk("ONE SECOND %ld\n", t);
 		}
 		uint64_t start = clksrc_get_nanoseconds();
-		//for(long i=0;i<800000000l;i++);
-		for(long i=0;i<800000000l;i++);
+		// for(long i=0;i<800000000l;i++);
+		for(long i = 0; i < 800000000l; i++)
+			;
 		uint64_t end = clksrc_get_nanoseconds();
 		printk("Done: %ld\n", end - start);
 		if(c++ == 10)
 			panic("reset");
 #endif
 	}
-	for(;;);
+	for(;;)
+		;
 }
 #endif
 
@@ -255,7 +256,6 @@ void kernel_main(struct processor *proc)
 		// if(kc_bsv_id == 0) {
 		//	panic("No bsv specified");
 		//}
-
 		if(kc_init_id == 0) {
 			panic("No init specified");
 		}
@@ -390,7 +390,6 @@ void kernel_main(struct processor *proc)
 			.target_view = bsvid,
 			.thrd_ctrl = (uintptr_t)thrd_obj / mm_page_size(MAX_PGLEVEL),
 		};
-
 #if 0
 		printk("stackbase: %lx, stacktop: %lx\ntlsbase: %lx, arg: %lx\n",
 				(long)tsa.stack_base, (long)tsa.stack_base + tsa.stack_size,
@@ -398,6 +397,17 @@ void kernel_main(struct processor *proc)
 #endif
 		syscall_thread_spawn(ID_LO(bthrid), ID_HI(bthrid), &tsa, 0);
 	}
-	printk("processor %d reached resume state %p\n", proc->id, proc);
+	if(0 && (proc->id == 0)) {
+		arch_interrupt_set(true);
+		while(1) {
+			printk("X\n");
+			for(volatile long i = 0; i < 1000000000; i++) {
+			}
+		}
+	}
+	printk("processor %d (%s) reached resume state %p\n",
+	  proc->id,
+	  proc->flags & PROCESSOR_BSP ? "bsp" : "aux",
+	  proc);
 	thread_schedule_resume_proc(proc);
 }

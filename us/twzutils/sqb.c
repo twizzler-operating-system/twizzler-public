@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
 	/* Open database */
 	printf("Opening\n");
 	sqlite3_config(SQLITE_CONFIG_SINGLETHREAD);
-#ifndef TWZ
+#ifndef __twizzler__
 	system("rm /tmp/test.db");
 #endif
 	rc = sqlite3_open("/tmp/test.db", &db);
@@ -115,11 +115,11 @@ int main(int argc, char *argv[])
 
 	SQLE("create");
 
+#if 0
 	rc = sqlite3_exec(db, "PRAGMA synchronous = OFF", NULL, NULL, &zErrMsg);
 	SQLE("pragma sync");
 	rc = sqlite3_exec(db, "PRAGMA read_uncommitted = TRUE", NULL, NULL, &zErrMsg);
 	SQLE("pragma read_u");
-#if 0
 	rc = sqlite3_exec(db, "PRAGMA mmap_size=2684354560;", NULL, NULL, &zErrMsg);
 	SQLE("pragma mmap");
 
@@ -133,14 +133,14 @@ int main(int argc, char *argv[])
 	printf("Inserting\n");
 	sqlite3_prepare_v2(db, sql, -1, &res, NULL);
 
-#ifndef TWZ
-	// rc = sqlite3_exec(db, "BEGIN TRANSACTION", NULL, NULL, &zErrMsg);
+#ifndef __twizzler__
+	rc = sqlite3_exec(db, "BEGIN TRANSACTION", NULL, NULL, &zErrMsg);
 #endif
 
 	SQLE("begin");
 
 	start_timer();
-	int max = 1000;
+	int max = 1000000;
 	for(int i = 0; i < max; i++) {
 		if(i % (max / 10) == 0)
 			printf("%d\n", i / (max / 10));
@@ -213,7 +213,7 @@ int main(int argc, char *argv[])
 			break;
 		case 4:
 			query = "SELECT * FROM people ORDER BY Age;";
-			quiet = 1;
+			quiet = 0;
 			name = "Show-All-Rows-Ordered";
 			break;
 		case 5:

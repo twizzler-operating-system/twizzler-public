@@ -45,6 +45,7 @@ static void proc_init(void)
 	cr4 |= (1 << 18);
 	// cr4 &= ~(1 << 9);
 	asm volatile("mov %0, %%cr4" ::"r"(cr4));
+	printk("cr4: %lx, cr0: %lx\n", cr4, cr0);
 
 	asm volatile("xor %%rcx, %%rcx; xgetbv; or $7, %%rax; xsetbv;" ::: "rax", "rcx", "rdx");
 	/* enable fast syscall extension */
@@ -59,8 +60,14 @@ static void proc_init(void)
 	x86_64_rdmsr(X86_MSR_MTRR_DEF_TYPE, &lo, &hi);
 	for(int i = 0; i < mtrrcnt; i++) {
 		x86_64_rdmsr(X86_MSR_MTRR_PHYSBASE(i), &lo, &hi);
+		printk("mttr base %d: %x %x\n", i, hi, lo);
 		x86_64_rdmsr(X86_MSR_MTRR_PHYSMASK(i), &lo, &hi);
+		printk("mttr mask %d: %x %x\n", i, hi, lo);
 	}
+
+	x86_64_rdmsr(0x277 /* PAT */, &lo, &hi);
+	uint64_t pat = ((long)hi << 32) | (long)lo;
+	printk("PAT: %lx\n", pat);
 
 	/* in case we need to field an interrupt before we properly setup gs */
 	uint64_t gs = (uint64_t)&_dummy_proc.arch;

@@ -14,10 +14,14 @@ static __inline__ unsigned long long rdtsc(void)
 	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }
 
+#include <twz/debug.h>
 long linux_sys_clock_gettime(clockid_t clock, struct timespec *tp)
 {
 	switch(clock) {
 		uint64_t ts;
+		case CLOCK_REALTIME:
+		case CLOCK_REALTIME_COARSE:
+		/* TODO: these should probably be different */
 		case CLOCK_MONOTONIC:
 		case CLOCK_MONOTONIC_RAW:
 		case CLOCK_MONOTONIC_COARSE:
@@ -25,8 +29,10 @@ long linux_sys_clock_gettime(clockid_t clock, struct timespec *tp)
 			/* TODO: overflow? */
 			tp->tv_sec = (ts / 4) / 1000000000ul;
 			tp->tv_nsec = (ts / 4) % 1000000000ul;
+			//		debug_printf(":: %ld -> %ld %ld\n", ts, tp->tv_sec, tp->tv_nsec);
 			break;
 		default:
+			debug_printf(":: CGT: %ld\n", clock);
 			return -ENOTSUP;
 	}
 	return 0;

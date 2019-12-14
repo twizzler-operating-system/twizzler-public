@@ -40,9 +40,9 @@ _Bool objid_parse(const char *name, size_t len, objid_t *id);
 
 void *__twz_object_lea_foreign(twzobj *o, const void *p);
 
-static inline void *__twz_object_lea(twzobj *o, const void *p)
+__attribute__((const)) static inline void *__twz_object_lea(twzobj *o, const void *p)
 {
-	if((uintptr_t)p < OBJ_MAXSIZE) {
+	if(__builtin_expect((uintptr_t)p < OBJ_MAXSIZE, 1)) {
 		return (void *)((uintptr_t)o->base + (uintptr_t)p);
 	} else {
 		return __twz_object_lea_foreign(o, p);

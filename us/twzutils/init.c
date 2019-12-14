@@ -233,6 +233,11 @@ static __inline__ unsigned long long rdtsc(void)
 void slab_test();
 int main()
 {
+	while(1) {
+		debug_printf("I\n");
+		for(volatile long i = 0; i < 1000000000; i++) {
+		}
+	}
 	debug_printf("Bootstrapping naming system\n");
 	if(__name_bootstrap() == -1) {
 		EPRINTF("Failed to bootstrap namer\n");
@@ -409,6 +414,7 @@ int main()
 		}
 	}
 
+#if 0
 	if(!fork()) {
 		kso_set_name(NULL, "[instance] nvme-driver");
 		r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
@@ -429,7 +435,7 @@ int main()
 	if(!fork()) {
 		start_terminal("dev:input:keyboard", "dev:output:framebuffer", "dev:pty:pty0");
 	}
-
+#endif
 #if 0
 	if((r = twz_thread_spawn(
 	      &tthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &term_info }))) {
@@ -441,7 +447,7 @@ int main()
 	EPRINTF("twzinit: terminal ready\n");
 #endif
 
-	if(!fork()) {
+	if(0 && !fork()) {
 		close(0);
 		close(1);
 		close(2);

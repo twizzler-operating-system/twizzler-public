@@ -184,7 +184,6 @@ extern void x86_64_resume_userspace(void *);
 extern void x86_64_resume_userspace_interrupt(void *);
 __noinstrument void arch_thread_resume(struct thread *thread, uint64_t timeout)
 {
-	// printk("resume %ld\n", thread->id);
 	struct thread *old = current_thread;
 	thread->processor->arch.curr = thread;
 	thread->processor->arch.tcb =

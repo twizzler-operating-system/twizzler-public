@@ -381,6 +381,12 @@ void fb_render(struct fb *fb, int c)
 		case '\r':
 			fb->x = 0;
 			break;
+		case '\t':
+			fb->x = (fb->x + 8) & ~7;
+			if(fb->x >= fb->max_x) {
+				fb->x = fb->max_x - 1;
+			}
+			break;
 		case '\b':
 			if(fb->x > 0) {
 				fb->x--;
