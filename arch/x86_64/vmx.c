@@ -550,6 +550,7 @@ bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags)
 	else
 		ef |= EPT_MEMTYPE_WB;
 	ef |= EPT_IGNORE_PAT;
+	printk("EPT: %lx\n", ef);
 	return x86_64_ept_map(
 	  current_thread->active_sc->arch.ept_root, v, p, level, ef, flags & OBJSPACE_SET_FLAGS);
 }
@@ -582,6 +583,7 @@ uintptr_t init_ept(void)
 		} else {
 			flags |= EPT_MEMTYPE_WB;
 		}
+		flags |= EPT_IGNORE_PAT;
 		x86_64_ept_map(pml4phys, phys, phys, 1, flags, false);
 	}
 

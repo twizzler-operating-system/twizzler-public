@@ -104,6 +104,7 @@ bool arch_object_map_page(struct object *obj, struct page *page, size_t idx)
 	int pt_idx = PT_IDX(virt);
 	uint64_t flags = 0;
 	switch(PAGE_CACHE_TYPE(page)) {
+		default:
 		case PAGE_CACHE_WB:
 			flags = EPT_MEMTYPE_WB;
 			break;
