@@ -254,10 +254,13 @@ void x86_64_init(struct multiboot *mth)
 	kernel_init();
 }
 
+void x86_64_secondary_vm_init(void);
+
 void x86_64_cpu_secondary_entry(struct processor *proc)
 {
 	idt_init_secondary();
 	proc_init();
+	x86_64_secondary_vm_init();
 	x86_64_lapic_init_percpu();
 	assert(proc != NULL);
 	processor_secondary_entry(proc);

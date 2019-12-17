@@ -240,6 +240,11 @@ __initializer static void _x86_64_init_vm(void)
 	asm volatile("mov %0, %%cr3" ::"r"(mm_vtop(kernel_pml4)) : "memory");
 }
 
+void x86_64_secondary_vm_init(void)
+{
+	asm volatile("mov %0, %%cr3" ::"r"(mm_vtop(kernel_pml4)) : "memory");
+}
+
 void arch_mm_context_init(struct vm_context *ctx)
 {
 	ctx->arch.pml4_phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
