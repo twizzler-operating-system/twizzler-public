@@ -80,8 +80,8 @@ static struct btree_node *BSTInsert(twzobj *obj,
 	}
 
 	struct btree_val rkey = {
-		.mv_data = twz_object_lea(obj, root->mk.mv_data),
-		.mv_size = root->mk.mv_size,
+		.mv_data = twz_object_lea(obj, root->kp),
+		.mv_size = root->ks,
 	};
 
 	/* Otherwise, recur down the tree */
@@ -112,8 +112,8 @@ static struct btree_node *BSTInsert(twzobj *obj,
 		}
 	} else {
 		/* TODO: not totally consistent */
-		root->md.mv_data = pt->md.mv_data;
-		root->md.mv_size = pt->md.mv_size;
+		root->dp = pt->dp;
+		root->ds = pt->ds;
 		_clwb_len(root, sizeof(*root));
 		_pfence();
 		*found = root;
@@ -378,12 +378,17 @@ int bt_insert_cmp(twzobj *obj,
 	pt = __l(obj, pt);
 	pt->left = pt->right = pt->parent = NULL;
 	pt->color = 0;
-	pt->mk.mv_size = k->mv_size;
-	pt->md.mv_size = d->mv_size;
-	pt->mk.mv_data = k->mv_data;
-	k->mv_data = twz_object_lea(obj, k->mv_data);
+	pt->ks = k->mv_size;
+	pt->ds = d->mv_size;
+	if(k->mv_size > 8) {
+		pt->kp = k->mv_data;
+		k->mv_data = twz_object_lea(obj, k->mv_data);
+	} else {
+		pt->kp = __c(&pt->ikey);
+		memcpy(&pt->ikey, k->mv_data, k->mv_size);
+	}
 
-	pt->md.mv_data = d->mv_data;
+	pt->dp = d->mv_data;
 
 	/* TODO: if we are replacing, free the old data...?*/
 	mutex_acquire(&hdr->m);
@@ -635,13 +640,22 @@ static struct btree_node *__bt_delete(twzobj *obj, struct btree_hdr *hdr, struct
 			}
 
 			if(!done) {
-				TXOPT_RECORD_TMP(&hdr->tx, &node->mk);
-				TXOPT_RECORD_TMP(&hdr->tx, &node->md);
+				TXOPT_RECORD_TMP(&hdr->tx, &node->kp);
+				TXOPT_RECORD_TMP(&hdr->tx, &node->ikey);
+				TXOPT_RECORD_TMP(&hdr->tx, &node->dp);
+				TXOPT_RECORD_TMP(&hdr->tx, &node->ks);
+				TXOPT_RECORD_TMP(&hdr->tx, &node->ds);
 				TXOPT_RECORD_TMP(&hdr->tx, &node->color);
 				TX_RECORD_COMMIT(&hdr->tx);
-				node->mk = child->mk;
-				node->md = child->md;
+				node->kp = child->kp;
+				node->ikey = child->ikey;
+				node->dp = child->dp;
+				node->ks = child->ks;
+				node->ds = child->ds;
 				node->color = BLACK;
+				if(node->ks <= 8) {
+					node->kp = __c(&node->ikey);
+				}
 			}
 			node = child;
 		}
@@ -665,6 +679,9 @@ struct btree_node *bt_delete(twzobj *obj, struct btree_hdr *hdr, struct btree_no
 		return NULL;
 	mutex_acquire(&hdr->m);
 	TXCHECK(obj, &hdr->tx);
+	oa_hdr_free(obj, &hdr->oa, node->dp);
+	if(node->ks > 8)
+		oa_hdr_free(obj, &hdr->oa, node->kp);
 	struct btree_node *r = __bt_delete(obj, hdr, node);
 	mutex_release(&hdr->m);
 	return r;
@@ -682,8 +699,8 @@ static struct btree_node *_dolookup(twzobj *obj,
 	if(!root)
 		return NULL;
 	struct btree_val rootkey = {
-		.mv_data = twz_object_lea(obj, root->mk.mv_data),
-		.mv_size = root->mk.mv_size,
+		.mv_data = twz_object_lea(obj, root->kp),
+		.mv_size = root->ks,
 	};
 	int c = -cmp(k, &rootkey);
 	// debug_printf("CMP: %s %s: %d\n", (uint32_t*)rootkey.mv_data, (uint32_t*)k->mv_data, c);
@@ -784,16 +801,16 @@ struct btree_node *bt_lookup(twzobj *obj, struct btree_hdr *hdr, struct btree_va
 int bt_node_get(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n, struct btree_val *v)
 {
 	(void)hdr;
-	v->mv_size = n->md.mv_size;
-	v->mv_data = twz_object_lea(obj, n->md.mv_data);
+	v->mv_size = n->ds;
+	v->mv_data = twz_object_lea(obj, n->dp);
 	return 0;
 }
 
 int bt_node_getkey(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n, struct btree_val *v)
 {
 	(void)hdr;
-	v->mv_size = n->mk.mv_size;
-	v->mv_data = twz_object_lea(obj, n->mk.mv_data);
+	v->mv_size = n->ks;
+	v->mv_data = twz_object_lea(obj, n->kp);
 	return 0;
 }
 
@@ -804,20 +821,24 @@ int bt_put_cmp(twzobj *obj,
   struct btree_node **node,
   int (*cmp)(const struct btree_val *, const struct btree_val *))
 {
-	void *dest_k = oa_hdr_alloc(obj, &hdr->oa, k->mv_size);
-	if(!dest_k)
-		return -ENOSPC;
-	void *vdest_k = twz_object_lea(obj, dest_k);
-	memcpy(vdest_k, k->mv_data, k->mv_size);
-	_clwb_len(vdest_k, k->mv_size);
-	k->mv_data = dest_k;
+	void *dest_k, *vdest_k = k->mv_data;
+	if(k->mv_size > 8) {
+		dest_k = oa_hdr_alloc(obj, &hdr->oa, k->mv_size);
+		if(!dest_k)
+			return -ENOSPC;
+		vdest_k = twz_object_lea(obj, dest_k);
+		memcpy(vdest_k, k->mv_data, k->mv_size);
+		_clwb_len(vdest_k, k->mv_size);
+		k->mv_data = dest_k;
+	}
 
 	void *dest_v = NULL;
 	void *vdest_v = NULL;
 	if(v) {
 		dest_v = oa_hdr_alloc(obj, &hdr->oa, v->mv_size);
 		if(!dest_v) {
-			oa_hdr_free(obj, &hdr->oa, dest_k);
+			if(k->mv_size > 8)
+				oa_hdr_free(obj, &hdr->oa, dest_k);
 			return -ENOSPC;
 		}
 		vdest_v = twz_object_lea(obj, dest_v);
@@ -827,7 +848,6 @@ int bt_put_cmp(twzobj *obj,
 		v->mv_data = dest_v;
 	}
 
-	// struct btree_val nk = { .mv_data = dest_k, .mv_size = k->mv_size };
 	struct btree_val nv = { .mv_data = NULL, .mv_size = 0 };
 	if(!v)
 		v = &nv;
@@ -855,8 +875,8 @@ static void _doprint_tree(twzobj *obj, int indent, struct btree_node *root)
 		return;
 	}
 	struct btree_val rootkey = {
-		.mv_data = twz_object_lea(obj, root->mk.mv_data),
-		.mv_size = root->mk.mv_size,
+		.mv_data = twz_object_lea(obj, root->kp),
+		.mv_size = root->ks,
 	};
 	debug_printf(" %s [", root->color == BLACK ? "BLACK" : "  RED");
 	for(unsigned int i = 0; i < 16 && rootkey.mv_size < 30 && i < rootkey.mv_size; i++) {
