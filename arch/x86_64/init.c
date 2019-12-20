@@ -1,3 +1,4 @@
+#include <arch/x86_64-acpi.h>
 #include <arch/x86_64-msr.h>
 #include <arch/x86_64-vmx.h>
 #include <debug.h>
@@ -267,7 +268,7 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 						struct multiboot_mmap_entry *entry =
 						  (void *)((char *)mmap_tag->entries + i * mmap_tag->entry_size);
 						printk(
-						  "  entry %ld: %lx %lx %d\n", i, entry->addr, entry->len, entry->type);
+						  "  entry %ld: %llx %llx %d\n", i, entry->addr, entry->len, entry->type);
 						if(entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
 							/* TODO: multiple memory regions */
 							x86_64_top_mem = entry->addr + entry->len;

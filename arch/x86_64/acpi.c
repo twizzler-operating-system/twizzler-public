@@ -75,7 +75,6 @@ static bool check_rsdp(void *ptr)
 	struct rsdp2_desc *desc = ptr;
 	if(strncmp(desc->rsdp.sig, RSDP_SIG, 8))
 		return false;
-	printk("[acpi]: test %d: %lx (%x)\n", desc->rsdp.rev, desc->xsdt_addr, desc->rsdp.rsdt_addr);
 	if(desc->rsdp.rev) {
 		uint8_t cs = 0;
 		for(unsigned char *c = ptr; c < (unsigned char *)ptr + desc->length; c++)
@@ -99,6 +98,12 @@ static char rsdp_copy[sizeof(struct rsdp2_desc)];
 
 void acpi_set_rsdp(void *ptr, size_t sz)
 {
+	if(rsdp) {
+		/* if we have a revision 0 (ACPI 1.0) pointer, then try this new one.
+		 * We'd like a newer version, if possible. */
+		if(rsdp->rsdp.rev != 0)
+			return;
+	}
 	if(sz > sizeof(rsdp_copy)) {
 		sz = sizeof(rsdp_copy);
 	}
