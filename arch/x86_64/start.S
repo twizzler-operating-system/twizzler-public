@@ -1,4 +1,7 @@
+#define ASSEMBLY
+
 #include <machine/memory.h>
+#include <machine/pc-multiboot2.h>
 #include <thread-bits.h>
 #define MULTIBOOT_HEADER_MAGIC 0x1BADB002
 
@@ -43,6 +46,32 @@ multiboot_header:
     .int PHYS(kernel_bss_end)
     /* entry_addr */
     .int PHYS(_start)
+
+.align 8
+.type multiboot2_header,STT_OBJECT
+multiboot2_header:
+	.long MULTIBOOT2_HEADER_MAGIC /* magic */
+	.long MULTIBOOT_ARCHITECTURE_I386 /* arch - 0: x86 */
+	.long (multiboot2_header_end - multiboot2_header) /* length */
+	.long -(MULTIBOOT2_HEADER_MAGIC + MULTIBOOT_ARCHITECTURE_I386 + (PHYS(multiboot2_header_end) - PHYS(multiboot2_header)))
+	
+	_mbh_info_start:
+	.short MULTIBOOT_HEADER_TAG_INFORMATION_REQUEST
+	.short 0
+	.long (_mbh_info_end - _mbh_info_start)
+	.long 0
+	.long 0
+	_mbh_info_end:
+
+	_mbh_entry_start:
+	.short MULTIBOOT_HEADER_TAG_ENTRY_ADDRESS
+	.short 0
+	.long (_mbh_entry_end - _mbh_entry_start)
+	.long PHYS(_start)
+	.long 0
+	_mbh_entry_end:
+multiboot2_header_end:
+
 
 
 
