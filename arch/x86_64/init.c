@@ -5,6 +5,7 @@
 #include <kc.h>
 #include <machine/memory.h>
 #include <machine/pc-multiboot.h>
+#include <machine/pc-multiboot2.h>
 #include <processor.h>
 #include <string.h>
 
@@ -18,7 +19,6 @@ uint64_t x86_64_bot_mem;
 extern void idt_init(void);
 extern void idt_init_secondary(void);
 
-static struct multiboot *mb;
 static struct processor _dummy_proc;
 
 static size_t xsave_region_size = 512;
@@ -160,14 +160,15 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 	}
 }
 
-static void x86_64_initrd(void *u)
+static size_t mods_count;
+static uintptr_t mods_addr;
+static void x86_64_initrd(void *u __unused)
 {
-	(void)u;
-	if(mb->mods_count == 0)
+	if(mods_count == 0)
 		return;
-	struct mboot_module *m = mm_ptov(mb->mods_addr);
+	struct mboot_module *m = mm_ptov(mods_addr);
 	size_t _count = 0;
-	for(unsigned i = 0; i < mb->mods_count; i++, m++) {
+	for(unsigned i = 0; i < mods_count; i++, m++) {
 		size_t modlen = m->end - m->start;
 		printk("Loading objects from module %d (len=%ld bytes)\n", i, modlen);
 
@@ -233,21 +234,54 @@ POST_INIT(x86_64_initrd);
 void kernel_early_init(void);
 void kernel_init(void);
 void x86_64_lapic_init_percpu(void);
-void x86_64_init(struct multiboot *mth)
+void x86_64_init(uint32_t magic, struct multiboot *mth)
 {
-	mb = mth;
+	mods_count = mth->mods_count;
+	mods_addr = mth->mods_addr;
 	idt_init();
 	serial_init();
 	proc_init();
 
-	if(!(mth->flags & MULTIBOOT_FLAG_MEM))
-		panic("don't know how to detect memory!");
-	struct mboot_module *m = mb->mods_count == 0 ? NULL : mm_ptov(mb->mods_addr);
-	uintptr_t end = 0;
-	for(unsigned i = 0; i < mb->mods_count; i++, m++)
-		end = m->end;
-	x86_64_top_mem = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
-	x86_64_bot_mem = (end > PHYS((uintptr_t)&kernel_end)) ? end : PHYS((uintptr_t)&kernel_end);
+	if(magic == MULTIBOOT2_BOOTLOADER_MAGIC) {
+		struct multiboot_info *info = (void *)mth;
+		printk("detected a multiboot2 load sz=%d\n", info->total_size);
+		struct multiboot_tag *tag;
+		for(char *t = info->tags; t < info->tags + (info->total_size - sizeof(*info));
+		    t += align_up(tag->size, 8)) {
+			tag = (void *)t;
+			printk("tag: %d %d\n", tag->type, tag->size);
+			switch(tag->type) {
+				size_t nr_entries;
+				struct multiboot_tag_mmap *mmap_tag;
+				case MULTIBOOT_TAG_TYPE_END:
+					/* force loop to exit */
+					t = info->tags + info->total_size;
+					break;
+				case MULTIBOOT_TAG_TYPE_MMAP:
+					mmap_tag = (void *)tag;
+					nr_entries = (mmap_tag->size - sizeof(*mmap_tag)) / mmap_tag->entry_size;
+					printk("found memory map with %ld entries\n", nr_entries);
+					for(size_t i = 0; i < nr_entries; i++) {
+						struct multiboot_mmap_entry *entry =
+						  (void *)((char *)mmap_tag->entries + i * mmap_tag->entry_size);
+						printk(
+						  "  entry %ld: %lx %lx %d\n", i, entry->addr, entry->len, entry->type);
+					}
+					break;
+			}
+		}
+	} else if(magic == 0x2BADB002) {
+		if(!(mth->flags & MULTIBOOT_FLAG_MEM))
+			panic("don't know how to detect memory!");
+		struct mboot_module *m = mth->mods_count == 0 ? NULL : mm_ptov(mth->mods_addr);
+		uintptr_t end = 0;
+		for(unsigned i = 0; i < mth->mods_count; i++, m++)
+			end = m->end;
+		x86_64_top_mem = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
+		x86_64_bot_mem = (end > PHYS((uintptr_t)&kernel_end)) ? end : PHYS((uintptr_t)&kernel_end);
+	} else {
+		panic("unknown bootloader type!");
+	}
 
 	kernel_early_init();
 	_init();

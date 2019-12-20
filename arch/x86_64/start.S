@@ -55,11 +55,23 @@ multiboot2_header:
 	.long (multiboot2_header_end - multiboot2_header) /* length */
 	.long -(MULTIBOOT2_HEADER_MAGIC + MULTIBOOT_ARCHITECTURE_I386 + (PHYS(multiboot2_header_end) - PHYS(multiboot2_header)))
 	
+	_mbh_addr_start:
+	.short MULTIBOOT_HEADER_TAG_ADDRESS
+	.short 0
+	.long (_mbh_addr_end - _mbh_addr_start)
+	.long PHYS(multiboot2_header)
+	.long PHYS(kernel_start)
+	.long PHYS(kernel_data_end)
+	.long PHYS(kernel_bss_end)
+	_mbh_addr_end:
+
 	_mbh_info_start:
 	.short MULTIBOOT_HEADER_TAG_INFORMATION_REQUEST
 	.short 0
 	.long (_mbh_info_end - _mbh_info_start)
-	.long 0
+	.long MULTIBOOT_TAG_TYPE_MODULE
+	.long MULTIBOOT_TAG_TYPE_EFI64
+	.long MULTIBOOT_TAG_TYPE_MMAP
 	.long 0
 	_mbh_info_end:
 
@@ -70,6 +82,9 @@ multiboot2_header:
 	.long PHYS(_start)
 	.long 0
 	_mbh_entry_end:
+	.short 0
+	.short 0
+	.long 8
 multiboot2_header_end:
 
 
@@ -88,6 +103,7 @@ _start:
 	    loop .Lbss
 
 	movl %ebx, PHYS(multiboot_ptr_save)
+	movl %eax, PHYS(multiboot_magic_save)
 
 init_paging:
 	/* 1 - 1 mapping for lower */
@@ -191,7 +207,9 @@ _start_64:
 	movq %rax, %cr3
 
 	xorq %rdi, %rdi
-	movl multiboot_ptr_save, %edi
+	movl multiboot_ptr_save, %esi
+	movl multiboot_magic_save, %edi
+	/* TODO: this is hardcoded */
 	movq $0xFFFFFF8000000000, %rax
 	addq %rax, %rdi
 
@@ -224,6 +242,8 @@ boot_phys_mapping:
 	.skip 8 * (32 * 1024) // 64GB / 2MB
 
 multiboot_ptr_save:
+	.skip 4
+multiboot_magic_save:
 	.skip 4
 
 .section .data
