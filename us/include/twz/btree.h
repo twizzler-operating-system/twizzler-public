@@ -13,7 +13,9 @@ struct btree_val {
 
 struct btree_node {
 	struct btree_node *left, *right, *parent;
-	struct btree_val mk, md;
+	void *kp, *dp;
+	uint64_t ikey;
+	uint32_t ks, ds;
 	int color;
 };
 
