@@ -70,17 +70,56 @@ void *acpi_find_table(const char *sig)
 	return NULL;
 }
 
+static bool check_rsdp(void *ptr)
+{
+	struct rsdp2_desc *desc = ptr;
+	if(strncmp(desc->rsdp.sig, RSDP_SIG, 8))
+		return false;
+	printk("[acpi]: test %d: %lx (%x)\n", desc->rsdp.rev, desc->xsdt_addr, desc->rsdp.rsdt_addr);
+	if(desc->rsdp.rev) {
+		uint8_t cs = 0;
+		for(unsigned char *c = ptr; c < (unsigned char *)ptr + desc->length; c++)
+			cs += *c;
+		return cs == 0;
+	} else {
+		struct rsdp_desc *r = ptr;
+		uint8_t cs = 0;
+		for(unsigned char *c = ptr; c < (unsigned char *)ptr + sizeof(*r); c++)
+			cs += *c;
+		return cs == 0;
+	}
+}
+
 static void found_rsdp(struct rsdp_desc *ptr)
 {
 	rsdp = (void *)ptr;
 }
 
+static char rsdp_copy[sizeof(struct rsdp2_desc)];
+
+void acpi_set_rsdp(void *ptr, size_t sz)
+{
+	if(sz > sizeof(rsdp_copy)) {
+		sz = sizeof(rsdp_copy);
+	}
+	if(!check_rsdp(ptr)) {
+		printk("[acpi] platform/bootloader specified RSDP valid validation.\n");
+		return;
+	}
+	memcpy(rsdp_copy, ptr, sz);
+	found_rsdp((void *)rsdp_copy);
+	printk("[acpi] found platform/bootloader specified RSDP.\n");
+}
+
 __orderedinitializer(ACPI_INITIALIZER_ORDER) static void acpi_init(void)
 {
+	/* did we get one from the bootloader or platform? */
+	if(rsdp)
+		return;
 	uintptr_t ebda = *(uint16_t *)mm_ptov(0x40E) << 4;
 	for(uintptr_t search = ebda; search < (ebda + 1024); search += 16) {
 		struct rsdp_desc *desc = mm_ptov(search);
-		if(!strncmp(desc->sig, RSDP_SIG, 8)) {
+		if(check_rsdp(desc)) {
 			found_rsdp(desc);
 			return;
 		}
@@ -88,7 +127,7 @@ __orderedinitializer(ACPI_INITIALIZER_ORDER) static void acpi_init(void)
 	/* didn't find it there; we can also try between 0xE0000 -> 0xFFFFF */
 	for(uintptr_t search = 0xE0000; search < 0x100000; search += 16) {
 		struct rsdp_desc *desc = mm_ptov(search);
-		if(!strncmp(desc->sig, RSDP_SIG, 8)) {
+		if(check_rsdp(desc)) {
 			found_rsdp(desc);
 			return;
 		}

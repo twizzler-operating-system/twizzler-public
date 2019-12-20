@@ -71,6 +71,8 @@ multiboot2_header:
 	.long (_mbh_info_end - _mbh_info_start)
 	.long MULTIBOOT_TAG_TYPE_MODULE
 	.long MULTIBOOT_TAG_TYPE_EFI64
+	.long MULTIBOOT_TAG_TYPE_ACPI_OLD
+	.long MULTIBOOT_TAG_TYPE_ACPI_NEW
 	.long MULTIBOOT_TAG_TYPE_MMAP
 	.long 0
 	_mbh_info_end:

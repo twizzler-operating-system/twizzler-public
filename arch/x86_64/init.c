@@ -253,6 +253,8 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 			switch(tag->type) {
 				size_t nr_entries;
 				struct multiboot_tag_mmap *mmap_tag;
+				struct multiboot_tag_old_acpi *acpi_old_tag;
+				struct multiboot_tag_new_acpi *acpi_new_tag;
 				case MULTIBOOT_TAG_TYPE_END:
 					/* force loop to exit */
 					t = info->tags + info->total_size;
@@ -266,7 +268,20 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 						  (void *)((char *)mmap_tag->entries + i * mmap_tag->entry_size);
 						printk(
 						  "  entry %ld: %lx %lx %d\n", i, entry->addr, entry->len, entry->type);
+						if(entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
+							/* TODO: multiple memory regions */
+							x86_64_top_mem = entry->addr + entry->len;
+							x86_64_bot_mem = entry->addr;
+						}
 					}
+					break;
+				case MULTIBOOT_TAG_TYPE_ACPI_OLD:
+					acpi_old_tag = (void *)tag;
+					acpi_set_rsdp(acpi_old_tag->rsdp, tag->size - sizeof(*acpi_old_tag));
+					break;
+				case MULTIBOOT_TAG_TYPE_ACPI_NEW:
+					acpi_new_tag = (void *)tag;
+					acpi_set_rsdp(acpi_new_tag->rsdp, tag->size - sizeof(*acpi_new_tag));
 					break;
 			}
 		}
