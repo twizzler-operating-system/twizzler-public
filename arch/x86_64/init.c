@@ -388,6 +388,8 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 			end = m->end;
 		x86_64_top_mem = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
 		x86_64_bot_mem = (end > PHYS((uintptr_t)&kernel_end)) ? end : PHYS((uintptr_t)&kernel_end);
+		x86_64_bot_mem = align_up(x86_64_bot_mem, 0x1000);
+		x86_64_top_mem = align_down(x86_64_top_mem, 0x1000);
 		if(m)
 			initrd_hook = x86_64_initrd;
 	} else {

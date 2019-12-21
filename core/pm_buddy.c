@@ -36,7 +36,7 @@ static uintptr_t __do_pmm_buddy_allocate(struct memregion *reg, size_t length)
 	}
 
 	int order = min_possible_order(length);
-	printk("pmm_alloc: %lx (%d)\n", length, order);
+	// printk("pmm_alloc: %lx (%d)\n", length, order);
 
 	if(list_empty(&reg->alloc->freelists[order])) {
 		uintptr_t a = __do_pmm_buddy_allocate(reg, length * 2);
@@ -87,12 +87,12 @@ uintptr_t pmm_buddy_allocate(struct memregion *reg, size_t length)
 	if(length < MIN_SIZE)
 		length = MIN_SIZE;
 	bool fl = spinlock_acquire(&reg->alloc->pm_buddy_lock);
-	printk("allocate from region: %lx->%lx (%lx); %lx length %lx\n",
-	  reg->start,
-	  reg->start + reg->length,
-	  reg->length,
-	  reg->alloc->free_memory,
-	  length);
+	// printk("allocate from region: %lx->%lx (%lx); %lx length %lx\n",
+	// reg->start,
+	// reg->start + reg->length,
+	// reg->length,
+	// reg->alloc->free_memory,
+	// length);
 	uintptr_t x = __do_pmm_buddy_allocate(reg, length);
 	if(x != (uintptr_t)~0)
 		x += reg->start;
