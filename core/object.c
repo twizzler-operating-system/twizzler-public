@@ -506,7 +506,10 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 
 	struct object *o = obj_lookup_slot(loaddr);
 	if(o == NULL) {
-		panic("NO OBJ");
+		panic("no object mapped to slot during object fault: vaddr=%lx, oaddr=%lx, ip=%lx",
+		  vaddr,
+		  loaddr,
+		  ip);
 	}
 
 	uint64_t perms = 0;

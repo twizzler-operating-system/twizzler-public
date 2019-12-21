@@ -117,6 +117,7 @@ struct ustar_header {
 #define PHYS_ADDR_DELTA (KERNEL_VIRTUAL_BASE + KERNEL_LOAD_OFFSET - PHYS_LOAD_ADDRESS)
 #define PHYS(x) ((x)-PHYS_ADDR_DELTA)
 extern int kernel_end;
+extern int kernel_start;
 #include <object.h>
 #include <page.h>
 
@@ -161,6 +162,65 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 	}
 }
 
+static size_t _load_initrd(char *start, size_t modlen)
+{
+	struct ustar_header *h = (void *)start;
+
+	size_t count = 0;
+	while((char *)h < start + modlen) {
+		char *name = h->name;
+		if(!*name)
+			break;
+		if(strncmp(h->magic, "ustar", 5))
+			break;
+		char *data = (char *)h + 512;
+		size_t len = strtol(h->size, NULL, 8);
+		size_t reclen = (len + 511) & ~511;
+
+		switch(h->typeflag[0]) {
+			size_t nl;
+			case '0':
+			case '7':
+				nl = strlen(name);
+				// printk("Loading object: %s\e[K\r", name);
+				if(!strncmp(name, "kc", 2) && nl == 2) {
+					kc_parse(data, len);
+				} else {
+					if(nl < 33) {
+						printk("Malformed object name: %s\n", name);
+						break;
+					} else if(nl > 33 && nl != 38) {
+						printk("Malformed object name: %s\n", name);
+						break;
+					} else if(nl == 38 && strncmp(name + 33, ".meta", 5)) {
+						printk("Malformed object name: %s\n", name);
+						break;
+					}
+					objid_t id;
+					if(!objid_parse(name, &id)) {
+						printk("Malformed object name: %s\n", name);
+						break;
+					}
+
+					struct object *obj = obj_lookup(id);
+					if(obj == NULL) {
+						obj = obj_create(id, KSO_NONE);
+					}
+					obj->flags |= OF_NOTYPECHECK;
+					load_object_data(obj, data, len);
+					count++;
+				}
+				break;
+			default:
+				printk("unsupported ustar type %c for %s\n", h->typeflag[0], name);
+				break;
+		}
+
+		h = (struct ustar_header *)((char *)h + 512 + reclen);
+	}
+	return count;
+}
+
 static size_t mods_count;
 static uintptr_t mods_addr;
 static void x86_64_initrd(void *u __unused)
@@ -172,69 +232,51 @@ static void x86_64_initrd(void *u __unused)
 	for(unsigned i = 0; i < mods_count; i++, m++) {
 		size_t modlen = m->end - m->start;
 		printk("Loading objects from module %d (len=%ld bytes)\n", i, modlen);
-
-		struct ustar_header *h = mm_ptov(m->start);
-		char *start = (char *)h;
-
-		while((char *)h < start + modlen) {
-			char *name = h->name;
-			if(!*name)
-				break;
-			if(strncmp(h->magic, "ustar", 5))
-				break;
-			char *data = (char *)h + 512;
-			size_t len = strtol(h->size, NULL, 8);
-			size_t reclen = (len + 511) & ~511;
-
-			switch(h->typeflag[0]) {
-				size_t nl;
-				case '0':
-				case '7':
-					nl = strlen(name);
-					// printk("Loading object: %s\e[K\r", name);
-					if(!strncmp(name, "kc", 2) && nl == 2) {
-						kc_parse(data, len);
-					} else {
-						if(nl < 33) {
-							printk("Malformed object name: %s\n", name);
-							break;
-						} else if(nl > 33 && nl != 38) {
-							printk("Malformed object name: %s\n", name);
-							break;
-						} else if(nl == 38 && strncmp(name + 33, ".meta", 5)) {
-							printk("Malformed object name: %s\n", name);
-							break;
-						}
-						objid_t id;
-						if(!objid_parse(name, &id)) {
-							printk("Malformed object name: %s\n", name);
-							break;
-						}
-
-						struct object *obj = obj_lookup(id);
-						if(obj == NULL) {
-							obj = obj_create(id, KSO_NONE);
-						}
-						obj->flags |= OF_NOTYPECHECK;
-						load_object_data(obj, data, len);
-						_count++;
-					}
-					break;
-				default:
-					printk("unsupported ustar type %c for %s\n", h->typeflag[0], name);
-					break;
-			}
-
-			h = (struct ustar_header *)((char *)h + 512 + reclen);
-		}
+		_count = _load_initrd(mm_ptov(m->start), modlen);
 	}
 	printk("loaded %ld objects\e[0K\n", _count);
 }
-POST_INIT(x86_64_initrd);
+
+static void *mod_start;
+static size_t mod_len;
+static void x86_64_initrd2(void *u __unused)
+{
+	size_t c = _load_initrd(mod_start, mod_len);
+	printk("loaded %ld objects\e[0K\n", c);
+}
 
 void kernel_early_init(void);
 void kernel_init(void);
 void x86_64_lapic_init_percpu(void);
+void x86_64_memory_record(uintptr_t addr,
+  size_t len,
+  enum memory_type type,
+  enum memory_subtype st);
+
+static enum memory_type memory_type_map(unsigned int mtb_type)
+{
+	static enum memory_type _types[] = {
+		[MULTIBOOT_MEMORY_AVAILABLE] = MEMORY_AVAILABLE,
+		[MULTIBOOT_MEMORY_PERSISTENT] = MEMORY_AVAILABLE,
+		[MULTIBOOT_MEMORY_CODE] = MEMORY_CODE,
+		[MULTIBOOT_MEMORY_RESERVED] = MEMORY_RESERVED,
+		[MULTIBOOT_MEMORY_NVS] = MEMORY_RESERVED,
+		[MULTIBOOT_MEMORY_ACPI_RECLAIMABLE] = MEMORY_RECLAIMABLE,
+		[MULTIBOOT_MEMORY_BADRAM] = MEMORY_BAD,
+	};
+	return mtb_type >= sizeof(_types) / sizeof(_types[0]) ? MEMORY_UNKNOWN : _types[mtb_type];
+}
+
+static enum memory_subtype memory_subtype_map(unsigned int mtb_type)
+{
+	static enum memory_type _subtypes[] = {
+		[MULTIBOOT_MEMORY_AVAILABLE] = MEMORY_AVAILABLE_VOLATILE,
+		[MULTIBOOT_MEMORY_PERSISTENT] = MEMORY_AVAILABLE_PERSISTENT,
+	};
+	return mtb_type >= sizeof(_subtypes) / sizeof(_subtypes[0]) ? MEMORY_SUBTYPE_NONE
+	                                                            : _subtypes[mtb_type];
+}
+
 void x86_64_init(uint32_t magic, struct multiboot *mth)
 {
 	mods_count = mth->mods_count;
@@ -243,17 +285,16 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 	serial_init();
 	proc_init();
 
+	void (*initrd_hook)(void *) = NULL;
 	if(magic == MULTIBOOT2_BOOTLOADER_MAGIC) {
 		struct multiboot_info *info = (void *)mth;
-		printk("detected a multiboot2 load sz=%d\n", info->total_size);
 		struct multiboot_tag *tag;
+		struct multiboot_tag_mmap *mmap_tag = NULL;
+		struct multiboot_tag_module *module_tag = NULL;
 		for(char *t = info->tags; t < info->tags + (info->total_size - sizeof(*info));
 		    t += align_up(tag->size, 8)) {
 			tag = (void *)t;
-			printk("tag: %d %d\n", tag->type, tag->size);
 			switch(tag->type) {
-				size_t nr_entries;
-				struct multiboot_tag_mmap *mmap_tag;
 				struct multiboot_tag_old_acpi *acpi_old_tag;
 				struct multiboot_tag_new_acpi *acpi_new_tag;
 				case MULTIBOOT_TAG_TYPE_END:
@@ -262,19 +303,9 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 					break;
 				case MULTIBOOT_TAG_TYPE_MMAP:
 					mmap_tag = (void *)tag;
-					nr_entries = (mmap_tag->size - sizeof(*mmap_tag)) / mmap_tag->entry_size;
-					printk("found memory map with %ld entries\n", nr_entries);
-					for(size_t i = 0; i < nr_entries; i++) {
-						struct multiboot_mmap_entry *entry =
-						  (void *)((char *)mmap_tag->entries + i * mmap_tag->entry_size);
-						printk(
-						  "  entry %ld: %llx %llx %d\n", i, entry->addr, entry->len, entry->type);
-						if(entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
-							/* TODO: multiple memory regions */
-							x86_64_top_mem = entry->addr + entry->len;
-							x86_64_bot_mem = entry->addr;
-						}
-					}
+					break;
+				case MULTIBOOT_TAG_TYPE_MODULE:
+					module_tag = (void *)tag;
 					break;
 				case MULTIBOOT_TAG_TYPE_ACPI_OLD:
 					acpi_old_tag = (void *)tag;
@@ -286,6 +317,68 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 					break;
 			}
 		}
+		if(!mmap_tag)
+			panic("multiboot2 information structure did not contain memory maps.");
+
+		/* do the memory map processing later, since we'll need to not report regions taken up by
+		 * the kernel, or by modules */
+		size_t nr_entries = (mmap_tag->size - sizeof(*mmap_tag)) / mmap_tag->entry_size;
+		uintptr_t ks_addr = align_down(PHYS((uintptr_t)&kernel_start), 0x1000);
+		uintptr_t ke_addr = align_up(PHYS((uintptr_t)&kernel_end), 0x1000);
+		uintptr_t ms = module_tag ? align_down(module_tag->mod_start, 0x1000) : 0;
+		uintptr_t me = module_tag ? align_up(module_tag->mod_end, 0x1000) : 0;
+
+		for(size_t i = 0; i < nr_entries; i++) {
+			struct multiboot_mmap_entry *entry =
+			  (void *)((char *)mmap_tag->entries + i * mmap_tag->entry_size);
+
+			size_t processed_len;
+			for(size_t off = 0; off < entry->len; off += processed_len) {
+				processed_len = entry->len - off;
+
+				if(module_tag && ms == entry->addr + off) {
+					/* skip to the end of the module */
+					processed_len = me - ms;
+					continue;
+				} else if(module_tag && ms > entry->addr + off && ms < entry->addr + entry->len) {
+					/* start of module is within this region, but there's some free memory here. */
+					processed_len = ms - (off + entry->addr);
+				} else if(module_tag && me > entry->addr + off && me < entry->addr + entry->len) {
+					/* the end of the module is in this region; skip to the end. */
+					processed_len = me - (off + entry->addr);
+					continue;
+				}
+
+				if(ks_addr == entry->addr + off) {
+					/* skip to the end of the module */
+					processed_len = ke_addr - ks_addr;
+					continue;
+				} else if(ks_addr > entry->addr + off && ks_addr < entry->addr + processed_len) {
+					/* start of module is within this region, but there's some free memory here. */
+					processed_len = ks_addr - (off + entry->addr);
+				} else if(ke_addr > entry->addr + off && ke_addr < entry->addr + processed_len) {
+					/* the end of the module is in this region; skip to the end. */
+					processed_len = ke_addr - (off + entry->addr);
+					continue;
+				}
+
+				assert(processed_len > 0);
+
+				if(off + processed_len > entry->len) {
+					processed_len = entry->len - off;
+				}
+
+				x86_64_memory_record(entry->addr + off,
+				  processed_len,
+				  memory_type_map(entry->type),
+				  memory_subtype_map(entry->type));
+			}
+		}
+		if(module_tag) {
+			mod_start = mm_ptov(module_tag->mod_start);
+			mod_len = module_tag->mod_end - module_tag->mod_start;
+			initrd_hook = x86_64_initrd2;
+		}
 	} else if(magic == 0x2BADB002) {
 		if(!(mth->flags & MULTIBOOT_FLAG_MEM))
 			panic("don't know how to detect memory!");
@@ -295,12 +388,18 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 			end = m->end;
 		x86_64_top_mem = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
 		x86_64_bot_mem = (end > PHYS((uintptr_t)&kernel_end)) ? end : PHYS((uintptr_t)&kernel_end);
+		if(m)
+			initrd_hook = x86_64_initrd;
 	} else {
 		panic("unknown bootloader type!");
 	}
 
 	kernel_early_init();
 	_init();
+
+	/* need to wait on this until here because this requires memory allocation */
+	if(initrd_hook)
+		post_init_call_register(false, initrd_hook, NULL);
 	kernel_init();
 }
 

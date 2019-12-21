@@ -158,11 +158,15 @@ struct multiboot_color {
 struct multiboot_mmap_entry {
 	multiboot_uint64_t addr;
 	multiboot_uint64_t len;
+#define MUTLIBOOT_MEMORY_UNKNOW 0
 #define MULTIBOOT_MEMORY_AVAILABLE 1
 #define MULTIBOOT_MEMORY_RESERVED 2
 #define MULTIBOOT_MEMORY_ACPI_RECLAIMABLE 3
 #define MULTIBOOT_MEMORY_NVS 4
 #define MULTIBOOT_MEMORY_BADRAM 5
+	/* NOTE: these two are used by GRUB this way, but it's not in the spec! */
+#define MULTIBOOT_MEMORY_PERSISTENT 7
+#define MULTIBOOT_MEMORY_CODE 20
 	multiboot_uint32_t type;
 	multiboot_uint32_t zero;
 };

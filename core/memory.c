@@ -3,9 +3,57 @@
 #include <memory.h>
 #include <thread.h>
 static DECLARE_LIST(physical_regions);
+static DECLARE_LIST(physical_regions_alloc);
+
+static const char *memory_type_strings[] = {
+	[MEMORY_AVAILABLE] = "System RAM",
+	[MEMORY_RESERVED] = "Reserved",
+	[MEMORY_CODE] = "Firmware Code",
+	[MEMORY_BAD] = "Bad Memory",
+	[MEMORY_RECLAIMABLE] = "Reclaimable System Memory",
+	[MEMORY_UNKNOWN] = "Unknown Memory",
+};
+
+static const char *memory_subtype_strings[] = {
+	[MEMORY_SUBTYPE_NONE] = "",
+	[MEMORY_AVAILABLE_VOLATILE] = "(volatile)",
+	[MEMORY_AVAILABLE_PERSISTENT] = "(persistent)",
+};
+
+void mm_register_region(struct memregion *reg, struct mem_allocator *alloc)
+{
+	reg->alloc = alloc;
+	printk("[mm] registering memory region %lx -> %lx %s %s\n",
+	  reg->start,
+	  reg->start + reg->length - 1,
+	  memory_type_strings[reg->type],
+	  memory_subtype_strings[reg->subtype]);
+
+	if(alloc) {
+		pmm_buddy_init(reg);
+		list_insert(&physical_regions_alloc, &reg->alloc_entry);
+	}
+	list_insert(&physical_regions, &reg->entry);
+}
+
+void mm_init_region(struct memregion *reg,
+  uintptr_t start,
+  size_t len,
+  enum memory_type type,
+  enum memory_subtype st)
+{
+	reg->start = start;
+	reg->length = len;
+	reg->flags = 0;
+	reg->alloc = NULL;
+	reg->type = type;
+	reg->subtype = st;
+}
 
 void mm_init(void)
 {
+	arch_mm_init();
+#if 0
 	arch_mm_get_regions(&physical_regions);
 	foreach(e, list, &physical_regions) {
 		struct memregion *reg = list_entry(e, struct memregion, entry);
@@ -23,6 +71,7 @@ void mm_init(void)
 		}
 		reg->ready = true;
 	}
+#endif
 }
 
 struct memregion *mm_physical_find_region(uintptr_t addr)
@@ -37,12 +86,13 @@ struct memregion *mm_physical_find_region(uintptr_t addr)
 
 uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 {
-	foreach(e, list, &physical_regions) {
-		struct memregion *reg = list_entry(e, struct memregion, entry);
+	foreach(e, list, &physical_regions_alloc) {
+		struct memregion *reg = list_entry(e, struct memregion, alloc_entry);
 
-		if((reg->flags & type) == reg->flags && reg->free_memory > 0) {
-			/* TODO (major): if this fails, keep trying on a different region */
-			return mm_physical_region_alloc(reg, length, clear);
+		if((reg->flags & type) == reg->flags && reg->alloc && reg->alloc->free_memory > 0) {
+			uintptr_t alloc = mm_physical_region_alloc(reg, length, clear);
+			if(alloc)
+				return alloc;
 		}
 	}
 	return 0;

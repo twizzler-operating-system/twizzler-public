@@ -9,33 +9,58 @@
 #define MAX_ORDER 20
 #define MIN_SIZE MM_BUDDY_MIN_SIZE
 #define MAX_SIZE ((uintptr_t)MIN_SIZE << MAX_ORDER)
-#define MEMORY_SIZE (MAX_SIZE)
 
 #define PM_TYPE_NV 1
 #define PM_TYPE_DRAM 2
 #define PM_TYPE_ANY (~0)
 
+enum memory_type {
+	MEMORY_UNKNOWN,
+	MEMORY_AVAILABLE,
+	MEMORY_RESERVED,
+	MEMORY_RECLAIMABLE,
+	MEMORY_BAD,
+	MEMORY_CODE,
+};
+
+enum memory_subtype {
+	MEMORY_SUBTYPE_NONE,
+	MEMORY_AVAILABLE_VOLATILE,
+	MEMORY_AVAILABLE_PERSISTENT,
+};
+
+struct mem_allocator {
+	struct spinlock pm_buddy_lock;
+	uint8_t *bitmaps[MAX_ORDER + 1];
+	struct list freelists[MAX_ORDER + 1];
+	size_t num_allocated[MAX_ORDER + 1];
+	_Atomic size_t free_memory;
+	bool ready;
+	// char static_bitmaps[((MEMORY_SIZE / MIN_SIZE) / 8) * 2];
+	char *static_bitmaps;
+};
+
 struct memregion {
 	uintptr_t start;
 	size_t length;
 	int flags;
-
-	struct spinlock pm_buddy_lock;
-	uint8_t *bitmaps[MAX_ORDER + 1];
-	struct list freelists[MAX_ORDER + 1];
-	char static_bitmaps[((MEMORY_SIZE / MIN_SIZE) / 8) * 2];
-	size_t num_allocated[MAX_ORDER + 1];
-	_Atomic size_t free_memory;
-	bool ready;
-
-	struct list entry;
+	enum memory_type type;
+	enum memory_subtype subtype;
+	struct mem_allocator *alloc;
+	struct list entry, alloc_entry;
 };
 
 void mm_init(void);
+void arch_mm_init(void);
 uintptr_t pmm_buddy_allocate(struct memregion *, size_t length);
 void pmm_buddy_deallocate(struct memregion *, uintptr_t address);
 void pmm_buddy_init(struct memregion *);
-void arch_mm_get_regions(struct list *);
+void mm_register_region(struct memregion *reg, struct mem_allocator *alloc);
+void mm_init_region(struct memregion *reg,
+  uintptr_t start,
+  size_t len,
+  enum memory_type type,
+  enum memory_subtype);
 
 uintptr_t mm_physical_alloc(size_t length, int type, bool clear);
 struct memregion *mm_physical_find_region(uintptr_t addr);

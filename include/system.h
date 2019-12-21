@@ -23,6 +23,8 @@ static inline unsigned long long __round_up_pow2(unsigned int a)
 
 #define flag_if_notzero(f, x) ({ (f) ? x : 0; })
 
+#define align_down(x, s) ({ (x) & ~(s - 1); })
+
 #define align_up(x, s)                                                                             \
 	({                                                                                             \
 		typeof(x) __y = (x);                                                                       \
