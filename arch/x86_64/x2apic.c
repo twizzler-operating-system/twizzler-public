@@ -128,7 +128,6 @@ static void calibrate_timers(int div)
 		x2apic_write(LAPIC_LVTT, 32 | 0x20000);
 		x2apic_write(LAPIC_TICR, 1000000000);
 
-		printk("attempt!\n");
 		uint64_t lts = x2apic_read(LAPIC_TCCR);
 		uint64_t rs = rdtsc();
 
@@ -136,37 +135,29 @@ static void calibrate_timers(int div)
 
 		uint64_t re = rdtsc();
 		uint64_t lte = x2apic_read(LAPIC_TCCR);
-		printk("done!\n");
 
 		__int128 x = -(lte - lts);
 		x *= 1000000000ul;
 		uint64_t lt_freq = x / elap;
-		printk("A: %ld:%ld %ld %ld %ld\n", (uint64_t)(x >> 64), (uint64_t)x, elap, lts, lte);
 		x = re - rs;
 		x *= 1000000000ul;
 		uint64_t tc_freq = x / elap;
-		printk("B: %ld %ld\n", lt_freq, tc_freq);
 
 		uint64_t this_lapic_period_ps = 1000000000000ul / lt_freq;
 		uint64_t this_tsc_period_ps = 1000000000000ul / tc_freq;
 
 		x2apic_write(LAPIC_LVTT, 32 | 0x10000);
-		printk("C\n");
 		x2apic_write(LAPIC_TDCR, div);
-		printk("D\n");
 		x2apic_write(LAPIC_TICR, (1000000000) / this_lapic_period_ps);
 
-		printk("here\n");
 		rs = rdtsc();
 		while(x2apic_read(LAPIC_TCCR) > 0)
 			asm("pause");
 		re = rdtsc();
-		printk("ok\n");
 
 		int64_t quality = 1000 - ((re - rs) * this_tsc_period_ps) / 1000000;
 		if(quality < 0)
 			quality = -quality;
-		printk("quality: %ld %ld %ld %ld\n", quality, rs, re, this_tsc_period_ps);
 
 		if(attempts == 0)
 			quality = 1000; /* throw away first try */
@@ -184,7 +175,6 @@ static void calibrate_timers(int div)
 	_clksrc_apic.period_ps = lapic_period_ps;
 	_clksrc_tsc.period_ps = tsc_period_ps;
 
-	printk("0\n");
 	uint64_t diff = 0;
 	uint64_t i;
 	for(i = 0; i < 100; i++) {
@@ -200,7 +190,6 @@ static void calibrate_timers(int div)
 		diff = 1;
 	_clksrc_apic.precision = diff; /* lapic counts down */
 
-	printk("1\n");
 	diff = 0;
 	for(i = 0; i < 100; i++) {
 		uint64_t s = rdtsc();
@@ -214,7 +203,6 @@ static void calibrate_timers(int div)
 		diff = 1;
 	_clksrc_tsc.precision = diff;
 
-	printk("2\n");
 	uint64_t s = rdtsc();
 	for(i = 0; i < 1000; i++) {
 		rdtsc();
@@ -223,20 +211,16 @@ static void calibrate_timers(int div)
 
 	_clksrc_tsc.read_time = ((e - s) * tsc_period_ps) / (1000 * i);
 
-	printk("3\n");
 	s = rdtsc();
 	for(i = 0; i < 1000; i++) {
 		x2apic_read(LAPIC_TCCR);
 	}
 	e = rdtsc();
 
-	printk("4\n");
 	_clksrc_apic.read_time = ((e - s) * tsc_period_ps) / (1000 * i);
 
 	clksrc_register(&_clksrc_apic);
 	clksrc_register(&_clksrc_tsc);
-	for(;;)
-		;
 }
 
 static void lapic_configure(int bsp)
@@ -265,7 +249,6 @@ static void lapic_configure(int bsp)
 	x2apic_write(LAPIC_ESR, 0);
 	x2apic_write(LAPIC_SPIV, 0x0100 | 0xFF);
 	int div = 1;
-	printk("calibrating timers\n");
 	if(bsp)
 		calibrate_timers(div);
 
@@ -276,7 +259,6 @@ static void lapic_configure(int bsp)
 
 void x86_64_lapic_init_percpu(void)
 {
-	printk("INIT APIC\n");
 	uint32_t ecx = x86_64_cpuid(1, 0, 2);
 	if(!(ecx & (1 << 21))) {
 		panic("no support for x2APIC mode");
@@ -287,7 +269,6 @@ void x86_64_lapic_init_percpu(void)
 	lo |= X86_MSR_APIC_BASE_ENABLE | X86_MSR_APIC_BASE_X2MODE;
 	x86_64_wrmsr(X86_MSR_APIC_BASE, lo, hi);
 	lapic_configure(lo & X86_MSR_APIC_BASE_BSP);
-	printk("INIT APIC 3\n");
 }
 
 static void x86_64_apic_send_ipi(unsigned char dest_shorthand, unsigned int dst, unsigned int v)
