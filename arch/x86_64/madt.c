@@ -1,9 +1,9 @@
 #include <arch/x86_64-acpi.h>
+#include <arch/x86_64-madt.h>
+#include <debug.h>
+#include <processor.h>
 #include <stdint.h>
 #include <system.h>
-#include <debug.h>
-#include <arch/x86_64-madt.h>
-#include <processor.h>
 
 struct __attribute__((packed)) madt_desc {
 	struct sdt_header header;
@@ -32,18 +32,19 @@ struct __packed intsrc_entry {
 
 static struct madt_desc *madt;
 
-__orderedinitializer(MADT_INITIALIZER_ORDER + __orderedafter(PROCESSOR_INITIALIZER_ORDER))
-static void madt_init(void)
+__orderedinitializer(
+  MADT_INITIALIZER_ORDER + __orderedafter(PROCESSOR_INITIALIZER_ORDER)) static void madt_init(void)
 {
 	madt = acpi_find_table("APIC");
 	assert(madt != NULL);
 
 	uintptr_t table = (uintptr_t)(madt + 1);
 	size_t len = madt->header.length - sizeof(*madt);
-	for(size_t off=0;off<len;) {
+	for(size_t off = 0; off < len;) {
 		struct madt_record *rec = (void *)(table + off);
 		if(rec->reclen == 0)
 			break;
+		// printk("[madt] record type: %d\n", rec->type);
 		switch(rec->type) {
 			struct lapic_entry *lapic;
 			struct intsrc_entry *intsrc;
@@ -58,7 +59,11 @@ static void madt_init(void)
 				break;
 			case INTSRC_ENTRY:
 				intsrc = (void *)rec;
-				printk(":: INTSRC: %d %d %d %x\n", intsrc->bus_src, intsrc->irq_src, intsrc->gsi, intsrc->flags);
+				printk(":: INTSRC: %d %d %d %x\n",
+				  intsrc->bus_src,
+				  intsrc->irq_src,
+				  intsrc->gsi,
+				  intsrc->flags);
 				break;
 			default:
 				break;
@@ -66,4 +71,3 @@ static void madt_init(void)
 		off += rec->reclen;
 	}
 }
-

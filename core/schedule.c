@@ -112,6 +112,7 @@ struct interrupt_handler _timer_handler = {
 __initializer static void __init_int_timer(void)
 {
 	/* TODO: arch-dep */
+	printk("sched init\n");
 	interrupt_register_handler(32, &_timer_handler);
 }
 

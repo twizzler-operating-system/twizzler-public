@@ -34,11 +34,15 @@ static uint32_t read_ioapic(struct ioapic *chip, const uint8_t offset)
 
 void ioapic_init(struct ioapic_entry *entry)
 {
-	if(entry->apicid >= MAX_IOAPICS)
-		return;
-	ioapics[entry->apicid].id = entry->apicid;
-	ioapics[entry->apicid].vaddr = (uintptr_t)mm_ptov(entry->ioapicaddr);
-	ioapics[entry->apicid].gsib = entry->gsib;
+	for(int i = 0; i < MAX_IOAPICS; i++) {
+		if(ioapics[i].id == -1) {
+			ioapics[i].id = entry->apicid;
+			ioapics[i].vaddr = (uintptr_t)mm_ptov(entry->ioapicaddr);
+			ioapics[i].gsib = entry->gsib;
+			return;
+		}
+	}
+	panic("not enough entries to hold all these IOAPICs!");
 }
 
 static void write_ioapic_vector(struct ioapic *l,
@@ -101,6 +105,7 @@ void arch_interrupt_unmask(int v)
 
 __orderedinitializer(__orderedbefore(MADT_INITIALIZER_ORDER)) static void __ioapic_preinit(void)
 {
+	printk("IOAPIC preinit\n");
 	for(int i = 0; i < MAX_IOAPICS; i++)
 		ioapics[i].id = -1;
 }
@@ -112,8 +117,11 @@ void do_init_ioapic(struct ioapic *chip)
 	}
 }
 
-__orderedinitializer(__orderedafter(MADT_INITIALIZER_ORDER)) static void __ioapic_postinit(void)
+__orderedinitializer(
+  __orderedafter(MADT_INITIALIZER_ORDER)
+  + __orderedafter(PROCESSOR_INITIALIZER_ORDER)) static void __ioapic_postinit(void)
 {
+	printk("IOAPIC postinit\n");
 	int found = 0;
 	/* disable PIC */
 	x86_64_outb(0xA1, 0xFF);

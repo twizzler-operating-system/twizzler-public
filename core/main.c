@@ -80,6 +80,7 @@ void kernel_early_init(void)
 
 void kernel_init(void)
 {
+	printk("reached mid-init\n");
 	processor_init_secondaries();
 	processor_perproc_init(NULL);
 }
@@ -217,6 +218,12 @@ void kfree(void *p)
 {
 	(void)p;
 	// printk("[ni] kfree (%p)\n", p);
+}
+static __inline__ unsigned long long rdtsc(void)
+{
+	unsigned hi, lo;
+	__asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }
 
 #include <syscall.h>
@@ -397,12 +404,15 @@ void kernel_main(struct processor *proc)
 #endif
 		syscall_thread_spawn(ID_LO(bthrid), ID_HI(bthrid), &tsa, 0);
 	}
-	if(0 && (proc->id == 0)) {
+	if((proc->id == 0) && 0) {
 		arch_interrupt_set(true);
 		while(1) {
-			printk("X\n");
-			for(volatile long i = 0; i < 1000000000; i++) {
+			long long a = rdtsc();
+			for(volatile long i = 0; i < 1000000000l; i++) {
+				asm volatile("" ::: "memory");
 			}
+			long long b = rdtsc();
+			printk("K %d: %lld\n", proc->id, b - a);
 		}
 	}
 	printk("processor %d (%s) reached resume state %p\n",

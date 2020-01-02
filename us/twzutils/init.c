@@ -233,6 +233,20 @@ static __inline__ unsigned long long rdtsc(void)
 void slab_test();
 int main()
 {
+#if 0
+	while(1) {
+		long long a = rdtsc();
+		for(volatile long i = 0; i < 1000000000ul; i++) {
+			asm volatile("" ::: "memory");
+		}
+		long long b = rdtsc();
+
+		debug_printf("::U %ld\n", b - a);
+	}
+
+	for(;;)
+		;
+#endif
 	debug_printf("Bootstrapping naming system\n");
 	if(__name_bootstrap() == -1) {
 		EPRINTF("Failed to bootstrap namer\n");

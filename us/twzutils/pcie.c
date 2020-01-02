@@ -199,6 +199,7 @@ static void pcie_init_space(struct pcie_bus_header *space)
 	  space->end_bus);
 
 	/* XXX - HACK to get real hw working */
+	return;
 	if(space->end_bus < 0xff)
 		return;
 	/* brute-force scan. We _could_ detect areas to look in based on bridges and stuff, but this

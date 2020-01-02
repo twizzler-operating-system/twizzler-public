@@ -365,6 +365,7 @@ char serial_getc()
 
 __initializer static void __serial_init(void)
 {
+	printk("Serial reinit\n");
 	interrupt_register_handler(com1.irq, &_serial_handler);
 	arch_interrupt_unmask(com1.irq);
 	uart_init(&com1,
@@ -373,6 +374,7 @@ __initializer static void __serial_init(void)
 	  CONFIG_SERIAL_DEBUG_STOPBITS,
 	  CONFIG_SERIAL_DEBUG_WORDSZ,
 	  CONFIG_SERIAL_DEBUG_BAUD);
+	printk("Serial reinit done\n");
 }
 
 #include <spinlock.h>

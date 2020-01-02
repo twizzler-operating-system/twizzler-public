@@ -58,15 +58,21 @@ static uintptr_t lapic_addr = 0;
 #define LAPIC_TCCR 0x390
 #define LAPIC_TDCR 0x3E0
 
+static bool x2mode = false;
+
+#define X2MSR(x) ((x / 0x10) + 0x800)
+
 /* TODO: support 2xAPIC if possible */
 static inline void lapic_write(int reg, uint32_t data)
 {
-	asm volatile("mfence; lfence;" ::: "memory");
 	*((volatile uint32_t *)(lapic_addr + reg)) = data;
+	asm volatile("sfence;" ::: "memory");
+	asm volatile("lfence;clflush (%0)" ::"r"(lapic_addr + reg) : "memory");
 }
 
 __noinstrument static inline uint32_t lapic_read(int reg)
 {
+	asm volatile("lfence;clflush (%0)" ::"r"(lapic_addr + reg) : "memory");
 	return *(volatile uint32_t *)(lapic_addr + reg);
 }
 
@@ -205,10 +211,11 @@ static void calibrate_timers(int div)
 		 * If you write the initial count before you
 		 * tell it to set periodic mode and set the vector
 		 * it will not generate an interrupt! */
-		lapic_write(LAPIC_LVTT, 32 | 0x20000);
 		lapic_write(LAPIC_TDCR, div);
+		lapic_write(LAPIC_LVTT, 32 | 0x20000);
 		lapic_write(LAPIC_TICR, 1000000000);
 
+		printk("attempt!\n");
 		uint64_t lts = lapic_read(LAPIC_TCCR);
 		uint64_t rs = rdtsc();
 
@@ -216,25 +223,32 @@ static void calibrate_timers(int div)
 
 		uint64_t re = rdtsc();
 		uint64_t lte = lapic_read(LAPIC_TCCR);
+		printk("done!\n");
 
 		__int128 x = -(lte - lts);
 		x *= 1000000000ul;
 		uint64_t lt_freq = x / elap;
+		printk("A: %ld:%ld %ld %ld %ld\n", (uint64_t)x, (uint64_t)x >> 32, elap, lts, lte);
 		x = re - rs;
 		x *= 1000000000ul;
 		uint64_t tc_freq = x / elap;
+		printk("B: %ld %ld\n", lt_freq, tc_freq);
 
 		uint64_t this_lapic_period_ps = 1000000000000ul / lt_freq;
 		uint64_t this_tsc_period_ps = 1000000000000ul / tc_freq;
 
-		lapic_write(LAPIC_LVTT, 32);
+		lapic_write(LAPIC_LVTT, 32 | 0x10000);
+		printk("C\n");
 		lapic_write(LAPIC_TDCR, div);
+		printk("D\n");
 		lapic_write(LAPIC_TICR, (1000000000) / this_lapic_period_ps);
 
+		printk("here\n");
 		rs = rdtsc();
 		while(lapic_read(LAPIC_TCCR) > 0)
 			asm("pause");
 		re = rdtsc();
+		printk("ok\n");
 
 		int64_t quality = 1000 - ((re - rs) * this_tsc_period_ps) / 1000000;
 		if(quality < 0)
@@ -333,16 +347,29 @@ static void lapic_configure(int bsp)
 	lapic_write(LAPIC_ESR, 0);
 	lapic_write(LAPIC_SPIV, 0x0100 | 0xFF);
 	int div = APIC_TIMER_DIV;
+	printk("calibrating timers\n");
 	if(bsp)
 		calibrate_timers(div);
 
-	lapic_write(LAPIC_LVTT, 32);
 	lapic_write(LAPIC_TDCR, div);
+	lapic_write(LAPIC_LVTT, 32);
 	lapic_write(LAPIC_TICR, 0);
 }
 
-__initializer void x86_64_lapic_init_percpu(void)
+bool arch_vm_getmap(struct vm_context *ctx,
+  uintptr_t virt,
+  uintptr_t *phys,
+  int *level,
+  uint64_t *flags);
+
+void old_x86_64_lapic_init_percpu(void)
 {
+	printk("INIT APIC\n");
+	uint32_t x = x86_64_cpuid(1, 0, 2);
+	printk(":: %x\n", x);
+
+	for(;;)
+		;
 	/* enable the LAPIC */
 	uint32_t lo, hi;
 	x86_64_rdmsr(X86_MSR_APIC_BASE, &lo, &hi);
@@ -350,9 +377,17 @@ __initializer void x86_64_lapic_init_percpu(void)
 
 	lo |= X86_MSR_APIC_BASE_ENABLE;
 	x86_64_wrmsr(X86_MSR_APIC_BASE, lo, hi);
+	printk("INIT APIC 2\n");
 
 	lapic_addr = (uintptr_t)mm_ptov(paddr);
+	int lv;
+	uintptr_t ph;
+	uint64_t fl;
+	arch_vm_getmap(NULL, lapic_addr, &ph, &lv, &fl);
+	printk("lapic addr %lx -> %lx\n", lapic_addr, paddr);
+	printk("  %lx %lx %d\n", ph, fl, lv);
 	lapic_configure(lo & X86_MSR_APIC_BASE_BSP);
+	printk("INIT APIC 3\n");
 }
 
 static void x86_64_apic_send_ipi(unsigned char dest_shorthand, unsigned int dst, unsigned int v)

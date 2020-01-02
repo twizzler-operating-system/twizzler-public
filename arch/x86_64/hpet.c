@@ -1,15 +1,15 @@
-#include <system.h>
+#include <arch/x86_64-acpi.h>
 #include <debug.h>
 #include <memory.h>
-#include <arch/x86_64-acpi.h>
+#include <system.h>
 
 struct __packed hpet_desc {
 	struct sdt_header header;
 	uint8_t hw_rev_id;
-	uint8_t comp_count:5;
-	uint8_t counter_size:1;
-	uint8_t _res:1;
-	uint8_t leg_repl:1;
+	uint8_t comp_count : 5;
+	uint8_t counter_size : 1;
+	uint8_t _res : 1;
+	uint8_t leg_repl : 1;
 	uint16_t ven_id;
 	uint32_t pci_addr_data;
 	uint64_t address;
@@ -25,7 +25,7 @@ struct __packed hpet_desc {
 #define HPET_ENABLE_CNF 1
 #define HPET_COUNT_SIZE_64 (1 << 13)
 
-#define HPET_TIMERN_CONFIG(n) (0x100 + 0x20 * (n)) 
+#define HPET_TIMERN_CONFIG(n) (0x100 + 0x20 * (n))
 #define HPET_TN_CONFIG_ENABLE (1 << 2)
 
 static struct hpet_desc *hpet;
@@ -41,12 +41,12 @@ __noinstrument static inline void hpet_write64(int offset, uint64_t data)
 	*(volatile uint64_t *)(mm_ptov(hpet->address + offset)) = data;
 }
 
-__orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER))
-static void hpet_init(void)
+__orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void hpet_init(void)
 {
 	if(!(hpet = acpi_find_table("HPET"))) {
 		return;
 	}
+	printk("init hpet\n");
 
 	uint64_t tmp = hpet_read64(HPET_CAP);
 	countperiod = tmp >> 32;
@@ -59,7 +59,7 @@ static void hpet_init(void)
 	tmp &= ~HPET_ENABLE_CNF;
 	hpet_write64(HPET_CONFIG, tmp);
 
-	for(int i=0;i<count;i++) {
+	for(int i = 0; i < count; i++) {
 		tmp = hpet_read64(HPET_TIMERN_CONFIG(i));
 		tmp &= ~(HPET_TN_CONFIG_ENABLE);
 		hpet_write64(HPET_TIMERN_CONFIG(i), tmp);
@@ -72,4 +72,3 @@ static void hpet_init(void)
 	tmp |= HPET_ENABLE_CNF;
 	hpet_write64(HPET_CONFIG, tmp);
 }
-

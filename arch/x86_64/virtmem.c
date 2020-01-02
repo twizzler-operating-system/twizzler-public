@@ -70,8 +70,15 @@ bool arch_vm_getmap(struct vm_context *ctx,
   int *level,
   uint64_t *flags)
 {
+	uintptr_t table_phys;
 	if(ctx == NULL) {
-		ctx = current_thread->ctx;
+		if(current_thread) {
+			table_phys = current_thread->ctx->arch.pml4_phys;
+		} else {
+			asm volatile("mov %%cr3, %0" : "=r"(table_phys));
+		}
+	} else {
+		table_phys = ctx->arch.pml4_phys;
 	}
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
@@ -80,7 +87,7 @@ bool arch_vm_getmap(struct vm_context *ctx,
 
 	uintptr_t p, f;
 	int l;
-	uintptr_t *pml4 = GET_VIRT_TABLE(ctx->arch.pml4_phys);
+	uintptr_t *pml4 = GET_VIRT_TABLE(table_phys);
 	if(pml4[pml4_idx] == 0) {
 		return false;
 	}
@@ -229,15 +236,22 @@ static void _remap(void)
 	start = PHYSICAL_MAP_START;
 	end = PHYSICAL_MAP_END & ~(mm_page_size(2) - 1);
 	for(uintptr_t i = start; i < end; i += mm_page_size(2)) {
+		uint64_t fl = 0;
+		/* TODO: do this correctly */
+		if(mm_vtop((void *)i) >= 0xC0000000 && mm_vtop((void *)i) < 0x100000000)
+			fl = (1 << 4) | (1 << 3);
 		__do_vm_map(
-		  kpml4_phys, i, mm_vtop((void *)i), 2, VM_MAP_EXEC | VM_MAP_WRITE | VM_MAP_GLOBAL);
+		  kpml4_phys, i, mm_vtop((void *)i), 2, VM_MAP_EXEC | VM_MAP_WRITE | VM_MAP_GLOBAL | fl);
 	}
 }
 
 __initializer static void _x86_64_init_vm(void)
 {
+	printk("remapping!\n");
 	_remap();
+	printk("switching new cr3\n");
 	asm volatile("mov %0, %%cr3" ::"r"(mm_vtop(kernel_pml4)) : "memory");
+	printk("!ok!\n");
 }
 
 void x86_64_secondary_vm_init(void)

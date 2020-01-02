@@ -29,7 +29,7 @@ void mm_register_region(struct memregion *reg, struct mem_allocator *alloc)
 	  memory_type_strings[reg->type],
 	  memory_subtype_strings[reg->subtype]);
 
-	if(alloc) {
+	if(alloc && reg->start < 0x100000000ull) {
 		pmm_buddy_init(reg);
 		list_insert(&physical_regions_alloc, &reg->alloc_entry);
 	}

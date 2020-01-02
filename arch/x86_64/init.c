@@ -39,12 +39,15 @@ static void proc_init(void)
 	asm volatile("mov %0, %%cr0" ::"r"(cr0));
 
 	asm volatile("mov %%cr4, %0" : "=r"(cr4));
-	cr4 |= (1 << 7);  // enable page global
 	cr4 |= (1 << 10); // enable fast fxsave etc, sse
 	cr4 |= (1 << 16); // rdgsbase
-	cr4 |= (1 << 9);
 	cr4 |= (1 << 18);
-	// cr4 &= ~(1 << 9);
+	cr4 |= (1 << 9);
+	/* clear any global mappings in the TLB */
+	cr4 &= ~(1 << 7);
+	asm volatile("mov %0, %%cr4" ::"r"(cr4));
+	/* enable global mappings */
+	cr4 |= (1 << 7); // enable page global
 	asm volatile("mov %0, %%cr4" ::"r"(cr4));
 	printk("cr4: %lx, cr0: %lx\n", cr4, cr0);
 
@@ -397,6 +400,7 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 	}
 
 	kernel_early_init();
+	x86_64_lapic_init_percpu();
 	_init();
 
 	/* need to wait on this until here because this requires memory allocation */
