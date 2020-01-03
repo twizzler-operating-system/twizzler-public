@@ -210,6 +210,10 @@ long syscall_ocreate(uint64_t kulo,
 
 	objid_t id = obj_compute_id(o);
 	obj_assign_id(o, id);
+	if(flags & TWZ_SYS_OC_PERSIST_) {
+		o->persist = true;
+	}
+	// printk("CREATE %s OBJECT\n", o->persist ? "PERSISTENT" : "VOLATILE");
 	obj_put(o);
 
 	if(retid)

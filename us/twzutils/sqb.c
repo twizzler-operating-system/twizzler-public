@@ -81,6 +81,15 @@ void random_name(char *name, size_t len)
 
 int main(int argc, char *argv[])
 {
+	start_timer();
+	for(;;) {
+		long long x = next_timer();
+		for(volatile long i = 0; i < 1000000000ul; i++) {
+		}
+		long long y = next_timer();
+		printf(":: %ld\n", y);
+	}
+
 	sqlite3 *db;
 	char *zErrMsg = 0;
 	int rc;

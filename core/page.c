@@ -45,6 +45,7 @@ struct page *page_alloc(int type)
 		return slabcache_alloc(&sc_page);
 	struct page *p = slabcache_alloc(&sc_page_unalloc);
 	p->type = type;
+	// printk("allocating persistent memory\n");
 	p->addr = mm_physical_alloc(mm_page_size(0), PM_TYPE_NV, true);
 	p->flags |= PAGE_ALLOCED;
 	return p;

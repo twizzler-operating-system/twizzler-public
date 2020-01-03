@@ -93,6 +93,7 @@ static inline struct object *__obj_alloc(enum kso_type ksot, objid_t id)
 	obj->maxsz = mm_page_size(MAX_PGLEVEL);
 	obj->pglevel = MAX_PGLEVEL;
 	obj->slot = -1;
+	obj->persist = false;
 	krc_init(&obj->refs);
 	krc_init_zero(&obj->pcount);
 	obj_kso_init(obj, ksot);
@@ -233,7 +234,9 @@ struct objpage *obj_get_page(struct object *obj, size_t idx, bool alloc)
 		}
 		page = slabcache_alloc(&sc_objpage);
 		page->idx = idx;
-		page->page = page_alloc(PAGE_TYPE_VOLATILE);
+		page->page =
+		  page_alloc((obj->persist && idx < 200000 /* XXX HACK TODO */) ? PAGE_TYPE_PERSIST
+		                                                                : PAGE_TYPE_VOLATILE);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_UC, PAGE_CACHE_UC);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WB, PAGE_CACHE_WB);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WT, PAGE_CACHE_WT);

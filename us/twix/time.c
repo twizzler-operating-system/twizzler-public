@@ -27,8 +27,8 @@ long linux_sys_clock_gettime(clockid_t clock, struct timespec *tp)
 		case CLOCK_MONOTONIC_COARSE:
 			ts = rdtsc();
 			/* TODO: overflow? */
-			tp->tv_sec = (ts / 4) / 1000000000ul;
-			tp->tv_nsec = (ts / 4) % 1000000000ul;
+			tp->tv_sec = ((long)((double)ts / 2.32)) / 1000000000ul;
+			tp->tv_nsec = ((long)((double)ts / 2.32)) % 1000000000ul;
 			//		debug_printf(":: %ld -> %ld %ld\n", ts, tp->tv_sec, tp->tv_nsec);
 			break;
 		default:

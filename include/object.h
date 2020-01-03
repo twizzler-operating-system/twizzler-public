@@ -61,6 +61,7 @@ struct object {
 	bool pinned;
 	bool idvercache;
 	bool idversafe;
+	bool persist; // TODO: combine these into flags
 	int cache_mode;
 
 	_Atomic enum kso_type kso_type;

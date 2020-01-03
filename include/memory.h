@@ -48,6 +48,7 @@ struct memregion {
 	enum memory_subtype subtype;
 	struct mem_allocator *alloc;
 	struct list entry, alloc_entry;
+	_Atomic size_t off;
 };
 
 void mm_init(void);

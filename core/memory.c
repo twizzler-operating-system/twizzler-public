@@ -48,6 +48,7 @@ void mm_init_region(struct memregion *reg,
 	reg->alloc = NULL;
 	reg->type = type;
 	reg->subtype = st;
+	reg->off = 0;
 }
 
 void mm_init(void)
@@ -86,6 +87,20 @@ struct memregion *mm_physical_find_region(uintptr_t addr)
 
 uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 {
+	if(type == PM_TYPE_NV) {
+		/* TODO: clean this up */
+		// printk("ALloc NVM\n");
+		foreach(e, list, &physical_regions) {
+			struct memregion *reg = list_entry(e, struct memregion, entry);
+
+			//	printk(":: %d %d\n", reg->type, reg->subtype);
+			if(reg->type == MEMORY_AVAILABLE && reg->subtype == MEMORY_AVAILABLE_PERSISTENT) {
+				size_t x = atomic_fetch_add(&reg->off, length);
+				return x + reg->start;
+			}
+		}
+		printk("warning - allocating volatile RAM when NVM was requested\n");
+	}
 	foreach(e, list, &physical_regions_alloc) {
 		struct memregion *reg = list_entry(e, struct memregion, alloc_entry);
 

@@ -27,6 +27,7 @@
 
 #define TWZ_SYS_OC_ZERONONCE 0x1000
 #define TWZ_SYS_OC_VOLATILE 0x2000
+#define TWZ_SYS_OC_PERSIST_ 0x4000 /* TODO: remove, make dflt etc */
 
 struct sys_invalidate_op {
 	objid_t id;
