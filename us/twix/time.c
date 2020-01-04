@@ -21,7 +21,6 @@ long linux_sys_clock_gettime(clockid_t clock, struct timespec *tp)
 	static long tsc_ps = 0;
 	if(!tsc_ps) {
 		tsc_ps = sys_kconf(KCONF_ARCH_TSC_PSPERIOD, 0);
-		debug_printf("::: GOT %ld\n", tsc_ps);
 	}
 	switch(clock) {
 		uint64_t ts;

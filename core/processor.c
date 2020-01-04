@@ -142,6 +142,7 @@ void processor_secondary_entry(struct processor *proc)
 	processor_perproc_init(proc);
 }
 
+#include <lib/iter.h>
 void processor_print_stats(struct processor *proc)
 {
 	printk("processor %d\n", proc->id);
@@ -152,6 +153,13 @@ void processor_print_stats(struct processor *proc)
 	printk("  sctx_switch: %-ld\n", proc->stats.sctx_switch);
 	printk("  shootdowns : %-ld\n", proc->stats.shootdowns);
 	printk("  syscalls   : %-ld\n", proc->stats.syscalls);
+	spinlock_acquire_save(&proc->sched_lock);
+	printk("  THREADS\n");
+	foreach(e, list, &proc->runqueue) {
+		struct thread *t = list_entry(e, struct thread, rq_entry);
+		printk("    %ld: %d\n", t->id, t->state);
+	}
+	spinlock_release_restore(&proc->sched_lock);
 }
 
 void processor_print_all_stats(void)

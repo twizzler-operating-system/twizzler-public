@@ -23,8 +23,8 @@ enum {
 
 #define _clwb(...)
 #define _pfence()
-//#define mutex_acquire(...)
-//#define mutex_release(...)
+#define mutex_acquire(...)
+#define mutex_release(...)
 #endif
 
 static void _doprint_tree(twzobj *obj, int indent, struct btree_node *root);
@@ -37,6 +37,7 @@ __attribute__((const)) static inline struct btree_node *__l(twzobj *obj, void *x
 {
 	if(x == NULL)
 		return NULL;
+	// return (void *)((uintptr_t)x + obj->base);
 	struct btree_node *r = twz_object_lea(obj, x);
 	return r;
 }
@@ -427,9 +428,26 @@ int bt_insert(twzobj *obj,
 {
 	return bt_insert_cmp(obj, hdr, k, d, nt, __cf_default);
 }
+
+static __inline__ unsigned long long rdtsc(void)
+{
+	unsigned hi, lo;
+	__asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
+}
+
 static struct btree_node *__bt_leftmost(twzobj *obj, struct btree_node *n)
 {
 	while(n->left) {
+		n = __l(obj, n->left);
+	}
+	return n;
+}
+
+static struct btree_node *__bt_leftmost2(twzobj *obj, struct btree_node *n, size_t *c)
+{
+	while(n->left) {
+		(*c)++;
 		n = __l(obj, n->left);
 	}
 	return n;
@@ -444,15 +462,22 @@ static struct btree_node *__bt_rightmost(twzobj *obj, struct btree_node *n)
 }
 static struct btree_node *__bt_next(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n)
 {
+	long long a = rdtsc();
+	size_t c = 0;
 	if(n->right) {
-		struct btree_node *r = __bt_leftmost(obj, __l(obj, n->right));
+		struct btree_node *r = __bt_leftmost2(obj, __l(obj, n->right), &c);
+		long long b = rdtsc();
+		debug_printf(":: bt_next 1: %ld (%ld)\n", b - a, c);
 		return r;
 	}
 	struct btree_node *p = __l(obj, n->parent);
 	while(p && n == __l(obj, p->right)) {
 		n = p;
 		p = __l(obj, p->parent);
+		c++;
 	}
+	long long b = rdtsc();
+	debug_printf(":: bt_next 2: %ld (%ld)\n", b - a, c);
 	return p;
 }
 
@@ -460,6 +485,7 @@ static struct btree_node *__bt_prev(twzobj *obj, struct btree_hdr *hdr, struct b
 {
 	if(n->left) {
 		struct btree_node *r = __bt_rightmost(obj, __l(obj, n->left));
+
 		return r;
 	}
 	struct btree_node *p = __l(obj, n->parent);

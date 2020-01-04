@@ -310,6 +310,10 @@ __noinstrument static void _serial_interrupt(int i, struct interrupt_handler *h 
 			case 6:
 				c = uart_read(u, UART_REG_DATA);
 
+				/* TODO */
+				if(c == '`') {
+					processor_print_all_stats();
+				}
 				long tmp = c;
 				obj_write_data_atomic64(ser_obj, offsetof(struct device_repr, syncs[0]), tmp);
 				thread_wake_object(

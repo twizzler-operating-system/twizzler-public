@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
 	SQLE("begin");
 
 	start_timer();
-	int max = 1000000;
+	int max = 100;
 	for(int i = 0; i < max; i++) {
 		if(i % (max / 10) == 0)
 			printf("%d\n", i / (max / 10));
