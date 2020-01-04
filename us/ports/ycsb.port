@@ -1,0 +1,35 @@
+#!/bin/sh
+
+NAME=ycsb
+VERSION=1
+DEPS=(sqlite)
+desc="YCSB"
+
+DOWNLOADS=()
+HASHES=()
+
+SPLITS=(usr/bin/ycsbc)
+
+function prepare() {
+	#git clone https://gitlab.soe.ucsc.edu/gitlab/crss/twz-sqlite
+	#cd twz-sqlite
+	#git checkout twz
+	#cd ..
+	cp -rf ../../../../../../us/ports/YCSB-C-fbsd ycsb
+	cd ycsb
+}
+
+function build() {
+	cd ycsb
+	make $MAKEFLAGS CC=x86_64-pc-twizzler-musl-g++ CXX=x86_64-pc-twizzler-musl-g++
+}
+
+function install() {
+	cd ycsb
+	mkdir -p $SYSROOT/usr/bin
+	mkdir -p $SYSROOT/usr/share/ycsbc
+	cp ycsbc $SYSROOT/usr/bin/ycsbc
+	cp workloads/* $SYSROOT/usr/share/ycsbc/
+}
+
+
