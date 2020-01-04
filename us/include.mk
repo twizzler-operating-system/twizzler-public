@@ -71,7 +71,7 @@ SYSROOT_READY=$(BUILDDIR)/us/sysroot/usr/lib/crt1.o
 SYSROOT_PREP=$(MUSL_HDRS)
 
 #TWZCFLAGS=-Wall -Wextra -O3 -msse2 -msse -mavx -march=native -ffast-math -g
-TWZCFLAGS=-Wall -Wextra -O3 -g -march=native -mavx
+TWZCFLAGS=-Wall -Wextra -O3 -g -march=native -mclwb
 
 include us/libtwz/include.mk
 include us/twix/include.mk

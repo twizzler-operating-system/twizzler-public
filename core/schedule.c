@@ -3,7 +3,7 @@
 #include <processor.h>
 #include <thread.h>
 
-#define TIMESLICE_MIN 5000000
+#define TIMESLICE_MIN 50000000
 #define TIMESLICE_GIVEUP 10000
 #define TIMESLICE_SCALE 20000
 

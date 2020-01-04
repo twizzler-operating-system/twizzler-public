@@ -10,7 +10,7 @@
 
 static inline void _clwb(const void *p)
 {
-#if __HAVE_CLWB
+#ifdef __HAVE_CLWB
 	_mm_clwb(p);
 #else
 	_mm_clflushopt(p);

@@ -120,9 +120,9 @@ void pmm_buddy_deallocate(struct memregion *reg, uintptr_t address)
 
 void pmm_buddy_init(struct memregion *reg)
 {
-	// reg->alloc->off = mm_page_size(1) - (reg->start % mm_page_size(1));
-	// if(reg->alloc->off >= reg->length)
-	//	return;
+	reg->alloc->off = mm_page_size(1) - (reg->start % mm_page_size(1));
+	if(reg->alloc->off >= reg->length)
+		return;
 	/* TODO: make the skipped over memory available */
 	char *start = reg->alloc->static_bitmaps = mm_ptov(reg->start + reg->alloc->off);
 	size_t bmlen = (((reg->length - reg->alloc->off) / MIN_SIZE) / 8) * 2

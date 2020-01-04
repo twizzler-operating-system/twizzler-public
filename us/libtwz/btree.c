@@ -12,6 +12,7 @@ enum {
 	BLACK,
 };
 
+#if 1
 #define TXOPT_RECORD_TMP(...)
 #define TXOPT_RECORD(...)
 #define TX_RECORD_COMMIT(...)
@@ -22,8 +23,9 @@ enum {
 
 #define _clwb(...)
 #define _pfence()
-#define mutex_acquire(...)
-#define mutex_release(...)
+//#define mutex_acquire(...)
+//#define mutex_release(...)
+#endif
 
 static void _doprint_tree(twzobj *obj, int indent, struct btree_node *root);
 __attribute__((const)) static inline struct btree_node *__c(void *x)

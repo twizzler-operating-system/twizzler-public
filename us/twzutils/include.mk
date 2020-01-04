@@ -32,7 +32,7 @@ $(BUILDDIR)/us/twzutils/%.o: us/twzutils/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo "[CC]      $@"
 	@echo $(CFLAGS_$(basename $(notdir $@)))
-	@$(TWZCC) $(TWZCFLAGS) -o $@ $(CFLAGS_$(basename $(notdir $@))) -c -MD $<
+	$(TWZCC) $(TWZCFLAGS) -o $@ $(CFLAGS_$(basename $(notdir $@))) -c -MD $<
 
 $(BUILDDIR)/us/twzutils/%.opp: us/twzutils/%.cpp $(MUSL_HDRS)
 	@mkdir -p $(dir $@)

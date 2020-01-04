@@ -44,7 +44,7 @@ static void _obj_dtor(void *_u, void *ptr)
 __initializer static void _init_objs(void)
 {
 	/* TODO (perf): verify all ihtable sizes */
-	slabcache_init(&sc_pctable, ihtable_size(8), _iht_ctor, NULL, (void *)8ul);
+	slabcache_init(&sc_pctable, ihtable_size(12), _iht_ctor, NULL, (void *)12ul);
 	slabcache_init(&sc_tstable, ihtable_size(4), _iht_ctor, NULL, (void *)4ul);
 	slabcache_init(&sc_objs, sizeof(struct object), _obj_ctor, _obj_dtor, NULL);
 	slabcache_init(&sc_objpage, sizeof(struct objpage), NULL, NULL, NULL);
@@ -203,7 +203,7 @@ void obj_alloc_slot(struct object *obj)
 
 	bitmap_set(slot_bitmap, slot);
 	/* TODO: don't hard-code these */
-	int es = slot + 16;
+	int es = slot + 64;
 	if(obj->pglevel < MAX_PGLEVEL) {
 		es *= 512;
 	}
@@ -580,8 +580,8 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 #endif
 
 	/* TODO: something better */
-	for(int j = 0; j < 1 && (idx < 200000 || j == 0); j++, idx++) {
-		struct objpage *p = obj_get_page(o, loaddr % OBJ_MAXSIZE, true);
+	for(int j = 0; j < 4 && (idx < 200000 || j == 0); j++, idx++) {
+		struct objpage *p = obj_get_page(o, (j * mm_page_size(1) + loaddr) % OBJ_MAXSIZE, true);
 
 		if(do_map) {
 			arch_object_map_slot(o, perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));

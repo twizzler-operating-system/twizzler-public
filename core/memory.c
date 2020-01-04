@@ -22,12 +22,6 @@ static const char *memory_subtype_strings[] = {
 
 void mm_register_region(struct memregion *reg, struct mem_allocator *alloc)
 {
-	if(reg->length < mm_page_size(1))
-		return;
-	reg->start += mm_page_size(1) - (reg->start % (mm_page_size(1)));
-	reg->length -= mm_page_size(1) - (reg->start % (mm_page_size(1)));
-	if(reg->length < mm_page_size(1))
-		return;
 	reg->alloc = alloc;
 	printk("[mm] registering memory region %lx -> %lx %s %s\n",
 	  reg->start,
@@ -35,7 +29,11 @@ void mm_register_region(struct memregion *reg, struct mem_allocator *alloc)
 	  memory_type_strings[reg->type],
 	  memory_subtype_strings[reg->subtype]);
 
-	if(alloc && reg->start < 0x100000000ull) {
+	if(reg->start + reg->length > 64ul * 1024ul * 1024ul * 1024ul) {
+		reg->length = 64ul * 1024ul * 1024ul * 1024ul - reg->start;
+	}
+
+	if(alloc && (reg->start < 0x100000000ull || 1)) {
 		pmm_buddy_init(reg);
 		list_insert(&physical_regions_alloc, &reg->alloc_entry);
 	}
@@ -103,7 +101,7 @@ uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 			//	printk(":: %d %d\n", reg->type, reg->subtype);
 			if(reg->type == MEMORY_AVAILABLE && reg->subtype == MEMORY_AVAILABLE_PERSISTENT) {
 				spinlock_acquire_save(&nvs);
-				size_t a = length - ((reg->start + reg->off) % (length - 1));
+				size_t a = length - ((reg->start + reg->off) % length);
 				reg->off += a;
 				size_t x = reg->off;
 				reg->off += length;
@@ -120,7 +118,7 @@ uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 		if((reg->flags & type) == reg->flags && reg->alloc && reg->alloc->ready
 		   && reg->alloc->free_memory > length) {
 			uintptr_t alloc = mm_physical_region_alloc(reg, length, clear);
-			printk("alloc: %lx\n", alloc);
+			//		printk("alloc: %lx\n", alloc);
 			if(alloc)
 				return alloc;
 		}

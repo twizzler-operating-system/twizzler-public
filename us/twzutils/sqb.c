@@ -21,7 +21,7 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName)
 {
 	// if(NotUsed)
 	//	return 0;
-	// return 0;
+	return 0;
 	int i;
 	for(i = 0; i < argc; i++) {
 		printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
@@ -81,6 +81,7 @@ void random_name(char *name, size_t len)
 
 int main(int argc, char *argv[])
 {
+#if 0
 	start_timer();
 	for(;;) {
 		long long x = next_timer();
@@ -89,6 +90,7 @@ int main(int argc, char *argv[])
 		long long y = next_timer();
 		printf(":: %ld\n", y);
 	}
+#endif
 
 	sqlite3 *db;
 	char *zErrMsg = 0;
@@ -222,7 +224,7 @@ int main(int argc, char *argv[])
 			break;
 		case 4:
 			query = "SELECT * FROM people ORDER BY Age;";
-			quiet = 0;
+			quiet = 1;
 			name = "Show-All-Rows-Ordered";
 			break;
 		case 5:
