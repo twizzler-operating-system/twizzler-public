@@ -44,3 +44,4 @@ long syscall_kaction(size_t count, struct sys_kaction_args *args);
 long syscall_opin(uint64_t lo, uint64_t hi, uint64_t *addr, int flags);
 long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg, long arg2, long arg3);
 long syscall_kconf(int cmd, long arg);
+long arch_syscall_kconf(int cmd, long arg);

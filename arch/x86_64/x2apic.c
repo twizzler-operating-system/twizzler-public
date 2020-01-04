@@ -111,6 +111,7 @@ static struct clksrc _clksrc_tsc = {
 	.read_counter = _tsc_read_counter,
 };
 
+void arch_syscall_kconf_set_tsc_period(long ps);
 static void calibrate_timers(int div)
 {
 	uint64_t lapic_period_ps = 0;
@@ -174,6 +175,8 @@ static void calibrate_timers(int div)
 
 	_clksrc_apic.period_ps = lapic_period_ps;
 	_clksrc_tsc.period_ps = tsc_period_ps;
+
+	arch_syscall_kconf_set_tsc_period(tsc_period_ps);
 
 	uint64_t diff = 0;
 	uint64_t i;

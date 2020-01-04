@@ -23,7 +23,7 @@ long syscall_kconf(int cmd, long arg)
 			return reset_code;
 			break;
 		default:
-			ret = -EINVAL;
+			ret = arch_syscall_kconf(cmd, arg);
 	}
 	return ret;
 }
