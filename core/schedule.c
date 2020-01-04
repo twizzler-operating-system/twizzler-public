@@ -3,9 +3,9 @@
 #include <processor.h>
 #include <thread.h>
 
-#define TIMESLICE_MIN 2000000
+#define TIMESLICE_MIN 5000000
 #define TIMESLICE_GIVEUP 10000
-#define TIMESLICE_SCALE 10000
+#define TIMESLICE_SCALE 20000
 
 __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 {

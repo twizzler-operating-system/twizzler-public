@@ -2,6 +2,7 @@
 #include <debug.h>
 #include <init.h>
 #include <memory.h>
+#include <page.h>
 #include <system.h>
 
 struct __packed device_scope {
@@ -259,10 +260,11 @@ void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __unused)
 
 					printk("[iommu] mapping page %ld\n", p->idx);
 					if(!(p->flags & OBJPAGE_MAPPED)) {
-						arch_object_map_page(o, p->page, p->idx);
+						arch_object_map_page(o, p);
 						p->flags |= OBJPAGE_MAPPED;
 					}
-					arch_object_map_flush(o, p->idx);
+					arch_object_map_flush(
+					  o, p->idx * mm_page_size(p->page->level) /* TODO: this is brittle */);
 
 					obj_put(o);
 				} else {

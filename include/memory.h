@@ -38,6 +38,7 @@ struct mem_allocator {
 	bool ready;
 	// char static_bitmaps[((MEMORY_SIZE / MIN_SIZE) / 8) * 2];
 	char *static_bitmaps;
+	size_t off;
 };
 
 struct memregion {
@@ -48,7 +49,7 @@ struct memregion {
 	enum memory_subtype subtype;
 	struct mem_allocator *alloc;
 	struct list entry, alloc_entry;
-	_Atomic size_t off;
+	size_t off;
 };
 
 void mm_init(void);

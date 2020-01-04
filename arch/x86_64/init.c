@@ -43,6 +43,7 @@ static void proc_init(void)
 	cr4 |= (1 << 16); // rdgsbase
 	cr4 |= (1 << 18);
 	cr4 |= (1 << 9);
+	cr4 |= (1 << 6); // enable MCE
 	/* clear any global mappings in the TLB */
 	cr4 &= ~(1 << 7);
 	asm volatile("mov %0, %%cr4" ::"r"(cr4));
@@ -152,13 +153,13 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 		}
 
 		for(size_t s = 0; s < len; s += mm_page_size(0), idx++) {
-			struct page *page = page_alloc(PAGE_TYPE_VOLATILE);
+			struct page *page = page_alloc(PAGE_TYPE_VOLATILE, 0);
 
 			size_t thislen = 0x1000;
 			if((len - s) < thislen)
 				thislen = len - s;
 			memcpy(mm_ptov(page->addr), data + s, thislen);
-			obj_cache_page(obj, idx, page);
+			obj_cache_page(obj, idx * mm_page_size(0), page);
 		}
 
 		h = (struct ustar_header *)((char *)h + 512 + reclen);

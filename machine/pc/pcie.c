@@ -111,25 +111,22 @@ static void __alloc_bar(struct object *obj,
   int wc,
   uintptr_t addr)
 {
-	size_t idx = start / mm_page_size(0);
 	while(sz > 0) {
 		struct page *pg = page_alloc_nophys();
 		pg->addr = addr;
 		pg->type = PAGE_TYPE_MMIO;
 		pg->flags |= (pref ? (wc ? PAGE_CACHE_WC : PAGE_CACHE_WT) : PAGE_CACHE_UC);
-		size_t nix;
 		if(sz >= mm_page_size(1) && !(addr & (mm_page_size(1) - 1))) {
 			pg->level = 1;
 			sz -= mm_page_size(1);
 			addr += mm_page_size(1);
-			nix = mm_page_size(1) / mm_page_size(0);
+			start += mm_page_size(1);
 		} else {
 			sz -= mm_page_size(0);
 			addr += mm_page_size(0);
-			nix = 1;
+			start += mm_page_size(0);
 		}
-		obj_cache_page(obj, idx, pg);
-		idx += nix;
+		obj_cache_page(obj, start, pg);
 	}
 }
 
@@ -285,16 +282,15 @@ __attribute__((no_sanitize("undefined"))) static void pcie_init_space(struct mcf
 	struct object *obj =
 	  bus_register(DEVICE_BT_PCIE, space->pci_seg_group_nr, sizeof(struct pcie_bus_header));
 	assert(obj != NULL);
-	size_t idx = mm_page_size(1) / mm_page_size(0);
 
-	for(uintptr_t p = start_addr; p < end_addr; p += mm_page_size(1)) {
+	uintptr_t addr = mm_page_size(1);
+	for(uintptr_t p = start_addr; p < end_addr; p += mm_page_size(1), addr += mm_page_size(1)) {
 		struct page *pg = page_alloc_nophys();
 		pg->addr = p;
 		pg->type = PAGE_TYPE_MMIO;
 		pg->flags |= PAGE_CACHE_UC;
 		pg->level = 1;
-		obj_cache_page(obj, idx, pg);
-		idx += mm_page_size(1) / mm_page_size(0);
+		obj_cache_page(obj, addr, pg);
 	}
 	struct bus_repr *repr = bus_get_repr(obj);
 	struct pcie_bus_header *hdr = bus_get_busspecific(obj);

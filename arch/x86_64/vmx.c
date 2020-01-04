@@ -809,6 +809,13 @@ void x86_64_switch_ept(uintptr_t root)
 		} else {
 			x86_64_rootcall(VMX_RC_SWITCHEPT, root, 0, 0);
 			/* TODO (perf): add to trusted list */
+#if 0
+			for(int i = 0; i < 512; i++) {
+				if(current_processor->arch.eptp_list[i] == 0) {
+					current_processor->arch.eptp_list[i] = root;
+				}
+			}
+#endif
 		}
 	} else {
 		x86_64_rootcall(VMX_RC_SWITCHEPT, root, 0, 0);

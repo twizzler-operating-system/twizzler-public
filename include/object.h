@@ -75,7 +75,7 @@ struct object {
 	long (*kaction)(struct object *, long, long);
 
 	struct spinlock lock, tslock, verlock;
-	struct ihtable *pagecache, *tstable;
+	struct ihtable *pagecache, *pagecache_level1, *tstable;
 
 	struct ihelem elem, slotelem;
 	struct arch_object arch;
@@ -112,7 +112,7 @@ int obj_check_permission(struct object *obj, uint64_t flags);
 
 void arch_object_map_slot(struct object *obj, uint64_t flags);
 void arch_object_unmap_page(struct object *obj, size_t idx);
-bool arch_object_map_page(struct object *obj, struct page *page, size_t idx);
+bool arch_object_map_page(struct object *obj, struct objpage *);
 bool arch_object_map_flush(struct object *obj, size_t idx);
 bool arch_object_getmap_slot_flags(struct object *obj, uint64_t *flags);
 void arch_object_init(struct object *obj);

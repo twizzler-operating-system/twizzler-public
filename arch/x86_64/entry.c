@@ -43,6 +43,7 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
   bool was_userspace,
   bool ignored)
 {
+	// printk("EXC: %ld\n", frame->int_no);
 	if(!ignored) {
 		if(was_userspace) {
 			current_thread->arch.was_syscall = false;
@@ -85,6 +86,8 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
 		} else if(frame->int_no == 20) {
 			/* #VE */
 			x86_64_virtualization_fault(current_processor);
+		} else if(frame->int_no == 18) {
+			panic("!! MCE: %lx\n", frame->rip);
 		} else if(frame->int_no < 32) {
 			if(was_userspace) {
 				struct fault_exception_info info = {

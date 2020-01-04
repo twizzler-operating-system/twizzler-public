@@ -27,6 +27,7 @@ static void _obj_ctor(void *_u, void *ptr)
 	obj->verlock = SPINLOCK_INIT;
 	obj->tslock = SPINLOCK_INIT;
 	obj->pagecache = slabcache_alloc(&sc_pctable);
+	obj->pagecache_level1 = slabcache_alloc(&sc_pctable);
 	obj->tstable = slabcache_alloc(&sc_tstable);
 }
 
@@ -37,6 +38,7 @@ static void _obj_dtor(void *_u, void *ptr)
 	assert(krc_iszero(&obj->refs));
 	assert(krc_iszero(&obj->pcount));
 	slabcache_free(obj->pagecache);
+	slabcache_free(obj->pagecache_level1);
 }
 
 __initializer static void _init_objs(void)
@@ -141,13 +143,29 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 		    e = ihtable_bucket_iter_next(e)) {
 			struct objpage *pg = container_of(e, struct objpage, elem);
 			if(pg->page) {
-				struct page *np = page_alloc(pg->page->type);
+				struct page *np = page_alloc(pg->page->type, pg->page->level);
 				/* TODO (perf): copy-on-write */
-				memcpy(mm_ptov(np->addr), mm_ptov(pg->page->addr), mm_page_size(0));
-				obj_cache_page(obj, pg->idx, np);
+				memcpy(mm_ptov(np->addr), mm_ptov(pg->page->addr), mm_page_size(pg->page->level));
+				obj_cache_page(obj, pg->idx * mm_page_size(0), np);
 			}
 		}
 	}
+	for(size_t b = ihtable_iter_start(src->pagecache_level1);
+	    b != ihtable_iter_end(src->pagecache_level1);
+	    b = ihtable_iter_next(b)) {
+		for(struct ihelem *e = ihtable_bucket_iter_start(src->pagecache_level1, b);
+		    e != ihtable_bucket_iter_end(src->pagecache_level1);
+		    e = ihtable_bucket_iter_next(e)) {
+			struct objpage *pg = container_of(e, struct objpage, elem);
+			if(pg->page) {
+				struct page *np = page_alloc(pg->page->type, pg->page->level);
+				/* TODO (perf): copy-on-write */
+				memcpy(mm_ptov(np->addr), mm_ptov(pg->page->addr), mm_page_size(pg->page->level));
+				obj_cache_page(obj, pg->idx * mm_page_size(1), np);
+			}
+		}
+	}
+
 	spinlock_release_restore(&src->lock);
 
 	if(id) {
@@ -197,10 +215,15 @@ void obj_alloc_slot(struct object *obj)
 	//		PR128(obj->id), es, es * mm_page_size(obj->pglevel));
 }
 
-void obj_cache_page(struct object *obj, size_t idx, struct page *p)
+void obj_cache_page(struct object *obj, size_t addr, struct page *p)
 {
+	if(addr & (mm_page_size(p->level) - 1))
+		panic("cannot map page level %d to %lx\n", p->level, addr);
+	size_t idx = addr / mm_page_size(p->level);
+	struct ihtable *tbl = p->level ? obj->pagecache_level1 : obj->pagecache;
+
 	spinlock_acquire_save(&obj->lock);
-	struct objpage *page = ihtable_find(obj->pagecache, idx, struct objpage, elem, idx);
+	struct objpage *page = ihtable_find(tbl, idx, struct objpage, elem, idx);
 	/* TODO (major): deal with overwrites? */
 	if(page == NULL) {
 		page = slabcache_alloc(&sc_objpage);
@@ -208,41 +231,43 @@ void obj_cache_page(struct object *obj, size_t idx, struct page *p)
 		krc_init(&page->refs);
 	}
 	page->page = p;
-	ihtable_insert(obj->pagecache, &page->elem, page->idx);
+	ihtable_insert(tbl, &page->elem, page->idx);
 	// arch_object_map_page(obj, page->page, page->idx);
 	// page->flags |= OBJPAGE_MAPPED;
 	spinlock_release_restore(&obj->lock);
 }
 
 #include <twz/_sys.h>
-struct objpage *obj_get_page(struct object *obj, size_t idx, bool alloc)
+struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 {
+	size_t idx = addr / mm_page_size(1);
 	spinlock_acquire_save(&obj->lock);
-	size_t li = idx & ~(mm_page_size(1) / mm_page_size(0) - 1);
-	struct objpage *lpage = ihtable_find(obj->pagecache, li, struct objpage, elem, idx);
+	struct objpage *lpage = ihtable_find(obj->pagecache_level1, idx, struct objpage, elem, idx);
+	// printk(":: %lx -> %p %d\n", addr, lpage, lpage ? lpage->page->level : -1);
 	if(lpage && lpage->page->level == 1) {
 		/* found a large page */
 		krc_get(&lpage->refs);
 		spinlock_release_restore(&obj->lock);
 		return lpage;
 	}
+	idx = addr / mm_page_size(0);
 	struct objpage *page = ihtable_find(obj->pagecache, idx, struct objpage, elem, idx);
 	if(page == NULL) {
 		if(!alloc) {
 			spinlock_release_restore(&obj->lock);
 			return NULL;
 		}
+		int level = addr >= mm_page_size(1) ? 1 : 0;
 		page = slabcache_alloc(&sc_objpage);
-		page->idx = idx;
-		page->page =
-		  page_alloc((obj->persist && idx < 200000 /* XXX HACK TODO */) ? PAGE_TYPE_PERSIST
-		                                                                : PAGE_TYPE_VOLATILE);
+		page->idx = addr / mm_page_size(level);
+		page->page = page_alloc(obj->persist ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, level);
+		// printk("adding page: %d %d\n", page->page->level, level);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_UC, PAGE_CACHE_UC);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WB, PAGE_CACHE_WB);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WT, PAGE_CACHE_WT);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WC, PAGE_CACHE_WC);
 		krc_init_zero(&page->refs);
-		ihtable_insert(obj->pagecache, &page->elem, page->idx);
+		ihtable_insert(level ? obj->pagecache_level1 : obj->pagecache, &page->elem, page->idx);
 	}
 	krc_get(&page->refs);
 	spinlock_release_restore(&obj->lock);
@@ -272,23 +297,22 @@ void obj_put(struct object *o)
 /* TODO (major): these can probably fail */
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 {
+	start += OBJ_NULLPAGE_SIZE;
 	if(len >= mm_page_size(0)) {
 		panic("NI - big KSO write");
 	}
 	char *data = ptr;
 	while(len > 0) {
-		size_t off = start % mm_page_size(0);
+		struct objpage *p = obj_get_page(obj, start, false);
 		size_t thislen = len;
-		if(thislen > (mm_page_size(0) - off))
-			thislen = mm_page_size(0) - off;
+		int level = p ? p->page->level : 0;
+		size_t off = start % mm_page_size(level);
+		if(thislen > (mm_page_size(level) - off))
+			thislen = mm_page_size(level) - off;
 
-		struct objpage *p = obj_get_page(obj, start / mm_page_size(0) + 1, false);
 		if(p) {
 			atomic_thread_fence(memory_order_seq_cst);
 
-			if(p->page->level == 1) {
-				off += (p->idx - start / mm_page_size(0)) * mm_page_size(0);
-			}
 			memcpy(data, mm_ptov(p->page->addr + off), thislen);
 			obj_put_page(p);
 		} else {
@@ -302,24 +326,33 @@ void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 {
+	start += OBJ_NULLPAGE_SIZE;
 	if(len >= mm_page_size(0)) {
 		panic("NI - big KSO write");
 	}
-	if(start / mm_page_size(0) != (start + len) / mm_page_size(0)) {
-		panic("NI - cross-page KSO write");
+	char *data = ptr;
+	while(len > 0) {
+		struct objpage *p = obj_get_page(obj, start, true);
+		size_t thislen = len;
+		size_t off = start % mm_page_size(p->page->level);
+		if(thislen > (mm_page_size(p->page->level) - off))
+			thislen = mm_page_size(p->page->level) - off;
+
+		memcpy(mm_ptov(p->page->addr + off), data, thislen);
+		atomic_thread_fence(memory_order_seq_cst);
+		obj_put_page(p);
+		len -= thislen;
+		start += thislen;
+		data += thislen;
 	}
-	struct objpage *p = obj_get_page(obj, start / mm_page_size(0) + 1, true);
-	if(p->page->level)
-		panic("NI - KSO write to 2MB page");
-	memcpy(mm_ptov(p->page->addr + (start % mm_page_size(0))), ptr, len);
-	atomic_thread_fence(memory_order_seq_cst);
-	obj_put_page(p);
 }
 
 void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val)
 {
-	struct objpage *p = obj_get_page(obj, off / mm_page_size(0) + 1, true);
-	_Atomic uint64_t *loc = (_Atomic uint64_t *)(mm_ptov(p->page->addr + (off % mm_page_size(0))));
+	off += OBJ_NULLPAGE_SIZE;
+	struct objpage *p = obj_get_page(obj, off, true);
+	_Atomic uint64_t *loc =
+	  (_Atomic uint64_t *)(mm_ptov(p->page->addr + (off % mm_page_size(p->page->level))));
 	*loc = val;
 	obj_put_page(p);
 }
@@ -344,7 +377,7 @@ objid_t obj_compute_id(struct object *obj)
 			}
 			assert(rem <= mm_page_size(0));
 
-			struct objpage *p = obj_get_page(obj, s / mm_page_size(0) + 1, false);
+			struct objpage *p = obj_get_page(obj, s + OBJ_NULLPAGE_SIZE, false);
 			atomic_thread_fence(memory_order_seq_cst);
 			blake2b_update(&S, mm_ptov(p->page->addr), rem);
 			obj_put_page(p);
@@ -353,7 +386,7 @@ objid_t obj_compute_id(struct object *obj)
 		size_t pos = OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + mdbottom);
 		size_t thispage = mm_page_size(0);
 		for(size_t s = pos; s < OBJ_MAXSIZE - OBJ_NULLPAGE_SIZE; s += thispage) {
-			struct objpage *p = obj_get_page(obj, pos / mm_page_size(0) + 1, false);
+			struct objpage *p = obj_get_page(obj, pos + OBJ_NULLPAGE_SIZE, false);
 
 			size_t offset = pos % mm_page_size(0);
 			size_t len = mm_page_size(0) - offset;
@@ -518,6 +551,9 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	uint64_t perms = 0;
 	uint64_t existing_flags;
 	bool do_map = false;
+	// do_map = true;
+	// perms = OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U;
+#if 1
 	if(arch_object_getmap_slot_flags(o, &existing_flags)) {
 		/* we've already mapped the object. Maybe we don't need to do a permissions check. */
 		if((existing_flags & flags) != flags) {
@@ -530,25 +566,33 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		if(!__objspace_fault_calculate_perms(o, flags, loaddr, vaddr, ip, &perms))
 			return;
 	}
+#endif
 
 #if 0
-	printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx vaddr=%lx flags=%x :: " IDFMT "\n",
+	printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT "\n",
 	  current_thread->id,
 	  ip,
 	  loaddr,
+	  idx,
 	  vaddr,
 	  flags,
 	  IDPR(o->id));
 #endif
-	struct objpage *p = obj_get_page(o, idx, true);
 
-	if(do_map) {
-		arch_object_map_slot(o, perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
+	/* TODO: something better */
+	for(int j = 0; j < 1 && (idx < 200000 || j == 0); j++, idx++) {
+		struct objpage *p = obj_get_page(o, loaddr % OBJ_MAXSIZE, true);
+
+		if(do_map) {
+			arch_object_map_slot(o, perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
+		}
+		if(!(p->flags & OBJPAGE_MAPPED)) {
+			arch_object_map_page(o, p);
+			p->flags |= OBJPAGE_MAPPED;
+		}
+		do_map = false;
 	}
-	if(!(p->flags & OBJPAGE_MAPPED)) {
-		arch_object_map_page(o, p->page, p->idx);
-		p->flags |= OBJPAGE_MAPPED;
-	}
+	/* TODO: put page? */
 
 	obj_put(o);
 }

@@ -28,7 +28,7 @@ struct page {
 #define PAGE_PINNED 0x8
 #define PAGE_ALLOCED 0x10
 
-struct page *page_alloc(int type);
+struct page *page_alloc(int type, int level);
 struct page *page_alloc_nophys(void);
 void page_unpin(struct page *page);
 void page_pin(struct page *page);

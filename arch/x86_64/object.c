@@ -78,10 +78,9 @@ void arch_object_unmap_page(struct object *obj, size_t idx)
 	}
 }
 
-bool arch_object_map_flush(struct object *obj, size_t idx)
+bool arch_object_map_flush(struct object *obj, size_t virt)
 {
 	uintptr_t *pd = mm_ptov(obj->arch.pt_root);
-	uintptr_t virt = idx * mm_page_size(0);
 	int pd_idx = PD_IDX(virt);
 	int pt_idx = PT_IDX(virt);
 
@@ -94,16 +93,17 @@ bool arch_object_map_flush(struct object *obj, size_t idx)
 	return true;
 }
 
-bool arch_object_map_page(struct object *obj, struct page *page, size_t idx)
+bool arch_object_map_page(struct object *obj, struct objpage *op)
 {
 	uintptr_t *pd = mm_ptov(obj->arch.pt_root);
-	assert(page->level == 0 || page->level == 1);
-	assert(page->addr);
-	uintptr_t virt = idx * mm_page_size(0);
+	assert(op->page->level == 0 || op->page->level == 1);
+	assert(op->page->addr);
+	assert((op->page->addr & (mm_page_size(op->page->level) - 1)) == 0);
+	uintptr_t virt = op->idx * mm_page_size(op->page->level);
 	int pd_idx = PD_IDX(virt);
 	int pt_idx = PT_IDX(virt);
 	uint64_t flags = 0;
-	switch(PAGE_CACHE_TYPE(page)) {
+	switch(PAGE_CACHE_TYPE(op->page)) {
 		default:
 		case PAGE_CACHE_WB:
 			flags = EPT_MEMTYPE_WB;
@@ -122,12 +122,12 @@ bool arch_object_map_page(struct object *obj, struct page *page, size_t idx)
 	/* map with ALL permissions; we'll restrict permissions at a higher level */
 	flags |= EPT_READ | EPT_WRITE | EPT_EXEC | EPT_IGNORE_PAT;
 
-	if(page->level == 1) {
-		pd[pd_idx] = page->addr | flags | PAGE_LARGE;
+	if(op->page->level == 1) {
+		pd[pd_idx] = op->page->addr | flags | PAGE_LARGE;
 	} else {
 		test_and_allocate(&pd[pd_idx], EPT_READ | EPT_WRITE | EPT_EXEC);
 		uint64_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
-		pt[pt_idx] = page->addr | flags;
+		pt[pt_idx] = op->page->addr | flags;
 	}
 	return true;
 }

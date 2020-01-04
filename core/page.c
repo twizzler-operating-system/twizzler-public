@@ -39,14 +39,17 @@ __initializer static void __init_page(void)
 	slabcache_init(&sc_page_unalloc, sizeof(struct page), _page_unal_ctor, _page_unal_dtor, NULL);
 }
 
-struct page *page_alloc(int type)
+struct page *page_alloc(int type, int level)
 {
-	if(type == PAGE_TYPE_VOLATILE)
-		return slabcache_alloc(&sc_page);
+	// if(type == PAGE_TYPE_VOLATILE) {
+	//	struct page *p = slabcache_alloc(&sc_page_unalloc);
+	//}
 	struct page *p = slabcache_alloc(&sc_page_unalloc);
 	p->type = type;
+	p->level = level;
 	// printk("allocating persistent memory\n");
-	p->addr = mm_physical_alloc(mm_page_size(0), PM_TYPE_NV, true);
+	p->addr = mm_physical_alloc(
+	  mm_page_size(level), type == PAGE_TYPE_VOLATILE ? PM_TYPE_DRAM : PM_TYPE_NV, true);
 	p->flags |= PAGE_ALLOCED;
 	return p;
 }

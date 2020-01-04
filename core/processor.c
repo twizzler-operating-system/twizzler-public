@@ -186,6 +186,7 @@ void processor_attach_thread(struct processor *proc, struct thread *thread)
 			}
 		}
 	}
+	printk("processor load: %ld %d\n", proc->load, list_empty(&proc->runqueue));
 	__do_processor_attach_thread(proc, thread);
 }
 

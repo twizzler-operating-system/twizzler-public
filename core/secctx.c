@@ -96,7 +96,7 @@ static bool __verify_region(void *item,
 	}
 
 	/* TODO: support public key objects with keys bigger than a page */
-	struct objpage *p = obj_get_page(ko, 1, false);
+	struct objpage *p = obj_get_page(ko, OBJ_NULLPAGE_SIZE, false);
 
 	struct key_hdr *hdr = mm_ptov(p->page->addr);
 	if(hdr->type != etype) {

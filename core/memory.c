@@ -22,6 +22,12 @@ static const char *memory_subtype_strings[] = {
 
 void mm_register_region(struct memregion *reg, struct mem_allocator *alloc)
 {
+	if(reg->length < mm_page_size(1))
+		return;
+	reg->start += mm_page_size(1) - (reg->start % (mm_page_size(1)));
+	reg->length -= mm_page_size(1) - (reg->start % (mm_page_size(1)));
+	if(reg->length < mm_page_size(1))
+		return;
 	reg->alloc = alloc;
 	printk("[mm] registering memory region %lx -> %lx %s %s\n",
 	  reg->start,
@@ -87,6 +93,7 @@ struct memregion *mm_physical_find_region(uintptr_t addr)
 
 uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 {
+	static struct spinlock nvs = SPINLOCK_INIT;
 	if(type == PM_TYPE_NV) {
 		/* TODO: clean this up */
 		// printk("ALloc NVM\n");
@@ -95,17 +102,25 @@ uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 
 			//	printk(":: %d %d\n", reg->type, reg->subtype);
 			if(reg->type == MEMORY_AVAILABLE && reg->subtype == MEMORY_AVAILABLE_PERSISTENT) {
-				size_t x = atomic_fetch_add(&reg->off, length);
+				spinlock_acquire_save(&nvs);
+				size_t a = length - ((reg->start + reg->off) % (length - 1));
+				reg->off += a;
+				size_t x = reg->off;
+				reg->off += length;
+				spinlock_release_restore(&nvs);
 				return x + reg->start;
 			}
 		}
-		printk("warning - allocating volatile RAM when NVM was requested\n");
+		/* TODO: */
+		// printk("warning - allocating volatile RAM when NVM was requested\n");
 	}
 	foreach(e, list, &physical_regions_alloc) {
 		struct memregion *reg = list_entry(e, struct memregion, alloc_entry);
 
-		if((reg->flags & type) == reg->flags && reg->alloc && reg->alloc->free_memory > 0) {
+		if((reg->flags & type) == reg->flags && reg->alloc && reg->alloc->ready
+		   && reg->alloc->free_memory > length) {
 			uintptr_t alloc = mm_physical_region_alloc(reg, length, clear);
+			printk("alloc: %lx\n", alloc);
 			if(alloc)
 				return alloc;
 		}

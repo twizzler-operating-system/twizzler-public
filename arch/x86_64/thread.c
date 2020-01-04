@@ -4,6 +4,8 @@
 
 uintptr_t arch_thread_instruction_pointer(void)
 {
+	if(!current_thread)
+		panic("cannot call %s before threading", __FUNCTION__);
 	if(current_thread->arch.was_syscall) {
 		return current_thread->arch.syscall.rcx;
 	} else {

@@ -268,13 +268,13 @@ long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long a
 			pne = (arg1 + arg2) / mm_page_size(0);
 			/* TODO: bounds check */
 			for(size_t i = pnb; i < pne; i++) {
-				struct objpage *pg = obj_get_page(o, i, true);
+				struct objpage *pg = obj_get_page(o, i * mm_page_size(0), true);
 				/* TODO: locking */
 				pg->page->flags |= flag_if_notzero(arg3 & OC_CM_UC, PAGE_CACHE_UC);
 				pg->page->flags |= flag_if_notzero(arg3 & OC_CM_WB, PAGE_CACHE_WB);
 				pg->page->flags |= flag_if_notzero(arg3 & OC_CM_WT, PAGE_CACHE_WT);
 				pg->page->flags |= flag_if_notzero(arg3 & OC_CM_WC, PAGE_CACHE_WC);
-				arch_object_map_page(o, pg->page, i);
+				arch_object_map_page(o, pg);
 			}
 			break;
 		case OCO_MAP:
@@ -284,11 +284,11 @@ long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long a
 
 			/* TODO: bounds check */
 			for(size_t i = pnb; i < pne; i++) {
-				struct objpage *pg = obj_get_page(o, i, true);
+				struct objpage *pg = obj_get_page(o, i * mm_page_size(0), true);
 				/* TODO: locking */
-				arch_object_map_page(o, pg->page, i);
+				arch_object_map_page(o, pg);
 				if(arg3)
-					arch_object_map_flush(o, i);
+					arch_object_map_flush(o, i * mm_page_size(0));
 			}
 			if(arg3) {
 				objid_t doid = *(objid_t *)arg3;

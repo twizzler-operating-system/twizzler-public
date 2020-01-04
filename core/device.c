@@ -27,7 +27,7 @@ __initializer static void __device_init(void)
 struct bus_repr *bus_get_repr(struct object *obj)
 {
 	/* repr is at object base */
-	struct objpage *op = obj_get_page(obj, 1, true);
+	struct objpage *op = obj_get_page(obj, OBJ_NULLPAGE_SIZE, true);
 	page_pin(op->page);
 	return (struct bus_repr *)mm_ptov(op->page->addr);
 }
@@ -41,7 +41,7 @@ void *bus_get_busspecific(struct object *obj)
 struct device_repr *device_get_repr(struct object *obj)
 {
 	/* repr is at object base */
-	struct objpage *op = obj_get_page(obj, 1, true);
+	struct objpage *op = obj_get_page(obj, OBJ_NULLPAGE_SIZE, true);
 	page_pin(op->page);
 	return (struct device_repr *)mm_ptov(op->page->addr);
 }
@@ -54,7 +54,7 @@ void *device_get_devspecific(struct object *obj)
 
 void device_release_headers(struct object *obj)
 {
-	struct objpage *op = obj_get_page(obj, 1, true);
+	struct objpage *op = obj_get_page(obj, OBJ_NULLPAGE_SIZE, true);
 	page_unpin(op->page);
 	obj_put_page(op); /* once for this function */
 	obj_put_page(op); /* once for device_get_<header> */
