@@ -42,7 +42,7 @@ int main()
 
 	struct timespec st, en, df;
 
-	for(int i = 0; i < 24; i++) {
+	for(int i = 0; i < 80; i++) {
 		clock_gettime(CLOCK_MONOTONIC, &st);
 		do_test(mem, 1ul << (i / 4 + 1), (i / 2) % 2);
 		clock_gettime(CLOCK_MONOTONIC, &en);

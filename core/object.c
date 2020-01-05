@@ -237,6 +237,7 @@ void obj_cache_page(struct object *obj, size_t addr, struct page *p)
 	spinlock_release_restore(&obj->lock);
 }
 
+#include <processor.h>
 #include <twz/_sys.h>
 struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 {
@@ -257,7 +258,7 @@ struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 			spinlock_release_restore(&obj->lock);
 			return NULL;
 		}
-		int level = addr >= mm_page_size(1) ? 1 : 0;
+		int level = (addr >= mm_page_size(1) || obj->lowpg) ? 1 : 0;
 		page = slabcache_alloc(&sc_objpage);
 		page->idx = addr / mm_page_size(level);
 		page->page = page_alloc(obj->persist ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, level);

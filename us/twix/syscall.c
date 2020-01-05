@@ -40,6 +40,8 @@
 
 #define LINUX_SYS_futex 202
 
+#define LINUX_SYS_set_thread_area 205
+
 #define LINUX_SYS_set_tid_address 218
 
 #define LINUX_SYS_clock_gettime 228
@@ -59,9 +61,15 @@
 
 #include "syscalls.h"
 
+long linux_sys_set_thread_area()
+{
+	return 0;
+}
+
 static long (*syscall_table[])() = {
 	[LINUX_SYS_arch_prctl] = linux_sys_arch_prctl,
 	[LINUX_SYS_set_tid_address] = linux_sys_set_tid_address,
+	[LINUX_SYS_set_thread_area] = linux_sys_set_thread_area,
 	[LINUX_SYS_pwritev2] = linux_sys_pwritev2,
 	[LINUX_SYS_pwritev] = linux_sys_pwritev,
 	[LINUX_SYS_writev] = linux_sys_writev,

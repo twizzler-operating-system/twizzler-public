@@ -6,6 +6,7 @@
 #define ARCH_GET_FS 0x1003
 #define ARCH_GET_GS 0x1004
 
+#include <twz/debug.h>
 long linux_sys_arch_prctl(int code, unsigned long addr)
 {
 	switch(code) {

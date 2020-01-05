@@ -213,6 +213,8 @@ long syscall_ocreate(uint64_t kulo,
 	if(flags & TWZ_SYS_OC_PERSIST_) {
 		o->persist = true;
 	}
+	if(flags & 0x1000000)
+		o->lowpg = true;
 	// printk("CREATE %s OBJECT\n", o->persist ? "PERSISTENT" : "VOLATILE");
 	obj_put(o);
 

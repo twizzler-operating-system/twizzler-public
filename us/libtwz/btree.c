@@ -37,7 +37,7 @@ __attribute__((const)) static inline struct btree_node *__l(twzobj *obj, void *x
 {
 	if(x == NULL)
 		return NULL;
-	// return (void *)((uintptr_t)x + obj->base);
+	return (void *)((uintptr_t)x + obj->base);
 	struct btree_node *r = twz_object_lea(obj, x);
 	return r;
 }
@@ -462,22 +462,22 @@ static struct btree_node *__bt_rightmost(twzobj *obj, struct btree_node *n)
 }
 static struct btree_node *__bt_next(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n)
 {
-	long long a = rdtsc();
+	//	long long a = rdtsc();
 	size_t c = 0;
 	if(n->right) {
-		struct btree_node *r = __bt_leftmost2(obj, __l(obj, n->right), &c);
-		long long b = rdtsc();
-		debug_printf(":: bt_next 1: %ld (%ld)\n", b - a, c);
+		struct btree_node *r = __bt_leftmost(obj, __l(obj, n->right));
+		// long long b = rdtsc();
+		// debug_printf(":: bt_next 1: %ld (%ld)\n", b - a, c);
 		return r;
 	}
 	struct btree_node *p = __l(obj, n->parent);
-	while(p && n == __l(obj, p->right)) {
+	while(p && __c(n) == p->right) {
 		n = p;
 		p = __l(obj, p->parent);
 		c++;
 	}
-	long long b = rdtsc();
-	debug_printf(":: bt_next 2: %ld (%ld)\n", b - a, c);
+	//	long long b = rdtsc();
+	//	debug_printf(":: bt_next 2: %ld (%ld)\n", b - a, c);
 	return p;
 }
 
@@ -489,7 +489,7 @@ static struct btree_node *__bt_prev(twzobj *obj, struct btree_hdr *hdr, struct b
 		return r;
 	}
 	struct btree_node *p = __l(obj, n->parent);
-	while(p && n == __l(obj, p->left)) {
+	while(p && __c(n) == p->left) {
 		n = p;
 		p = __l(obj, p->parent);
 	}

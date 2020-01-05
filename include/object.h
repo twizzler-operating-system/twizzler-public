@@ -59,6 +59,7 @@ struct object {
 	int flags;
 	ssize_t slot;
 	bool pinned;
+	bool lowpg;
 	bool idvercache;
 	bool idversafe;
 	bool persist; // TODO: combine these into flags

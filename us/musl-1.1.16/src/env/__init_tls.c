@@ -13,8 +13,9 @@ int __init_tp(void *p)
 	pthread_t td = p;
 	td->self = td;
 	int r = __set_thread_area(TP_ADJ(p));
-	if(r < 0)
+	if(r < 0) {
 		return -1;
+	}
 	if(!r)
 		libc.can_do_threads = 1;
 	td->tid = __syscall(SYS_set_tid_address, &td->tid);

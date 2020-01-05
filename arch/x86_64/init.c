@@ -59,6 +59,9 @@ static void proc_init(void)
 	lo |= X86_MSR_EFER_SYSCALL | X86_MSR_EFER_NX;
 	x86_64_wrmsr(X86_MSR_EFER, lo, hi);
 
+	x86_64_rdmsr(0x1a0, &lo, &hi);
+	printk("MISC_FEAT: %x %x\n", hi, lo);
+
 	/* TODO (minor): verify that this setup is "reasonable" */
 	x86_64_rdmsr(X86_MSR_MTRRCAP, &lo, &hi);
 	int mtrrcnt = lo & 0xFF;
