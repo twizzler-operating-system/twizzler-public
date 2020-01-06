@@ -17,7 +17,7 @@ function prepare() {
 	#cd ..
 	cp -rf ../../../../../../us/ports/twz-sqlite .
 	cd twz-sqlite
-	./configure --prefix=/usr --host=$TARGET --disable-readline --disable-tcl --enable-releasemode CFLAGS='-mclflushopt'
+	./configure --prefix=/usr --host=$TARGET --disable-readline --disable-tcl --enable-releasemode
 }
 
 function build() {
