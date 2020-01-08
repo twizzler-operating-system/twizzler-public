@@ -79,6 +79,8 @@ void random_name(char *name, size_t len)
 	}
 }
 
+int iters = 30;
+
 int main(int argc, char *argv[])
 {
 #if 0
@@ -106,6 +108,7 @@ int main(int argc, char *argv[])
 #endif
 	rc = sqlite3_open("/tmp/test.db", &db);
 
+	printf("ok\n");
 	if(rc) {
 		fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
 		return (0);
@@ -121,6 +124,7 @@ int main(int argc, char *argv[])
 	      "Children           INT       NOT NULL,"
 	      "Job                TEXT      NOT NULL);";
 
+	printf("create\n");
 	/* Execute SQL statement */
 	rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
 
@@ -263,16 +267,20 @@ int main(int argc, char *argv[])
 	  ns_insert,
 	  ns_end,
 	  ns_sel);
+	/*
 	printf("ELAPSED (cgt) %s %ld: ins %lf ; end %lf ; sel %lf ms\n",
 	  name,
 	  max,
 	  ns_insert / 1000000.f,
 	  ns_end / 1000000.f,
 	  ns_sel / 1000000.f);
-
+*/
 #ifndef TWZ
 	system("rm /tmp/test.db");
 #endif
 
+	if(--iters) {
+		main(argc, argv);
+	}
 	return 0;
 }

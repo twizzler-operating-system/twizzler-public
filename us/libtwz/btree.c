@@ -23,17 +23,17 @@ enum {
 
 #define _clwb(...)
 #define _pfence()
-//#define mutex_acquire(...)
-//#define mutex_release(...)
 #endif
+#define mutex_acquire(...)
+#define mutex_release(...)
 
 static void _doprint_tree(twzobj *obj, int indent, struct btree_node *root);
-__attribute__((const)) static inline struct btree_node *__c(void *x)
+static inline struct btree_node *__c(void *x)
 {
 	return (struct btree_node *)(twz_ptr_local(x));
 }
 
-__attribute__((const)) static inline struct btree_node *__l(twzobj *obj, void *x)
+static inline struct btree_node *__l(twzobj *obj, void *x)
 {
 	if(x == NULL)
 		return NULL;
@@ -847,7 +847,7 @@ int bt_put_cmp(twzobj *obj,
   struct btree_node **node,
   int (*cmp)(const struct btree_val *, const struct btree_val *))
 {
-	void *dest_k, *vdest_k = k->mv_data;
+	void *dest_k = NULL, *vdest_k = k->mv_data;
 	if(k->mv_size > 8) {
 		dest_k = oa_hdr_alloc(obj, &hdr->oa, k->mv_size);
 		if(!dest_k)

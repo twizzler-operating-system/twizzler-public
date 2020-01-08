@@ -132,6 +132,7 @@ struct object;
 void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object *obj);
 void arch_vm_unmap_object(struct vm_context *ctx, struct vmap *map, struct object *obj);
 bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int level, uint64_t flags);
+bool arch_vm_unmap(struct vm_context *ctx, uintptr_t virt);
 bool vm_map_contig(struct vm_context *v,
   uintptr_t virt,
   uintptr_t phys,

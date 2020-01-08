@@ -55,6 +55,7 @@ static void __init_slab(twzobj *o, struct twzoa_header *hdr)
 	hdr->slb.pgbm_len = nrpages;
 	hdr->slb.last = 0;
 	uint8_t *bm = get_bitmap(o, hdr);
+	memset(bm, 0, ((nrpages - 1) / 8) + 1);
 	for(unsigned int i = 0; i < ((nrpages - 1) / (PAGE_SIZE) + 1); i++) {
 		bm[i / 8] |= (1 << (i % 8));
 	}
@@ -122,7 +123,8 @@ static void *get_slab(twzobj *o, struct twzoa_header *hdr, int sc)
 	}
 	// got_slab:
 
-	DEBUG("  allocating from slab %p (%d / %d)\n", slab, slab->nrobj, nr_objs(slab));
+	// DEBUG("  allocating from slab %p (%d / %d)\n", slab, slab->nrobj, nr_objs(slab));
+	DEBUG("  allocating from slab %p (%d) sz=%d\n", slab, slab->nrobj, slab->sz);
 
 	int i, x;
 	for(x = 0; x < 4; x++) {
@@ -139,6 +141,7 @@ static void *get_slab(twzobj *o, struct twzoa_header *hdr, int sc)
 
 	void *ret = (char *)slab + sizeof(*slab) + ((x * 64) + i) * slab->sz;
 	DEBUG("  ret = %p\n", ret);
+	DEBUG(":: %d\n", slab->sz);
 	if(slab->nrobj == nr_objs(slab)) {
 		hdr->slb.lists[sc].partial = slab->next;
 	}

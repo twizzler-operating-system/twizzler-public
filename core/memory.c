@@ -29,9 +29,15 @@ void mm_register_region(struct memregion *reg, struct mem_allocator *alloc)
 	  memory_type_strings[reg->type],
 	  memory_subtype_strings[reg->subtype]);
 
-	if(reg->start + reg->length > 64ul * 1024ul * 1024ul * 1024ul) {
-		reg->length = 64ul * 1024ul * 1024ul * 1024ul - reg->start;
+	if(reg->start + reg->length > 32ul * 1024ul * 1024ul * 1024ul) {
+		reg->length = 32ul * 1024ul * 1024ul * 1024ul - reg->start;
 	}
+#if 0
+	if(reg->start >= 0x100000000ull) {
+		reg->subtype = MEMORY_AVAILABLE_PERSISTENT;
+		alloc = NULL;
+	}
+#endif
 
 	if(alloc && (reg->start < 0x100000000ull || 1)) {
 		pmm_buddy_init(reg);
@@ -89,10 +95,12 @@ struct memregion *mm_physical_find_region(uintptr_t addr)
 	return NULL;
 }
 
+#include <object.h>
 uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 {
 	static struct spinlock nvs = SPINLOCK_INIT;
 	if(type == PM_TYPE_NV) {
+		/* TODO: BETTER PM MANAGEMENT */
 		/* TODO: clean this up */
 		// printk("ALloc NVM\n");
 		foreach(e, list, &physical_regions) {
@@ -100,11 +108,27 @@ uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 
 			//	printk(":: %d %d\n", reg->type, reg->subtype);
 			if(reg->type == MEMORY_AVAILABLE && reg->subtype == MEMORY_AVAILABLE_PERSISTENT) {
+				//			printk("ALLOC PER\n");
 				spinlock_acquire_save(&nvs);
+				static int _in = 0;
+				if(!_in) {
+					for(int i = 0; i < 32; i++) {
+						arch_objspace_map(32ul * 1024ul * 1024ul * 1024ul + i * mm_page_size(2),
+						  reg->start + i * mm_page_size(2),
+						  2,
+						  OBJSPACE_WRITE | OBJSPACE_READ);
+					}
+					_in = 1;
+				}
 				size_t a = length - ((reg->start + reg->off) % length);
 				reg->off += a;
 				size_t x = reg->off;
+				if(x + length > 32ul * 1024ul * 1024ul * 1024ul)
+					panic("OOPM");
 				reg->off += length;
+				for(int j = 0; j < length / 0x1000; j++) {
+					memset((void *)0xffffff0000000000ul + x, 0, 0x1000);
+				}
 				spinlock_release_restore(&nvs);
 				return x + reg->start;
 			}

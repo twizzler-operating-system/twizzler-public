@@ -504,25 +504,25 @@ static bool x86_64_ept_map(uintptr_t ept_phys,
 
 	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
 	if(level == 2) {
-		if(pdpt[pdpt_idx] && (!remap || phys != (pdpt[pdpt_idx] & VM_PHYS_MASK))) {
-			return false;
-		}
+		// if(pdpt[pdpt_idx] && (!remap || phys != (pdpt[pdpt_idx] & VM_PHYS_MASK))) {
+		//	return false;
+		//}
 		pdpt[pdpt_idx] = phys | flags | PAGE_LARGE;
 	} else {
 		test_and_allocate(&pdpt[pdpt_idx], flags);
 		uintptr_t *pd = GET_VIRT_TABLE(pdpt[pdpt_idx]);
 
 		if(level == 1) {
-			if(pd[pd_idx] && (!remap || phys != (pd[pd_idx] & VM_PHYS_MASK))) {
-				return false;
-			}
+			// if(pd[pd_idx] && (!remap || phys != (pd[pd_idx] & VM_PHYS_MASK))) {
+			//	return false;
+			//}
 			pd[pd_idx] = phys | flags | PAGE_LARGE;
 		} else {
 			test_and_allocate(&pd[pd_idx], flags);
 			uintptr_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
-			if(pt[pt_idx] && (!remap || phys != (pt[pt_idx] & VM_PHYS_MASK))) {
-				return false;
-			}
+			// if(pt[pt_idx] && (!remap || phys != (pt[pt_idx] & VM_PHYS_MASK))) {
+			//	return false;
+			//}
 			pt[pt_idx] = phys | flags;
 		}
 	}
@@ -550,7 +550,6 @@ bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags)
 	else
 		ef |= EPT_MEMTYPE_WB;
 	ef |= EPT_IGNORE_PAT;
-	printk("EPT: %lx\n", ef);
 	return x86_64_ept_map(
 	  current_thread->active_sc->arch.ept_root, v, p, level, ef, flags & OBJSPACE_SET_FLAGS);
 }
@@ -575,7 +574,7 @@ uintptr_t init_ept(void)
 {
 	/* identity map. TODO (major): map all physical memory */
 	uintptr_t pml4phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
-	for(uintptr_t phys = 0; phys < 64 * 1024 * 1024 * 1024ull; phys += 2 * 1024ul * 1024) {
+	for(uintptr_t phys = 0; phys < 32 * 1024 * 1024 * 1024ull; phys += 2 * 1024ul * 1024) {
 		uint64_t flags = EPT_READ | EPT_WRITE | EPT_EXEC;
 		/* TODO: this is ugly */
 		if((phys >= 0xC0000000 && phys < 0x100000000)) {

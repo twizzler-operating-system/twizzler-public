@@ -243,6 +243,15 @@ static void _remap(void)
 		__do_vm_map(
 		  kpml4_phys, i, mm_vtop((void *)i), 2, VM_MAP_EXEC | VM_MAP_WRITE | VM_MAP_GLOBAL | fl);
 	}
+
+	/* TODO: BETTER PM MANAGEMENT */
+	for(int i = 0; i < 32; i++) {
+		__do_vm_map(kpml4_phys,
+		  0xffffff0000000000ul + mm_page_size(2) * i,
+		  32ul * 1024ul * 1024ul * 1024ul + mm_page_size(2) * i,
+		  2,
+		  VM_MAP_WRITE | VM_MAP_GLOBAL);
+	}
 }
 
 __initializer static void _x86_64_init_vm(void)
