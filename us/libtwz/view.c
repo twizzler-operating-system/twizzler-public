@@ -25,7 +25,8 @@ int twz_view_set(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 	ves[slot].res1 = 0;
 	atomic_store(&ves[slot].flags, flags | VE_VALID);
 
-	if(old & VE_VALID) {
+#warning "TODO: seems like this happens too much?"
+	if((old & VE_VALID)) {
 		struct sys_invalidate_op op = {
 			.offset = slot * OBJ_MAXSIZE,
 			.length = 1,

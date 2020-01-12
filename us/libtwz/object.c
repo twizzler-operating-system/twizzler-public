@@ -206,7 +206,7 @@ static ssize_t _twz_object_scan_fot(twzobj *obj, objid_t id, uint64_t flags)
 	for(size_t i = 1; i < mi->fotentries; i++) {
 		struct fotentry *fe = _twz_object_get_fote(obj, i);
 		if((atomic_load(&fe->flags) & _FE_VALID) && !(fe->flags & FE_NAME) && fe->id == id
-		   && fe->flags == flags) {
+		   && (fe->flags & ~(_FE_VALID | _FE_ALLOC)) == flags) {
 			return i;
 		}
 	}
@@ -224,6 +224,7 @@ ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags)
 	flags &= ~_FE_VALID;
 	while(1) {
 		uint32_t i = atomic_fetch_add(&mi->fotentries, 1);
+		/* TODO: is this safe? */
 		if(i == 0)
 			i = atomic_fetch_add(&mi->fotentries, 1);
 		if(i == OBJ_MAXFOTE)
@@ -271,6 +272,19 @@ int __twz_ptr_store_guid(twzobj *obj, const void **res, twzobj *tgt, const void 
 	return __twz_ptr_make(obj, tgt ? twz_object_guid(tgt) : target, p, flags, res);
 }
 
+void *__twz_ptr_swizzle(twzobj *obj, const void *p, uint64_t flags)
+{
+	objid_t target;
+	int r = twz_vaddr_to_obj(p, &target, NULL);
+	if(r)
+		return r;
+
+	ssize_t fe = twz_object_addfot(obj, target, flags);
+	if(fe < 0)
+		return fe;
+	return twz_ptr_rebase(fe, p);
+}
+
 static void _twz_lea_fault(twzobj *o, const void *p, uintptr_t ip, uint32_t info, uint32_t retval)
 {
 	size_t slot = (uintptr_t)p / OBJ_MAXSIZE;
@@ -282,6 +296,19 @@ static void _twz_lea_fault(twzobj *o, const void *p, uintptr_t ip, uint32_t info
 
 void *__twz_object_lea_foreign(twzobj *o, const void *p)
 {
+#if 1
+	if(o->flags & TWZ_OBJ_CACHE) {
+		size_t fe = twz_base_to_slot(p);
+		if(fe < TWZ_OBJ_CACHE_SIZE && o->cache[fe]) {
+			return twz_ptr_rebase(o->cache[fe], p);
+		}
+	} else {
+		memset(o->cache, 0, sizeof(o->cache));
+		o->flags |= TWZ_OBJ_CACHE;
+	}
+
+#endif
+
 	struct metainfo *mi = twz_object_meta(o);
 	size_t slot = (uintptr_t)p / OBJ_MAXSIZE;
 	struct fotentry *fe = _twz_object_get_fote(o, slot);
@@ -290,16 +317,16 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 	const char *name;
 
 	int r = 0;
-	if(slot >= mi->fotentries) {
+	if(__builtin_expect(slot >= mi->fotentries, 0)) {
 		goto fault;
 	}
 
-	if(!(atomic_load(&fe->flags) & _FE_VALID) || fe->id == 0) {
+	if(__builtin_expect(!(atomic_load(&fe->flags) & _FE_VALID) || fe->id == 0, 0)) {
 		goto fault;
 	}
 
 	objid_t id;
-	if(fe->flags & FE_NAME) {
+	if(__builtin_expect(fe->flags & FE_NAME, 0)) {
 		r = twz_name_resolve(o, fe->name.data, fe->name.nresolver, 0, &id);
 		if(r) {
 			info = FAULT_PPTR_RESOLVE;
@@ -310,7 +337,7 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 		id = fe->id;
 	}
 
-	if(fe->flags & FE_DERIVE) {
+	if(__builtin_expect(fe->flags & FE_DERIVE, 0)) {
 		/* Currently, the derive bit can only be used for executables in slot 0. This may change in
 		 * the future. */
 		info = FAULT_PPTR_DERIVE;
@@ -322,7 +349,12 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 		info = FAULT_PPTR_RESOURCES;
 	}
 
-	return twz_ptr_rebase(ns, (void *)p);
+	size_t e = twz_base_to_slot(p);
+	void *_r = twz_ptr_rebase(ns, (void *)p);
+	if(e < TWZ_OBJ_CACHE_SIZE) {
+		o->cache[e] = ns;
+	}
+	return _r;
 fault:
 	_twz_lea_fault(o, p, (uintptr_t)__builtin_return_address(0), info, r);
 	return NULL;

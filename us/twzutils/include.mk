@@ -1,4 +1,4 @@
-TWZUTILS=init login nls shell input pcie serial term bstream pty tst nvme kls lscpu sqb bench
+TWZUTILS=init login nls shell input pcie serial term bstream pty tst nvme kls lscpu sqb bench kvdr
 
 LIBS_tst=-lncurses
 LIBS_sqb=-lsqlite3
@@ -7,11 +7,12 @@ CFLAGS_init=-O3 -march=native
 CFLAGS_init_test=-O3 -march=native
 EXTRAS_term=$(BUILDDIR)/us/twzutils/kbd.o
 EXTRAS_init=$(BUILDDIR)/us/twzutils/init_test.o
-ALL_EXTRAS=$(EXTRAS_term) $(EXTRAS_init)
+EXTRAS_kvdr=$(BUILDDIR)/us/twzutils/kv.o
+ALL_EXTRAS=$(EXTRAS_term) $(EXTRAS_init) $(EXTRAS_kvdr)
 
 $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
 	@echo "[LD]      $@"
-	@$(TWZCC) -static $(TWZLDFLAGS) -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@))
+	$(TWZCC) -static $(TWZLDFLAGS) -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@))
 	@echo "[SPLIT]   $@"
 	@$(BUILDDIR)/utils/elfsplit $@.elf
 	@mv $@.elf.text $@

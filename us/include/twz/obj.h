@@ -7,6 +7,8 @@
 
 #define TWZ_OBJ_VALID 1
 
+#define TWZ_OBJ_CACHE 64
+#define TWZ_OBJ_CACHE_SIZE 16
 typedef struct _twz_object {
 	void *base;
 	uint64_t flags;
@@ -14,6 +16,7 @@ typedef struct _twz_object {
 	uint32_t vf;
 	uint32_t pad;
 	uint64_t pad1;
+	uint32_t cache[TWZ_OBJ_CACHE_SIZE];
 } twzobj;
 
 #define twz_slot_to_base(s) ({ (void *)((s)*OBJ_MAXSIZE + OBJ_NULLPAGE_SIZE); })
@@ -38,6 +41,9 @@ int twz_object_new(twzobj *obj, twzobj *src, twzobj *ku, uint64_t flags);
 
 _Bool objid_parse(const char *name, size_t len, objid_t *id);
 
+#define twz_ptr_local(p) ({ (typeof(p))((uintptr_t)(p) & (OBJ_MAXSIZE - 1)); })
+#define twz_ptr_rebase(fe, p) ({ (typeof(p))((fe)*OBJ_MAXSIZE | (uintptr_t)twz_ptr_local(p)); })
+
 void *__twz_object_lea_foreign(twzobj *o, const void *p);
 
 __attribute__((const)) static inline void *__twz_object_lea(twzobj *o, const void *p)
@@ -45,7 +51,8 @@ __attribute__((const)) static inline void *__twz_object_lea(twzobj *o, const voi
 	if(__builtin_expect((uintptr_t)p < OBJ_MAXSIZE, 1)) {
 		return (void *)((uintptr_t)o->base + (uintptr_t)p);
 	} else {
-		return __twz_object_lea_foreign(o, p);
+		void *r = __twz_object_lea_foreign(o, p);
+		return r;
 	}
 }
 
@@ -70,8 +77,6 @@ __attribute__((const)) static inline void *__twz_object_lea(twzobj *o, const voi
 		twz_object_release(&_o);                                                                   \
 		_r;                                                                                        \
 	});
-
-#define twz_ptr_local(p) ({ (typeof(p))((uintptr_t)(p) & (OBJ_MAXSIZE - 1)); })
 
 #define twz_object_meta(o)                                                                         \
 	({ (struct metainfo *)(((char *)(o)->base + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE)); })
@@ -99,7 +104,7 @@ int __twz_ptr_store_name(twzobj *o,
   const char *name,
   const void *p,
   uint64_t flags);
-void *__twz_ptr_swizzle(twzobj *o, void *p, uint64_t flags);
+void *__twz_ptr_swizzle(twzobj *o, const void *p, uint64_t flags);
 
 #define twz_ptr_store_guid(o, l, t, p, f)                                                          \
 	({                                                                                             \
@@ -113,9 +118,7 @@ void *__twz_ptr_swizzle(twzobj *o, void *p, uint64_t flags);
 		__twz_ptr_store_name(o, (const void **)(l), (n), (p), (f));                                \
 	})
 
-#define twz_ptr_swizzle(o, p) ({ (typeof(p)) __twz_ptr_swizzle(o, (p)); })
-
-#define twz_ptr_rebase(fe, p) ({ (typeof(p))((fe)*OBJ_MAXSIZE | (uintptr_t)twz_ptr_local(p)); })
+#define twz_ptr_swizzle(o, p, f) ({ (typeof(p)) __twz_ptr_swizzle((o), (p), (f)); })
 
 int twz_object_kaction(twzobj *obj, long cmd, ...);
 int twz_object_pin(twzobj *obj, uintptr_t *oaddr, int flags);

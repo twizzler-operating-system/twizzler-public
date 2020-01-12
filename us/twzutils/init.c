@@ -230,6 +230,19 @@ static __inline__ unsigned long long rdtsc(void)
 }
 
 #include <twz/btree.h>
+
+void timespec_diff(struct timespec *start, struct timespec *stop, struct timespec *result)
+{
+	if((stop->tv_nsec - start->tv_nsec) < 0) {
+		result->tv_sec = stop->tv_sec - start->tv_sec - 1;
+		result->tv_nsec = stop->tv_nsec - start->tv_nsec + 1000000000;
+	} else {
+		result->tv_sec = stop->tv_sec - start->tv_sec;
+		result->tv_nsec = stop->tv_nsec - start->tv_nsec;
+	}
+	return;
+}
+
 void slab_test();
 int main()
 {
@@ -284,31 +297,139 @@ int main()
 	for(;;)
 		;
 #endif
-#if 0
-	twzobj o;
-	if((twz_object_new(&o, NULL, NULL, TWZ_OC_DFL_WRITE | TWZ_OC_DFL_READ))) {
-		abort();
-	}
-	bt_init(&o, twz_object_base(&o));
 
-	int x;
+	struct timespec start, end, diff;
+	long max = 1000000;
 	int k;
-	long long sa = rdtsc();
-	for(k = 0; k < 10000; k++) {
-		//	debug_printf("insert %d\n", k);
-		struct btree_val rdv = { .mv_data = &x, .mv_size = sizeof(x) };
-		struct btree_val rkv = { .mv_data = &k, .mv_size = sizeof(k) };
-		// long long s = rdtsc();
-		bt_put(&o, twz_object_base(&o), &rkv, &rdv, NULL);
-		// long long e = rdtsc();
-		// debug_printf("-> %ld\n", (e - s) / 4);
-	}
-	long long ea = rdtsc();
+	twzobj o;
+#if 1
+	for(int f = 0; f < 30; f++) {
+		max = 1000000000;
 
-	debug_printf(":::: %ld\n", (ea - sa) / (4 * 10000));
+		max = 10000;
+		if((twz_object_new(
+		     &o, NULL, NULL, TWZ_OC_DFL_WRITE | TWZ_OC_DFL_READ | TWZ_SYS_OC_PERSIST_))) {
+			abort();
+		}
+		objid_t id = twz_object_guid(&o);
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		for(int i = 0; i < max; i++) {
+			// twz_view_set(NULL, 1000, id, FE_READ);
+			twz_view_allocate_slot(NULL, id * 1001, FE_READ);
+		}
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		timespec_diff(&start, &end, &diff);
+
+		debug_printf("SET-VIEW: %ld ns, %ld ops\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, max);
+
+#if 0
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		for(k = 0; k < max; k++) {
+			void *v = NULL;
+			asm volatile("" ::"r"(v), "r"(k) : "memory");
+		}
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		timespec_diff(&start, &end, &diff);
+
+		debug_printf(
+		  "CALIBRATE: %ld ns, %ld ops\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, max);
+
+		if((twz_object_new(
+		     &o, NULL, NULL, TWZ_OC_DFL_WRITE | TWZ_OC_DFL_READ | TWZ_SYS_OC_PERSIST_))) {
+			abort();
+		}
+
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		void *p = (void *)0x2000;
+		max = 1000000000;
+		for(k = 0; k < max; k++) {
+			void *v = twz_object_lea(&o, p);
+			// void *v = NULL;
+			asm volatile("" ::"r"(v), "r"(k) : "memory");
+		}
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		timespec_diff(&start, &end, &diff);
+
+		debug_printf(
+		  "INTRA-PTR-TRANSLATE: %ld ns, %ld ops\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, max);
+
+		twzobj other;
+		for(int h = 0; h < 30; h++) {
+			twz_object_new(&o, NULL, NULL, TWZ_OC_DFL_READ);
+			twz_object_new(&other, NULL, NULL, TWZ_OC_DFL_READ);
+			twz_object_addfot(&o, twz_object_guid(&other), FE_READ);
+			twz_object_new(&other, NULL, NULL, TWZ_OC_DFL_READ);
+			twz_object_addfot(&o, twz_object_guid(&other), FE_READ);
+
+			p = (void *)twz_ptr_rebase(1, p);
+			long long _a = rdtsc();
+			void *_v = twz_object_lea(&o, p);
+			asm volatile("" ::"r"(_v) : "memory");
+			long long _b = rdtsc();
+			debug_printf("FIRST-TIME-CROSS: %ld cycles\n", _b - _a);
+			p = (void *)twz_ptr_rebase(2, p);
+			_a = rdtsc();
+			_v = twz_object_lea(&o, p);
+			asm volatile("" ::"r"(_v) : "memory");
+			_b = rdtsc();
+			debug_printf("FIRST-TIME-CROSS: %ld cycles\n", _b - _a);
+		}
+
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		for(k = 0; k < max; k++) {
+			void *v = twz_object_lea(&o, p);
+			// void *v = NULL;
+			asm volatile("" ::"r"(v), "r"(k) : "memory");
+		}
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		timespec_diff(&start, &end, &diff);
+
+		debug_printf(
+		  "CROSS-PTR-TRANSLATE: %ld ns, %ld ops\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, max);
+#endif
+	}
+	// for(;;)
+	//	;
+
+#endif
+
+#if 0
+	for(int g = 0; g < 30; g++) {
+		if((twz_object_new(
+		     &o, NULL, NULL, TWZ_OC_DFL_WRITE | TWZ_OC_DFL_READ | TWZ_SYS_OC_PERSIST_))) {
+			abort();
+		}
+		bt_init(&o, twz_object_base(&o));
+
+		int x;
+		debug_printf("Starting insert\n");
+		max = 1000000;
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		for(k = 0; k < max; k++) {
+			x = k;
+			struct btree_val rdv = { .mv_data = &x, .mv_size = sizeof(x) };
+			struct btree_val rkv = { .mv_data = &k, .mv_size = sizeof(k) };
+			bt_put(&o, twz_object_base(&o), &rkv, &rdv, NULL);
+		}
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		timespec_diff(&start, &end, &diff);
+
+		debug_printf(
+		  "INSERT RBT: %ld ns, %ld ops\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, max);
+
+		clock_gettime(CLOCK_MONOTONIC, &start);
+		for(k = 0; k < max; k++) {
+			struct btree_val rkv = { .mv_data = &k, .mv_size = sizeof(k) };
+			bt_lookup(&o, twz_object_base(&o), &rkv);
+		}
+		clock_gettime(CLOCK_MONOTONIC, &end);
+		timespec_diff(&start, &end, &diff);
+		debug_printf(
+		  "LOOKUP RBT: %ld ns, %ld ops\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, max);
+	}
 	// bt_print_tree(&o, twz_object_base(&o));
-	for(;;)
-		;
+	// for(;;)
+	//	;
 #endif
 	int r;
 

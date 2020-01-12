@@ -8,6 +8,8 @@
 #include <twz/thread.h>
 #include <twz/view.h>
 
+#define PRINT(...) fprintf(stderr, ##__VA_ARGS__)
+
 static struct {
 	void (*fn)(int, void *);
 } _fault_table[NUM_FAULTS];
@@ -70,7 +72,7 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 {
 	(void)source;
 	(void)id;
-	// debug_printf("%lx %x %lx (" IDFMT ")\n", addr, cause, source, IDPR(id));
+	// PRINT("%lx %x %lx (" IDFMT ")\n", addr, cause, source, IDPR(id));
 	uint64_t offset = addr % OBJ_MAXSIZE;
 	if(offset < OBJ_NULLPAGE_SIZE) {
 		FPR("NULL pointer");
@@ -120,9 +122,9 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 
 #if 0
 	if(fe->flags & FE_NAME) {
-		debug_printf("Slot: %ld - %s\n", slot, fe->name.data);
+		PRINT("Slot: %ld - %s\n", slot, fe->name.data);
 	} else {
-		debug_printf("Slot: %ld - " IDFMT "\n", slot, IDPR(fe->id));
+		PRINT("Slot: %ld - " IDFMT "\n", slot, IDPR(fe->id));
 	}
 #endif
 
@@ -168,20 +170,12 @@ struct stackframe {
 };
 
 #include <twz/_sctx.h>
-static void __twz_fault_unhandled(struct fault_fault_info *info, struct fault_frame *frame)
+static void __twz_fault_unhandled_print(int fault_nr, void *data)
 {
 	// if(info->fault_nr != FAULT_NULL)
 	//	twz_thread_exit();
-	struct twzthread_repr *repr = twz_thread_repr_base();
-	debug_printf("unhandled fault: %s in thread " IDFMT " (%s)\n",
-	  fault_names[info->fault_nr],
-	  IDPR(repr->reprid),
-	  repr->hdr.name);
-	uint64_t *pp = (void *)(frame->rsp - 8);
-	debug_printf("  pc: %lx\n", pp[0]);
-
-	if(info->fault_nr == FAULT_SCTX) {
-		struct fault_sctx_info *si = (void *)info->data;
+	if(fault_nr == FAULT_SCTX) {
+		struct fault_sctx_info *si = (void *)data;
 		char rp[12];
 		int _r = 0;
 		if(si->pneed & SCP_READ)
@@ -191,30 +185,48 @@ static void __twz_fault_unhandled(struct fault_fault_info *info, struct fault_fr
 		if(si->pneed & SCP_EXEC)
 			rp[_r++] = 'x';
 		rp[_r] = 0;
-		debug_printf("  when accessing " IDFMT " at addr %lx, requesting %s (%lx)\n",
+		PRINT("  when accessing " IDFMT " at addr %lx, requesting %s (%lx)\n",
 		  IDPR(si->target),
 		  si->addr,
 		  rp,
 		  si->pneed);
-	} else if(info->fault_nr == FAULT_EXCEPTION) {
-		struct fault_exception_info *ei = (void *)info->data;
-		debug_printf("  ecode: %d\n", ei->code);
-		debug_printf("  info : %x\n", ei->arg0);
+	} else if(fault_nr == FAULT_EXCEPTION) {
+		struct fault_exception_info *ei = (void *)data;
+		PRINT("  ecode: %d\n", ei->code);
+		PRINT("  info : %x\n", ei->arg0);
 		uint16_t fcw;
 		asm volatile("fstcw %0" : "=m"(fcw));
-		debug_printf("  fcw: %x\n", fcw);
+		PRINT("  fcw: %x\n", fcw);
 		uint16_t mxcsr;
 		asm volatile("stmxcsr %0" : "=m"(mxcsr));
-		debug_printf("  mxcsr: %x\n", mxcsr);
+		PRINT("  mxcsr: %x\n", mxcsr);
+	} else if(fault_nr == FAULT_PPTR) {
+		struct fault_pptr_info *pi = (void *)data;
+		PRINT("objid: " IDFMT "; fote: %ld\n", IDPR(pi->objid), pi->fote);
+		PRINT(
+		  "ip: %lx; info: %x; retval: %x; flags: %lx\n", pi->ip, pi->info, pi->retval, pi->flags);
+		PRINT("name: %p; ptr: %p\n", pi->name, pi->ptr);
 	}
 
 #if 0
 	struct stackframe *sf = (void *)frame->rbp;
 	while(sf) {
-		debug_printf("  (%p) : %lx\n", sf, sf->eip);
+		PRINT("  (%p) : %lx\n", sf, sf->eip);
 		sf = sf->ebp;
 	}
 #endif
+}
+
+static void __twz_fault_unhandled(struct fault_fault_info *info, struct fault_frame *frame)
+{
+	struct twzthread_repr *repr = twz_thread_repr_base();
+	PRINT("unhandled fault: %s in thread " IDFMT " (%s)\n",
+	  fault_names[info->fault_nr],
+	  IDPR(repr->reprid),
+	  repr->hdr.name);
+	uint64_t *pp = (void *)(frame->rsp - 8);
+	PRINT("  pc: %lx\n", pp[0]);
+	__twz_fault_unhandled_print(info->fault_nr, info->data);
 }
 
 static __attribute__((used)) void __twz_fault_entry_c(int fault,
@@ -231,7 +243,7 @@ static __attribute__((used)) void __twz_fault_entry_c(int fault,
 		return;
 	}
 	if((fault >= NUM_FAULTS || !_fault_table[fault].fn) && fault != FAULT_OBJECT) {
-		debug_printf("Unhandled exception: %d", fault);
+		PRINT("Unhandled exception: %d", fault);
 		twz_thread_exit();
 	}
 	if(_fault_table[fault].fn) {
@@ -326,6 +338,7 @@ void twz_fault_raise(int fault, void *data)
 		fn(fault, data);
 	} else {
 		fprintf(stderr, "  -- RAISE FAULT %d: unhandled.\n", fault);
+		__twz_fault_unhandled_print(fault, data);
 		twz_thread_exit();
 	}
 }

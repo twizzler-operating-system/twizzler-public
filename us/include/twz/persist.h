@@ -11,14 +11,15 @@
 static inline void _clwb(const void *p)
 {
 #ifdef __HAVE_CLWB
-	_mm_clwb(p);
+	//_mm_clwb(p);
 #else
-	_mm_clflushopt(p);
+	//_mm_clflushopt(p);
 #endif
 }
 
 static inline void _clwb_len(const void *p, size_t len)
 {
+	return;
 	char *l = p;
 	long long rem = len;
 	while(rem > 0) {
@@ -31,5 +32,5 @@ static inline void _clwb_len(const void *p, size_t len)
 
 static inline void _pfence(void)
 {
-	asm volatile("sfence;" ::: "memory");
+	// asm volatile("sfence;" ::: "memory");
 }
