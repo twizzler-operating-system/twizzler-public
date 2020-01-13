@@ -258,7 +258,7 @@ struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 			spinlock_release_restore(&obj->lock);
 			return NULL;
 		}
-		int level = (addr >= mm_page_size(1) || (obj->lowpg && 0)) ? 1 : 0;
+		int level = (addr >= mm_page_size(1) || (obj->lowpg && 0)) ? 0 : 0;
 		page = slabcache_alloc(&sc_objpage);
 		page->idx = addr / mm_page_size(level);
 		page->page = page_alloc(obj->persist ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, level);
@@ -582,7 +582,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 
 	/* TODO: something better */
 	for(int j = 0; j < 4 && (idx < 200000 || j == 0); j++, idx++) {
-		struct objpage *p = obj_get_page(o, (j * mm_page_size(1) + loaddr) % OBJ_MAXSIZE, true);
+		struct objpage *p = obj_get_page(o, (j * mm_page_size(0) + loaddr) % OBJ_MAXSIZE, true);
 
 		if(do_map) {
 			arch_object_map_slot(o, perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));

@@ -296,7 +296,7 @@ static void _twz_lea_fault(twzobj *o, const void *p, uintptr_t ip, uint32_t info
 
 void *__twz_object_lea_foreign(twzobj *o, const void *p)
 {
-#if 1
+#if 0
 	if(o->flags & TWZ_OBJ_CACHE) {
 		size_t fe = twz_base_to_slot(p);
 		if(fe < TWZ_OBJ_CACHE_SIZE && o->cache[fe]) {
@@ -352,7 +352,7 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 	size_t e = twz_base_to_slot(p);
 	void *_r = twz_ptr_rebase(ns, (void *)p);
 	if(e < TWZ_OBJ_CACHE_SIZE) {
-		o->cache[e] = ns;
+		// o->cache[e] = ns;
 	}
 	return _r;
 fault:

@@ -12,7 +12,7 @@ enum {
 	BLACK,
 };
 
-#if 1
+#if 0
 #define TXOPT_RECORD_TMP(...)
 #define TXOPT_RECORD(...)
 #define TX_RECORD_COMMIT(...)
