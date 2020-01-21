@@ -130,6 +130,8 @@ uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 					memset((void *)0xffffff0000000000ul + x, 0, 0x1000);
 				}
 				spinlock_release_restore(&nvs);
+				if(reg->off % (1024 * 1024 * 1024) == 0)
+					printk("GB ALLOCATED\n");
 				return x + reg->start;
 			}
 		}

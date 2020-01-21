@@ -69,7 +69,7 @@ void x86_64_signal_eoi(void)
 __noinstrument unsigned int arch_processor_current_id(void)
 {
 	/* TODO: is this right? */
-	// return lapic_read(LAPIC_LDR);
+	// return x2apic_read(LAPIC_LDR);
 	return x2apic_read(LAPIC_ID);
 }
 

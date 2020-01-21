@@ -32,6 +32,8 @@ struct processor {
 	void *percpu;
 	struct proc_stats stats;
 	struct object *obj;
+
+	long ctr;
 };
 
 void processor_perproc_init(struct processor *proc);

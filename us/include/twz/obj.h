@@ -16,7 +16,7 @@ typedef struct _twz_object {
 	uint32_t vf;
 	uint32_t pad;
 	uint64_t pad1;
-	// uint32_t cache[TWZ_OBJ_CACHE_SIZE];
+	uint32_t cache[TWZ_OBJ_CACHE_SIZE];
 } twzobj;
 
 #define twz_slot_to_base(s) ({ (void *)((s)*OBJ_MAXSIZE + OBJ_NULLPAGE_SIZE); })

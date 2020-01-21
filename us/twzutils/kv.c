@@ -20,7 +20,7 @@
 static inline unsigned long long rdtsc(void)
 {
 	unsigned hi, lo;
-	__asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+	//__asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
 	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
 }
 
@@ -63,7 +63,7 @@ static const size_t g_a_sizes[] = {
 #define NUMSLOTS 8
 
 #define SWIZ 1
-#define MULT 0
+#define MULT 1
 #define WARMUP 1
 #define BIG 1
 

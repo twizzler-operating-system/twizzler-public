@@ -302,7 +302,7 @@ int main()
 	long max = 1000000;
 	int k;
 	twzobj o;
-#if 1
+#if 0
 	for(int f = 0; f < 30; f++) {
 		max = 1000000000;
 

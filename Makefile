@@ -93,12 +93,11 @@ KLIBS=
 
 include third-party/include.mk
 
-test: $(BUILDDIR)/kernel $(BUILDDIR)/us/root.tar
+test: $(BUILDDIR)/kernel $(BUILDDIR)/us/root.tar bootiso
 	@touch nvme.img
 	@truncate -s 1G nvme.img
-	$(QEMU) $(QEMU_FLAGS) -drive file=nvme.img,if=none,id=D22 \
-		-device nvme,drive=D22,serial=1234 -initrd $(BUILDDIR)/us/root.tar \
-		-serial stdio | tee serial.txt
+	$(QEMU) $(QEMU_FLAGS) -cdrom $(BUILDDIR)/boot.iso -drive file=nvme.img,if=none,id=D22 \
+		-device nvme,drive=D22,serial=1234 -serial stdio # | tee serial.txt
 
 export TOOLCHAIN_PREFIX
 export BUILDDIR

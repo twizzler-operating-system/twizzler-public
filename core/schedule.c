@@ -7,9 +7,22 @@
 #define TIMESLICE_GIVEUP 10000
 #define TIMESLICE_SCALE 20000
 
+#include <arch/x86_64-msr.h>
 __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 {
 	uint64_t ji = clksrc_get_nanoseconds();
+
+	if(0 && ++proc->ctr % 1000 == 0) {
+		uint32_t lom, him, loa, hia;
+		x86_64_rdmsr(0xe7, &lom, &him);
+		x86_64_rdmsr(0xe8, &loa, &hia);
+		uint64_t mperf = (long)him << 32 | (long)lom;
+		uint64_t aperf = (long)hia << 32 | (long)loa;
+		printk(":: %lx %lx %lx\n", aperf, mperf, (aperf * 1000) / mperf);
+		x86_64_wrmsr(0xe7, 0, 0);
+		x86_64_wrmsr(0xe8, 0, 0);
+	}
+
 	while(true) {
 		/* TODO (major): allow current thread to run again */
 		spinlock_acquire(&proc->sched_lock);
@@ -22,7 +35,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			  current_thread->timeslice_expire - ji);
 #endif
 			spinlock_release(&proc->sched_lock, 0);
-			//		clksrc_set_interrupt_countdown(current_thread->timeslice_expire - ji, false);
+			// clksrc_set_interrupt_countdown(current_thread->timeslice_expire - ji, false);
 
 			arch_thread_resume(current_thread, current_thread->timeslice_expire - ji);
 		}

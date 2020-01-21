@@ -55,16 +55,52 @@ int main(const int argc, const char *argv[])
 
 	const int num_threads = stoi(props.GetProperty("threadcount", "1"));
 
+#if 1
 	// Loads data
 	vector<future<int>> actual_ops;
 	int total_ops = stoi(props[ycsbc::CoreWorkload::RECORD_COUNT_PROPERTY]);
+	int sum = 0;
+	for(int i = 0; i < num_threads; ++i) {
+		sum += DelegateClient(db, &wl, total_ops / num_threads, true);
+		// actual_ops.emplace_back(
+		//  async(launch::async, DelegateClient, db, &wl, total_ops / num_threads, true));
+	}
+	// assert((int)actual_ops.size() == num_threads);
+
+	// for(auto &n : actual_ops) {
+	//	assert(n.valid());
+	//	sum += n.get();
+	//}
+	cerr << "# Loading records:\t" << sum << endl;
+
+	// Peforms transactions
+	// actual_ops.clear();
+	total_ops = stoi(props[ycsbc::CoreWorkload::OPERATION_COUNT_PROPERTY]);
+	utils::Timer<double> timer;
+	sum = 0;
+	timer.Start();
+	for(int i = 0; i < num_threads; ++i) {
+		sum += DelegateClient(db, &wl, total_ops / num_threads, false);
+		//	actual_ops.emplace_back(
+		//	  async(launch::async, DelegateClient, db, &wl, total_ops / num_threads, false));
+	}
+	// assert((int)actual_ops.size() == num_threads);
+
+	// for(auto &n : actual_ops) {
+	//	assert(n.valid());
+	//	sum += n.get();
+	//}
+#else
+	// Loads data
+	vector<future<int>> actual_ops;
+	int total_ops = stoi(props[ycsbc::CoreWorkload::RECORD_COUNT_PROPERTY]);
+	int sum = 0;
 	for(int i = 0; i < num_threads; ++i) {
 		actual_ops.emplace_back(
 		  async(launch::async, DelegateClient, db, &wl, total_ops / num_threads, true));
 	}
 	assert((int)actual_ops.size() == num_threads);
 
-	int sum = 0;
 	for(auto &n : actual_ops) {
 		assert(n.valid());
 		sum += n.get();
@@ -75,18 +111,21 @@ int main(const int argc, const char *argv[])
 	actual_ops.clear();
 	total_ops = stoi(props[ycsbc::CoreWorkload::OPERATION_COUNT_PROPERTY]);
 	utils::Timer<double> timer;
+	sum = 0;
 	timer.Start();
 	for(int i = 0; i < num_threads; ++i) {
+		// sum += DelegateClient(db, &wl, total_ops / num_threads, false);
 		actual_ops.emplace_back(
 		  async(launch::async, DelegateClient, db, &wl, total_ops / num_threads, false));
 	}
 	assert((int)actual_ops.size() == num_threads);
 
-	sum = 0;
 	for(auto &n : actual_ops) {
 		assert(n.valid());
 		sum += n.get();
 	}
+
+#endif
 	double duration = timer.End();
 	cerr << "# Transaction throughput (KTPS)" << endl;
 	cerr << "# raw values: duration=" << duration << endl;

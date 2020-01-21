@@ -12,7 +12,7 @@ enum {
 	BLACK,
 };
 
-#if 0
+#if 1
 #define TXOPT_RECORD_TMP(...)
 #define TXOPT_RECORD(...)
 #define TX_RECORD_COMMIT(...)
@@ -37,7 +37,7 @@ static inline struct btree_node *__l(twzobj *obj, void *x)
 {
 	if(x == NULL)
 		return NULL;
-	// return (void *)((uintptr_t)x + obj->base);
+	return (void *)((uintptr_t)x + obj->base);
 	struct btree_node *r = twz_object_lea(obj, x);
 	return r;
 }

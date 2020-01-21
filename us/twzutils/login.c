@@ -53,6 +53,8 @@ void tmain(const char *username)
 	}
 
 	kso_set_name(NULL, "[instance] shell [user %s]", username);
+	// execv("/usr/bin/ycsbc",
+	// (char *[]){ "ycsbc", "-db", "sqlite", "-P", "/usr/share/ycsbc/workloadf.spec", NULL });
 	r = execv("/usr/bin/bash", (char *[]){ "/usr/bin/bash", NULL });
 	fprintf(stderr, "failed to exec shell: %d", r);
 	exit(1);
@@ -66,6 +68,7 @@ int main()
 		printf("Twizzler Login: ");
 		fflush(NULL);
 		fgets(buffer, 1024, stdin);
+		// strcpy(buffer, "bob");
 
 		char *n = strchr(buffer, '\n');
 		if(n)
@@ -94,6 +97,8 @@ int main()
 				warn("wait");
 				break;
 			}
+		}
+		for(volatile long i = 0; i < 100000000; i++) {
 		}
 	}
 }
