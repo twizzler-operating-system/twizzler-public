@@ -19,17 +19,22 @@
 
 #include <cpuid.h>
 
+#include <twz/debug.h>
 static inline void _clwb(const void *p)
 {
 	static int __flush_mode = __FM_UNKNOWN;
 	if(__flush_mode == __FM_UNKNOWN) {
 		uint32_t a, b, c, d;
-		__cpuid_count(7, 0, a, b, c, d);
-		if(b & bit_CLWB) {
-			__flush_mode = __FM_CLWB;
-		} else if(b & bit_CLFLUSHOPT) {
-			__flush_mode = __FM_CLFLUSH_OPT;
+		if(__get_cpuid_count(7, 0, &a, &b, &c, &d)) {
+			if(b & bit_CLWB) {
+				__flush_mode = __FM_CLWB;
+			} else if(b & bit_CLFLUSHOPT) {
+				__flush_mode = __FM_CLFLUSH_OPT;
+			} else {
+				__flush_mode = __FM_CLFLUSH;
+			}
 		} else {
+			/* fall-back to clflush... hopefully it's present. */
 			__flush_mode = __FM_CLFLUSH;
 		}
 	}

@@ -257,14 +257,12 @@ void x86_64_vmexit_handler(struct processor *proc)
 		uintptr_t val;
 		case VMEXIT_REASON_CPUID:
 			/* just execute cpuid using the guest's registers */
-			asm volatile(
-			  "push %%rbx; cpuid; mov %%rbx, %0; pop %%rbx"
-			  : "=a"(proc->arch.vcpu_state_regs[REG_RAX]),
-			  "=g"(proc->arch.vcpu_state_regs[REG_RBX]),
-			  "=c"(proc->arch.vcpu_state_regs[REG_RCX]),
-			  "=d"(proc->arch.vcpu_state_regs[REG_RDX])
-			  : "a"(proc->arch.vcpu_state_regs[REG_RAX]), "c"(proc->arch.vcpu_state_regs[REG_RCX])
-			  : "memory");
+			__cpuid_count(proc->arch.vcpu_state_regs[REG_RAX],
+			  proc->arch.vcpu_state_regs[REG_RCX],
+			  proc->arch.vcpu_state_regs[REG_RAX],
+			  proc->arch.vcpu_state_regs[REG_RBX],
+			  proc->arch.vcpu_state_regs[REG_RCX],
+			  proc->arch.vcpu_state_regs[REG_RDX]);
 			vm_instruction_advance();
 			break;
 		case VMEXIT_REASON_VMCALL:
@@ -327,8 +325,8 @@ __noinstrument static void x86_64_vmenter(struct processor *proc)
 	  "vmlaunch; jmp failed;"
 	  "launched: vmresume; failed:"
 	  "pop %%rcx;"
-	  "mov %c[procptr](%%rcx), %%rdi;" /* we destroyed our registers, so lets load a pointer to the
-	                                      proc structure. */
+	  "mov %c[procptr](%%rcx), %%rdi;" /* we destroyed our registers, so lets load a pointer to
+	                                      the proc structure. */
 	  "popf;"                          /* restore our flags */
 	  "call x86_64_vmentry_failed;"
 	  /* okay, let's have an assembly stub for a VM exit */
