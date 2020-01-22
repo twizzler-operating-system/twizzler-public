@@ -243,12 +243,14 @@ static void x86_64_initrd(void *u __unused)
 	printk("[initrd] loaded %ld objects\e[0K\n", _count);
 }
 
+void x86_64_reclaim_initrd_region(void);
 static void *mod_start;
 static size_t mod_len;
 static void x86_64_initrd2(void *u __unused)
 {
 	size_t c = _load_initrd(mod_start, mod_len);
 	printk("[initrd] loaded %ld objects\e[0K\n", c);
+	x86_64_reclaim_initrd_region();
 }
 
 void kernel_early_init(void);
@@ -258,6 +260,9 @@ void x86_64_memory_record(uintptr_t addr,
   size_t len,
   enum memory_type type,
   enum memory_subtype st);
+
+void x86_64_register_kernel_region(uintptr_t addr, size_t len);
+void x86_64_register_initrd_region(uintptr_t addr, size_t len);
 
 static enum memory_type memory_type_map(unsigned int mtb_type)
 {
@@ -333,6 +338,9 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 		uintptr_t ke_addr = align_up(PHYS((uintptr_t)&kernel_end), 0x1000);
 		uintptr_t ms = module_tag ? align_down(module_tag->mod_start, 0x1000) : 0;
 		uintptr_t me = module_tag ? align_up(module_tag->mod_end, 0x1000) : 0;
+
+		x86_64_register_kernel_region(ks_addr, ke_addr - ks_addr);
+		x86_64_register_initrd_region(ms, me - ms);
 
 		for(size_t i = 0; i < nr_entries; i++) {
 			struct multiboot_mmap_entry *entry =

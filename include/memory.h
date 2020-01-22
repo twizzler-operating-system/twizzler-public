@@ -21,6 +21,7 @@ enum memory_type {
 	MEMORY_RECLAIMABLE,
 	MEMORY_BAD,
 	MEMORY_CODE,
+	MEMORY_KERNEL_IMAGE,
 };
 
 enum memory_subtype {

@@ -12,6 +12,7 @@ static const char *memory_type_strings[] = {
 	[MEMORY_BAD] = "Bad Memory",
 	[MEMORY_RECLAIMABLE] = "Reclaimable System Memory",
 	[MEMORY_UNKNOWN] = "Unknown Memory",
+	[MEMORY_KERNEL_IMAGE] = "Kernel Image",
 };
 
 static const char *memory_subtype_strings[] = {

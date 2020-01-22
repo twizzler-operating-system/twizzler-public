@@ -33,3 +33,22 @@ void x86_64_memory_record(uintptr_t addr, size_t len, enum memory_type type, enu
 {
 	mm_init_region(&_regions[_region_counter++], addr, len, type, st);
 }
+
+static struct memregion kernel_region, initrd_region;
+static struct mem_allocator initrd_allocator;
+
+void x86_64_register_kernel_region(uintptr_t addr, size_t len)
+{
+	mm_init_region(&kernel_region, addr, len, MEMORY_KERNEL_IMAGE, MEMORY_SUBTYPE_NONE);
+	mm_register_region(&kernel_region, NULL);
+}
+
+void x86_64_register_initrd_region(uintptr_t addr, size_t len)
+{
+	mm_init_region(&initrd_region, addr, len, MEMORY_AVAILABLE, MEMORY_AVAILABLE_VOLATILE);
+}
+
+void x86_64_reclaim_initrd_region(void)
+{
+	mm_register_region(&initrd_region, &initrd_allocator);
+}
