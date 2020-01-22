@@ -318,10 +318,10 @@ extern int trampoline_start, trampoline_end, rm_gdt, pmode_enter, rm_gdt_pointer
 void arch_processor_boot(struct processor *proc)
 {
 	proc->arch.kernel_stack = (void *)mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_ANY, true);
-	printk("Poking secondary CPU %d, proc->arch.kernel_stack = %p (proc=%p)\n",
-	  proc->id,
-	  proc->arch.kernel_stack,
-	  proc);
+	// printk("Poking secondary CPU %d, proc->arch.kernel_stack = %p (proc=%p)\n",
+	//  proc->id,
+	//  proc->arch.kernel_stack,
+	//  proc);
 	*(void **)(proc->arch.kernel_stack + KERNEL_STACK_SIZE - sizeof(void *)) = proc;
 
 	uintptr_t bootaddr_phys = 0x7000;

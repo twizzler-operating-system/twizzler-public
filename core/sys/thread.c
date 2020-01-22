@@ -92,10 +92,10 @@ long syscall_thread_spawn(uint64_t tidlo,
 
 	t->state = THREADSTATE_RUNNING;
 	processor_attach_thread(NULL, t);
-	printk("spawned thread %ld from %ld on processor %d\n",
-	  t->id,
-	  current_thread ? (long)current_thread->id : -1,
-	  t->processor->id);
+	// printk("spawned thread %ld from %ld on processor %d\n",
+	// t->id,
+	// current_thread ? (long)current_thread->id : -1,
+	// t->processor->id);
 
 	return 0;
 }

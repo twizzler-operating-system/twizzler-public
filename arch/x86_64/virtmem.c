@@ -258,11 +258,8 @@ static void _remap(void)
 
 __initializer static void _x86_64_init_vm(void)
 {
-	printk("remapping!\n");
 	_remap();
-	printk("switching new cr3\n");
 	asm volatile("mov %0, %%cr3" ::"r"(mm_vtop(kernel_pml4)) : "memory");
-	printk("!ok!\n");
 }
 
 void x86_64_secondary_vm_init(void)

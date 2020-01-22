@@ -112,7 +112,7 @@ void processor_ipi_finish(void)
 
 void processor_init_secondaries(void)
 {
-	printk("Initializing secondary processors...\n");
+	// printk("Initializing secondary processors...\n");
 	processor_count++; /* BSP */
 	for(int i = 0; i < PROCESSOR_MAX_CPUS; i++) {
 		struct processor *proc = &processors[i];
@@ -194,15 +194,16 @@ void processor_attach_thread(struct processor *proc, struct thread *thread)
 			}
 		}
 	}
-	printk("processor load: %ld %d\n", proc->load, list_empty(&proc->runqueue));
+	// printk("processor load: %ld %d\n", proc->load, list_empty(&proc->runqueue));
 	__do_processor_attach_thread(proc, thread);
 }
 
 void processor_percpu_regions_init(void)
 {
 	size_t percpu_length = (size_t)&kernel_data_percpu_length;
-	printk(
-	  "loading percpu data from %p, length %ld bytes\n", &kernel_data_percpu_load, percpu_length);
+	printk("[cpu] loading percpu data from %p, length %ld bytes\n",
+	  &kernel_data_percpu_load,
+	  percpu_length);
 	bsp_percpu_region = (void *)mm_virtual_alloc(percpu_length, PM_TYPE_DRAM, true);
 	memcpy(bsp_percpu_region, &kernel_data_percpu_load, percpu_length);
 }

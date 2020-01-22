@@ -60,7 +60,6 @@ static void proc_init(void)
 	x86_64_wrmsr(X86_MSR_EFER, lo, hi);
 
 	x86_64_rdmsr(0x1a0, &lo, &hi);
-	printk("MISC_FEAT: %x %x\n", hi, lo);
 
 	/* TODO (minor): verify that this setup is "reasonable" */
 	x86_64_rdmsr(X86_MSR_MTRRCAP, &lo, &hi);
@@ -219,7 +218,7 @@ static size_t _load_initrd(char *start, size_t modlen)
 				}
 				break;
 			default:
-				printk("unsupported ustar type %c for %s\n", h->typeflag[0], name);
+				// printk("unsupported ustar type %c for %s\n", h->typeflag[0], name);
 				break;
 		}
 
@@ -238,10 +237,10 @@ static void x86_64_initrd(void *u __unused)
 	size_t _count = 0;
 	for(unsigned i = 0; i < mods_count; i++, m++) {
 		size_t modlen = m->end - m->start;
-		printk("Loading objects from module %d (len=%ld bytes)\n", i, modlen);
+		printk("[initrd] loading objects from module %d (len=%ld bytes)\n", i, modlen);
 		_count = _load_initrd(mm_ptov(m->start), modlen);
 	}
-	printk("loaded %ld objects\e[0K\n", _count);
+	printk("[initrd] loaded %ld objects\e[0K\n", _count);
 }
 
 static void *mod_start;
@@ -249,7 +248,7 @@ static size_t mod_len;
 static void x86_64_initrd2(void *u __unused)
 {
 	size_t c = _load_initrd(mod_start, mod_len);
-	printk("loaded %ld objects\e[0K\n", c);
+	printk("[initrd] loaded %ld objects\e[0K\n", c);
 }
 
 void kernel_early_init(void);

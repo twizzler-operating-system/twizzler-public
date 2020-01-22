@@ -105,7 +105,6 @@ void arch_interrupt_unmask(int v)
 
 __orderedinitializer(__orderedbefore(MADT_INITIALIZER_ORDER)) static void __ioapic_preinit(void)
 {
-	printk("IOAPIC preinit\n");
 	for(int i = 0; i < MAX_IOAPICS; i++)
 		ioapics[i].id = -1;
 }
@@ -121,7 +120,6 @@ __orderedinitializer(
   __orderedafter(MADT_INITIALIZER_ORDER)
   + __orderedafter(PROCESSOR_INITIALIZER_ORDER)) static void __ioapic_postinit(void)
 {
-	printk("IOAPIC postinit\n");
 	int found = 0;
 	/* disable PIC */
 	x86_64_outb(0xA1, 0xFF);

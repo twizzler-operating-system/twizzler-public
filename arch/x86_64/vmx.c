@@ -146,10 +146,12 @@ static void x86_64_enable_vmx(void)
 		}
 	}
 
+#if 0
 	printk("processor %d entered vmx-root (VE=%d, VMF=%d)\n",
 	  current_processor->id,
 	  support_virt_exception,
 	  support_ept_switch_vmfunc);
+#endif
 }
 
 __attribute__((used)) static void x86_64_vmentry_failed(struct processor *proc)
@@ -383,7 +385,7 @@ __noinstrument static void x86_64_vmenter(struct processor *proc)
  * alignment. */
 __attribute__((used)) static void vmx_entry_point_c(struct processor *proc)
 {
-	printk("processor %d entered vmx-non-root mode\n", proc->id);
+	// printk("processor %d entered vmx-non-root mode\n", proc->id);
 	x86_64_processor_post_vm_init(proc);
 }
 

@@ -80,7 +80,6 @@ void kernel_early_init(void)
 
 void kernel_init(void)
 {
-	printk("reached mid-init\n");
 	processor_init_secondaries();
 	processor_perproc_init(NULL);
 }
@@ -252,7 +251,7 @@ void kernel_main(struct processor *proc)
 	}
 	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
 
-	printk("Waiting at kernel_main_barrier\n");
+	// printk("Waiting at kernel_main_barrier\n");
 	processor_barrier(&kernel_main_barrier);
 
 	if(proc->flags & PROCESSOR_BSP) {
@@ -289,8 +288,8 @@ void kernel_main(struct processor *proc)
 		char *thrd_obj = (void *)(0x400000000000ull);
 		size_t off = US_STACK_SIZE - 0x100, tmp = 0;
 
-		printk("stck slot = %ld\n", (uintptr_t)stck_obj / mm_page_size(MAX_PGLEVEL));
-		printk("thrd slot = %ld\n", (uintptr_t)thrd_obj / mm_page_size(MAX_PGLEVEL));
+		//	printk("stck slot = %ld\n", (uintptr_t)stck_obj / mm_page_size(MAX_PGLEVEL));
+		//	printk("thrd slot = %ld\n", (uintptr_t)thrd_obj / mm_page_size(MAX_PGLEVEL));
 
 		char name_id[64];
 		snprintf(name_id, 64, "BSNAME=" IDFMT, IDPR(kc_name_id));
@@ -415,9 +414,11 @@ void kernel_main(struct processor *proc)
 			printk("K %d: %lld\n", proc->id, b - a);
 		}
 	}
+#if 0
 	printk("processor %d (%s) reached resume state %p\n",
 	  proc->id,
 	  proc->flags & PROCESSOR_BSP ? "bsp" : "aux",
 	  proc);
+#endif
 	thread_schedule_resume_proc(proc);
 }

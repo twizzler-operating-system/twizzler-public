@@ -59,11 +59,11 @@ __orderedinitializer(
 				break;
 			case INTSRC_ENTRY:
 				intsrc = (void *)rec;
-				printk(":: INTSRC: %d %d %d %x\n",
-				  intsrc->bus_src,
-				  intsrc->irq_src,
-				  intsrc->gsi,
-				  intsrc->flags);
+				//			printk(":: INTSRC: %d %d %d %x\n",
+				//			  intsrc->bus_src,
+				//			  intsrc->irq_src,
+				//			  intsrc->gsi,
+				//			  intsrc->flags);
 				break;
 			default:
 				break;

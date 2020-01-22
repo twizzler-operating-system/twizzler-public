@@ -627,7 +627,7 @@ static void __secctx_update_thrdrepr(struct thread *thr, int s, bool at)
 
 bool secctx_thread_attach(struct sctx *s, struct thread *t)
 {
-	EPRINTK("thread %ld attach to " IDFMT "\n", t->id, IDPR(s->repr));
+	// EPRINTK("thread %ld attach to " IDFMT "\n", t->id, IDPR(s->repr));
 	spinlock_acquire_save(&t->sc_lock);
 	if(t->active_sc->repr == 0) {
 		/* bootstrap context. Get rid of it, we're a real security context now! */
@@ -671,7 +671,7 @@ bool secctx_thread_attach(struct sctx *s, struct thread *t)
 
 static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 {
-	EPRINTK("thread %ld detach from " IDFMT "\n", thr->id, IDPR(s->repr));
+	// EPRINTK("thread %ld detach from " IDFMT "\n", thr->id, IDPR(s->repr));
 	if(s->repr == 0) {
 		printk("THIS IS TOTALLY A BUG THAT NEEDS TO BE SOLVED!\n\n!!!!!!!!!!\n!!!!!!!\n!!!!!!\n");
 	}
