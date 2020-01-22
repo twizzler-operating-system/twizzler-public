@@ -236,7 +236,7 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 			return;
 		}
 	}
-	if(map->obj->slot == -1) {
+	if(map->obj->slot == NULL) {
 		obj_alloc_slot(map->obj);
 	}
 	arch_vm_map_object(current_thread->ctx, map, map->obj);

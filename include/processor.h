@@ -45,6 +45,7 @@ void arch_processor_boot(struct processor *proc);
 void processor_secondary_entry(struct processor *proc);
 void arch_processor_reset(void);
 uint64_t arch_processor_get_nanoseconds(void);
+size_t arch_processor_physical_width(void);
 void processor_attach_thread(struct processor *proc, struct thread *thread);
 void arch_processor_init(struct processor *proc);
 void processor_init_secondaries(void);

@@ -3,6 +3,7 @@
 #include <arch/object.h>
 #include <krc.h>
 #include <lib/inthash.h>
+#include <lib/rb.h>
 #include <secctx.h>
 #include <spinlock.h>
 #include <twz/_obj.h>
@@ -48,6 +49,7 @@ void kso_attach(struct object *parent, struct object *child, size_t);
 void kso_setname(struct object *obj, const char *name);
 struct object *get_system_object(void);
 
+struct slot;
 struct object {
 	uint128_t id;
 
@@ -57,7 +59,7 @@ struct object {
 
 	int pglevel;
 	int flags;
-	ssize_t slot;
+	struct slot *slot;
 	bool pinned;
 	bool lowpg;
 	bool idvercache;
@@ -79,6 +81,7 @@ struct object {
 	struct ihtable *pagecache, *pagecache_level1, *tstable;
 
 	struct ihelem elem, slotelem;
+	struct rbnode slotnode;
 	struct arch_object arch;
 };
 

@@ -1,6 +1,7 @@
 #include <object.h>
 #include <processor.h>
 #include <rand.h>
+#include <slots.h>
 #include <syscall.h>
 #include <twz/_sctx.h>
 
@@ -244,8 +245,9 @@ long syscall_opin(uint64_t lo, uint64_t hi, uint64_t *addr, int flags)
 	} else {
 		o->pinned = true;
 		obj_alloc_slot(o);
+		assert(o->slot);
 		if(addr)
-			*addr = o->slot * OBJ_MAXSIZE;
+			*addr = o->slot->num * OBJ_MAXSIZE;
 	}
 	obj_put(o);
 	return 0;

@@ -59,6 +59,9 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
 			uint64_t cr2;
 			asm volatile("mov %%cr2, %0" : "=r"(cr2)::"memory");
 			int flags = 0;
+			if(frame->err_code & (1 << 3)) {
+				goto pf_bad;
+			}
 			if(frame->err_code & 1) {
 				flags |= FAULT_ERROR_PERM;
 			} else {
@@ -74,13 +77,15 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
 				flags |= FAULT_EXEC;
 			}
 			if(!was_userspace) {
+			pf_bad:
 				panic("kernel-mode page fault to address %lx\n"
-				      "    from %lx: %s while in %s-mode: %s\n",
+				      "    from %lx: %s while in %s-mode: %s %s\n",
 				  cr2,
 				  frame->rip,
 				  flags & FAULT_EXEC ? "ifetch" : (flags & FAULT_WRITE ? "write" : "read"),
 				  flags & FAULT_USER ? "user" : "kernel",
-				  flags & FAULT_ERROR_PERM ? "present" : "non-present");
+				  flags & FAULT_ERROR_PERM ? "present" : "non-present",
+				  frame->err_code & (1 << 3) ? "(RESERVED)" : "");
 			}
 			kernel_fault_entry(frame->rip, cr2, flags);
 		} else if(frame->int_no == 20) {

@@ -177,17 +177,19 @@ bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int lev
 }
 
 #include <object.h>
+#include <slots.h>
 #define MB (1024ul * 1024ul)
 /* So, these should probably not be arch-specific. Also, we should keep track of
  * slots, maybe? Refcounts? */
 void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object *obj)
 {
-	if(obj->slot == -1) {
+	if(obj->slot == NULL) {
 		panic("tried to map an unslotted object");
 	}
 	uintptr_t vaddr = map->slot * mm_page_size(MAX_PGLEVEL);
-	uintptr_t oaddr = obj->slot * mm_page_size(obj->pglevel);
+	uintptr_t oaddr = obj->slot->num * mm_page_size(obj->pglevel);
 
+	/* TODO: map protections */
 	if(arch_vm_map(ctx, vaddr, oaddr, MAX_PGLEVEL, VM_MAP_USER | VM_MAP_EXEC | VM_MAP_WRITE)
 	   == false) {
 		panic("map fail");

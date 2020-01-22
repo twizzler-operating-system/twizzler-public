@@ -1,6 +1,7 @@
 #pragma once
 
 #include <debug.h>
+#include <spinlock.h>
 #include <stdatomic.h>
 
 struct krc {
@@ -44,6 +45,20 @@ static inline bool __krc_put_call(struct krc *k, void (*_fn)(void *k), void *o)
 	bool r = atomic_fetch_sub(&k->count, 1) == 1;
 	if(r) {
 		_fn(o);
+	}
+	return r;
+}
+
+static inline bool krc_put_locked(struct krc *k, struct spinlock *lock)
+{
+	assert(k->count > 0);
+
+	/* TODO: optimize via dec_if_not_one */
+
+	spinlock_acquire_save(lock);
+	bool r = atomic_fetch_sub(&k->count, 1) == 1;
+	if(!r) {
+		spinlock_release_restore(lock);
 	}
 	return r;
 }

@@ -4,6 +4,7 @@
 #include <object.h>
 #include <page.h>
 #include <slab.h>
+#include <slots.h>
 
 /* TODO: do we need a separate objpage abstraction in addition to a page abstraction */
 
@@ -14,10 +15,7 @@ DECLARE_IHTABLE(objslots, 10);
 
 struct slabcache sc_objs, sc_pctable, sc_tstable, sc_objpage;
 
-struct spinlock slotlock = SPINLOCK_INIT;
 struct spinlock objlock = SPINLOCK_INIT;
-
-void *slot_bitmap;
 
 static void _obj_ctor(void *_u, void *ptr)
 {
@@ -48,8 +46,6 @@ __initializer static void _init_objs(void)
 	slabcache_init(&sc_tstable, ihtable_size(4), _iht_ctor, NULL, (void *)4ul);
 	slabcache_init(&sc_objs, sizeof(struct object), _obj_ctor, _obj_dtor, NULL);
 	slabcache_init(&sc_objpage, sizeof(struct objpage), NULL, NULL, NULL);
-	slot_bitmap = (void *)mm_virtual_alloc(NUM_TL_SLOTS / 8, PM_TYPE_DRAM, true);
-	printk("Allocated %ld KB for object slots\n", NUM_TL_SLOTS / (8 * 1024));
 }
 
 static struct kso_calls *_kso_calls[KSO_MAX];
@@ -94,7 +90,7 @@ static inline struct object *__obj_alloc(enum kso_type ksot, objid_t id)
 	obj->id = id;
 	obj->maxsz = mm_page_size(MAX_PGLEVEL);
 	obj->pglevel = MAX_PGLEVEL;
-	obj->slot = -1;
+	obj->slot = NULL;
 	obj->persist = false;
 	krc_init(&obj->refs);
 	krc_init_zero(&obj->pcount);
@@ -190,29 +186,15 @@ struct object *obj_lookup(uint128_t id)
 
 void obj_alloc_slot(struct object *obj)
 {
-	/* TODO: lock free? */
-	spinlock_acquire_save(&slotlock);
-	if(obj->slot > 0) {
-		spinlock_release_restore(&slotlock);
+	spinlock_acquire_save(&obj->lock);
+	if(obj->slot) {
 		return;
 	}
+	struct slot *slot = slot_alloc();
 	krc_get(&obj->refs);
-	int slot = bitmap_ffr(slot_bitmap, NUM_TL_SLOTS);
-	if(slot == -1)
-		panic("Out of top-level slots");
-
-	bitmap_set(slot_bitmap, slot);
-	/* TODO: don't hard-code these */
-	int es = slot + 64;
-	if(obj->pglevel < MAX_PGLEVEL) {
-		es *= 512;
-	}
-	obj->slot = es;
-
-	ihtable_insert(&objslots, &obj->slotelem, obj->slot);
-	spinlock_release_restore(&slotlock);
-	// printk("Assigned object " PR128FMT " slot %d (%lx)\n",
-	//		PR128(obj->id), es, es * mm_page_size(obj->pglevel));
+	slot->obj = obj;  /* above get */
+	obj->slot = slot; /* move ref */
+	spinlock_release_restore(&obj->lock);
 }
 
 void obj_cache_page(struct object *obj, size_t addr, struct page *p)
@@ -426,17 +408,16 @@ bool obj_verify_id(struct object *obj, bool cache_result, bool uncache)
 
 struct object *obj_lookup_slot(uintptr_t oaddr)
 {
-	/* TODO: this is allllll bullshit */
 	ssize_t tl = oaddr / mm_page_size(MAX_PGLEVEL);
-	// tl -= 8;
-	// tl += 4096;
-	// tl *= 512;
-	spinlock_acquire_save(&slotlock);
-	struct object *obj = ihtable_find(&objslots, tl, struct object, slotelem, slot);
+	struct slot *slot = slot_lookup(tl);
+	if(!slot) {
+		return NULL;
+	}
+	struct object *obj = slot->obj;
 	if(obj) {
 		krc_get(&obj->refs);
 	}
-	spinlock_release_restore(&slotlock);
+	slot_release(slot);
 	return obj;
 }
 #include <processor.h>

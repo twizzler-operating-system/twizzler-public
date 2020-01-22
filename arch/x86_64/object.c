@@ -1,6 +1,7 @@
 #include <object.h>
 #include <page.h>
 #include <processor.h>
+#include <slots.h>
 
 #include <arch/x86_64-vmx.h>
 
@@ -16,7 +17,9 @@ bool arch_object_getmap_slot_flags(struct object *obj, uint64_t *flags)
 	uint64_t ef = 0;
 
 	uintptr_t ept_phys = current_thread->active_sc->arch.ept_root;
-	uintptr_t virt = obj->slot * (1024 * 1024 * 1024ull);
+	if(!obj->slot)
+		return false;
+	uintptr_t virt = obj->slot->num * OBJ_MAXSIZE;
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
 
@@ -51,7 +54,8 @@ void arch_object_map_slot(struct object *obj, uint64_t flags)
 		ef |= EPT_EXEC;
 
 	uintptr_t ept_phys = current_thread->active_sc->arch.ept_root;
-	uintptr_t virt = obj->slot * (1024 * 1024 * 1024ull);
+	assert(obj->slot);
+	uintptr_t virt = obj->slot->num * OBJ_MAXSIZE;
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
 
