@@ -4,13 +4,12 @@
 #include <processor.h>
 #include <slab.h>
 
-struct slabcache sc_vmctx, sc_iht, sc_vmap;
+struct slabcache sc_vmctx, sc_vmap;
 
 static void _vmctx_ctor(void *_p, void *obj)
 {
 	(void)_p;
 	struct vm_context *v = obj;
-	v->maps = slabcache_alloc(&sc_iht);
 	arch_mm_context_init(v);
 }
 
@@ -18,12 +17,10 @@ static void _vmctx_dtor(void *_p, void *obj)
 {
 	(void)_p;
 	struct vm_context *v = obj;
-	slabcache_free(v->maps);
 }
 
 __initializer static void _init_vmctx(void)
 {
-	slabcache_init(&sc_iht, ihtable_size(8), _iht_ctor, NULL, (void *)8ul);
 	slabcache_init(&sc_vmap, sizeof(struct vmap), NULL, NULL, NULL);
 	slabcache_init(&sc_vmctx, sizeof(struct vm_context), _vmctx_ctor, _vmctx_dtor, NULL);
 }
@@ -62,23 +59,40 @@ bool vm_map_contig(struct vm_context *v,
 	panic("unable to map region (len=%ld) at any level", len);
 }
 
-struct vmap *vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t flags)
+static int vmap_compar_key(struct vmap *v, size_t slot)
 {
-	struct vmap *m = ihtable_find(v->maps, slot, struct vmap, elem, slot);
-	if(m) {
-		panic("Map already exists");
-	}
+	if(v->slot > slot)
+		return 1;
+	if(v->slot < slot)
+		return -1;
+	return 0;
+}
 
+static inline vmap_compar(struct vmap *a, struct vmap *b)
+{
+	return vmap_compar_key(a, b->slot);
+}
+
+static struct vmap *vm_context_map(struct vm_context *v,
+  uint128_t objid,
+  size_t slot,
+  uint32_t flags)
+{
 	struct object *obj = obj_lookup(objid);
 	if(!obj) {
 		return NULL;
 	}
-	m = slabcache_alloc(&sc_vmap);
+
+	if(rb_search(&current_thread->ctx->root, slot, struct vmap, node, vmap_compar_key)) {
+		panic("Map already exists");
+	}
+
+	struct vmap *m = slabcache_alloc(&sc_vmap);
 	m->slot = slot;
 	m->obj = obj; /* krc: move */
 	m->flags = flags;
 	m->status = 0;
-	ihtable_insert(v->maps, &m->elem, m->slot);
+	rb_insert(&v->root, m, struct vmap, node, vmap_compar);
 	return m;
 }
 
@@ -143,16 +157,20 @@ bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off)
 
 static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 {
+	spinlock_acquire_save(&current_thread->ctx->lock);
 	for(size_t slot = invl->offset / mm_page_size(MAX_PGLEVEL);
 	    slot <= (invl->offset + invl->length) / mm_page_size(MAX_PGLEVEL);
 	    slot++) {
-		struct vmap *map = ihtable_find(current_thread->ctx->maps, slot, struct vmap, elem, slot);
+		struct rbnode *node =
+		  rb_search(&current_thread->ctx->root, slot, struct vmap, node, vmap_compar_key);
 		/* TODO (major): unmap all ctxs that use this view */
-		if(map) {
+		if(node) {
+			struct vmap *map = rb_entry(node, struct vmap, node);
 			arch_vm_unmap_object(current_thread->ctx, map, obj);
-			ihtable_remove(current_thread->ctx->maps, &map->elem, map->slot);
+			rb_delete(node, &current_thread->ctx->root);
 		}
 	}
+	spinlock_release_restore(&current_thread->ctx->lock);
 	return true;
 }
 
@@ -217,7 +235,13 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 		return;
 	}
 	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
-	struct vmap *map = ihtable_find(current_thread->ctx->maps, slot, struct vmap, elem, slot);
+	struct vmap *map = NULL;
+	spinlock_acquire_save(&current_thread->ctx->lock);
+	struct rbnode *node =
+	  rb_search(&current_thread->ctx->root, slot, struct vmap, node, vmap_compar_key);
+	if(node) {
+		map = rb_entry(node, struct vmap, node);
+	}
 	if(!map) {
 		objid_t id;
 		uint64_t fl;
@@ -225,6 +249,7 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 			struct fault_object_info info;
 			popul_info(&info, flags, ip, addr, 0);
 			thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
+			spinlock_release_restore(&current_thread->ctx->lock);
 			return;
 		}
 		map = vm_context_map(current_thread->ctx, id, slot, fl & (VE_READ | VE_WRITE | VE_EXEC));
@@ -233,9 +258,11 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 			popul_info(&info, flags, ip, addr, id);
 			info.flags |= FAULT_OBJECT_EXIST;
 			thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
+			spinlock_release_restore(&current_thread->ctx->lock);
 			return;
 		}
 	}
+	spinlock_release_restore(&current_thread->ctx->lock);
 	if(map->obj->slot == NULL) {
 		obj_alloc_slot(map->obj);
 	}

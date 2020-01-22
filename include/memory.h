@@ -102,28 +102,29 @@ static inline void mm_virtual_dealloc(uintptr_t addr)
 	mm_physical_dealloc(mm_vtop((void *)addr));
 }
 
+#include <lib/rb.h>
 #include <twz/_view.h>
 
 struct vm_context {
 	struct arch_vm_context arch;
-	struct ihtable *maps;
 	struct kso_view *view;
+	struct rbroot root;
+	struct spinlock lock;
 };
 
 void arch_mm_switch_context(struct vm_context *vm);
 void arch_mm_context_init(struct vm_context *ctx);
 
-#include <lib/inthash.h>
 struct vmap {
 	struct object *obj;
 	size_t slot;
 	uint32_t flags;
 	int status;
 
-	struct ihelem elem;
+	struct rbnode node;
 };
 
-struct vmap *vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t flags);
+// struct vmap *vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t flags);
 void vm_context_destroy(struct vm_context *v);
 struct vm_context *vm_context_create(void);
 void kso_view_write(struct object *obj, size_t slot, struct viewentry *v);
