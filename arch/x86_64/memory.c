@@ -5,7 +5,6 @@ extern uint64_t x86_64_bot_mem;
 
 #define MAX_REGIONS 32
 static struct memregion _regions[MAX_REGIONS] = {};
-static struct mem_allocator _allocators[MAX_REGIONS] = {};
 static int _region_counter = 0;
 
 void arch_mm_init(void)
@@ -17,15 +16,12 @@ void arch_mm_init(void)
 		  x86_64_top_mem - x86_64_bot_mem,
 		  MEMORY_AVAILABLE,
 		  MEMORY_AVAILABLE_VOLATILE);
-		mm_register_region(&_regions[0], &_allocators[0]);
+		mm_register_region(&_regions[0]);
 		return;
 	}
 	for(int i = 0; i < _region_counter; i++) {
 		struct memregion *reg = &_regions[i];
-		mm_register_region(reg,
-		  reg->type == MEMORY_AVAILABLE && reg->subtype == MEMORY_AVAILABLE_VOLATILE
-		    ? &_allocators[i]
-		    : NULL);
+		mm_register_region(reg);
 	}
 }
 
@@ -40,7 +36,7 @@ static struct mem_allocator initrd_allocator;
 void x86_64_register_kernel_region(uintptr_t addr, size_t len)
 {
 	mm_init_region(&kernel_region, addr, len, MEMORY_KERNEL_IMAGE, MEMORY_SUBTYPE_NONE);
-	mm_register_region(&kernel_region, NULL);
+	mm_register_region(&kernel_region);
 }
 
 void x86_64_register_initrd_region(uintptr_t addr, size_t len)
@@ -50,5 +46,6 @@ void x86_64_register_initrd_region(uintptr_t addr, size_t len)
 
 void x86_64_reclaim_initrd_region(void)
 {
-	mm_register_region(&initrd_region, &initrd_allocator);
+	mm_register_region(&initrd_region);
+	panic("todo: implement this");
 }

@@ -40,25 +40,29 @@ struct mem_allocator {
 	// char static_bitmaps[((MEMORY_SIZE / MIN_SIZE) / 8) * 2];
 	char *static_bitmaps;
 	size_t off;
+	uintptr_t start;
+	size_t length;
+	void *vstart;
+	struct list entry;
 };
 
 struct memregion {
 	uintptr_t start;
 	size_t length;
 	int flags;
+	bool ready; /* TODO: move this to flags */
 	enum memory_type type;
 	enum memory_subtype subtype;
-	struct mem_allocator *alloc;
-	struct list entry, alloc_entry;
+	struct list entry;
 	size_t off;
 };
 
 void mm_init(void);
 void arch_mm_init(void);
-uintptr_t pmm_buddy_allocate(struct memregion *, size_t length);
-void pmm_buddy_deallocate(struct memregion *, uintptr_t address);
-void pmm_buddy_init(struct memregion *);
-void mm_register_region(struct memregion *reg, struct mem_allocator *alloc);
+uintptr_t pmm_buddy_allocate(struct mem_allocator *, size_t length);
+void pmm_buddy_deallocate(struct mem_allocator *, uintptr_t address);
+void pmm_buddy_init(struct mem_allocator *);
+void mm_register_region(struct memregion *reg);
 void mm_init_region(struct memregion *reg,
   uintptr_t start,
   size_t len,
@@ -68,19 +72,29 @@ void mm_init_region(struct memregion *reg,
 uintptr_t mm_physical_alloc(size_t length, int type, bool clear);
 struct memregion *mm_physical_find_region(uintptr_t addr);
 void mm_physical_dealloc(uintptr_t addr);
+uintptr_t mm_physical_early_alloc(void);
+
+static inline void *mm_virtual_early_alloc(void)
+{
+	void *p = mm_ptov(mm_physical_early_alloc());
+	memset(p, 0, mm_page_size(0));
+	return p;
+}
 
 static inline uintptr_t mm_physical_region_alloc(struct memregion *r, size_t size, bool clear)
 {
 	size = __round_up_pow2(size);
-	uintptr_t ret = pmm_buddy_allocate(r, size);
-	if(clear)
-		memset(mm_ptov(ret), 0, size);
-	return ret;
+	panic("X");
+	// uintptr_t ret = pmm_buddy_allocate(r, size);
+	// if(clear)
+	//	memset(mm_ptov(ret), 0, size);
+	// return ret;
 }
 
 static inline void mm_physical_region_dealloc(struct memregion *r, uintptr_t addr)
 {
-	pmm_buddy_deallocate(r, addr);
+	panic("X");
+	// pmm_buddy_deallocate(r, addr);
 }
 
 static inline uintptr_t mm_virtual_region_alloc(struct memregion *r, size_t size, bool clear)
@@ -150,3 +164,5 @@ bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off);
 #define FAULT_ERROR_PERM 0x10
 #define FAULT_ERROR_PRES 0x20
 void kernel_fault_entry(uintptr_t ip, uintptr_t addr, int flags);
+
+void *pmap_allocate(uintptr_t phys, size_t len, long flags);

@@ -13,6 +13,10 @@ struct page {
 	struct krc rc;
 	size_t pin_count;
 	struct spinlock lock;
+
+	struct page *parent, *next;
+	struct rbroot root;
+	struct rbnode node;
 };
 
 #define PAGE_TYPE_VOLATILE 0
@@ -32,3 +36,5 @@ struct page *page_alloc(int type, int level);
 struct page *page_alloc_nophys(void);
 void page_unpin(struct page *page);
 void page_pin(struct page *page);
+void page_init(struct memregion *region);
+void page_init_bootstrap(void);

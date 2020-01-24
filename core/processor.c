@@ -204,7 +204,9 @@ void processor_percpu_regions_init(void)
 	printk("[cpu] loading percpu data from %p, length %ld bytes\n",
 	  &kernel_data_percpu_load,
 	  percpu_length);
-	bsp_percpu_region = (void *)mm_virtual_alloc(percpu_length, PM_TYPE_DRAM, true);
+	if(percpu_length > mm_page_size(0))
+		panic("TODO: large percpu");
+	bsp_percpu_region = (void *)mm_virtual_early_alloc();
 	memcpy(bsp_percpu_region, &kernel_data_percpu_load, percpu_length);
 }
 

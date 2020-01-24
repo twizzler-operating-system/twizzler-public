@@ -1,9 +1,13 @@
 #include <debug.h>
 #include <lib/iter.h>
 #include <memory.h>
+#include <page.h>
+#include <slots.h>
 #include <thread.h>
 static DECLARE_LIST(physical_regions);
-static DECLARE_LIST(physical_regions_alloc);
+
+static DECLARE_LIST(allocators);
+static struct mem_allocator _initial_allocator;
 
 static const char *memory_type_strings[] = {
 	[MEMORY_AVAILABLE] = "System RAM",
@@ -21,29 +25,14 @@ static const char *memory_subtype_strings[] = {
 	[MEMORY_AVAILABLE_PERSISTENT] = "(persistent)",
 };
 
-void mm_register_region(struct memregion *reg, struct mem_allocator *alloc)
+void mm_register_region(struct memregion *reg)
 {
-	reg->alloc = alloc;
 	printk("[mm] registering memory region %lx -> %lx %s %s\n",
 	  reg->start,
 	  reg->start + reg->length - 1,
 	  memory_type_strings[reg->type],
 	  memory_subtype_strings[reg->subtype]);
 
-	if(reg->start + reg->length > 32ul * 1024ul * 1024ul * 1024ul) {
-		reg->length = 32ul * 1024ul * 1024ul * 1024ul - reg->start;
-	}
-#if 0
-	if(reg->start >= 0x100000000ull) {
-		reg->subtype = MEMORY_AVAILABLE_PERSISTENT;
-		alloc = NULL;
-	}
-#endif
-
-	if(alloc && (reg->start < 0x100000000ull || 1)) {
-		pmm_buddy_init(reg);
-		list_insert(&physical_regions_alloc, &reg->alloc_entry);
-	}
 	list_insert(&physical_regions, &reg->entry);
 }
 
@@ -56,7 +45,6 @@ void mm_init_region(struct memregion *reg,
 	reg->start = start;
 	reg->length = len;
 	reg->flags = 0;
-	reg->alloc = NULL;
 	reg->type = type;
 	reg->subtype = st;
 	reg->off = 0;
@@ -65,25 +53,24 @@ void mm_init_region(struct memregion *reg,
 void mm_init(void)
 {
 	arch_mm_init();
-#if 0
-	arch_mm_get_regions(&physical_regions);
+}
+
+void mm_init_phase_2(void)
+{
+	list_insert(&allocators, &_initial_allocator.entry);
+	_initial_allocator.start = SLOT_TO_OADDR(KOSLOT_INIT_ALLOC);
+	_initial_allocator.vstart = SLOT_TO_VADDR(KVSLOT_ALLOC_START);
+	_initial_allocator.length = OBJ_MAXSIZE;
+	printk("A\n");
+	pmm_buddy_init(&_initial_allocator);
+	printk("B\n");
 	foreach(e, list, &physical_regions) {
 		struct memregion *reg = list_entry(e, struct memregion, entry);
-		pmm_buddy_init(reg);
-
-		printk("[mm]: memory region %lx -> %lx (%ld MB), %x\n",
-		  reg->start,
-		  reg->start + reg->length,
-		  reg->length / (1024 * 1024),
-		  reg->flags);
-
-		for(uintptr_t addr = reg->start; addr < reg->start + reg->length;
-		    addr += MM_BUDDY_MIN_SIZE) {
-			pmm_buddy_deallocate(reg, addr);
+		if(reg->type == MEMORY_AVAILABLE && reg->subtype == MEMORY_AVAILABLE_VOLATILE) {
+			page_init(reg);
+			reg->ready = true;
 		}
-		reg->ready = true;
 	}
-#endif
 }
 
 struct memregion *mm_physical_find_region(uintptr_t addr)
@@ -94,6 +81,26 @@ struct memregion *mm_physical_find_region(uintptr_t addr)
 			return reg;
 	}
 	return NULL;
+}
+
+uintptr_t mm_physical_early_alloc(void)
+{
+	foreach(e, list, &physical_regions) {
+		struct memregion *reg = list_entry(e, struct memregion, entry);
+
+		/* reg->ready indicates that the memory is ready for allocation -- early allocator won't
+		 * work.
+		 * */
+		if(reg->type == MEMORY_AVAILABLE && reg->subtype == MEMORY_AVAILABLE_VOLATILE
+		   && reg->start < OBJ_MAXSIZE && reg->length > 0 && reg->start > 0 && !reg->ready) {
+			uintptr_t alloc = reg->start;
+			reg->start += mm_page_size(0);
+			reg->length -= mm_page_size(0);
+			assert(alloc);
+			return alloc;
+		}
+	}
+	panic("out of early-alloc memory");
 }
 
 #include <object.h>
@@ -139,17 +146,15 @@ uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 		/* TODO: */
 		// printk("warning - allocating volatile RAM when NVM was requested\n");
 	}
-	foreach(e, list, &physical_regions_alloc) {
-		struct memregion *reg = list_entry(e, struct memregion, alloc_entry);
-
-		if((reg->flags & type) == reg->flags && reg->alloc && reg->alloc->ready
-		   && reg->alloc->free_memory > length) {
-			uintptr_t alloc = mm_physical_region_alloc(reg, length, clear);
-			//		printk("alloc: %lx\n", alloc);
-			if(alloc)
-				return alloc;
+	foreach(e, list, &allocators) {
+		struct mem_allocator *alloc = list_entry(e, struct mem_allocator, entry);
+		if(alloc->free_memory > length) {
+			uintptr_t x = pmm_buddy_allocate(alloc, length);
+			if(x != 0)
+				return x;
 		}
 	}
+	panic("OOM"); /* TODO: reclaim, etc */
 	return 0;
 }
 

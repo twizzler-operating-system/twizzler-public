@@ -80,6 +80,9 @@ void kernel_early_init(void)
 
 void kernel_init(void)
 {
+	page_init_bootstrap();
+	mm_init_phase_2();
+	_init();
 	processor_init_secondaries();
 	processor_perproc_init(NULL);
 }

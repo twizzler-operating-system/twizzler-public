@@ -15,6 +15,7 @@
 void serial_init();
 
 extern void _init();
+extern int initial_boot_stack;
 uint64_t x86_64_top_mem;
 uint64_t x86_64_bot_mem;
 extern void idt_init(void);
@@ -394,6 +395,7 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 			initrd_hook = x86_64_initrd2;
 		}
 	} else if(magic == 0x2BADB002) {
+		/* TODO: deprecate */
 		if(!(mth->flags & MULTIBOOT_FLAG_MEM))
 			panic("don't know how to detect memory!");
 		struct mboot_module *m = mth->mods_count == 0 ? NULL : mm_ptov(mth->mods_addr);
@@ -412,12 +414,14 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 
 	kernel_early_init();
 	x86_64_lapic_init_percpu();
-	_init();
 
 	/* need to wait on this until here because this requires memory allocation */
-	if(initrd_hook)
-		post_init_call_register(false, initrd_hook, NULL);
-	kernel_init();
+	// if(initrd_hook)
+	//	post_init_call_register(false, initrd_hook, NULL);
+	current_processor->arch.kernel_stack = &initial_boot_stack;
+	x86_64_start_vmx(current_processor);
+	panic("got here");
+	//	kernel_init();
 }
 
 void x86_64_secondary_vm_init(void);
@@ -426,7 +430,6 @@ void x86_64_cpu_secondary_entry(struct processor *proc)
 {
 	idt_init_secondary();
 	proc_init();
-	x86_64_secondary_vm_init();
 	x86_64_lapic_init_percpu();
 	assert(proc != NULL);
 	processor_secondary_entry(proc);
@@ -470,12 +473,15 @@ void x86_64_gdt_init(struct processor *proc)
 	asm volatile("lgdt (%0)" ::"r"(&proc->arch.gdtptr));
 }
 
-extern int initial_boot_stack;
 extern void x86_64_syscall_entry_from_userspace();
 extern void kernel_main(struct processor *proc);
 
+void x86_64_vm_kernel_context_init(void);
 void x86_64_processor_post_vm_init(struct processor *proc)
 {
+	x86_64_vm_kernel_context_init();
+	x86_64_gdt_init(proc);
+	x86_64_tss_init(proc);
 	/* save GS kernel base (saved to user, because we swapgs on sysret) */
 	uint64_t gs = (uint64_t)&proc->arch;
 	x86_64_wrmsr(X86_MSR_GS_BASE, gs & 0xFFFFFFFF, gs >> 32);
@@ -504,13 +510,12 @@ void x86_64_processor_post_vm_init(struct processor *proc)
 	x86_64_wrmsr(X86_MSR_SFMASK, lo, hi);
 	proc->arch.curr = NULL;
 
+	kernel_init();
 	kernel_main(proc);
 }
 
 void arch_processor_init(struct processor *proc)
 {
-	x86_64_gdt_init(proc);
-	x86_64_tss_init(proc);
 	if(proc->flags & PROCESSOR_BSP) {
 		proc->arch.kernel_stack = &initial_boot_stack;
 	}
@@ -519,7 +524,7 @@ void arch_processor_init(struct processor *proc)
 	 * what GS should be. */
 	uint64_t gs = (uint64_t)&proc->arch;
 	x86_64_wrmsr(X86_MSR_GS_BASE, gs & 0xFFFFFFFF, gs >> 32);
-	x86_64_start_vmx(proc);
+	// x86_64_start_vmx(proc);
 }
 
 void arch_thread_init(struct thread *thread,

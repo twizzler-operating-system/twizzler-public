@@ -4,6 +4,8 @@
 #include <processor.h>
 #include <slab.h>
 
+struct vm_context kernel_ctx = {};
+
 struct slabcache sc_vmctx, sc_vmap;
 
 static void _vmctx_ctor(void *_p, void *obj)

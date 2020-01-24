@@ -33,19 +33,27 @@ struct __attribute__((packed)) rsdt_desc {
 };
 
 static struct rsdp2_desc *rsdp;
+static void *sdt_vaddr = NULL;
 
 static struct xsdt_desc *get_xsdt_addr(void)
 {
 	assert(rsdp != NULL);
 	assert(rsdp->rsdp.rev >= 1);
-	return mm_ptov(rsdp->xsdt_addr);
+	if(sdt_vaddr == NULL) {
+		sdt_vaddr = pmap_allocate(rsdp->xsdt_addr, rsdp->length, 0);
+	}
+	return sdt_vaddr;
 }
 
 static struct rsdt_desc *get_rsdt_addr(void)
 {
 	assert(rsdp != NULL);
 	assert(rsdp->rsdp.rev == 0);
-	return mm_ptov(rsdp->rsdp.rsdt_addr);
+	if(sdt_vaddr == NULL) {
+		/* TODO: determine length? */
+		sdt_vaddr = pmap_allocate(rsdp->rsdp.rsdt_addr, 0x1000, 0);
+	}
+	return sdt_vaddr;
 }
 
 void *acpi_find_table(const char *sig)
@@ -98,6 +106,8 @@ static char rsdp_copy[sizeof(struct rsdp2_desc)];
 
 void acpi_set_rsdp(void *ptr, size_t sz)
 {
+	/* this happens really early on, when we're still identity mapped to 1GB, etc. So we can just
+	 * copy this out for later (which we need to do anyway) */
 	if(rsdp) {
 		/* if we have a revision 0 (ACPI 1.0) pointer, then try this new one.
 		 * We'd like a newer version, if possible. */
@@ -119,8 +129,11 @@ void acpi_set_rsdp(void *ptr, size_t sz)
 __orderedinitializer(ACPI_INITIALIZER_ORDER) static void acpi_init(void)
 {
 	/* did we get one from the bootloader or platform? */
-	if(rsdp)
+	if(rsdp) {
 		return;
+	}
+	panic("unsupported: bootloader did not pass us RDSP");
+#if 0
 	uintptr_t ebda = *(uint16_t *)mm_ptov(0x40E) << 4;
 	for(uintptr_t search = ebda; search < (ebda + 1024); search += 16) {
 		struct rsdp_desc *desc = mm_ptov(search);
@@ -138,4 +151,5 @@ __orderedinitializer(ACPI_INITIALIZER_ORDER) static void acpi_init(void)
 		}
 	}
 	printk("warning - couldn't find ACPI tables\n");
+#endif
 }

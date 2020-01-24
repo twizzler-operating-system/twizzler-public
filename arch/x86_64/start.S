@@ -118,25 +118,15 @@ init_paging:
 	orl $7, %eax
 	movl %eax, PHYS(boot_pml4 + 8*511)
 
-	movl $PHYS(boot_pd), %eax
-	orl $7, %eax
+	mov $0x87, %eax
 	movl %eax, PHYS(boot_pdpt)
 
-	movl $PHYS(boot_pd), %eax
-    orl  $7, %eax
+	mov $0x87, %eax
     movl %eax, PHYS(boot_pdpt_high + 8*510)
-	
-	mov $PHYS(boot_pd), %edi
-	mov $0x200, %ecx
-	xor %eax, %eax
-	.Lfill_pd1:
-		movl %eax, %ebx
-		shll $21, %ebx
-		orl $0x87, %ebx
-		movl %ebx, (%edi)
-		addl $8, %edi
-		inc %eax
-		loop .Lfill_pd1
+
+	/* physical mapping */
+	mov $0x87, %eax
+    movl %eax, PHYS(boot_pdpt_high + 8*511)
 
 	mov %cr4, %eax
     btsl $(5), %eax
@@ -179,35 +169,6 @@ _start_64:
 
 	mov  $(initial_boot_stack + KERNEL_STACK_SIZE), %rsp
 
-	/* fill out the physical mapping */
-	xorq %rax, %rax
-	movq $(32*1024), %rcx
-	movq $boot_phys_mapping, %rdi
-
-	.Lfill_map:
-		movq %rax, %rbx
-		shlq $21, %rbx
-		orq $0x87, %rbx
-		movq %rbx, (%rdi)
-		addq $8, %rdi
-		inc %rax
-		loop .Lfill_map
-
-	movq $boot_pdpt_high, %rdi
-	movq $64, %rcx
-	movq $PHYS(boot_phys_mapping), %rax
-	orq $0x7, %rax
-
-	.Lwrite_map_entries:
-		movq %rax, (%rdi)
-		addq $8, %rdi
-		addq $0x1000, %rax
-		loop .Lwrite_map_entries
-	
-	/* flush */
-	movq %cr3, %rax
-	movq %rax, %cr3
-
 	xorq %rdi, %rdi
 	movl multiboot_ptr_save, %esi
 	movl multiboot_magic_save, %edi
@@ -236,12 +197,6 @@ boot_pdpt:
 
 boot_pdpt_high:
 	.skip 0x1000
-
-boot_pd:
-	.skip 0x1000
-
-boot_phys_mapping:
-	.skip 8 * (32 * 1024) // 64GB / 2MB
 
 multiboot_ptr_save:
 	.skip 4

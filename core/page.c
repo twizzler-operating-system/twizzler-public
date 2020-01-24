@@ -2,6 +2,50 @@
 #include <page.h>
 #include <slab.h>
 
+struct page_stack {
+	struct spinlock lock;
+	struct page *top;
+};
+
+struct page_stack _stacks[MAX_PGLEVEL + 1];
+
+void page_init_bootstrap(void)
+{
+	/* bootstrap page allocator */
+	struct page *pages = mm_virtual_early_alloc();
+	size_t nrpages = mm_page_size(0) / sizeof(struct page);
+	for(int i = 0; i < MAX_PGLEVEL + 1; i++) {
+		_stacks[i].lock = SPINLOCK_INIT;
+		_stacks[i].top = NULL;
+	}
+
+	for(size_t i = 0; i < nrpages; i++, pages++) {
+		pages->next = _stacks[0].top;
+		_stacks[0].top = pages;
+	}
+}
+
+void page_init(struct memregion *region)
+{
+	uintptr_t addr = region->start;
+	if(addr == 0)
+		addr += mm_page_size(0);
+	printk("init region %lx -> %lx\n", region->start, region->start + region->length);
+	while(addr < region->length + region->start) {
+		int level = MAX_PGLEVEL;
+		for(; level > 0; level--) {
+			if(align_up(addr, mm_page_size(level)) == addr
+			   && addr + mm_page_size(level) <= region->start + region->length) {
+				break;
+			}
+		}
+
+		// printk("addr: %lx -> %lx ; %d\n", addr, addr + mm_page_size(level), level);
+
+		addr += mm_page_size(level);
+	}
+}
+
 struct slabcache sc_page;
 struct slabcache sc_page_unalloc;
 

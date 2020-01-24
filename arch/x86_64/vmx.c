@@ -5,7 +5,7 @@
 #include <processor.h>
 #include <secctx.h>
 static uint32_t revision_id;
-static uintptr_t ept_root;
+static uintptr_t ept_root = 0;
 static _Atomic long vmexits_count = 0;
 
 static bool support_ept_switch_vmfunc = false;
@@ -110,7 +110,7 @@ static void x86_64_enable_vmx(void)
 	uint64_t cr4;
 	asm volatile("mov %%cr4, %0" : "=r"(cr4));
 	cr4 |= (1 << 13); // enable VMX
-	uintptr_t vmxon_region = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+	uintptr_t vmxon_region = mm_physical_early_alloc();
 
 	/* get the revision ID. This is needed for several VM data structures. */
 	x86_64_rdmsr(X86_MSR_VMX_BASIC, &lo, &hi);
@@ -245,8 +245,7 @@ void x86_64_vmexit_handler(struct processor *proc)
 	            && reason != VMEXIT_REASON_EPT_VIOLATION
 	            && reason != VMEXIT_REASON_INVEPT)
 	            */
-	// printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual,
-	// iinfo);
+	printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual, iinfo);
 
 	// printk(":: %lx\n", clksrc_get_interrupt_countdown());
 
@@ -600,9 +599,20 @@ void arch_secctx_destroy(struct sctx *sc)
 	(void)sc;
 }
 
-__initializer static void __init_ept_root(void)
+static void __init_ept_root(void)
 {
-	ept_root = init_ept();
+	if(ept_root)
+		return;
+	uintptr_t pml4phys = mm_physical_early_alloc();
+	ept_root = pml4phys;
+
+	uint64_t *pml4 = mm_ptov(pml4phys);
+	memset(pml4, 0, mm_page_size(0));
+	pml4[0] = mm_physical_early_alloc();
+	uint64_t *pdpt = mm_ptov(pml4[0]);
+	pml4[0] |= EPT_READ | EPT_WRITE | EPT_EXEC;
+	memset(pdpt, 0, mm_page_size(0));
+	pdpt[0] |= EPT_IGNORE_PAT | EPT_MEMTYPE_WB | EPT_READ | EPT_WRITE | EPT_EXEC | PAGE_LARGE;
 }
 
 void vmexit_point(void);
@@ -610,6 +620,7 @@ void vmx_entry_point(void);
 
 void vtx_setup_vcpu(struct processor *proc)
 {
+	__init_ept_root();
 	/* we have to set-up the vcpu state to "mirror" our physical CPU.
 	 * Strap yourself in, it's gonna be a long ride. */
 
@@ -735,17 +746,17 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_TPR_THRESHOLD, 0);
 
 	/* we actually have to use these, and they should be all zero (none owned by host) */
-	vmcs_writel(VMCS_MSR_BITMAPS_ADDR, (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true));
+	vmcs_writel(VMCS_MSR_BITMAPS_ADDR, (uintptr_t)mm_physical_early_alloc());
 
 	if(support_ept_switch_vmfunc) {
 		vmcs_writel(VMCS_VMFUNC_CONTROLS, 1 /* enable EPT-switching */);
-		proc->arch.eptp_list = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, true);
+		proc->arch.eptp_list = (void *)mm_virtual_early_alloc();
 		proc->arch.eptp_list[0] = ept_root;
 		vmcs_writel(VMCS_EPTP_LIST, mm_vtop(proc->arch.eptp_list));
 	}
 
 	/* TODO (minor): veinfo needs to be page-aligned, but we're over-allocating here */
-	proc->arch.veinfo = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, true);
+	proc->arch.veinfo = (void *)mm_virtual_early_alloc();
 	if(support_virt_exception) {
 		vmcs_writel(VMCS_EPTP_INDEX, 0);
 		vmcs_writel(VMCS_VIRT_EXCEPTION_INFO_ADDR, mm_vtop(proc->arch.veinfo));
@@ -759,18 +770,20 @@ void vtx_setup_vcpu(struct processor *proc)
 	proc->arch.veinfo->lock = 0;
 }
 
+_Static_assert(VMCS_SIZE <= 0x1000, "");
+
 void x86_64_start_vmx(struct processor *proc)
 {
 	x86_64_enable_vmx();
 
 	proc->arch.launched = 0;
 	memset(proc->arch.vcpu_state_regs, 0, sizeof(proc->arch.vcpu_state_regs));
-	proc->arch.hyper_stack = (void *)mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_DRAM, true);
-	proc->arch.vcpu_state_regs[HOST_RSP] = (uintptr_t)proc->arch.hyper_stack + KERNEL_STACK_SIZE;
+	proc->arch.hyper_stack = (void *)mm_virtual_early_alloc();
+	proc->arch.vcpu_state_regs[HOST_RSP] = (uintptr_t)proc->arch.hyper_stack + mm_page_size(0);
 	proc->arch.vcpu_state_regs[PROC_PTR] = (uintptr_t)proc;
 	/* set initial argument to vmx_entry_point */
 	proc->arch.vcpu_state_regs[REG_RDI] = (uintptr_t)proc;
-	proc->arch.vmcs = mm_physical_alloc(VMCS_SIZE, PM_TYPE_DRAM, true);
+	proc->arch.vmcs = mm_physical_early_alloc();
 	uint32_t *vmcs_rev = (uint32_t *)mm_ptov(proc->arch.vmcs);
 	*vmcs_rev = revision_id & 0x7FFFFFFF;
 

@@ -14,13 +14,13 @@ static _Alignas(16) struct {
 
 static void idt_set_gate(int vector, uintptr_t base, uint8_t flags)
 {
-	idt[vector].offset_low  = base & 0xFFFF;
-	idt[vector].offset_mid  = (base >> 16) & 0xFFFF;
+	idt[vector].offset_low = base & 0xFFFF;
+	idt[vector].offset_mid = (base >> 16) & 0xFFFF;
 	idt[vector].offset_high = (base >> 32) & 0xFFFFFFFF;
-	idt[vector].selector    = 0x08;
-	idt[vector].type        = flags;
-	idt[vector].ist         = 0;
-	idt[vector].__pad1      = 0;
+	idt[vector].selector = 0x08;
+	idt[vector].type = flags;
+	idt[vector].ist = 0;
+	idt[vector].__pad1 = 0;
 }
 
 extern void (*x86_64_isr0)(void);
@@ -199,7 +199,7 @@ void idt_init(void)
 	idt_set_gate(PROCESSOR_IPI_HALT, (uintptr_t)&x86_64_isr_halt, TYPE_INT_KERNEL);
 	idt_set_gate(PROCESSOR_IPI_RESUME, (uintptr_t)&x86_64_isr_resume, TYPE_INT_KERNEL);
 
-	idt_ptr.base  = (uintptr_t)idt;
+	idt_ptr.base = (uintptr_t)idt;
 	idt_ptr.limit = 256 * sizeof(struct idt_entry) - 1;
 
 	asm volatile("lidt (%0)" ::"r"(&idt_ptr) : "memory");
