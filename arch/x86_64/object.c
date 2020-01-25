@@ -1,9 +1,13 @@
 #include <object.h>
 #include <page.h>
 #include <processor.h>
+#include <secctx.h>
 #include <slots.h>
 
 #include <arch/x86_64-vmx.h>
+
+/* TODO: get rid of this */
+extern struct object_space _bootstrap_object_space;
 
 static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
 {
@@ -16,18 +20,18 @@ bool arch_object_getmap_slot_flags(struct object *obj, uint64_t *flags)
 {
 	uint64_t ef = 0;
 
-	uintptr_t ept_phys = current_thread->active_sc->arch.ept_root;
+	struct object_space *space =
+	  current_thread ? &current_thread->active_sc->space : &_bootstrap_object_space;
 	if(!obj->slot)
 		return false;
 	uintptr_t virt = obj->slot->num * OBJ_MAXSIZE;
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
 
-	uintptr_t *pml4 = GET_VIRT_TABLE(ept_phys);
-	if(!pml4[pml4_idx])
+	if(!space->arch.ept[pml4_idx])
 		return false;
 
-	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
+	uintptr_t *pdpt = space->arch.pdpts[pml4_idx];
 	if(!pdpt[pdpt_idx])
 		return false;
 	assert(obj->arch.pt_root == (pdpt[pdpt_idx] & EPT_PAGE_MASK));
@@ -53,29 +57,32 @@ void arch_object_map_slot(struct object *obj, uint64_t flags)
 	if(flags & OBJSPACE_EXEC_U)
 		ef |= EPT_EXEC;
 
-	uintptr_t ept_phys = current_thread->active_sc->arch.ept_root;
+	struct object_space *space =
+	  current_thread ? &current_thread->active_sc->space : &_bootstrap_object_space;
 	assert(obj->slot);
 	uintptr_t virt = obj->slot->num * OBJ_MAXSIZE;
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
 
-	uintptr_t *pml4 = GET_VIRT_TABLE(ept_phys);
-	test_and_allocate(&pml4[pml4_idx], EPT_READ | EPT_WRITE | EPT_EXEC);
-
-	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
+	if(!space->arch.ept[pml4_idx]) {
+		space->arch.pdpts[pml4_idx] = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+		space->arch.ept[pml4_idx] =
+		  mm_vtop(space->arch.pdpts[pml4_idx]) | EPT_READ | EPT_WRITE | EPT_EXEC;
+	}
+	uint64_t *pdpt = space->arch.pdpts[pml4_idx];
 	pdpt[pdpt_idx] = obj->arch.pt_root | ef;
 }
 
+/* TODO: switch to passing an objpage */
 void arch_object_unmap_page(struct object *obj, size_t idx)
 {
-	uintptr_t *pd = mm_ptov(obj->arch.pt_root);
 	uintptr_t virt = idx * mm_page_size(0);
 	int pd_idx = PD_IDX(virt);
 	int pt_idx = PT_IDX(virt);
-	if(pd[pd_idx] & PAGE_LARGE) {
-		pd[pd_idx] = 0;
+	if(obj->arch.pd[pd_idx] & PAGE_LARGE) {
+		obj->arch.pd[pd_idx] = 0;
 	} else {
-		uint64_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
+		uint64_t *pt = obj->arch.pts[pd_idx];
 		if(pt) {
 			pt[pt_idx] = 0;
 		}
@@ -84,14 +91,13 @@ void arch_object_unmap_page(struct object *obj, size_t idx)
 
 bool arch_object_map_flush(struct object *obj, size_t virt)
 {
-	uintptr_t *pd = mm_ptov(obj->arch.pt_root);
 	int pd_idx = PD_IDX(virt);
 	int pt_idx = PT_IDX(virt);
 
-	if(pd[pd_idx] & PAGE_LARGE) {
-		arch_processor_clwb(pd[pd_idx]);
-	} else if(pd[pd_idx]) {
-		uint64_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
+	if(obj->arch.pd[pd_idx] & PAGE_LARGE) {
+		arch_processor_clwb(obj->arch.pd[pd_idx]);
+	} else if(obj->arch.pd[pd_idx]) {
+		uint64_t *pt = obj->arch.pts[pd_idx];
 		arch_processor_clwb(pt[pt_idx]);
 	}
 	return true;
@@ -99,7 +105,6 @@ bool arch_object_map_flush(struct object *obj, size_t virt)
 
 bool arch_object_map_page(struct object *obj, struct objpage *op)
 {
-	uintptr_t *pd = mm_ptov(obj->arch.pt_root);
 	assert(op->page->level == 0 || op->page->level == 1);
 	assert(op->page->addr);
 	assert((op->page->addr & (mm_page_size(op->page->level) - 1)) == 0);
@@ -127,10 +132,13 @@ bool arch_object_map_page(struct object *obj, struct objpage *op)
 	flags |= EPT_READ | EPT_WRITE | EPT_EXEC | EPT_IGNORE_PAT;
 
 	if(op->page->level == 1) {
-		pd[pd_idx] = op->page->addr | flags | PAGE_LARGE;
+		obj->arch.pd[pd_idx] = op->page->addr | flags | PAGE_LARGE;
 	} else {
-		test_and_allocate(&pd[pd_idx], EPT_READ | EPT_WRITE | EPT_EXEC);
-		uint64_t *pt = GET_VIRT_TABLE(pd[pd_idx]);
+		if(!obj->arch.pts[pd_idx]) {
+			obj->arch.pts[pd_idx] = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+			obj->arch.pd[pd_idx] = mm_vtop(obj->arch.pts[pd_idx]) | EPT_READ | EPT_WRITE | EPT_EXEC;
+		}
+		uint64_t *pt = obj->arch.pts[pd_idx];
 		pt[pt_idx] = op->page->addr | flags;
 	}
 	return true;
@@ -138,5 +146,26 @@ bool arch_object_map_page(struct object *obj, struct objpage *op)
 
 void arch_object_init(struct object *obj)
 {
-	obj->arch.pt_root = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+	obj->arch.pd = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+	obj->arch.pt_root = mm_vtop(obj->arch.pd);
+	obj->arch.pts = mm_memory_alloc(512 * sizeof(void *), PM_TYPE_DRAM, true);
+}
+
+void arch_object_space_init(struct object_space *space)
+{
+	space->arch.ept = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+	space->arch.ept_phys = mm_vtop(space->arch.ept);
+	space->arch.pdpts = mm_memory_alloc(512 * sizeof(void *), PM_TYPE_DRAM, true);
+}
+
+void arch_object_space_destroy(struct object_space *space)
+{
+	panic("TODO");
+	mm_memory_dealloc(space->arch.ept);
+	mm_memory_dealloc(space->arch.pdpts);
+}
+
+void arch_object_destroy(struct object *obj)
+{
+	panic("TODO");
 }

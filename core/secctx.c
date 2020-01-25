@@ -12,13 +12,13 @@
 static void _sc_ctor(void *_x __unused, void *ptr)
 {
 	struct sctx *sc = ptr;
-	arch_secctx_init(sc);
+	object_space_init(&sc->space);
 }
 
 static void _sc_dtor(void *_x __unused, void *ptr)
 {
 	struct sctx *sc = ptr;
-	arch_secctx_destroy(sc);
+	object_space_destroy(&sc->space);
 }
 
 DECLARE_SLABCACHE(sc_sc, sizeof(struct sctx), _sc_ctor, _sc_dtor, NULL);
@@ -114,7 +114,7 @@ static bool __verify_region(void *item,
 	k = nl;
 
 	// unsigned char keydata[4096];
-	unsigned char *keydata = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, false);
+	unsigned char *keydata = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, false);
 	size_t kdout = 4096;
 	bool ret = true;
 	int e;
@@ -166,7 +166,7 @@ static bool __verify_region(void *item,
 			break;
 	}
 done:
-	mm_virtual_dealloc((uintptr_t)keydata);
+	mm_memory_dealloc((uintptr_t)keydata);
 	obj_put_page(p);
 	return ret;
 }

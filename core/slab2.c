@@ -42,7 +42,8 @@ static inline void del_from_list(struct slab *s)
 #include <memory.h>
 static struct slab *new_slab(struct slabcache *c)
 {
-	struct slab *s = (void *)mm_virtual_alloc(slab_size(c->sz), PM_TYPE_DRAM, true);
+	/* TODO: detect when this wastes a lot of memory */
+	struct slab *s = (void *)mm_memory_alloc(slab_size(c->sz), PM_TYPE_DRAM, true);
 	s->alloc = 0;
 	s->slabcache = c;
 

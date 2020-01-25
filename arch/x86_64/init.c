@@ -547,5 +547,5 @@ void arch_thread_init(struct thread *thread,
 	if(xsave_region_size > 0x1000)
 		panic("NI - HUGE xsave region");
 	/* TODO: make sure to free this */
-	thread->arch.xsave_region = (void *)mm_virtual_alloc(0x1000, PM_TYPE_DRAM, true);
+	thread->arch.xsave_region = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
 }

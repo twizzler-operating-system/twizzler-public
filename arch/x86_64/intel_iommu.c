@@ -169,7 +169,8 @@ static void iommu_set_context_entry(struct iommu *im,
 {
 	struct iommu_rte *rt = mm_ptov(im->root_table);
 	if(!(rt[bus].lo & IOMMU_RTE_PRESENT)) {
-		rt[bus].lo = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true) | IOMMU_RTE_PRESENT;
+		panic("IOMMU");
+		// rt[bus].lo = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true) | IOMMU_RTE_PRESENT;
 		asm volatile("clflush %0" ::"m"(rt[bus]));
 	}
 	struct iommu_ctxe *ct = mm_ptov(rt[bus].lo & IOMMU_RTE_MASK);
@@ -203,12 +204,15 @@ static void do_iommu_object_map_slot(struct object *obj, uint64_t flags)
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
 
+	panic("IOMMU");
+	/*
 	uintptr_t *pml4 = GET_VIRT_TABLE(ept_phys);
 	test_and_allocate(&pml4[pml4_idx], EPT_READ | EPT_WRITE | EPT_EXEC);
 
 	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
 	pdpt[pdpt_idx] = obj->arch.pt_root | 7;
 	asm volatile("clflush %0" ::"m"(pdpt[pdpt_idx]));
+	*/
 }
 
 #include <device.h>
@@ -306,7 +310,8 @@ static int iommu_init(struct iommu *im)
 	uint64_t ecap = iommu_read64(im, IOMMU_REG_EXCAP);
 	im->cap = cap;
 
-	ept_phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+	panic("IOMMU");
+	// ept_phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 
 	printk(":: %lx %lx %x\n", cap, ecap, vs);
 	/*	printk("nfr=%lx, sllps=%lx, fro=%lx, nd=%ld\n",
@@ -330,7 +335,8 @@ static int iommu_init(struct iommu *im)
 	iommu_status_wait(im, IOMMU_GCMD_TE, false);
 
 	/* set the root table */
-	im->root_table = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+	panic("IOMMU");
+	// im->root_table = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
 	iommu_write64(im, IOMMU_REG_RTAR, im->root_table | IOMMU_RTAR_TTM_LEGACY);
 
 	iommu_write32(im, IOMMU_REG_GCMD, IOMMU_GCMD_SRTP);
@@ -372,6 +378,7 @@ POST_INIT(dmar_late_init);
 
 __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void dmar_init(void)
 {
+	return;
 	if(!(dmar = acpi_find_table("DMAR"))) {
 		return;
 	}

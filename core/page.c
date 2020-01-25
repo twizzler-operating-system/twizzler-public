@@ -21,6 +21,9 @@ void page_init_bootstrap(void)
 
 	for(size_t i = 0; i < nrpages; i++, pages++) {
 		pages->next = _stacks[0].top;
+		pages->addr = mm_physical_early_alloc();
+		pages->level = 0;
+		pages->flags = PAGE_CACHE_WB;
 		_stacks[0].top = pages;
 	}
 }
@@ -31,6 +34,9 @@ void page_init(struct memregion *region)
 	if(addr == 0)
 		addr += mm_page_size(0);
 	printk("init region %lx -> %lx\n", region->start, region->start + region->length);
+	size_t nrpages = mm_page_size(0) / sizeof(struct page);
+	size_t i = 0;
+	struct page *pages = mm_memory_alloc(mm_page_size(0), PM_TYPE_DRAM, true);
 	while(addr < region->length + region->start) {
 		int level = MAX_PGLEVEL;
 		for(; level > 0; level--) {
@@ -40,10 +46,36 @@ void page_init(struct memregion *region)
 			}
 		}
 
-		// printk("addr: %lx -> %lx ; %d\n", addr, addr + mm_page_size(level), level);
+		printk("addr: %lx -> %lx ; %d\n", addr, addr + mm_page_size(level), level);
+		struct page *page = &pages[i];
+
+		page->level = level;
+		page->addr = addr;
+		page->flags = PAGE_CACHE_WB;
+		page->next = _stacks[level].top;
+		page->parent = NULL;
+		_stacks[level].top = page;
+
+		if(++i >= nrpages) {
+			pages = mm_memory_alloc(mm_page_size(0), PM_TYPE_DRAM, true);
+			i = 0;
+		}
 
 		addr += mm_page_size(level);
 	}
+}
+
+struct page *page_alloc(int flags, int level)
+{
+	spinlock_acquire_save(&_stacks[0].lock);
+	struct page *p = _stacks[0].top;
+	if(!p) {
+		panic("out of pages :(");
+	}
+	_stacks[0].top = p->next;
+	p->next = NULL;
+	spinlock_release_restore(&_stacks[0].lock);
+	return p;
 }
 
 struct slabcache sc_page;
@@ -64,7 +96,6 @@ static void _page_ctor(void *_u, void *ptr)
 {
 	struct page *p = ptr;
 	_page_unal_ctor(_u, ptr);
-	p->addr = mm_physical_alloc(mm_page_size(0), PM_TYPE_DRAM /* TODO */, true);
 	p->type = PAGE_TYPE_VOLATILE; /* TODO */
 	p->flags |= PAGE_ALLOCED;
 }
@@ -73,8 +104,6 @@ static void _page_unal_dtor(void *_u, void *ptr)
 {
 	(void)_u;
 	struct page *p = ptr;
-	if(p->addr && (p->flags & PAGE_ALLOCED))
-		mm_physical_dealloc(p->addr);
 }
 
 __initializer static void __init_page(void)
@@ -83,7 +112,7 @@ __initializer static void __init_page(void)
 	slabcache_init(&sc_page_unalloc, sizeof(struct page), _page_unal_ctor, _page_unal_dtor, NULL);
 }
 
-struct page *page_alloc(int type, int level)
+struct page *page_alloc_old(int type, int level)
 {
 	// if(type == PAGE_TYPE_VOLATILE) {
 	//	struct page *p = slabcache_alloc(&sc_page_unalloc);
@@ -92,8 +121,6 @@ struct page *page_alloc(int type, int level)
 	p->type = type;
 	p->level = level;
 	// printk("allocating persistent memory\n");
-	p->addr = mm_physical_alloc(
-	  mm_page_size(level), type == PAGE_TYPE_VOLATILE ? PM_TYPE_DRAM : PM_TYPE_NV, true);
 	p->flags |= PAGE_ALLOCED;
 	return p;
 }

@@ -14,6 +14,8 @@
 #define PM_TYPE_DRAM 2
 #define PM_TYPE_ANY (~0)
 
+#define VADDR_IS_KERNEL(x) ({ (x) >= 0xFFFF000000000000ul; })
+
 enum memory_type {
 	MEMORY_UNKNOWN,
 	MEMORY_AVAILABLE,
@@ -69,9 +71,8 @@ void mm_init_region(struct memregion *reg,
   enum memory_type type,
   enum memory_subtype);
 
-uintptr_t mm_physical_alloc(size_t length, int type, bool clear);
-struct memregion *mm_physical_find_region(uintptr_t addr);
-void mm_physical_dealloc(uintptr_t addr);
+uintptr_t mm_memory_alloc(size_t length, int type, bool clear);
+void mm_memory_dealloc(uintptr_t addr);
 uintptr_t mm_physical_early_alloc(void);
 
 static inline void *mm_virtual_early_alloc(void)
@@ -79,42 +80,6 @@ static inline void *mm_virtual_early_alloc(void)
 	void *p = mm_ptov(mm_physical_early_alloc());
 	memset(p, 0, mm_page_size(0));
 	return p;
-}
-
-static inline uintptr_t mm_physical_region_alloc(struct memregion *r, size_t size, bool clear)
-{
-	size = __round_up_pow2(size);
-	panic("X");
-	// uintptr_t ret = pmm_buddy_allocate(r, size);
-	// if(clear)
-	//	memset(mm_ptov(ret), 0, size);
-	// return ret;
-}
-
-static inline void mm_physical_region_dealloc(struct memregion *r, uintptr_t addr)
-{
-	panic("X");
-	// pmm_buddy_deallocate(r, addr);
-}
-
-static inline uintptr_t mm_virtual_region_alloc(struct memregion *r, size_t size, bool clear)
-{
-	return (uintptr_t)mm_ptov(mm_physical_region_alloc(r, size, clear));
-}
-
-static inline void mm_virtual_region_dealloc(struct memregion *r, uintptr_t addr)
-{
-	mm_physical_region_dealloc(r, mm_vtop((void *)addr));
-}
-
-static inline uintptr_t mm_virtual_alloc(size_t size, int type, bool clear)
-{
-	return (uintptr_t)mm_ptov(mm_physical_alloc(size, type, clear));
-}
-
-static inline void mm_virtual_dealloc(uintptr_t addr)
-{
-	mm_physical_dealloc(mm_vtop((void *)addr));
 }
 
 #include <lib/rb.h>

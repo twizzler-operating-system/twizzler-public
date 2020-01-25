@@ -12,6 +12,7 @@ struct rbroot {
 };
 
 #define RBINIT                                                                                     \
+	(struct rbroot)                                                                                \
 	{                                                                                              \
 		.node = NULL                                                                               \
 	}
@@ -32,8 +33,8 @@ void __rb_insert(struct rbnode *node, struct rbroot *root);
 		struct rbnode **link = &(root)->node, *parent = NULL;                                      \
 		while(*link) {                                                                             \
 			parent = *link;                                                                        \
-			type *node = rb_entry(parent, type, memb);                                             \
-			int _r = compar(node, _new);                                                           \
+			type *_node = rb_entry(parent, type, memb);                                            \
+			int _r = compar(_node, _new);                                                          \
 			if(_r == 0) {                                                                          \
 				result = false;                                                                    \
 				break;                                                                             \

@@ -1,8 +1,8 @@
 #pragma once
 
-#include <spinlock.h>
-#include <memory.h>
 #include <debug.h>
+#include <memory.h>
+#include <spinlock.h>
 #include <system.h>
 
 struct arena {
@@ -19,7 +19,7 @@ struct arena_node {
 static inline void arena_create(struct arena *arena)
 {
 	arena->lock = SPINLOCK_INIT;
-	arena->start = (void *)mm_virtual_alloc(mm_page_size(0), PM_TYPE_ANY, true);
+	arena->start = (void *)mm_memory_alloc(mm_page_size(0), PM_TYPE_ANY, true);
 	struct arena_node *node = arena->start;
 	node->len = mm_page_size(0);
 	node->used = sizeof(struct arena_node);
@@ -30,7 +30,7 @@ static inline void arena_create(struct arena *arena)
 static inline void *arena_allocate(struct arena *arena, size_t length)
 {
 	bool fl = spinlock_acquire(&arena->lock);
-	
+
 	length = (length & ~15) + 16;
 
 	struct arena_node *node = arena->start, *prev = NULL;
@@ -44,11 +44,11 @@ static inline void *arena_allocate(struct arena *arena, size_t length)
 		size_t len = __round_up_pow2(length * 2);
 		if(len < mm_page_size(0))
 			len = mm_page_size(0);
-		node = prev->next = (void *)mm_virtual_alloc(len, PM_TYPE_ANY, true);
+		node = prev->next = (void *)mm_memory_alloc(len, PM_TYPE_ANY, true);
 		node->len = len;
 		node->used = sizeof(struct arena_node);
 	}
-	
+
 	void *ret = (void *)((uintptr_t)node + node->used);
 	node->used += length;
 
@@ -61,8 +61,7 @@ static inline void arena_destroy(struct arena *arena)
 	struct arena_node *node = arena->start, *next;
 	while(node) {
 		next = node->next;
-		mm_virtual_dealloc((uintptr_t)node);
+		mm_memory_dealloc((uintptr_t)node);
 		node = next;
 	}
 }
-

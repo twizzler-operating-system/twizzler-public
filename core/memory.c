@@ -57,13 +57,13 @@ void mm_init(void)
 
 void mm_init_phase_2(void)
 {
-	list_insert(&allocators, &_initial_allocator.entry);
+	obj_system_init();
+	slot_init_bootstrap(KOSLOT_INIT_ALLOC, KVSLOT_ALLOC_START);
 	_initial_allocator.start = SLOT_TO_OADDR(KOSLOT_INIT_ALLOC);
 	_initial_allocator.vstart = SLOT_TO_VADDR(KVSLOT_ALLOC_START);
-	_initial_allocator.length = OBJ_MAXSIZE;
-	printk("A\n");
+	_initial_allocator.length = 0x8000;
 	pmm_buddy_init(&_initial_allocator);
-	printk("B\n");
+	list_insert(&allocators, &_initial_allocator.entry);
 	foreach(e, list, &physical_regions) {
 		struct memregion *reg = list_entry(e, struct memregion, entry);
 		if(reg->type == MEMORY_AVAILABLE && reg->subtype == MEMORY_AVAILABLE_VOLATILE) {
@@ -71,6 +71,9 @@ void mm_init_phase_2(void)
 			reg->ready = true;
 		}
 	}
+
+	for(;;)
+		;
 }
 
 struct memregion *mm_physical_find_region(uintptr_t addr)
@@ -104,13 +107,14 @@ uintptr_t mm_physical_early_alloc(void)
 }
 
 #include <object.h>
-uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
+uintptr_t mm_memory_alloc(size_t length, int type, bool clear)
 {
 	static struct spinlock nvs = SPINLOCK_INIT;
 	if(type == PM_TYPE_NV) {
 		/* TODO: BETTER PM MANAGEMENT */
 		/* TODO: clean this up */
 		// printk("ALloc NVM\n");
+		panic("fix nvm alloc");
 		foreach(e, list, &physical_regions) {
 			struct memregion *reg = list_entry(e, struct memregion, entry);
 
@@ -121,10 +125,10 @@ uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 				static int _in = 0;
 				if(!_in) {
 					for(int i = 0; i < 32; i++) {
-						arch_objspace_map(32ul * 1024ul * 1024ul * 1024ul + i * mm_page_size(2),
-						  reg->start + i * mm_page_size(2),
-						  2,
-						  OBJSPACE_WRITE | OBJSPACE_READ);
+						// arch_objspace_map(32ul * 1024ul * 1024ul * 1024ul + i * mm_page_size(2),
+						//  reg->start + i * mm_page_size(2),
+						//  2,
+						// OBJSPACE_WRITE | OBJSPACE_READ);
 					}
 					_in = 1;
 				}
@@ -146,24 +150,38 @@ uintptr_t mm_physical_alloc(size_t length, int type, bool clear)
 		/* TODO: */
 		// printk("warning - allocating volatile RAM when NVM was requested\n");
 	}
+	if(list_empty(&allocators)) {
+		/* still in bootstrap mode */
+		if(length != mm_page_size(0))
+			panic("tried to allocate non-page-size memory in bootstrap mode: %lx", length);
+		void *p = mm_virtual_early_alloc();
+		return (uintptr_t)p;
+	}
 	foreach(e, list, &allocators) {
 		struct mem_allocator *alloc = list_entry(e, struct mem_allocator, entry);
 		if(alloc->free_memory > length) {
 			uintptr_t x = pmm_buddy_allocate(alloc, length);
-			if(x != 0)
+			if(x != 0) {
+				if(clear)
+					memset((void *)x, 0, length);
 				return x;
+			}
 		}
 	}
 	panic("OOM"); /* TODO: reclaim, etc */
 	return 0;
 }
 
-void mm_physical_dealloc(uintptr_t addr)
+void mm_memory_dealloc(uintptr_t addr)
 {
-	struct memregion *reg = mm_physical_find_region(addr);
-	assert(reg != NULL);
-
-	mm_physical_region_dealloc(reg, addr);
+	foreach(e, list, &allocators) {
+		struct mem_allocator *alloc = list_entry(e, struct mem_allocator, entry);
+		if(addr >= (uintptr_t)alloc->vstart && addr < (uintptr_t)alloc->vstart + alloc->length) {
+			pmm_buddy_deallocate(alloc, addr);
+			return;
+		}
+	}
+	panic("invalid free");
 }
 
 void kernel_fault_entry(uintptr_t ip, uintptr_t addr, int flags)

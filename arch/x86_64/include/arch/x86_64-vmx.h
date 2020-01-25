@@ -143,7 +143,6 @@ void x86_64_virtualization_fault(struct processor *proc);
 #define EPT_LARGEPAGE (1 << 7)
 
 #define RECUR_ATTR_MASK (EPT_READ | EPT_WRITE | EPT_EXEC)
-#define GET_VIRT_TABLE(x) ((uintptr_t *)mm_ptov(((x)&VM_PHYS_MASK)))
 
 #define EPT_PAGE_MASK 0x7ffffffffffff000ul
 

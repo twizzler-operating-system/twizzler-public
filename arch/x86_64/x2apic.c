@@ -317,7 +317,7 @@ write_bios_reset(uintptr_t addr)
 extern int trampoline_start, trampoline_end, rm_gdt, pmode_enter, rm_gdt_pointer;
 void arch_processor_boot(struct processor *proc)
 {
-	proc->arch.kernel_stack = (void *)mm_virtual_alloc(KERNEL_STACK_SIZE, PM_TYPE_ANY, true);
+	proc->arch.kernel_stack = (void *)mm_memory_alloc(KERNEL_STACK_SIZE, PM_TYPE_ANY, true);
 	// printk("Poking secondary CPU %d, proc->arch.kernel_stack = %p (proc=%p)\n",
 	//  proc->id,
 	//  proc->arch.kernel_stack,

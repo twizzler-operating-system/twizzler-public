@@ -222,7 +222,7 @@ struct thread *thread_create(void)
 
 static void __print_fault_info(struct thread *t, int fault, void *info)
 {
-	printk("unhandled fault: %ld: %d\n", t->id, fault);
+	printk("unhandled fault: %ld: %d\n", t ? t->id : -1, fault);
 	debug_print_backtrace();
 	switch(fault) {
 		struct fault_object_info *foi;
@@ -288,6 +288,10 @@ static uint64_t __failed_addr(int f, void *info)
  * handler can be set */
 void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 {
+	if(!t) {
+		__print_fault_info(NULL, fault, info);
+		panic("thread fault occurred before threading");
+	}
 	struct object *to = kso_get_obj(t->throbj, thr);
 	if(!to) {
 		panic("No repr");

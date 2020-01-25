@@ -2,11 +2,12 @@
 
 #include <arch/secctx.h>
 #include <krc.h>
+#include <object.h>
 
 #include <twz/_objid.h>
 
 struct sctx {
-	struct arch_sctx arch;
+	struct object_space space;
 	objid_t repr;
 	struct krc refs;
 	bool superuser;

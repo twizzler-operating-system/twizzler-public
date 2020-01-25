@@ -1,4 +1,5 @@
 #include <lib/rb.h>
+#include <object.h>
 #include <processor.h>
 #include <slab.h>
 #include <slots.h>
@@ -14,6 +15,7 @@ static struct slot *slot_stack = NULL;
 static struct spinlock slot_lock = SPINLOCK_INIT;
 
 static size_t _max_slot = 0;
+static size_t skip_bootstrap_slot;
 
 static int __slot_compar_key(struct slot *a, size_t n)
 {
@@ -29,10 +31,40 @@ static int __slot_compar(struct slot *a, struct slot *b)
 	return __slot_compar_key(a, b->num);
 }
 
+void slot_init_bootstrap(size_t oslot, size_t vslot)
+{
+	static struct object _bootstrap_object;
+	static struct slot _bootstrap_slot;
+	static struct vmap _bootstrap_vmap;
+
+	_bootstrap_vmap.obj = &_bootstrap_object;
+	_bootstrap_vmap.slot = vslot;
+	obj_init(&_bootstrap_object);
+	_bootstrap_slot.num = oslot;
+	krc_init(&_bootstrap_slot.rc);
+	krc_get(&_bootstrap_slot.rc);     // for obj
+	krc_get(&_bootstrap_slot.rc);     // to keep around
+	krc_get(&_bootstrap_object.refs); // for slot
+	krc_get(&_bootstrap_object.refs); // for vmap
+	krc_get(&_bootstrap_object.refs); // to keep around
+	_bootstrap_object.slot = &_bootstrap_slot;
+	_bootstrap_slot.obj = &_bootstrap_object;
+	_bootstrap_object.kernel_obj = true;
+
+	arch_vm_map_object(NULL, &_bootstrap_vmap, &_bootstrap_object);
+	rb_insert(&slot_root, &_bootstrap_slot, struct slot, node, __slot_compar);
+
+	printk("ok\n");
+	// arch_object_map_slot(
+}
+
 __initializer static void _slots_init(void)
 {
 	_max_slot = (2ul << arch_processor_physical_width()) / OBJ_MAXSIZE;
-	for(size_t i = 0; i < _max_slot; i++) {
+	/* skip both the bootstrap-alloc and the bootstrap (0) slot. */
+	for(size_t i = 1; i < _max_slot; i++) {
+		if(i == skip_bootstrap_slot)
+			continue;
 		struct slot *s = slabcache_alloc(&_sc_slot);
 		s->num = i;
 		s->next = slot_stack;

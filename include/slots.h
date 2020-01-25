@@ -29,7 +29,9 @@ void slot_release(struct slot *);
 
 #define SLOT_TO_VADDR(x)                                                                           \
 	({                                                                                             \
-		uintptr_t y = (x)*OBJ_MAXSIZE | 0xffff000000000000ul;                                      \
+		uintptr_t y = (x)*OBJ_MAXSIZE;                                                             \
+		if(y & (1ul << 47))                                                                        \
+			y |= 0xffff000000000000ul;                                                             \
 		y;                                                                                         \
 	})
 

@@ -4,7 +4,6 @@
 #include <krc.h>
 #include <lib/inthash.h>
 #include <lib/rb.h>
-#include <secctx.h>
 #include <spinlock.h>
 #include <twz/_obj.h>
 
@@ -64,6 +63,7 @@ struct object {
 	bool lowpg;
 	bool idvercache;
 	bool idversafe;
+	bool kernel_obj;
 	bool persist; // TODO: combine these into flags
 	int cache_mode;
 
@@ -78,7 +78,8 @@ struct object {
 	long (*kaction)(struct object *, long, long);
 
 	struct spinlock lock, tslock, verlock;
-	struct ihtable *pagecache, *pagecache_level1, *tstable;
+	struct rbroot pagecache_root, pagecache_level1_root, tstable_root;
+	// struct ihtable *pagecache, *pagecache_level1, *tstable;
 
 	struct ihelem elem, slotelem;
 	struct rbnode slotnode;
@@ -92,10 +93,15 @@ struct objpage {
 	uint64_t flags;
 	struct page *page;
 	struct krc refs;
-	struct ihelem elem;
+	struct rbnode node;
+};
+
+struct object_space {
+	struct arch_object_space arch;
 };
 
 struct object *obj_create(uint128_t id, enum kso_type);
+void obj_system_init(void);
 struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot);
 struct object *obj_lookup(uint128_t id);
 bool obj_verify_id(struct object *obj, bool cache_result, bool uncache);
@@ -108,6 +114,7 @@ struct objpage *obj_get_page(struct object *obj, size_t idx, bool);
 void obj_put(struct object *o);
 void obj_assign_id(struct object *obj, objid_t id);
 objid_t obj_compute_id(struct object *obj);
+void obj_init(struct object *obj);
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
@@ -118,6 +125,16 @@ void arch_object_map_slot(struct object *obj, uint64_t flags);
 void arch_object_unmap_page(struct object *obj, size_t idx);
 bool arch_object_map_page(struct object *obj, struct objpage *);
 bool arch_object_map_flush(struct object *obj, size_t idx);
+void arch_object_space_init(struct object_space *space);
+void arch_object_space_destroy(struct object_space *space);
+static inline void object_space_init(struct object_space *space)
+{
+	arch_object_space_init(&space->arch);
+}
+static inline void object_space_destroy(struct object_space *space)
+{
+	arch_object_space_destroy(&space->arch);
+}
 bool arch_object_getmap_slot_flags(struct object *obj, uint64_t *flags);
 void arch_object_init(struct object *obj);
 

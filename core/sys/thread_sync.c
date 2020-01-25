@@ -16,10 +16,24 @@ struct syncpoint {
 
 	struct spinlock lock;
 	struct list waiters;
-	struct ihelem elem;
+	struct rbnode node;
 };
 
 DECLARE_SLABCACHE(sc_syncpoint, sizeof(struct syncpoint), NULL, NULL, NULL);
+
+static int __sp_compar_key(struct syncpoint *a, size_t n)
+{
+	if(a->off > n)
+		return 1;
+	else if(a->off < n)
+		return -1;
+	return 0;
+}
+
+static int __sp_compar(struct syncpoint *a, struct syncpoint *b)
+{
+	return __sp_compar_key(a, b->off);
+}
 
 /* TODO: do we need to make sure that this is enough syncronization. Do we need
  * to lock the relevant pagecache pages? */
@@ -29,7 +43,9 @@ DECLARE_SLABCACHE(sc_syncpoint, sizeof(struct syncpoint), NULL, NULL, NULL);
 static struct syncpoint *sp_lookup(struct object *obj, size_t off, bool create)
 {
 	spinlock_acquire_save(&obj->tslock);
-	struct syncpoint *sp = ihtable_find(obj->tstable, off, struct syncpoint, elem, off);
+	struct rbnode *node =
+	  rb_search(&obj->tstable_root, off, struct syncpoint, node, __sp_compar_key);
+	struct syncpoint *sp = node ? rb_entry(node, struct syncpoint, node) : NULL;
 	if(!sp || !krc_get_unless_zero(&sp->refs)) {
 		if(!create) {
 			spinlock_release_restore(&obj->tslock);
@@ -42,7 +58,7 @@ static struct syncpoint *sp_lookup(struct object *obj, size_t off, bool create)
 		sp->flags = 0;
 		krc_init(&sp->refs);
 		list_init(&sp->waiters);
-		ihtable_insert(obj->tstable, &sp->elem, sp->off);
+		rb_insert(&obj->tstable_root, sp, struct syncpoint, node, __sp_compar);
 	}
 	spinlock_release_restore(&obj->tslock);
 	return sp;
@@ -52,7 +68,7 @@ static void _sp_release(void *_sp)
 {
 	struct syncpoint *sp = _sp;
 	spinlock_acquire_save(&sp->obj->tslock);
-	ihtable_remove(sp->obj->tstable, &sp->elem, sp->off);
+	rb_delete(&sp->node, &sp->obj->tstable_root);
 	spinlock_release_restore(&sp->obj->tslock);
 	slabcache_free(sp);
 }
