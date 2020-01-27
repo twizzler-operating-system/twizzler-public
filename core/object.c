@@ -66,24 +66,13 @@ static void _obj_dtor(void *_u, void *ptr)
 	assert(krc_iszero(&obj->pcount));
 }
 
-static struct objpage *bootstrap_objpages;
-static _Atomic size_t bootstrap_objpages_ctr = 0;
-
 static struct objpage *objpage_alloc(void)
 {
-	size_t nrbsop = mm_page_size(0) / sizeof(struct objpage);
-	if(bootstrap_objpages_ctr < nrbsop) {
-		size_t x = atomic_fetch_add(&bootstrap_objpages_ctr, 1);
-		if(x < nrbsop) {
-			return &bootstrap_objpages[x];
-		}
-	}
 	return slabcache_alloc(&sc_objpage);
 }
 
 void obj_system_init(void)
 {
-	bootstrap_objpages = mm_virtual_early_alloc();
 	/* TODO (perf): verify all ihtable sizes */
 	slabcache_init(&sc_objs, sizeof(struct object), _obj_ctor, _obj_dtor, NULL);
 	slabcache_init(&sc_objpage, sizeof(struct objpage), NULL, NULL, NULL);

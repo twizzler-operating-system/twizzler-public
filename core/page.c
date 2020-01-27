@@ -102,7 +102,6 @@ static void _page_unal_ctor(void *_u, void *ptr)
 	p->flags = 0;
 	krc_init(&p->rc);
 	p->lock = SPINLOCK_INIT;
-	p->mapcount = 0;
 	p->level = 0;
 }
 

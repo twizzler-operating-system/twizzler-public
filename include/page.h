@@ -5,18 +5,14 @@
 
 struct page {
 	uintptr_t addr;
-	_Atomic int64_t mapcount;
-	uint32_t flags;
-	uint16_t resv;
-	uint8_t type;
-	uint8_t level;
 	struct krc rc;
-	size_t pin_count;
 	struct spinlock lock;
-
 	struct page *parent, *next;
 	struct rbroot root;
 	struct rbnode node;
+	uint16_t flags : 10;
+	uint16_t type : 3;
+	uint16_t level : 3;
 };
 
 #define PAGE_TYPE_VOLATILE 0

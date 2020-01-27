@@ -197,7 +197,7 @@ uintptr_t mm_memory_alloc(size_t length, int type, bool clear)
 	spinlock_acquire_save(&allocator_lock);
 	foreach(e, list, &allocators) {
 		struct mem_allocator *alloc = list_entry(e, struct mem_allocator, entry);
-		printk(":: alloc %lx: %ld %ld\n", length, alloc->free_memory, alloc->available_memory);
+		// printk(":: alloc %lx: %ld %ld\n", length, alloc->free_memory, alloc->available_memory);
 		if(alloc->available_memory >= length) {
 			void *p = (void *)alloc->marker;
 			alloc->available_memory -= length;
