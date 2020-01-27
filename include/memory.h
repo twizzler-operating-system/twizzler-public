@@ -37,7 +37,8 @@ struct mem_allocator {
 	uint8_t *bitmaps[MAX_ORDER + 1];
 	struct list freelists[MAX_ORDER + 1];
 	size_t num_allocated[MAX_ORDER + 1];
-	_Atomic size_t free_memory;
+	_Atomic size_t free_memory, available_memory;
+	uintptr_t marker;
 	bool ready;
 	// char static_bitmaps[((MEMORY_SIZE / MIN_SIZE) / 8) * 2];
 	char *static_bitmaps;

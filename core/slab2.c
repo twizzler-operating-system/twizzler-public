@@ -16,7 +16,7 @@ static inline size_t slab_size(size_t sz)
 	return tmp;
 }
 
-#define slab_size(sz) (sizeof(struct slab) + 64 * sz)
+#define slab_size(sz) align_down((sizeof(struct slab) + 64 * sz), mm_page_size(0))
 
 #define is_empty(x) ((x).next == &(x))
 

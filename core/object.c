@@ -248,6 +248,7 @@ void obj_cache_page(struct object *obj, size_t addr, struct page *p)
 
 #include <processor.h>
 #include <twz/_sys.h>
+
 struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 {
 	size_t idx = addr / mm_page_size(1);
@@ -275,9 +276,9 @@ struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 		}
 		int level = ((addr >= mm_page_size(1)) || (obj->lowpg && 0)) ? 1 : 0;
 		page = objpage_alloc();
-		page->idx = addr / mm_page_size(level);
 		page->page = page_alloc(obj->persist ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, level);
-		printk("adding page %ld: %d %d\n", page->idx, page->page->level, level);
+		//	printk("adding page %ld: %d %d\n", page->idx, page->page->level, level);
+		page->idx = addr / mm_page_size(page->page->level);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_UC, PAGE_CACHE_UC);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WB, PAGE_CACHE_WB);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WT, PAGE_CACHE_WT);
@@ -592,7 +593,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	}
 #endif
 
-#if 1
+#if 0
 	printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT "\n",
 	  current_thread ? current_thread->id : -1,
 	  ip,
@@ -605,18 +606,25 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 
 	/* TODO: something better */
 	// for(int j = 0; j < 4 && (idx < 200000 || j == 0); j++, idx++) {
-	struct objpage *p = obj_get_page(o, loaddr % OBJ_MAXSIZE, true);
 
-	printk("S\n");
 	if(do_map) {
 		arch_object_map_slot(o, perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
 	}
-	printk("P: %p\n", p);
-	if(!(p->flags & OBJPAGE_MAPPED)) {
-		arch_object_map_page(o, p);
-		p->flags |= OBJPAGE_MAPPED;
+	if(o->kernel_obj) {
+		struct objpage p;
+		p.page = page_alloc(PAGE_TYPE_VOLATILE, 1); /* TODO: refcount */
+		p.idx = (loaddr % OBJ_MAXSIZE) / mm_page_size(p.page->level);
+		p.page->flags = PAGE_CACHE_WB;
+		arch_object_map_page(o, &p);
+	} else {
+		struct objpage *p = obj_get_page(o, loaddr % OBJ_MAXSIZE, true);
+		// printk("P: %p\n", p);
+		if(!(p->flags & OBJPAGE_MAPPED)) {
+			arch_object_map_page(o, p);
+			p->flags |= OBJPAGE_MAPPED;
+		}
 	}
-	printk("Mapped successfully\n");
+	// printk("Mapped successfully\n");
 	//	do_map = false;
 	//}
 	/* TODO: put page? */

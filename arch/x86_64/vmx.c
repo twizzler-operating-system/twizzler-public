@@ -247,7 +247,8 @@ void x86_64_vmexit_handler(struct processor *proc)
 	            && reason != VMEXIT_REASON_EPT_VIOLATION
 	            && reason != VMEXIT_REASON_INVEPT)
 	            */
-	printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual, iinfo);
+	// printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual,
+	// iinfo);
 
 	// printk(":: %lx\n", clksrc_get_interrupt_countdown());
 

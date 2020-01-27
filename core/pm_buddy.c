@@ -39,7 +39,6 @@ static uintptr_t __do_pmm_buddy_allocate(struct mem_allocator *reg, size_t lengt
 	}
 
 	int order = min_possible_order(length);
-	printk("pmm_alloc: %lx (%d)\n", length, order);
 
 	if(list_empty(&reg->freelists[order])) {
 		uintptr_t a = __do_pmm_buddy_allocate(reg, length * 2);
@@ -74,12 +73,10 @@ static int deallocate(struct mem_allocator *reg, uintptr_t address, int order)
 
 		if(!bitmap_test(reg->bitmaps[order], buddy_bit)) {
 			struct list *elem = (void *)(buddy + (char *)(reg->vstart));
-			printk("remove %d\n", order);
 			list_remove(elem);
 			deallocate(reg, buddy > address ? address : buddy, order + 1);
 		} else {
 			struct list *elem = (void *)(address + (char *)reg->vstart);
-			printk("insert %d\n", order);
 			list_insert(&reg->freelists[order], elem);
 		}
 		reg->num_allocated[order]--;
@@ -99,7 +96,6 @@ uintptr_t pmm_buddy_allocate(struct mem_allocator *reg, size_t length)
 	// reg->alloc->free_memory,
 	// length);
 	uintptr_t x = __do_pmm_buddy_allocate(reg, length);
-	printk(":: %lx\n", x);
 	if(x != (uintptr_t)~0)
 		x += (uintptr_t)reg->vstart;
 	else {
@@ -130,7 +126,6 @@ void pmm_buddy_init(struct mem_allocator *alloc)
 	char *start = alloc->static_bitmaps = (char *)alloc->vstart;
 	size_t bmlen = (((alloc->length) / MIN_SIZE) / 8) * 2 + MAX_ORDER * 2; /* 1/2 + 1/4 + 1/8 ... */
 	long length = (((alloc->length) / MIN_SIZE) / (8));
-	printk("Init\n");
 	for(int i = 0; i <= MAX_ORDER; i++) {
 		alloc->bitmaps[i] = (uint8_t *)start;
 		memset(alloc->bitmaps[i], ~0, length + 2);
@@ -139,10 +134,13 @@ void pmm_buddy_init(struct mem_allocator *alloc)
 		length /= 2;
 		alloc->num_allocated[i] = buddy_order_max_blocks(alloc->length, i);
 	}
-	for(char *addr = alloc->vstart + align_up(bmlen, MIN_SIZE);
-	    addr < alloc->vstart + (alloc->length);
+	size_t init_len = 2 * 1024 * 1024 + align_up(bmlen, MIN_SIZE);
+	assert(init_len < alloc->length);
+	alloc->available_memory = alloc->length - init_len;
+	alloc->marker = (uintptr_t)alloc->vstart + init_len;
+	for(char *addr = alloc->vstart + align_up(bmlen, MIN_SIZE); addr < alloc->vstart + init_len;
 	    addr += MIN_SIZE) {
-		printk("dealloc: %lx\n", addr);
+		//	printk("dealloc: %lx\n", addr);
 		pmm_buddy_deallocate(alloc, (uintptr_t)addr);
 	}
 	alloc->ready = true;

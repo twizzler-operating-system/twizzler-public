@@ -52,7 +52,7 @@ CFLAGS+=-fsanitize=undefined -fstack-check -fstack-protector-all -fsanitize=kern
 C_SOURCES+=core/ubsan.c core/asan/asan.c
 endif
 
-CFLAGS+=-O$(CONFIG_OPTIMIZE)
+CFLAGS+=-O$(CONFIG_OPTIMIZE) -g
 
 
 ifeq ($(CONFIG_INSTRUMENT),y)

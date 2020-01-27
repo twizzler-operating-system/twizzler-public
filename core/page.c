@@ -9,6 +9,10 @@ struct page_stack {
 
 struct page_stack _stacks[MAX_PGLEVEL + 1];
 
+size_t mm_page_count = 0;
+size_t mm_page_alloc_count = 0;
+size_t mm_page_alloced = 0;
+size_t mm_page_bootstrap_count = 0;
 void page_init_bootstrap(void)
 {
 	/* bootstrap page allocator */
@@ -25,6 +29,7 @@ void page_init_bootstrap(void)
 		pages->level = 0;
 		pages->flags = PAGE_CACHE_WB;
 		_stacks[0].top = pages;
+		mm_page_bootstrap_count++;
 	}
 }
 
@@ -33,7 +38,11 @@ void page_init(struct memregion *region)
 	uintptr_t addr = region->start;
 	if(addr == 0)
 		addr += mm_page_size(0);
-	printk("init region %lx -> %lx\n", region->start, region->start + region->length);
+	printk("init region %lx -> %lx (%ld KB; %ld MB)\n",
+	  region->start,
+	  region->start + region->length,
+	  region->length / 1024,
+	  region->length / (1024 * 1024));
 	size_t nrpages = mm_page_size(0) / sizeof(struct page);
 	size_t i = 0;
 	struct page *pages = mm_memory_alloc(mm_page_size(0), PM_TYPE_DRAM, true);
@@ -46,7 +55,7 @@ void page_init(struct memregion *region)
 			}
 		}
 
-		printk("addr: %lx -> %lx ; %d\n", addr, addr + mm_page_size(level), level);
+		// printk("addr: %lx -> %lx ; %d\n", addr, addr + mm_page_size(level), level);
 		struct page *page = &pages[i];
 
 		page->level = level;
@@ -55,10 +64,12 @@ void page_init(struct memregion *region)
 		page->next = _stacks[level].top;
 		page->parent = NULL;
 		_stacks[level].top = page;
+		mm_page_count += mm_page_size(level) / mm_page_size(0);
 
 		if(++i >= nrpages) {
 			pages = mm_memory_alloc(mm_page_size(0), PM_TYPE_DRAM, true);
 			i = 0;
+			mm_page_alloc_count += mm_page_size(0);
 		}
 
 		addr += mm_page_size(level);
@@ -70,10 +81,13 @@ struct page *page_alloc(int flags, int level)
 	spinlock_acquire_save(&_stacks[0].lock);
 	struct page *p = _stacks[0].top;
 	if(!p) {
-		panic("out of pages :(");
+		page_init_bootstrap();
+		return page_alloc(flags, level);
+		// panic("out of pages :(");
 	}
 	_stacks[0].top = p->next;
 	p->next = NULL;
+	mm_page_alloced++;
 	spinlock_release_restore(&_stacks[0].lock);
 	return p;
 }

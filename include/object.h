@@ -125,6 +125,7 @@ void arch_object_map_slot(struct object *obj, uint64_t flags);
 void arch_object_unmap_page(struct object *obj, size_t idx);
 bool arch_object_map_page(struct object *obj, struct objpage *);
 bool arch_object_map_flush(struct object *obj, size_t idx);
+bool arch_object_premap_page(struct object *obj, int idx, int level);
 void arch_object_space_init(struct object_space *space);
 void arch_object_space_destroy(struct object_space *space);
 static inline void object_space_init(struct object_space *space)

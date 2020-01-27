@@ -9,13 +9,6 @@
 /* TODO: get rid of this */
 extern struct object_space _bootstrap_object_space;
 
-static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
-{
-	if(!*loc) {
-		*loc = (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true) | (attr & RECUR_ATTR_MASK);
-	}
-}
-
 bool arch_object_getmap_slot_flags(struct object *obj, uint64_t *flags)
 {
 	uint64_t ef = 0;
@@ -99,6 +92,22 @@ bool arch_object_map_flush(struct object *obj, size_t virt)
 	} else if(obj->arch.pd[pd_idx]) {
 		uint64_t *pt = obj->arch.pts[pd_idx];
 		arch_processor_clwb(pt[pt_idx]);
+	}
+	return true;
+}
+
+bool arch_object_premap_page(struct object *obj, int idx, int level)
+{
+	if(level == 1)
+		return true;
+	uintptr_t virt = idx * mm_page_size(level);
+	int pd_idx = PD_IDX(virt);
+	int pt_idx = PT_IDX(virt);
+	/* map with ALL permissions; we'll restrict permissions at a higher level */
+
+	if(!obj->arch.pts[pd_idx]) {
+		obj->arch.pts[pd_idx] = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+		obj->arch.pd[pd_idx] = mm_vtop(obj->arch.pts[pd_idx]) | EPT_READ | EPT_WRITE | EPT_EXEC;
 	}
 	return true;
 }

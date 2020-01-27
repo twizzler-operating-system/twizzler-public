@@ -9,6 +9,11 @@ static DECLARE_LIST(physical_regions);
 static DECLARE_LIST(allocators);
 static struct mem_allocator _initial_allocator;
 
+#define MAX_ALLOCATORS 16
+static size_t allocator_ctr = 0;
+static struct spinlock allocator_lock = SPINLOCK_INIT;
+static struct mem_allocator allocs[MAX_ALLOCATORS];
+
 static const char *memory_type_strings[] = {
 	[MEMORY_AVAILABLE] = "System RAM",
 	[MEMORY_RESERVED] = "Reserved",
@@ -55,15 +60,29 @@ void mm_init(void)
 	arch_mm_init();
 }
 
+size_t mm_early_count = 0;
+size_t mm_late_count = 0;
+extern size_t mm_page_count;
+extern size_t mm_page_alloc_count;
+extern size_t mm_page_bootstrap_count;
+extern size_t mm_page_alloced;
+
 void mm_init_phase_2(void)
 {
 	obj_system_init();
 	slot_init_bootstrap(KOSLOT_INIT_ALLOC, KVSLOT_ALLOC_START);
 	_initial_allocator.start = SLOT_TO_OADDR(KOSLOT_INIT_ALLOC);
 	_initial_allocator.vstart = SLOT_TO_VADDR(KVSLOT_ALLOC_START);
-	_initial_allocator.length = 0x8000;
+	_initial_allocator.length = OBJ_MAXSIZE;
 	pmm_buddy_init(&_initial_allocator);
 	list_insert(&allocators, &_initial_allocator.entry);
+
+	// allocs[0].start = SLOT_TO_OADDR(KOSLOT_INIT_ALLOC) + 0x8000;
+	// allocs[0].vstart = SLOT_TO_VADDR(KVSLOT_ALLOC_START) + 0x8000;
+	// allocs[0].length = OBJ_MAXSIZE - 0x8000;
+	// pmm_buddy_init(&allocs[0]);
+	// list_insert(&allocators, &allocs[0].entry);
+
 	foreach(e, list, &physical_regions) {
 		struct memregion *reg = list_entry(e, struct memregion, entry);
 		if(reg->type == MEMORY_AVAILABLE && reg->subtype == MEMORY_AVAILABLE_VOLATILE) {
@@ -72,6 +91,23 @@ void mm_init_phase_2(void)
 		}
 	}
 
+	printk("ok, mm\n");
+	printk("early allocation: %ld KB\n", mm_early_count / 1024);
+	printk("late  allocation: %ld KB\n", mm_late_count / 1024);
+	printk("page  allocation: %ld KB\n", mm_page_alloc_count / 1024);
+	printk("page bootstrap count: %ld (%ld KB; %ld MB)\n",
+	  mm_page_bootstrap_count,
+	  (mm_page_bootstrap_count * mm_page_size(0)) / 1024,
+	  (mm_page_bootstrap_count * mm_page_size(0)) / (1024 * 1024));
+	printk("page alloced: %ld (%ld KB; %ld MB)\n",
+	  mm_page_alloced,
+	  (mm_page_alloced * mm_page_size(0)) / 1024,
+	  (mm_page_alloced * mm_page_size(0)) / (1024 * 1024));
+
+	printk("page count: %ld (%ld KB; %ld MB)\n",
+	  mm_page_count,
+	  (mm_page_count * mm_page_size(0)) / 1024,
+	  (mm_page_count * mm_page_size(0)) / (1024 * 1024));
 	for(;;)
 		;
 }
@@ -100,6 +136,7 @@ uintptr_t mm_physical_early_alloc(void)
 			reg->start += mm_page_size(0);
 			reg->length -= mm_page_size(0);
 			assert(alloc);
+			mm_early_count += mm_page_size(0);
 			return alloc;
 		}
 	}
@@ -157,18 +194,39 @@ uintptr_t mm_memory_alloc(size_t length, int type, bool clear)
 		void *p = mm_virtual_early_alloc();
 		return (uintptr_t)p;
 	}
+	spinlock_acquire_save(&allocator_lock);
 	foreach(e, list, &allocators) {
 		struct mem_allocator *alloc = list_entry(e, struct mem_allocator, entry);
+		printk(":: alloc %lx: %ld %ld\n", length, alloc->free_memory, alloc->available_memory);
+		if(alloc->available_memory >= length) {
+			void *p = (void *)alloc->marker;
+			alloc->available_memory -= length;
+			alloc->marker += length;
+			mm_late_count += length;
+			spinlock_release_restore(&allocator_lock);
+			if(clear) {
+				memset(p, 0, length);
+			}
+			return p;
+		}
 		if(alloc->free_memory > length) {
 			uintptr_t x = pmm_buddy_allocate(alloc, length);
 			if(x != 0) {
+				mm_late_count += length;
+				spinlock_release_restore(&allocator_lock);
 				if(clear)
 					memset((void *)x, 0, length);
 				return x;
 			}
 		}
 	}
+
+	//	if(allocator_ctr >= MAX_ALLOCATORS)
 	panic("OOM"); /* TODO: reclaim, etc */
+
+	//	struct mem_allocator *alloc = allocators[allocator_ctr++];
+
+	spinlock_release_restore(&allocator_lock);
 	return 0;
 }
 
