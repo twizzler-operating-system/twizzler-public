@@ -7,4 +7,4 @@
 #define PMAP_WT PAGE_CACHE_WT
 #define PMAP_WC PAGE_CACHE_WC
 
-void *pmap_allocate(uintptr_t phys, int flags);
+void *pmap_allocate(uintptr_t phys, size_t, int flags);

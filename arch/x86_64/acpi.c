@@ -41,7 +41,7 @@ static struct xsdt_desc *get_xsdt_addr(void)
 	assert(rsdp != NULL);
 	assert(rsdp->rsdp.rev >= 1);
 	if(sdt_vaddr == NULL) {
-		sdt_vaddr = pmap_allocate(rsdp->xsdt_addr, PMAP_WB);
+		sdt_vaddr = pmap_allocate(rsdp->xsdt_addr, rsdp->length, PMAP_WB);
 	}
 	return sdt_vaddr;
 }
@@ -52,7 +52,7 @@ static struct rsdt_desc *get_rsdt_addr(void)
 	assert(rsdp->rsdp.rev == 0);
 	if(sdt_vaddr == NULL) {
 		/* TODO: determine length? */
-		sdt_vaddr = pmap_allocate(rsdp->rsdp.rsdt_addr, PMAP_WB);
+		sdt_vaddr = pmap_allocate(rsdp->rsdp.rsdt_addr, 0x1000, PMAP_WB);
 	}
 	return sdt_vaddr;
 }
@@ -63,17 +63,17 @@ void *acpi_find_table(const char *sig)
 		struct rsdt_desc *rsdt = get_rsdt_addr();
 		int entries = (rsdt->header.length - sizeof(rsdt->header)) / 4;
 		for(int i = 0; i < entries; i++) {
-			struct sdt_header *head = mm_ptov(rsdt->sdts[i]);
+			struct sdt_header *head = pmap_allocate(rsdt->sdts[i], sizeof(*head), PMAP_WB);
 			if(!strncmp(head->sig, sig, 4))
-				return head;
+				return pmap_allocate(rsdt->sdts[i], head->length, PMAP_WB);
 		}
 	} else {
 		struct xsdt_desc *xsdt = get_xsdt_addr();
 		int entries = (xsdt->header.length - sizeof(xsdt->header)) / 8;
 		for(int i = 0; i < entries; i++) {
-			struct sdt_header *head = mm_ptov(xsdt->sdts[i]);
+			struct sdt_header *head = pmap_allocate(xsdt->sdts[i], sizeof(*head), PMAP_WB);
 			if(!strncmp(head->sig, sig, 4))
-				return head;
+				return pmap_allocate(xsdt->sdts[i], head->length, PMAP_WB);
 		}
 	}
 	return NULL;

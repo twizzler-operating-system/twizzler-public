@@ -1,6 +1,7 @@
 #include <arch/x86_64-acpi.h>
 #include <debug.h>
 #include <memory.h>
+#include <pmap.h>
 #include <system.h>
 
 struct __packed hpet_desc {
@@ -30,15 +31,16 @@ struct __packed hpet_desc {
 
 static struct hpet_desc *hpet;
 static uint32_t countperiod;
+static void *hpet_address;
 
 __noinstrument static inline uint64_t hpet_read64(int offset)
 {
-	return *(volatile uint64_t *)(mm_ptov(hpet->address + offset));
+	return *(volatile uint64_t *)((uintptr_t)hpet_address + offset);
 }
 
 __noinstrument static inline void hpet_write64(int offset, uint64_t data)
 {
-	*(volatile uint64_t *)(mm_ptov(hpet->address + offset)) = data;
+	*(volatile uint64_t *)((uintptr_t)hpet_address + offset) = data;
 }
 
 __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void hpet_init(void)
@@ -47,10 +49,13 @@ __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void hpet_in
 		return;
 	}
 
+	hpet_address = pmap_allocate(hpet->address, sizeof(*hpet), PMAP_UC);
+	printk("::hpet = %p\n", hpet);
+
 	uint64_t tmp = hpet_read64(HPET_CAP);
 	countperiod = tmp >> 32;
 	if(!(tmp & HPET_COUNT_SIZE_64)) {
-		panic("HPET is a 32-bit counter");
+		return;
 	}
 	int count = (tmp >> 8) & 0xf;
 	/* disable */

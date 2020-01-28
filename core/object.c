@@ -583,7 +583,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	}
 #endif
 
-#if 0
+#if 1
 	printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT "\n",
 	  current_thread ? current_thread->id : -1,
 	  ip,

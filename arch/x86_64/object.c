@@ -64,6 +64,7 @@ void arch_object_map_slot(struct object *obj, uint64_t flags)
 	}
 	uint64_t *pdpt = space->arch.pdpts[pml4_idx];
 	pdpt[pdpt_idx] = obj->arch.pt_root | ef;
+	printk(":: map slot: %lx %lx\n", pdpt[pdpt_idx], obj->slot->num);
 }
 
 /* TODO: switch to passing an objpage */
@@ -182,6 +183,7 @@ bool arch_object_map_page(struct object *obj, struct objpage *op)
 		}
 		uint64_t *pt = obj->arch.pts[pd_idx];
 		pt[pt_idx] = op->page->addr | flags;
+		printk("MAPPED %d %d %lx->%lx\n", pd_idx, pt_idx, virt, op->page->addr | flags);
 	}
 	return true;
 }
@@ -190,6 +192,7 @@ void arch_object_init(struct object *obj)
 {
 	obj->arch.pd = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
 	obj->arch.pt_root = mm_vtop(obj->arch.pd);
+	printk("objinit: %p %lx\n", obj->arch.pd, obj->arch.pt_root);
 	obj->arch.pts = (void *)mm_memory_alloc(512 * sizeof(void *), PM_TYPE_DRAM, true);
 }
 
