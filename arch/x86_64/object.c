@@ -17,7 +17,7 @@ bool arch_object_getmap_slot_flags(struct object *obj, uint64_t *flags)
 	  current_thread ? &current_thread->active_sc->space : &_bootstrap_object_space;
 	if(!obj->slot)
 		return false;
-	uintptr_t virt = obj->slot->num * OBJ_MAXSIZE;
+	uintptr_t virt = SLOT_TO_OADDR(obj->slot->num);
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
 
@@ -53,7 +53,7 @@ void arch_object_map_slot(struct object *obj, uint64_t flags)
 	struct object_space *space =
 	  current_thread ? &current_thread->active_sc->space : &_bootstrap_object_space;
 	assert(obj->slot != NULL);
-	uintptr_t virt = obj->slot->num * OBJ_MAXSIZE;
+	uintptr_t virt = SLOT_TO_OADDR(obj->slot->num);
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
 
@@ -108,6 +108,40 @@ bool arch_object_premap_page(struct object *obj, int idx, int level)
 		obj->arch.pts[pd_idx] = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
 		obj->arch.pd[pd_idx] = mm_vtop(obj->arch.pts[pd_idx]) | EPT_READ | EPT_WRITE | EPT_EXEC;
 	}
+	return true;
+}
+
+bool arch_object_getmap(struct object *obj,
+  uintptr_t off,
+  uintptr_t *phys,
+  int *level,
+  uint64_t *flags)
+{
+	int pd_idx = PD_IDX(off);
+	int pt_idx = PT_IDX(off);
+	if(!(obj->arch.pd[pd_idx]))
+		return false;
+	uintptr_t p = 0;
+	uint64_t f = 0;
+	int l = 0;
+	if(obj->arch.pd[pd_idx] & PAGE_LARGE) {
+		l = 1;
+		p = obj->arch.pd[pd_idx] & EPT_PAGE_MASK;
+		f = obj->arch.pd[pd_idx] & ~EPT_PAGE_MASK;
+	} else {
+		uint64_t *pt = obj->arch.pts[pd_idx];
+		if(!(pt[pt_idx]))
+			return false;
+		l = 0;
+		p = pt[pt_idx] & EPT_PAGE_MASK;
+		f = pt[pt_idx] & ~EPT_PAGE_MASK;
+	}
+	if(level)
+		*level = l;
+	if(flags)
+		*flags = f;
+	if(phys)
+		*phys = p;
 	return true;
 }
 

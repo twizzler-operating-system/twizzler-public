@@ -600,7 +600,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	if(do_map) {
 		arch_object_map_slot(o, perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
 	}
-	if(o->kernel_obj) {
+	if(o->alloc_pages) {
 		struct objpage p;
 		p.page = page_alloc(PAGE_TYPE_VOLATILE, 1); /* TODO: refcount */
 		p.idx = (loaddr % OBJ_MAXSIZE) / mm_page_size(p.page->level);

@@ -234,7 +234,7 @@ void x86_64_vmexit_handler(struct processor *proc)
 	unsigned long reason = vmcs_readl(VMCS_EXIT_REASON);
 	unsigned long qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
 	unsigned long grip = vmcs_readl(VMCS_GUEST_RIP);
-	// unsigned long iinfo = vmcs_readl(VMCS_VM_INSTRUCTION_INFO);
+	unsigned long iinfo = vmcs_readl(VMCS_VM_INSTRUCTION_INFO);
 	/*
 	    if(reason != VMEXIT_REASON_CPUID
 	            && reason != VMEXIT_REASON_VMCALL
@@ -280,7 +280,7 @@ void x86_64_vmexit_handler(struct processor *proc)
 			vm_instruction_advance();
 			break;
 		default:
-			panic("Unhandled VMEXIT: %ld %lx %lx", reason, qual, grip);
+			panic("Unhandled VMEXIT: %ld %lx %lx %lx", reason, qual, grip, iinfo);
 			break;
 	}
 

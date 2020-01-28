@@ -76,6 +76,10 @@ void mm_init_region(struct memregion *reg,
 void *mm_memory_alloc(size_t length, int type, bool clear);
 void mm_memory_dealloc(void *addr);
 uintptr_t mm_physical_early_alloc(void);
+void *mm_ptov(uintptr_t addr);
+uintptr_t mm_vtop(void *addr);
+uintptr_t mm_vtoo(void *addr);
+uintptr_t mm_otop(uintptr_t oaddr);
 
 static inline void *mm_virtual_early_alloc(void)
 {
@@ -116,6 +120,12 @@ void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object 
 void arch_vm_unmap_object(struct vm_context *ctx, struct vmap *map, struct object *obj);
 bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int level, uint64_t flags);
 bool arch_vm_unmap(struct vm_context *ctx, uintptr_t virt);
+bool arch_vm_getmap(struct vm_context *ctx,
+  uintptr_t virt,
+  uintptr_t *phys,
+  int *level,
+  uint64_t *flags);
+
 struct thread;
 bool vm_setview(struct thread *, struct object *viewobj);
 bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off);

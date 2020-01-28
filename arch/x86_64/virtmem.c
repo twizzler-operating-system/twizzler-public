@@ -32,7 +32,7 @@ static bool __do_vm_map(struct vm_context *ctx,
 		table[is_kernel ? pml4_idx / 2 : pml4_idx] =
 		  (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
 		/* TODO: right flags? */
-		ctx->arch.pml4[pml4_idx] = mm_vtop(table[is_kernel ? pml4_idx / 2 : pml4_idx])
+		ctx->arch.pml4[pml4_idx] = mm_vtoo(table[is_kernel ? pml4_idx / 2 : pml4_idx])
 		                           | PAGE_PRESENT | VM_MAP_WRITE | VM_MAP_USER;
 	}
 	uintptr_t *pdpt = table[is_kernel ? pml4_idx / 2 : pml4_idx];
@@ -194,7 +194,7 @@ void x86_64_vm_kernel_context_init(void)
 void arch_mm_context_init(struct vm_context *ctx)
 {
 	ctx->arch.pml4 = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
-	ctx->arch.pml4_phys = mm_vtop(ctx->arch.pml4);
+	ctx->arch.pml4_phys = mm_vtoo(ctx->arch.pml4);
 	for(int i = 0; i < 256; i++) {
 		ctx->arch.pml4[i] = 0;
 	}

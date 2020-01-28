@@ -42,6 +42,55 @@ void mm_register_region(struct memregion *reg)
 	list_insert(&physical_regions, &reg->entry);
 }
 
+uintptr_t mm_vtoo(void *addr)
+{
+	uintptr_t phys;
+	int level;
+	if(!arch_vm_getmap(NULL, (uintptr_t)addr, &phys, &level, NULL))
+		panic("mm_vtoo with unmapped addr");
+	return phys + (uintptr_t)addr % mm_page_size(level);
+}
+
+uintptr_t mm_otop(uintptr_t oaddr)
+{
+	struct object *o = obj_lookup_slot(oaddr);
+	if(!o) {
+		panic("mm_otop no object");
+	}
+	int level;
+	uintptr_t phys;
+	/* TODO: this might happen if we allocate memory, don't clear it, and then try to compute the
+	 * physical address before touching it. */
+	if(!arch_object_getmap(o, oaddr % OBJ_MAXSIZE, &phys, &level, NULL))
+		panic("mm_otop no such mapping");
+	// printk(":: %lx %lx %lx\n", oaddr, phys, oaddr % mm_page_size(level));
+
+	return phys + oaddr % mm_page_size(level);
+}
+
+uintptr_t mm_vtop(void *addr)
+{
+	uintptr_t v = (uintptr_t)addr;
+	if(v >= SLOT_TO_VADDR(KVSLOT_BOOTSTRAP)
+	   && v <= SLOT_TO_VADDR(KVSLOT_BOOTSTRAP) + (OBJ_MAXSIZE - 1)) {
+		//	printk("vtop: %p -> %lx\n", addr, (uintptr_t)addr - PHYSICAL_MAP_START);
+		return (uintptr_t)addr - PHYSICAL_MAP_START;
+	}
+	uintptr_t oaddr = mm_vtoo(addr);
+	uintptr_t paddr = mm_otop(oaddr);
+	// printk("vtop: %p -> %lx -> %lx\n", addr, oaddr, paddr);
+	return paddr;
+}
+
+void *mm_ptov(uintptr_t addr)
+{
+	uintptr_t p = (uintptr_t)addr;
+	if(p >= SLOT_TO_OADDR(0) && p <= SLOT_TO_OADDR(0) + (OBJ_MAXSIZE - 1)) {
+		return (uintptr_t)addr + PHYSICAL_MAP_START;
+	}
+	panic("UNIMP");
+}
+
 void mm_init_region(struct memregion *reg,
   uintptr_t start,
   size_t len,
@@ -91,6 +140,7 @@ void mm_init_phase_2(void)
 			reg->ready = true;
 		}
 	}
+	slots_init();
 
 	printk("ok, mm\n");
 	printk("early allocation: %ld KB\n", mm_early_count / 1024);
@@ -109,9 +159,6 @@ void mm_init_phase_2(void)
 	  mm_page_count,
 	  (mm_page_count * mm_page_size(0)) / 1024,
 	  (mm_page_count * mm_page_size(0)) / (1024 * 1024));
-	slots_init();
-	for(;;)
-		;
 }
 
 struct memregion *mm_physical_find_region(uintptr_t addr)
@@ -126,6 +173,9 @@ struct memregion *mm_physical_find_region(uintptr_t addr)
 
 uintptr_t mm_physical_early_alloc(void)
 {
+	if(!list_empty(&allocators)) {
+		panic("tried to early-alloc after mm_phase_2");
+	}
 	foreach(e, list, &physical_regions) {
 		struct memregion *reg = list_entry(e, struct memregion, entry);
 
@@ -193,6 +243,7 @@ void *mm_memory_alloc(size_t length, int type, bool clear)
 		if(length != mm_page_size(0))
 			panic("tried to allocate non-page-size memory in bootstrap mode: %lx", length);
 		void *p = mm_virtual_early_alloc();
+		// printk("early alloc: %p\n", p);
 		return p;
 	}
 	spinlock_acquire_save(&allocator_lock);
@@ -208,6 +259,7 @@ void *mm_memory_alloc(size_t length, int type, bool clear)
 			if(clear) {
 				memset(p, 0, length);
 			}
+			// printk("alloc: %p\n", p);
 			return (void *)p;
 		}
 		if(alloc->free_memory > length) {
@@ -217,6 +269,7 @@ void *mm_memory_alloc(size_t length, int type, bool clear)
 				spinlock_release_restore(&allocator_lock);
 				if(clear)
 					memset((void *)x, 0, length);
+				// printk("alloc: %p\n", x);
 				return (void *)x;
 			}
 		}

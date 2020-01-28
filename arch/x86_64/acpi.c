@@ -41,7 +41,7 @@ static struct xsdt_desc *get_xsdt_addr(void)
 	assert(rsdp != NULL);
 	assert(rsdp->rsdp.rev >= 1);
 	if(sdt_vaddr == NULL) {
-		sdt_vaddr = pmap_allocate(rsdp->xsdt_addr, rsdp->length, PMAP_WB);
+		sdt_vaddr = pmap_allocate(rsdp->xsdt_addr, PMAP_WB);
 	}
 	return sdt_vaddr;
 }
@@ -52,7 +52,7 @@ static struct rsdt_desc *get_rsdt_addr(void)
 	assert(rsdp->rsdp.rev == 0);
 	if(sdt_vaddr == NULL) {
 		/* TODO: determine length? */
-		sdt_vaddr = pmap_allocate(rsdp->rsdp.rsdt_addr, 0x1000, PMAP_WB);
+		sdt_vaddr = pmap_allocate(rsdp->rsdp.rsdt_addr, PMAP_WB);
 	}
 	return sdt_vaddr;
 }

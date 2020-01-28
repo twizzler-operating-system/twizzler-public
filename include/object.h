@@ -66,6 +66,7 @@ struct object {
 	bool idversafe;
 	bool kernel_obj;
 	bool persist; // TODO: combine these into flags
+	bool alloc_pages;
 	int cache_mode;
 
 	_Atomic enum kso_type kso_type;
@@ -128,6 +129,11 @@ void arch_object_unmap_page(struct object *obj, size_t idx);
 bool arch_object_map_page(struct object *obj, struct objpage *);
 bool arch_object_map_flush(struct object *obj, size_t idx);
 bool arch_object_premap_page(struct object *obj, int idx, int level);
+bool arch_object_getmap(struct object *obj,
+  uintptr_t off,
+  uintptr_t *phys,
+  int *level,
+  uint64_t *flags);
 
 void arch_object_space_init(struct object_space *space);
 void arch_object_space_destroy(struct object_space *space);

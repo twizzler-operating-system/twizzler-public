@@ -50,6 +50,7 @@ void slot_init_bootstrap(size_t oslot, size_t vslot)
 	_bootstrap_object.slot = &_bootstrap_slot;
 	_bootstrap_slot.obj = &_bootstrap_object;
 	_bootstrap_object.kernel_obj = true;
+	_bootstrap_object.alloc_pages = true;
 
 	arch_vm_map_object(NULL, &_bootstrap_vmap, &_bootstrap_object);
 	arch_object_map_slot(&_bootstrap_object, OBJSPACE_READ | OBJSPACE_WRITE);
