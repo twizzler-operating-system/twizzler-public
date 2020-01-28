@@ -6,8 +6,8 @@
 struct arch_vm_context {
 	uintptr_t pml4_phys;
 	uint64_t *pml4;
-	uint64_t *kernel_pdpts;
-	uint64_t *user_pdpts;
+	uint64_t **kernel_pdpts;
+	uint64_t **user_pdpts;
 };
 
 /* Intel 3A 4.5 */

@@ -245,7 +245,7 @@ long syscall_opin(uint64_t lo, uint64_t hi, uint64_t *addr, int flags)
 	} else {
 		o->pinned = true;
 		obj_alloc_slot(o);
-		assert(o->slot);
+		assert(o->slot != NULL);
 		if(addr)
 			*addr = o->slot->num * OBJ_MAXSIZE;
 	}

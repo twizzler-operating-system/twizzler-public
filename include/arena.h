@@ -61,7 +61,7 @@ static inline void arena_destroy(struct arena *arena)
 	struct arena_node *node = arena->start, *next;
 	while(node) {
 		next = node->next;
-		mm_memory_dealloc((uintptr_t)node);
+		mm_memory_dealloc(node);
 		node = next;
 	}
 }

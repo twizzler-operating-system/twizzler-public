@@ -54,19 +54,17 @@ bool arch_vm_getmap(struct vm_context *ctx,
 	}
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
-	int pd_idx = PD_IDX(virt);
-	int pt_idx = PT_IDX(virt);
 	bool is_kernel = VADDR_IS_KERNEL(virt);
 
-	uintptr_t p, f;
-	int l;
+	uintptr_t p = 0, f = 0;
+	int l = 0;
 	if(ctx->arch.pml4[pml4_idx] == 0) {
 		return false;
 	}
 
 	uint64_t **table = is_kernel ? ctx->arch.kernel_pdpts : ctx->arch.user_pdpts;
 	uintptr_t *pdpt = table[is_kernel ? pml4_idx / 2 : pml4_idx];
-	assert(pdpt);
+	assert(pdpt != NULL);
 	if(pdpt[pdpt_idx] == 0) {
 		return false;
 	} else if(pdpt[pdpt_idx] & PAGE_LARGE) {
@@ -94,8 +92,6 @@ bool arch_vm_unmap(struct vm_context *ctx, uintptr_t virt)
 	}
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
-	int pd_idx = PD_IDX(virt);
-	int pt_idx = PT_IDX(virt);
 	bool is_kernel = VADDR_IS_KERNEL(virt);
 
 	if(ctx->arch.pml4[pml4_idx] == 0) {
@@ -104,7 +100,7 @@ bool arch_vm_unmap(struct vm_context *ctx, uintptr_t virt)
 
 	uint64_t **table = is_kernel ? ctx->arch.kernel_pdpts : ctx->arch.user_pdpts;
 	uintptr_t *pdpt = table[is_kernel ? pml4_idx / 2 : pml4_idx];
-	assert(pdpt);
+	assert(pdpt != NULL);
 	if(pdpt[pdpt_idx] == 0) {
 		return false;
 	} else if(pdpt[pdpt_idx] & PAGE_LARGE) {
@@ -132,7 +128,7 @@ void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object 
 	if(obj->slot == NULL) {
 		panic("tried to map an unslotted object");
 	}
-	uintptr_t vaddr = SLOT_TO_VADDR(map->slot);
+	uintptr_t vaddr = (uintptr_t)SLOT_TO_VADDR(map->slot);
 	uintptr_t oaddr = obj->slot->num * mm_page_size(obj->pglevel);
 
 	/* TODO: map protections */
@@ -144,10 +140,10 @@ void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object 
 
 void arch_vm_unmap_object(struct vm_context *ctx, struct vmap *map, struct object *obj)
 {
-	if(obj->slot == -1) {
+	if(obj->slot == NULL) {
 		panic("tried to map an unslotted object");
 	}
-	uintptr_t vaddr = SLOT_TO_VADDR(map->slot);
+	uintptr_t vaddr = (uintptr_t)SLOT_TO_VADDR(map->slot);
 
 	if(arch_vm_unmap(ctx, vaddr) == false) {
 		/* TODO (major): is this a problem? */
@@ -185,7 +181,7 @@ void x86_64_vm_kernel_context_init(void)
 		pdpt_slot = KVSLOT_BOOTSTRAP % 512ul;
 		pdpt[pdpt_slot] = VM_MAP_WRITE | VM_MAP_GLOBAL | PAGE_LARGE | PAGE_PRESENT;
 
-		kernel_virts_pdpt[pml4_slot / 2] = (uint64_t)pdpt;
+		kernel_virts_pdpt[pml4_slot / 2] = pdpt;
 
 		kernel_ctx.arch.kernel_pdpts = kernel_virts_pdpt;
 		kernel_ctx.arch.pml4 = pml4;
@@ -207,5 +203,5 @@ void arch_mm_context_init(struct vm_context *ctx)
 	}
 
 	ctx->arch.kernel_pdpts = kernel_virts_pdpt;
-	ctx->arch.user_pdpts = mm_memory_alloc(256 * sizeof(void *), PM_TYPE_DRAM, true);
+	ctx->arch.user_pdpts = (void *)mm_memory_alloc(256 * sizeof(void *), PM_TYPE_DRAM, true);
 }

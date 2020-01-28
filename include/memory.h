@@ -61,6 +61,7 @@ struct memregion {
 };
 
 void mm_init(void);
+void mm_init_phase_2(void);
 void arch_mm_init(void);
 uintptr_t pmm_buddy_allocate(struct mem_allocator *, size_t length);
 void pmm_buddy_deallocate(struct mem_allocator *, uintptr_t address);
@@ -72,8 +73,8 @@ void mm_init_region(struct memregion *reg,
   enum memory_type type,
   enum memory_subtype);
 
-uintptr_t mm_memory_alloc(size_t length, int type, bool clear);
-void mm_memory_dealloc(uintptr_t addr);
+void *mm_memory_alloc(size_t length, int type, bool clear);
+void mm_memory_dealloc(void *addr);
 uintptr_t mm_physical_early_alloc(void);
 
 static inline void *mm_virtual_early_alloc(void)
@@ -115,20 +116,15 @@ void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object 
 void arch_vm_unmap_object(struct vm_context *ctx, struct vmap *map, struct object *obj);
 bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int level, uint64_t flags);
 bool arch_vm_unmap(struct vm_context *ctx, uintptr_t virt);
-bool vm_map_contig(struct vm_context *v,
-  uintptr_t virt,
-  uintptr_t phys,
-  size_t len,
-  uintptr_t flags);
 struct thread;
 bool vm_setview(struct thread *, struct object *viewobj);
 bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off);
 
+void vm_context_map(struct vm_context *v, struct vmap *m);
+void vm_vmap_init(struct vmap *vmap, struct object *obj, size_t vslot, uint32_t flags);
 #define FAULT_EXEC 0x1
 #define FAULT_WRITE 0x2
 #define FAULT_USER 0x4
 #define FAULT_ERROR_PERM 0x10
 #define FAULT_ERROR_PRES 0x20
 void kernel_fault_entry(uintptr_t ip, uintptr_t addr, int flags);
-
-void *pmap_allocate(uintptr_t phys, size_t len, long flags);

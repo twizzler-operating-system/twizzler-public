@@ -53,16 +53,14 @@ void slot_init_bootstrap(size_t oslot, size_t vslot)
 
 	arch_vm_map_object(NULL, &_bootstrap_vmap, &_bootstrap_object);
 	arch_object_map_slot(&_bootstrap_object, OBJSPACE_READ | OBJSPACE_WRITE);
-	for(int idx = 0; idx < OBJ_MAXSIZE / mm_page_size(1); idx++) {
+	for(unsigned int idx = 0; idx < OBJ_MAXSIZE / mm_page_size(1); idx++) {
 		arch_object_premap_page(&_bootstrap_object, idx, 1);
 	}
 	rb_insert(&slot_root, &_bootstrap_slot, struct slot, node, __slot_compar);
-
-	printk("ok\n");
-	// arch_object_map_slot(
+	skip_bootstrap_slot = oslot;
 }
 
-__initializer static void _slots_init(void)
+void slots_init(void)
 {
 	_max_slot = (2ul << arch_processor_physical_width()) / OBJ_MAXSIZE;
 	/* skip both the bootstrap-alloc and the bootstrap (0) slot. */

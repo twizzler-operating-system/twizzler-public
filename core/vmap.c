@@ -18,7 +18,7 @@ static void _vmctx_ctor(void *_p, void *obj)
 static void _vmctx_dtor(void *_p, void *obj)
 {
 	(void)_p;
-	struct vm_context *v = obj;
+	(void)obj;
 }
 
 __initializer static void _init_vmctx(void)
@@ -38,29 +38,6 @@ void vm_context_destroy(struct vm_context *v)
 	slabcache_free(v);
 }
 
-bool vm_map_contig(struct vm_context *v,
-  uintptr_t virt,
-  uintptr_t phys,
-  size_t len,
-  uintptr_t flags)
-{
-	for(int level = MAX_PGLEVEL; level >= 0; level--) {
-		/* is this a valid level to map at? */
-		size_t pgsz = mm_page_size(level);
-		if(len % pgsz != 0) {
-			continue;
-		}
-
-		for(size_t off = 0; off < len; off += pgsz) {
-			if(!arch_vm_map(v, virt + off, phys + off, level, flags)) {
-				panic("overwriting existing mapping at %lx", virt + off);
-			}
-		}
-		return true;
-	}
-	panic("unable to map region (len=%ld) at any level", len);
-}
-
 static int vmap_compar_key(struct vmap *v, size_t slot)
 {
 	if(v->slot > slot)
@@ -70,32 +47,25 @@ static int vmap_compar_key(struct vmap *v, size_t slot)
 	return 0;
 }
 
-static inline vmap_compar(struct vmap *a, struct vmap *b)
+static int vmap_compar(struct vmap *a, struct vmap *b)
 {
 	return vmap_compar_key(a, b->slot);
 }
 
-static struct vmap *vm_context_map(struct vm_context *v,
-  uint128_t objid,
-  size_t slot,
-  uint32_t flags)
+void vm_vmap_init(struct vmap *vmap, struct object *obj, size_t vslot, uint32_t flags)
 {
-	struct object *obj = obj_lookup(objid);
-	if(!obj) {
-		return NULL;
-	}
+	vmap->slot = vslot;
+	krc_get(&obj->refs);
+	vmap->obj = obj;
+	vmap->flags = flags;
+	vmap->status = 0;
+}
 
-	if(rb_search(&current_thread->ctx->root, slot, struct vmap, node, vmap_compar_key)) {
+void vm_context_map(struct vm_context *v, struct vmap *m)
+{
+	if(!rb_insert(&v->root, m, struct vmap, node, vmap_compar)) {
 		panic("Map already exists");
 	}
-
-	struct vmap *m = slabcache_alloc(&sc_vmap);
-	m->slot = slot;
-	m->obj = obj; /* krc: move */
-	m->flags = flags;
-	m->status = 0;
-	rb_insert(&v->root, m, struct vmap, node, vmap_compar);
-	return m;
 }
 
 void kso_view_write(struct object *obj, size_t slot, struct viewentry *v)
@@ -254,8 +224,9 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 			spinlock_release_restore(&current_thread->ctx->lock);
 			return;
 		}
-		map = vm_context_map(current_thread->ctx, id, slot, fl & (VE_READ | VE_WRITE | VE_EXEC));
-		if(!map) {
+		map = slabcache_alloc(&sc_vmap);
+		struct object *obj = obj_lookup(id);
+		if(!obj) {
 			struct fault_object_info info;
 			popul_info(&info, flags, ip, addr, id);
 			info.flags |= FAULT_OBJECT_EXIST;
@@ -263,6 +234,9 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 			spinlock_release_restore(&current_thread->ctx->lock);
 			return;
 		}
+		vm_vmap_init(map, obj, slot, fl & (VE_READ | VE_WRITE | VE_EXEC));
+		obj_put(obj);
+		vm_context_map(current_thread->ctx, map);
 	}
 	spinlock_release_restore(&current_thread->ctx->lock);
 	if(map->obj->slot == NULL) {

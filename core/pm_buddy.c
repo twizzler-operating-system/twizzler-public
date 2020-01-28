@@ -138,7 +138,8 @@ void pmm_buddy_init(struct mem_allocator *alloc)
 	assert(init_len < alloc->length);
 	alloc->available_memory = alloc->length - init_len;
 	alloc->marker = (uintptr_t)alloc->vstart + init_len;
-	for(char *addr = alloc->vstart + align_up(bmlen, MIN_SIZE); addr < alloc->vstart + init_len;
+	for(char *addr = alloc->vstart + align_up(bmlen, MIN_SIZE);
+	    addr < (char *)alloc->vstart + init_len;
 	    addr += MIN_SIZE) {
 		//	printk("dealloc: %lx\n", addr);
 		pmm_buddy_deallocate(alloc, (uintptr_t)addr);

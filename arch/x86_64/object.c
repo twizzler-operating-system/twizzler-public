@@ -52,13 +52,13 @@ void arch_object_map_slot(struct object *obj, uint64_t flags)
 
 	struct object_space *space =
 	  current_thread ? &current_thread->active_sc->space : &_bootstrap_object_space;
-	assert(obj->slot);
+	assert(obj->slot != NULL);
 	uintptr_t virt = obj->slot->num * OBJ_MAXSIZE;
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
 
 	if(!space->arch.ept[pml4_idx]) {
-		space->arch.pdpts[pml4_idx] = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+		space->arch.pdpts[pml4_idx] = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
 		space->arch.ept[pml4_idx] =
 		  mm_vtop(space->arch.pdpts[pml4_idx]) | EPT_READ | EPT_WRITE | EPT_EXEC;
 	}
@@ -102,11 +102,10 @@ bool arch_object_premap_page(struct object *obj, int idx, int level)
 		return true;
 	uintptr_t virt = idx * mm_page_size(level);
 	int pd_idx = PD_IDX(virt);
-	int pt_idx = PT_IDX(virt);
 	/* map with ALL permissions; we'll restrict permissions at a higher level */
 
 	if(!obj->arch.pts[pd_idx]) {
-		obj->arch.pts[pd_idx] = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+		obj->arch.pts[pd_idx] = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
 		obj->arch.pd[pd_idx] = mm_vtop(obj->arch.pts[pd_idx]) | EPT_READ | EPT_WRITE | EPT_EXEC;
 	}
 	return true;
@@ -144,7 +143,7 @@ bool arch_object_map_page(struct object *obj, struct objpage *op)
 		obj->arch.pd[pd_idx] = op->page->addr | flags | PAGE_LARGE;
 	} else {
 		if(!obj->arch.pts[pd_idx]) {
-			obj->arch.pts[pd_idx] = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+			obj->arch.pts[pd_idx] = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
 			obj->arch.pd[pd_idx] = mm_vtop(obj->arch.pts[pd_idx]) | EPT_READ | EPT_WRITE | EPT_EXEC;
 		}
 		uint64_t *pt = obj->arch.pts[pd_idx];
@@ -155,16 +154,16 @@ bool arch_object_map_page(struct object *obj, struct objpage *op)
 
 void arch_object_init(struct object *obj)
 {
-	obj->arch.pd = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+	obj->arch.pd = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
 	obj->arch.pt_root = mm_vtop(obj->arch.pd);
-	obj->arch.pts = mm_memory_alloc(512 * sizeof(void *), PM_TYPE_DRAM, true);
+	obj->arch.pts = (void *)mm_memory_alloc(512 * sizeof(void *), PM_TYPE_DRAM, true);
 }
 
 void arch_object_space_init(struct object_space *space)
 {
 	space->arch.ept = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
 	space->arch.ept_phys = mm_vtop(space->arch.ept);
-	space->arch.pdpts = mm_memory_alloc(512 * sizeof(void *), PM_TYPE_DRAM, true);
+	space->arch.pdpts = (void *)mm_memory_alloc(512 * sizeof(void *), PM_TYPE_DRAM, true);
 }
 
 void arch_object_space_destroy(struct object_space *space)
@@ -176,5 +175,6 @@ void arch_object_space_destroy(struct object_space *space)
 
 void arch_object_destroy(struct object *obj)
 {
+	(void)obj;
 	panic("TODO");
 }

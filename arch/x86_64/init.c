@@ -73,8 +73,8 @@ static void proc_init(void)
 		//	printk("mttr mask %d: %x %x\n", i, hi, lo);
 	}
 
-	x86_64_rdmsr(0x277 /* PAT */, &lo, &hi);
-	uint64_t pat = ((long)hi << 32) | (long)lo;
+	// x86_64_rdmsr(0x277 /* PAT */, &lo, &hi);
+	// uint64_t pat = ((long)hi << 32) | (long)lo;
 	// printk("PAT: %lx\n", pat);
 
 	/* in case we need to field an interrupt before we properly setup gs */
@@ -297,7 +297,7 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 	serial_init();
 	proc_init();
 
-	void (*initrd_hook)(void *) = NULL;
+	// void (*initrd_hook)(void *) = NULL;
 	if(magic == MULTIBOOT2_BOOTLOADER_MAGIC) {
 		struct multiboot_info *info = (void *)mth;
 		struct multiboot_tag *tag;
@@ -392,7 +392,6 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 		if(module_tag) {
 			mod_start = mm_ptov(module_tag->mod_start);
 			mod_len = module_tag->mod_end - module_tag->mod_start;
-			initrd_hook = x86_64_initrd2;
 		}
 	} else if(magic == 0x2BADB002) {
 		/* TODO: deprecate */
@@ -406,8 +405,6 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 		x86_64_bot_mem = (end > PHYS((uintptr_t)&kernel_end)) ? end : PHYS((uintptr_t)&kernel_end);
 		x86_64_bot_mem = align_up(x86_64_bot_mem, 0x1000);
 		x86_64_top_mem = align_down(x86_64_top_mem, 0x1000);
-		if(m)
-			initrd_hook = x86_64_initrd;
 	} else {
 		panic("unknown bootloader type!");
 	}

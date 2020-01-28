@@ -4,6 +4,7 @@ static long _tsc_ps = 0;
 
 long arch_syscall_kconf(int cmd, long arg)
 {
+	(void)arg;
 	switch(cmd) {
 		case KCONF_ARCH_TSC_PSPERIOD:
 			return _tsc_ps;

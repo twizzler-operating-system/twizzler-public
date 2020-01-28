@@ -5,6 +5,7 @@
 #include <init.h>
 #include <memory.h>
 #include <object.h>
+#include <page.h>
 #include <processor.h>
 #include <secctx.h>
 #include <thread.h>
@@ -78,6 +79,7 @@ void kernel_early_init(void)
  * and per-node threading.
  */
 
+extern void _init(void);
 void kernel_init(void)
 {
 	page_init_bootstrap();

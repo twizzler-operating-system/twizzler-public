@@ -4,12 +4,12 @@
 #include <spinlock.h>
 #include <stdatomic.h>
 
-bool __spinlock_acquire(struct spinlock *lock, const char *f, int l)
+bool __spinlock_acquire(struct spinlock *lock, const char *f __unused, int l __unused)
 {
 	register bool set = arch_interrupt_set(0);
 	// if(f)
 	//	printk("SLA: %s:%d\n", f, l);
-	size_t count = 0;
+	__unused size_t count = 0;
 	while(atomic_fetch_or_explicit(&lock->data, 1, memory_order_acquire) & 1) {
 		while(atomic_load_explicit(&lock->data, memory_order_acquire)) {
 			arch_processor_relax();

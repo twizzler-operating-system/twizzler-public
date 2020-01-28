@@ -79,12 +79,6 @@ static inline void vmcs_write32_fixed(uint32_t msr, uint32_t vmcs_field, uint32_
 	val |= msr_low;
 	vmcs_writel(vmcs_field, val);
 }
-static bool x86_64_ept_map(uintptr_t ept_phys,
-  uintptr_t virt,
-  uintptr_t phys,
-  int level,
-  uint64_t flags,
-  bool remap);
 
 static void x86_64_enable_vmx(void)
 {
@@ -240,7 +234,7 @@ void x86_64_vmexit_handler(struct processor *proc)
 	unsigned long reason = vmcs_readl(VMCS_EXIT_REASON);
 	unsigned long qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
 	unsigned long grip = vmcs_readl(VMCS_GUEST_RIP);
-	unsigned long iinfo = vmcs_readl(VMCS_VM_INSTRUCTION_INFO);
+	// unsigned long iinfo = vmcs_readl(VMCS_VM_INSTRUCTION_INFO);
 	/*
 	    if(reason != VMEXIT_REASON_CPUID
 	            && reason != VMEXIT_REASON_VMCALL

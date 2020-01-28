@@ -1,28 +1,33 @@
+#include <debug.h>
+#include <memory.h>
 #include <slab.h>
 /* TODO (minor): optimization: we could try to fit several slabs in a
  * single page if the object size is small enough (sz*64 < PAGE_SIZE/2)
  */
 
 /* TODO (major): remove this hard coding */
-#define PAGE_SIZE 0x1000
+#define PAGE_SIZE mm_page_size(0)
+
+//#define slab_size(sz) align_down((sizeof(struct slab) + 64 * sz), mm_page_size(0))
 
 static inline size_t slab_size(size_t sz)
 {
-	size_t tmp = sz * 64;
-	if(tmp < PAGE_SIZE)
-		tmp = PAGE_SIZE;
-	if(tmp > PAGE_SIZE * 2)
-		tmp = PAGE_SIZE * 2;
-	return tmp;
+	size_t x = align_down((sizeof(struct slab) + 64 * sz), mm_page_size(0));
+	return x == 0 ? mm_page_size(0) : x;
 }
-
-#define slab_size(sz) align_down((sizeof(struct slab) + 64 * sz), mm_page_size(0))
 
 #define is_empty(x) ((x).next == &(x))
 
 #define first_set_bit(x) __builtin_ctzll(x)
 #define num_set(x) __builtin_popcountll(x)
-#define obj_per_slab(sz) ((slab_size(sz) - sizeof(struct slab)) / (sz))
+static inline size_t obj_per_slab(size_t sz)
+{
+	size_t n = (slab_size(sz) - sizeof(struct slab)) / sz;
+	if(n > 64)
+		n = 64;
+	assert(n > 0);
+	return n;
+}
 
 static inline void add_to_list(struct slab *list, struct slab *s)
 {
@@ -38,8 +43,6 @@ static inline void del_from_list(struct slab *s)
 	s->prev->next = s->next;
 }
 
-#include <debug.h>
-#include <memory.h>
 static struct slab *new_slab(struct slabcache *c)
 {
 	/* TODO: detect when this wastes a lot of memory */

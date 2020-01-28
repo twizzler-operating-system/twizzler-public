@@ -31,6 +31,7 @@ struct kso_invl_args {
 #define kso_get_obj(ptr, type) container_of(ptr, struct object, type)
 
 struct object;
+struct thread;
 struct kso_calls {
 	bool (*attach)(struct object *parent, struct object *child, int flags);
 	bool (*detach)(struct object *parent, struct object *child, int sysc, int flags);
@@ -115,6 +116,7 @@ void obj_put(struct object *o);
 void obj_assign_id(struct object *obj, objid_t id);
 objid_t obj_compute_id(struct object *obj);
 void obj_init(struct object *obj);
+void obj_system_init(void);
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
@@ -126,15 +128,16 @@ void arch_object_unmap_page(struct object *obj, size_t idx);
 bool arch_object_map_page(struct object *obj, struct objpage *);
 bool arch_object_map_flush(struct object *obj, size_t idx);
 bool arch_object_premap_page(struct object *obj, int idx, int level);
+
 void arch_object_space_init(struct object_space *space);
 void arch_object_space_destroy(struct object_space *space);
 static inline void object_space_init(struct object_space *space)
 {
-	arch_object_space_init(&space->arch);
+	arch_object_space_init(space);
 }
 static inline void object_space_destroy(struct object_space *space)
 {
-	arch_object_space_destroy(&space->arch);
+	arch_object_space_destroy(space);
 }
 bool arch_object_getmap_slot_flags(struct object *obj, uint64_t *flags);
 void arch_object_init(struct object *obj);

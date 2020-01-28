@@ -1,6 +1,7 @@
 #include <debug.h>
 #include <lib/iter.h>
 #include <memory.h>
+#include <object.h>
 #include <page.h>
 #include <slots.h>
 #include <thread.h>
@@ -108,6 +109,7 @@ void mm_init_phase_2(void)
 	  mm_page_count,
 	  (mm_page_count * mm_page_size(0)) / 1024,
 	  (mm_page_count * mm_page_size(0)) / (1024 * 1024));
+	slots_init();
 	for(;;)
 		;
 }
@@ -143,8 +145,7 @@ uintptr_t mm_physical_early_alloc(void)
 	panic("out of early-alloc memory");
 }
 
-#include <object.h>
-uintptr_t mm_memory_alloc(size_t length, int type, bool clear)
+void *mm_memory_alloc(size_t length, int type, bool clear)
 {
 	static struct spinlock nvs = SPINLOCK_INIT;
 	if(type == PM_TYPE_NV) {
@@ -175,13 +176,13 @@ uintptr_t mm_memory_alloc(size_t length, int type, bool clear)
 				if(x + length > 32ul * 1024ul * 1024ul * 1024ul)
 					panic("OOPM");
 				reg->off += length;
-				for(int j = 0; j < length / 0x1000; j++) {
+				for(unsigned int j = 0; j < length / 0x1000; j++) {
 					memset((void *)0xffffff0000000000ul + x, 0, 0x1000);
 				}
 				spinlock_release_restore(&nvs);
 				if(reg->off % (1024 * 1024 * 1024) == 0)
 					printk("GB ALLOCATED\n");
-				return x + reg->start;
+				return (void *)(x + reg->start);
 			}
 		}
 		/* TODO: */
@@ -192,7 +193,7 @@ uintptr_t mm_memory_alloc(size_t length, int type, bool clear)
 		if(length != mm_page_size(0))
 			panic("tried to allocate non-page-size memory in bootstrap mode: %lx", length);
 		void *p = mm_virtual_early_alloc();
-		return (uintptr_t)p;
+		return p;
 	}
 	spinlock_acquire_save(&allocator_lock);
 	foreach(e, list, &allocators) {
@@ -207,7 +208,7 @@ uintptr_t mm_memory_alloc(size_t length, int type, bool clear)
 			if(clear) {
 				memset(p, 0, length);
 			}
-			return p;
+			return (void *)p;
 		}
 		if(alloc->free_memory > length) {
 			uintptr_t x = pmm_buddy_allocate(alloc, length);
@@ -216,7 +217,7 @@ uintptr_t mm_memory_alloc(size_t length, int type, bool clear)
 				spinlock_release_restore(&allocator_lock);
 				if(clear)
 					memset((void *)x, 0, length);
-				return x;
+				return (void *)x;
 			}
 		}
 	}
@@ -230,8 +231,9 @@ uintptr_t mm_memory_alloc(size_t length, int type, bool clear)
 	return 0;
 }
 
-void mm_memory_dealloc(uintptr_t addr)
+void mm_memory_dealloc(void *_addr)
 {
+	uintptr_t addr = (uintptr_t)_addr;
 	foreach(e, list, &allocators) {
 		struct mem_allocator *alloc = list_entry(e, struct mem_allocator, entry);
 		if(addr >= (uintptr_t)alloc->vstart && addr < (uintptr_t)alloc->vstart + alloc->length) {

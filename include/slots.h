@@ -14,6 +14,8 @@ struct slot {
 struct slot *slot_alloc(void);
 struct slot *slot_lookup(size_t);
 void slot_release(struct slot *);
+void slots_init(void);
+void slot_init_bootstrap(size_t, size_t);
 
 /* TODO: arch-dep; larger address spaces */
 #define KVSLOT_KERNEL_IMAGE 0x3fffe
@@ -32,7 +34,7 @@ void slot_release(struct slot *);
 		uintptr_t y = (x)*OBJ_MAXSIZE;                                                             \
 		if(y & (1ul << 47))                                                                        \
 			y |= 0xffff000000000000ul;                                                             \
-		y;                                                                                         \
+		(void *)y;                                                                                 \
 	})
 
 #define KOSLOT_BOOTSTRAP 0

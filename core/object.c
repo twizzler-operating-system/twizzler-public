@@ -201,6 +201,7 @@ void obj_alloc_slot(struct object *obj)
 {
 	spinlock_acquire_save(&obj->lock);
 	if(obj->slot) {
+		spinlock_release_restore(&obj->lock);
 		return;
 	}
 	struct slot *slot = slot_alloc();

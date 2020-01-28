@@ -166,7 +166,7 @@ static bool __verify_region(void *item,
 			break;
 	}
 done:
-	mm_memory_dealloc((uintptr_t)keydata);
+	mm_memory_dealloc(keydata);
 	obj_put_page(p);
 	return ret;
 }
