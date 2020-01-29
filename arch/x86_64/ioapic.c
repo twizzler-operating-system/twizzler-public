@@ -2,13 +2,14 @@
 #include <arch/x86_64-io.h>
 #include <arch/x86_64-madt.h>
 #include <memory.h>
+#include <pmap.h>
 #include <processor.h>
 #include <system.h>
 #define MAX_IOAPICS 8
 
 struct ioapic {
 	int id;
-	uintptr_t vaddr;
+	void *vaddr;
 	int gsib;
 };
 
@@ -37,7 +38,7 @@ void ioapic_init(struct ioapic_entry *entry)
 	for(int i = 0; i < MAX_IOAPICS; i++) {
 		if(ioapics[i].id == -1) {
 			ioapics[i].id = entry->apicid;
-			ioapics[i].vaddr = (uintptr_t)mm_ptov(entry->ioapicaddr);
+			ioapics[i].vaddr = pmap_allocate(entry->ioapicaddr, 0x1000, PMAP_UC);
 			ioapics[i].gsib = entry->gsib;
 			return;
 		}

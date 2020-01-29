@@ -50,7 +50,6 @@ __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void hpet_in
 	}
 
 	hpet_address = pmap_allocate(hpet->address, sizeof(*hpet), PMAP_UC);
-	printk("::hpet = %p\n", hpet);
 
 	uint64_t tmp = hpet_read64(HPET_CAP);
 	countperiod = tmp >> 32;

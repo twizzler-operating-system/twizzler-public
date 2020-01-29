@@ -72,6 +72,7 @@ void kernel_early_init(void)
 {
 	mm_init();
 	processor_percpu_regions_init();
+	processor_early_init();
 }
 
 /* at this point, memory management, interrupt routines, global constructors, and shared
@@ -86,7 +87,6 @@ void kernel_init(void)
 	mm_init_phase_2();
 	_init();
 	processor_init_secondaries();
-	processor_perproc_init(NULL);
 }
 
 #if 0
@@ -233,6 +233,10 @@ static __inline__ unsigned long long rdtsc(void)
 #include <syscall.h>
 void kernel_main(struct processor *proc)
 {
+	printk("REACHED KERNEL MAIN!: %d\n", proc->id);
+
+	for(;;)
+		;
 	if(proc->flags & PROCESSOR_BSP) {
 		/* create the root object. TODO: load an old one? */
 		struct object *root = obj_create(KSO_ROOT_ID, KSO_ROOT);

@@ -416,6 +416,7 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 	// if(initrd_hook)
 	//	post_init_call_register(false, initrd_hook, NULL);
 	current_processor->arch.kernel_stack = &initial_boot_stack;
+	current_processor->flags |= PROCESSOR_BSP;
 	x86_64_start_vmx(current_processor);
 	panic("got here");
 	//	kernel_init();
@@ -507,16 +508,27 @@ void x86_64_processor_post_vm_init(struct processor *proc)
 	x86_64_wrmsr(X86_MSR_SFMASK, lo, hi);
 	proc->arch.curr = NULL;
 
-	kernel_init();
-	kernel_main(proc);
+	if(proc->flags & PROCESSOR_BSP)
+		kernel_init();
+	proc->arch.kernel_stack = mm_memory_alloc(KERNEL_STACK_SIZE, PM_TYPE_DRAM, true);
+	asm volatile("mov %%rax, %%rsp; call processor_perproc_init;" ::"a"(
+	               proc->arch.kernel_stack + KERNEL_STACK_SIZE),
+	             "D"(proc)
+	             : "memory");
+	panic("returned here");
+	// processor_perproc_init(proc);
+}
+
+void arch_processor_early_init(struct processor *proc)
+{
+	proc->arch.hyper_stack = mm_virtual_early_alloc();
+	proc->arch.kernel_stack = mm_virtual_early_alloc();
+	proc->arch.veinfo = mm_virtual_early_alloc();
+	proc->arch.vmcs = mm_physical_early_alloc();
 }
 
 void arch_processor_init(struct processor *proc)
 {
-	if(proc->flags & PROCESSOR_BSP) {
-		proc->arch.kernel_stack = &initial_boot_stack;
-	}
-
 	/* set GS before we enter the vmx-non-root. Host and guest need to know
 	 * what GS should be. */
 	uint64_t gs = (uint64_t)&proc->arch;

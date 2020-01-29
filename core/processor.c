@@ -22,6 +22,13 @@ extern int kernel_data_percpu_length;
 
 static void *bsp_percpu_region = NULL;
 
+void processor_early_init(void)
+{
+	for(int i = 0; i < PROCESSOR_MAX_CPUS; i++) {
+		arch_processor_early_init(&processors[i]);
+	}
+}
+
 void processor_register(bool bsp, unsigned int id)
 {
 	if(id >= PROCESSOR_MAX_CPUS) {
@@ -113,6 +120,7 @@ void processor_ipi_finish(void)
 void processor_init_secondaries(void)
 {
 	// printk("Initializing secondary processors...\n");
+	printk("[cpu] starting secondary processors\n");
 	processor_count++; /* BSP */
 	for(int i = 0; i < PROCESSOR_MAX_CPUS; i++) {
 		struct processor *proc = &processors[i];

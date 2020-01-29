@@ -212,7 +212,7 @@ static void vmx_handle_ept_violation(struct processor *proc)
 		  vmcs_readl(VMCS_EXIT_QUALIFICATION),
 		  vmcs_readl(VMCS_GUEST_PHYSICAL_ADDRESS),
 		  vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS),
-		  current_thread->id,
+		  current_thread ? (long)current_thread->id : -1,
 		  vmcs_readl(VMCS_GUEST_RIP),
 		  proc->arch.veinfo->lock);
 	}
@@ -241,9 +241,7 @@ void x86_64_vmexit_handler(struct processor *proc)
 	            && reason != VMEXIT_REASON_EPT_VIOLATION
 	            && reason != VMEXIT_REASON_INVEPT)
 	            */
-	// printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual,
-	// iinfo);
-
+	printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual, iinfo);
 	// printk(":: %lx\n", clksrc_get_interrupt_countdown());
 
 	// uint32_t x, y;
@@ -738,17 +736,22 @@ void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_TPR_THRESHOLD, 0);
 
 	/* we actually have to use these, and they should be all zero (none owned by host) */
-	vmcs_writel(VMCS_MSR_BITMAPS_ADDR, (uintptr_t)mm_physical_early_alloc());
+	static uintptr_t bitmaps = 0;
+	if(!bitmaps)
+		bitmaps = mm_physical_early_alloc();
+	vmcs_writel(VMCS_MSR_BITMAPS_ADDR, bitmaps);
 
 	if(support_ept_switch_vmfunc) {
 		vmcs_writel(VMCS_VMFUNC_CONTROLS, 1 /* enable EPT-switching */);
-		proc->arch.eptp_list = (void *)mm_virtual_early_alloc();
+		static uintptr_t eptp_list = 0;
+		if(!eptp_list)
+			eptp_list = mm_virtual_early_alloc();
+		proc->arch.eptp_list = (void *)eptp_list;
 		proc->arch.eptp_list[0] = _bootstrap_object_space.arch.ept_phys;
 		vmcs_writel(VMCS_EPTP_LIST, mm_vtop(proc->arch.eptp_list));
 	}
 
 	/* TODO (minor): veinfo needs to be page-aligned, but we're over-allocating here */
-	proc->arch.veinfo = (void *)mm_virtual_early_alloc();
 	if(support_virt_exception) {
 		vmcs_writel(VMCS_EPTP_INDEX, 0);
 		vmcs_writel(VMCS_VIRT_EXCEPTION_INFO_ADDR, mm_vtop(proc->arch.veinfo));
@@ -770,12 +773,10 @@ void x86_64_start_vmx(struct processor *proc)
 
 	proc->arch.launched = 0;
 	memset(proc->arch.vcpu_state_regs, 0, sizeof(proc->arch.vcpu_state_regs));
-	proc->arch.hyper_stack = (void *)mm_virtual_early_alloc();
 	proc->arch.vcpu_state_regs[HOST_RSP] = (uintptr_t)proc->arch.hyper_stack + mm_page_size(0);
 	proc->arch.vcpu_state_regs[PROC_PTR] = (uintptr_t)proc;
 	/* set initial argument to vmx_entry_point */
 	proc->arch.vcpu_state_regs[REG_RDI] = (uintptr_t)proc;
-	proc->arch.vmcs = mm_physical_early_alloc();
 	uint32_t *vmcs_rev = (uint32_t *)mm_ptov(proc->arch.vmcs);
 	*vmcs_rev = revision_id & 0x7FFFFFFF;
 

@@ -38,6 +38,7 @@ struct processor {
 
 void processor_perproc_init(struct processor *proc);
 void processor_percpu_regions_init(void);
+void processor_early_init(void);
 
 void processor_register(bool bsp, unsigned int id);
 void arch_processor_enumerate(void);

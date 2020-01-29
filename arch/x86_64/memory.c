@@ -27,6 +27,15 @@ void arch_mm_init(void)
 
 void x86_64_memory_record(uintptr_t addr, size_t len, enum memory_type type, enum memory_subtype st)
 {
+	size_t off = 0;
+	if(addr < 1024 * 1024) {
+		/* keep the lower 1MB untouched */
+		off = 1024 * 1024 - addr;
+	}
+	if(off >= len)
+		return;
+	len -= off;
+	addr += off;
 	mm_init_region(&_regions[_region_counter++], addr, len, type, st);
 }
 
