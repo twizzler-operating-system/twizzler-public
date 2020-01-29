@@ -180,6 +180,7 @@ bool arch_object_map_page(struct object *obj, struct objpage *op)
 		if(!obj->arch.pts[pd_idx]) {
 			obj->arch.pts[pd_idx] = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
 			obj->arch.pd[pd_idx] = mm_vtop(obj->arch.pts[pd_idx]) | EPT_READ | EPT_WRITE | EPT_EXEC;
+			//	printk(";; %lx\n", obj->arch.pd[pd_idx]);
 		}
 		uint64_t *pt = obj->arch.pts[pd_idx];
 		pt[pt_idx] = op->page->addr | flags;

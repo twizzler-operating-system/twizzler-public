@@ -9,6 +9,7 @@
 #include <machine/pc-multiboot2.h>
 #include <processor.h>
 #include <string.h>
+#include <tmpmap.h>
 
 /* TODO (major): clean up this file */
 
@@ -161,7 +162,11 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 			size_t thislen = 0x1000;
 			if((len - s) < thislen)
 				thislen = len - s;
-			memcpy(mm_ptov(page->addr), data + s, thislen);
+			void *addr = tmpmap_map_page(page);
+			printk(":: %p\n", addr);
+			memcpy(addr, data + s, thislen);
+			printk("copied\n");
+			tmpmap_unmap_page(addr);
 			obj_cache_page(obj, idx * mm_page_size(0), page);
 		}
 
@@ -171,6 +176,7 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 
 static size_t _load_initrd(char *start, size_t modlen)
 {
+	printk(":: load_initrd: %p\n", start);
 	struct ustar_header *h = (void *)start;
 
 	size_t count = 0;
@@ -234,11 +240,13 @@ static void x86_64_initrd(void *u __unused)
 {
 	if(mods_count == 0)
 		return;
+	printk(":: %lx\n", mods_addr);
 	struct mboot_module *m = mm_ptov(mods_addr);
 	size_t _count = 0;
 	for(unsigned i = 0; i < mods_count; i++, m++) {
 		size_t modlen = m->end - m->start;
 		printk("[initrd] loading objects from module %d (len=%ld bytes)\n", i, modlen);
+		printk(":: start = %lx\n", m->start);
 		_count = _load_initrd(mm_ptov(m->start), modlen);
 	}
 	printk("[initrd] loaded %ld objects\e[0K\n", _count);
@@ -253,6 +261,7 @@ static void x86_64_initrd2(void *u __unused)
 	printk("[initrd] loaded %ld objects\e[0K\n", c);
 	x86_64_reclaim_initrd_region();
 }
+POST_INIT(x86_64_initrd2, NULL);
 
 void kernel_early_init(void);
 void kernel_init(void);
@@ -413,8 +422,6 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 	x86_64_lapic_init_percpu();
 
 	/* need to wait on this until here because this requires memory allocation */
-	// if(initrd_hook)
-	//	post_init_call_register(false, initrd_hook, NULL);
 	current_processor->arch.kernel_stack = &initial_boot_stack;
 	current_processor->flags |= PROCESSOR_BSP;
 	x86_64_start_vmx(current_processor);
@@ -521,6 +528,8 @@ void x86_64_processor_post_vm_init(struct processor *proc)
 
 void arch_processor_early_init(struct processor *proc)
 {
+	/* TODO: some of this can be free'd later. Implement a system to free early_memory. Add it to a
+	 * list, and then after init call some function that converts these to usable pages? */
 	proc->arch.hyper_stack = mm_virtual_early_alloc();
 	proc->arch.kernel_stack = mm_virtual_early_alloc();
 	proc->arch.veinfo = mm_virtual_early_alloc();

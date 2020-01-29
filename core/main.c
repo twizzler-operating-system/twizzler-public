@@ -233,10 +233,6 @@ static __inline__ unsigned long long rdtsc(void)
 #include <syscall.h>
 void kernel_main(struct processor *proc)
 {
-	printk("REACHED KERNEL MAIN!: %d\n", proc->id);
-
-	for(;;)
-		;
 	if(proc->flags & PROCESSOR_BSP) {
 		/* create the root object. TODO: load an old one? */
 		struct object *root = obj_create(KSO_ROOT_ID, KSO_ROOT);

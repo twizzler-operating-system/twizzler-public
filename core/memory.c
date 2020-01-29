@@ -197,6 +197,7 @@ uintptr_t mm_physical_early_alloc(void)
 
 void *mm_memory_alloc(size_t length, int type, bool clear)
 {
+	length = align_up(length, mm_page_size(0));
 	static struct spinlock nvs = SPINLOCK_INIT;
 	if(type == PM_TYPE_NV) {
 		/* TODO: BETTER PM MANAGEMENT */

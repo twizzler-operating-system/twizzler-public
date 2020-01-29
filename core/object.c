@@ -230,6 +230,7 @@ void obj_cache_page(struct object *obj, size_t addr, struct page *p)
 		page = rb_entry(node, struct objpage, node);
 	}
 	page->page = p;
+	page->flags &= ~OBJPAGE_MAPPED;
 	rb_insert(root, page, struct objpage, node, __objpage_compar);
 	// arch_object_map_page(obj, page->page, page->idx);
 	// page->flags |= OBJPAGE_MAPPED;

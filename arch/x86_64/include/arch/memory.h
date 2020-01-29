@@ -23,7 +23,8 @@ struct arch_vm_context {
 #define VM_PHYS_MASK (0x7FFFFFFFFFFFF000)
 #define VM_ADDR_SIZE (1ul << 48)
 #define MAX_PGLEVEL 2
-__attribute__((const)) static inline size_t mm_page_size(int level)
+
+__attribute__((const)) static inline size_t mm_page_size(const int level)
 {
 	assert(level < 3);
 	static const size_t __pagesizes[3] = { 0x1000, 2 * 1024 * 1024, 1024 * 1024 * 1024 };

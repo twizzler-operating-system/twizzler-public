@@ -81,9 +81,9 @@ struct page *page_alloc(int flags, int level)
 	spinlock_acquire_save(&_stacks[0].lock);
 	struct page *p = _stacks[0].top;
 	if(!p) {
+		// panic("out of pages :(");
 		page_init_bootstrap();
 		return page_alloc(flags, level);
-		// panic("out of pages :(");
 	}
 	_stacks[0].top = p->next;
 	p->next = NULL;
