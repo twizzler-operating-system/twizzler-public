@@ -265,7 +265,7 @@ struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 			spinlock_release_restore(&obj->lock);
 			return NULL;
 		}
-		int level = ((addr >= mm_page_size(1)) || (obj->lowpg && 0)) ? 1 : 0;
+		int level = ((addr >= mm_page_size(1)) || (obj->lowpg && 0)) ? 0 : 0; /* TODO */
 		page = objpage_alloc();
 		page->page = page_alloc(obj->persist ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, level);
 		//	printk("adding page %ld: %d %d\n", page->idx, page->page->level, level);
@@ -584,7 +584,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	}
 #endif
 
-#if 0
+#if 1
 	printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT "\n",
 	  current_thread ? current_thread->id : -1,
 	  ip,
@@ -603,7 +603,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	}
 	if(o->alloc_pages) {
 		struct objpage p;
-		p.page = page_alloc(PAGE_TYPE_VOLATILE, 1); /* TODO: refcount */
+		p.page = page_alloc(PAGE_TYPE_VOLATILE, 0); /* TODO: refcount, largepage */
 		p.idx = (loaddr % OBJ_MAXSIZE) / mm_page_size(p.page->level);
 		p.page->flags = PAGE_CACHE_WB;
 		arch_object_map_page(o, &p);

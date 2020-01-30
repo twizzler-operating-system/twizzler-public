@@ -116,6 +116,7 @@ extern size_t mm_page_count;
 extern size_t mm_page_alloc_count;
 extern size_t mm_page_bootstrap_count;
 extern size_t mm_page_alloced;
+bool mm_ready = false;
 
 void mm_init_phase_2(void)
 {
@@ -141,6 +142,8 @@ void mm_init_phase_2(void)
 		}
 	}
 	slots_init();
+
+	mm_ready = true;
 
 	printk("ok, mm\n");
 	printk("early allocation: %ld KB\n", mm_early_count / 1024);
@@ -260,7 +263,7 @@ void *mm_memory_alloc(size_t length, int type, bool clear)
 			if(clear) {
 				memset(p, 0, length);
 			}
-			// printk("alloc: %p\n", p);
+			printk("aalloc: %p\n", p);
 			return (void *)p;
 		}
 		if(alloc->free_memory > length) {
@@ -270,7 +273,7 @@ void *mm_memory_alloc(size_t length, int type, bool clear)
 				spinlock_release_restore(&allocator_lock);
 				if(clear)
 					memset((void *)x, 0, length);
-				// printk("alloc: %p\n", x);
+				printk("alloc: %p\n", x);
 				return (void *)x;
 			}
 		}

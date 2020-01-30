@@ -138,3 +138,5 @@ void vm_vmap_init(struct vmap *vmap, struct object *obj, size_t vslot, uint32_t 
 #define FAULT_ERROR_PERM 0x10
 #define FAULT_ERROR_PRES 0x20
 void kernel_fault_entry(uintptr_t ip, uintptr_t addr, int flags);
+
+extern bool mm_ready;

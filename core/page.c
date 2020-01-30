@@ -1,10 +1,13 @@
+#include <arena.h>
 #include <memory.h>
 #include <page.h>
 #include <slab.h>
 
 struct page_stack {
-	struct spinlock lock;
+	struct spinlock lock, lock2;
 	struct page *top;
+	_Atomic size_t avail;
+	_Atomic bool adding;
 };
 
 struct page_stack _stacks[MAX_PGLEVEL + 1];
@@ -13,6 +16,9 @@ size_t mm_page_count = 0;
 size_t mm_page_alloc_count = 0;
 size_t mm_page_alloced = 0;
 size_t mm_page_bootstrap_count = 0;
+
+static struct arena page_arena;
+
 void page_init_bootstrap(void)
 {
 	/* bootstrap page allocator */
@@ -20,7 +26,10 @@ void page_init_bootstrap(void)
 	size_t nrpages = mm_page_size(0) / sizeof(struct page);
 	for(int i = 0; i < MAX_PGLEVEL + 1; i++) {
 		_stacks[i].lock = SPINLOCK_INIT;
+		_stacks[i].lock2 = SPINLOCK_INIT;
 		_stacks[i].top = NULL;
+		_stacks[i].avail = 0;
+		_stacks[i].adding = false;
 	}
 
 	for(size_t i = 0; i < nrpages; i++, pages++) {
@@ -30,6 +39,7 @@ void page_init_bootstrap(void)
 		pages->flags = PAGE_CACHE_WB;
 		_stacks[0].top = pages;
 		mm_page_bootstrap_count++;
+		_stacks[0].avail++;
 	}
 }
 
@@ -64,6 +74,7 @@ void page_init(struct memregion *region)
 		page->next = _stacks[level].top;
 		page->parent = NULL;
 		_stacks[level].top = page;
+		_stacks[level].avail++;
 		mm_page_count += mm_page_size(level) / mm_page_size(0);
 
 		if(++i >= nrpages) {
@@ -74,21 +85,51 @@ void page_init(struct memregion *region)
 
 		addr += mm_page_size(level);
 	}
+	arena_create(&page_arena);
 }
 
 struct page *page_alloc(int flags, int level)
 {
-	spinlock_acquire_save(&_stacks[0].lock);
-	struct page *p = _stacks[0].top;
+	if(!mm_ready)
+		level = 0;
+	spinlock_acquire_save(&_stacks[level].lock);
+	struct page *p = _stacks[level].top;
 	if(!p) {
-		// panic("out of pages :(");
-		page_init_bootstrap();
-		return page_alloc(flags, level);
+		if(mm_ready) {
+			panic("out of pages :(");
+		} else {
+			page_init_bootstrap();
+			return page_alloc(flags, level);
+		}
 	}
-	_stacks[0].top = p->next;
+	_stacks[level].top = p->next;
 	p->next = NULL;
 	mm_page_alloced++;
-	spinlock_release_restore(&_stacks[0].lock);
+	_stacks[level].avail--;
+
+	if(_stacks[level].avail < 128 && level < MAX_PGLEVEL && mm_ready && !_stacks[level].adding) {
+		_stacks[level].adding = true;
+		spinlock_release_restore(&_stacks[level].lock);
+		struct page *lp = page_alloc(flags, level + 1);
+		printk("splitting page %lx\n", lp->addr);
+		for(size_t i = 0; i < mm_page_size(level + 1) / mm_page_size(level); i++) {
+			struct page *np = arena_allocate(&page_arena, sizeof(struct page));
+			*np = *lp;
+			np->addr += i * mm_page_size(level);
+			printk("    -> %lx\n", np->addr);
+			np->parent = lp;
+			np->level = level;
+			spinlock_acquire_save(&_stacks[level].lock);
+			np->next = _stacks[level].top;
+			_stacks[level].top = np;
+			spinlock_release_restore(&_stacks[level].lock);
+		}
+		_stacks[level].adding = false;
+		return page_alloc(flags, level);
+	} else {
+		spinlock_release_restore(&_stacks[level].lock);
+	}
+
 	return p;
 }
 
