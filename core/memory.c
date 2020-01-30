@@ -40,6 +40,15 @@ void mm_register_region(struct memregion *reg)
 	  memory_subtype_strings[reg->subtype]);
 
 	list_insert(&physical_regions, &reg->entry);
+
+	if(mm_ready) {
+		/* registration of a region triggers this if the memory manager is fully ready. If it's not,
+		 * we need to hold off until we can create the page stacks. */
+		if(reg->type == MEMORY_AVAILABLE && reg->subtype == MEMORY_AVAILABLE_VOLATILE) {
+			page_init(reg);
+			reg->ready = true;
+		}
+	}
 }
 
 uintptr_t mm_vtoo(void *addr)
@@ -263,7 +272,7 @@ void *mm_memory_alloc(size_t length, int type, bool clear)
 			if(clear) {
 				memset(p, 0, length);
 			}
-			printk("aalloc: %p\n", p);
+			// printk("aalloc: %p\n", p);
 			return (void *)p;
 		}
 		if(alloc->free_memory > length) {
@@ -273,7 +282,7 @@ void *mm_memory_alloc(size_t length, int type, bool clear)
 				spinlock_release_restore(&allocator_lock);
 				if(clear)
 					memset((void *)x, 0, length);
-				printk("alloc: %p\n", x);
+				// printk("alloc: %p\n", x);
 				return (void *)x;
 			}
 		}

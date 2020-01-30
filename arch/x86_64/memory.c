@@ -56,5 +56,4 @@ void x86_64_register_initrd_region(uintptr_t addr, size_t len)
 void x86_64_reclaim_initrd_region(void)
 {
 	mm_register_region(&initrd_region);
-	panic("todo: implement this");
 }

@@ -163,9 +163,7 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 			if((len - s) < thislen)
 				thislen = len - s;
 			void *addr = tmpmap_map_page(page);
-			printk(":: %p\n", addr);
 			memcpy(addr, data + s, thislen);
-			printk("copied\n");
 			tmpmap_unmap_page(addr);
 			obj_cache_page(obj, idx * mm_page_size(0), page);
 		}

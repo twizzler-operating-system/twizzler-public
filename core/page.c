@@ -96,7 +96,7 @@ struct page *page_alloc(int flags, int level)
 	struct page *p = _stacks[level].top;
 	if(!p) {
 		if(mm_ready) {
-			panic("out of pages :(");
+			panic("out of pages; level=%d", level);
 		} else {
 			page_init_bootstrap();
 			return page_alloc(flags, level);
@@ -116,12 +116,12 @@ struct page *page_alloc(int flags, int level)
 			struct page *np = arena_allocate(&page_arena, sizeof(struct page));
 			*np = *lp;
 			np->addr += i * mm_page_size(level);
-			printk("    -> %lx\n", np->addr);
 			np->parent = lp;
 			np->level = level;
 			spinlock_acquire_save(&_stacks[level].lock);
 			np->next = _stacks[level].top;
 			_stacks[level].top = np;
+			_stacks[level].avail++;
 			spinlock_release_restore(&_stacks[level].lock);
 		}
 		_stacks[level].adding = false;
