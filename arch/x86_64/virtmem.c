@@ -125,11 +125,14 @@ bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int lev
  * slots, maybe? Refcounts? */
 void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object *obj)
 {
-	if(obj->slot == NULL) {
+	bool kernel_map = SLOT_IS_KERNEL(map->slot);
+	if(kernel_map && obj->kslot == NULL) {
+		panic("tried to map an unslotted kernel object");
+	} else if(!kernel_map && obj->slot == NULL) {
 		panic("tried to map an unslotted object");
 	}
 	uintptr_t vaddr = (uintptr_t)SLOT_TO_VADDR(map->slot);
-	uintptr_t oaddr = obj->slot->num * mm_page_size(obj->pglevel);
+	uintptr_t oaddr = SLOT_TO_OADDR(kernel_map ? obj->kslot->num : obj->slot->num);
 
 	/* TODO: map protections */
 	if(arch_vm_map(ctx, vaddr, oaddr, MAX_PGLEVEL, VM_MAP_USER | VM_MAP_EXEC | VM_MAP_WRITE)

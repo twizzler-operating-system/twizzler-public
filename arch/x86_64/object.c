@@ -40,7 +40,7 @@ bool arch_object_getmap_slot_flags(struct object *obj, uint64_t *flags)
 	return true;
 }
 
-void arch_object_map_slot(struct object *obj, uint64_t flags)
+void arch_object_map_slot(struct object *obj, struct slot *slot, uint64_t flags)
 {
 	uint64_t ef = 0;
 	if(flags & OBJSPACE_READ)
@@ -52,8 +52,7 @@ void arch_object_map_slot(struct object *obj, uint64_t flags)
 
 	struct object_space *space =
 	  current_thread ? &current_thread->active_sc->space : &_bootstrap_object_space;
-	assert(obj->slot != NULL);
-	uintptr_t virt = SLOT_TO_OADDR(obj->slot->num);
+	uintptr_t virt = SLOT_TO_OADDR(slot->num);
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
 
@@ -81,6 +80,9 @@ void arch_object_unmap_page(struct object *obj, size_t idx)
 			pt[pt_idx] = 0;
 		}
 	}
+	int x;
+	/* TODO: better invalidation scheme */
+	asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
 }
 
 bool arch_object_map_flush(struct object *obj, size_t virt)
@@ -184,7 +186,7 @@ bool arch_object_map_page(struct object *obj, struct objpage *op)
 		}
 		uint64_t *pt = obj->arch.pts[pd_idx];
 		pt[pt_idx] = op->page->addr | flags;
-		//	printk("MAPPED %d %d %lx->%lx\n", pd_idx, pt_idx, virt, op->page->addr | flags);
+		// printk("MAPPED %d %d %lx->%lx\n", pd_idx, pt_idx, virt, op->page->addr | flags);
 	}
 	return true;
 }

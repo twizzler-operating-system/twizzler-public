@@ -156,6 +156,8 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 			printk("Malformed object data\n");
 		}
 
+		//	obj_write_data(obj, 0, len, data);
+
 		for(size_t s = 0; s < len; s += mm_page_size(0), idx++) {
 			struct page *page = page_alloc(PAGE_TYPE_VOLATILE, 0);
 
@@ -164,6 +166,9 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 				thislen = len - s;
 			void *addr = tmpmap_map_page(page);
 			memcpy(addr, data + s, thislen);
+			if((obj->id & 0xfffffffffffffffful) == 0xDA5366BF8BB01253ul) {
+				printk("cache page: %p %lx: %lx\n", page, page->addr, mm_vtop(addr));
+			}
 			tmpmap_unmap_page(addr);
 			obj_cache_page(obj, idx * mm_page_size(0), page);
 		}

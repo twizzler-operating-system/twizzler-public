@@ -2,6 +2,7 @@
 
 #include <krc.h>
 #include <lib/rb.h>
+#include <memory.h>
 
 struct object;
 struct slot {
@@ -18,16 +19,21 @@ void slots_init(void);
 void slot_init_bootstrap(size_t, size_t);
 
 /* TODO: arch-dep; larger address spaces */
-#define KVSLOT_KERNEL_IMAGE 0x3fffe
-#define KVSLOT_TMP_MAP 0x3fffd
-#define KVSLOT_ALLOC_START 0x3fff0
-#define KVSLOT_ALLOC_STOP 0x3fffa
-#define KVSLOT_BOOTSTRAP 0x3ffff
-#define KVSLOT_PMAP 0x3fffb
+#define KVSLOT_KERNEL_IMAGE ({ vm_max_slot() - 1; })
 
-#define KVSLOT_MAX 0x3fff0
+#define KVSLOT_TMP_MAP ({ vm_max_slot() - 2; })
+#define KVSLOT_ALLOC_START ({ vm_max_slot() - 15; })
+#define KVSLOT_ALLOC_STOP ({ vm_max_slot() - 5; })
+#define KVSLOT_BOOTSTRAP ({ vm_max_slot(); })
+#define KVSLOT_PMAP ({ vm_max_slot() - 4; })
+
+#define KVSLOT_MAX ({ vm_max_slot() - 16; })
+
+#define KVSLOT_START ({ (vm_max_slot() + 1) / 2; })
 
 #define SLOT_TO_OADDR(x) ({ (x) * OBJ_MAXSIZE; })
+
+#define SLOT_IS_KERNEL(x) ({ (x) >= KVSLOT_START; })
 
 #define SLOT_TO_VADDR(x)                                                                           \
 	({                                                                                             \

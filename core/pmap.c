@@ -48,7 +48,7 @@ static void pmap_init(void)
 	vm_vmap_init(&pmap_vmap, &pmap_object, KVSLOT_PMAP, VM_MAP_WRITE | VM_MAP_GLOBAL);
 	vm_context_map(&kernel_ctx, &pmap_vmap);
 
-	obj_alloc_slot(&pmap_object);
+	obj_alloc_kernel_slot(&pmap_object);
 	arena_create(&pmap_arena);
 
 	arch_vm_map_object(&kernel_ctx, &pmap_vmap, &pmap_object);

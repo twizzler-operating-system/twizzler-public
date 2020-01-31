@@ -50,6 +50,7 @@ void kso_setname(struct object *obj, const char *name);
 struct object *get_system_object(void);
 
 struct slot;
+struct vmap;
 struct object {
 	uint128_t id;
 
@@ -86,6 +87,8 @@ struct object {
 	struct ihelem elem, slotelem;
 	struct rbnode slotnode;
 	struct arch_object arch;
+	struct vmap *kvmap;
+	struct slot *kslot;
 };
 
 struct page;
@@ -108,6 +111,7 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 struct object *obj_lookup(uint128_t id);
 bool obj_verify_id(struct object *obj, bool cache_result, bool uncache);
 void obj_alloc_slot(struct object *obj);
+void obj_alloc_kernel_slot(struct object *obj);
 struct object *obj_lookup_slot(uintptr_t oaddr);
 void obj_cache_page(struct object *obj, size_t idx, struct page *);
 void obj_kso_init(struct object *obj, enum kso_type ksot);
@@ -124,7 +128,8 @@ void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val);
 int obj_check_permission(struct object *obj, uint64_t flags);
 
-void arch_object_map_slot(struct object *obj, uint64_t flags);
+struct slot;
+void arch_object_map_slot(struct object *obj, struct slot *, uint64_t flags);
 void arch_object_unmap_page(struct object *obj, size_t idx);
 bool arch_object_map_page(struct object *obj, struct objpage *);
 bool arch_object_map_flush(struct object *obj, size_t idx);

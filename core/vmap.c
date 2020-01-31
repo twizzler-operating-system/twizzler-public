@@ -3,10 +3,22 @@
 #include <object.h>
 #include <processor.h>
 #include <slab.h>
+#include <slots.h>
 
 struct vm_context kernel_ctx = {};
 
-struct slabcache sc_vmctx, sc_vmap;
+static struct slabcache sc_vmctx, sc_vmap;
+
+static DECLARE_LIST(kvmap_stack);
+static struct spinlock kvmap_lock = SPINLOCK_INIT;
+
+size_t vm_max_slot(void)
+{
+	static size_t _max_vslot = 0;
+	if(!_max_vslot)
+		_max_vslot = (2ul << arch_processor_virtual_width()) / OBJ_MAXSIZE;
+	return _max_vslot - 1;
+}
 
 static void _vmctx_ctor(void *_p, void *obj)
 {
@@ -194,6 +206,39 @@ static inline void popul_info(struct fault_object_info *info,
 	info->ip = ip;
 	info->addr = addr;
 	info->objid = objid;
+}
+
+static void vm_kernel_alloc_slot(struct object *obj)
+{
+	spinlock_acquire_save(&kvmap_lock);
+	static ssize_t counter = -1;
+	if(counter == -1)
+		counter = KVSLOT_START;
+
+	struct vmap *m;
+	if(list_empty(&kvmap_stack)) {
+		m = slabcache_alloc(&sc_vmap);
+		if(counter == KVSLOT_MAX) {
+			panic("out of kvslots");
+		}
+		m->slot = counter++;
+	} else {
+		m = list_pop(&kvmap_stack);
+	}
+
+	obj->kvmap = m;
+	vm_vmap_init(obj->kvmap, obj, m->slot, VE_READ | VE_WRITE);
+	spinlock_release_restore(&kvmap_lock);
+}
+
+void vm_kernel_map_object(struct object *obj)
+{
+	assert(obj->kslot);
+	assert(!obj->kvmap);
+
+	vm_kernel_alloc_slot(obj);
+	vm_context_map(&kernel_ctx, obj->kvmap);
+	arch_vm_map_object(&kernel_ctx, obj->kvmap, obj);
 }
 
 void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)

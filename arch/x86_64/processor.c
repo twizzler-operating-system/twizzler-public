@@ -30,3 +30,15 @@ size_t arch_processor_physical_width(void)
 	}
 	return physical_address_bits - 1;
 }
+
+size_t arch_processor_virtual_width(void)
+{
+	static size_t virtual_address_bits = 0;
+	if(!virtual_address_bits) {
+		uint32_t a, b, c, d;
+		if(!__get_cpuid_count(0x80000008, 0, &a, &b, &c, &d))
+			panic("unable to determine physical address size");
+		virtual_address_bits = (a >> 8) & 0xff;
+	}
+	return virtual_address_bits - 1;
+}

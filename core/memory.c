@@ -127,6 +127,14 @@ extern size_t mm_page_bootstrap_count;
 extern size_t mm_page_alloced;
 bool mm_ready = false;
 
+void mm_print_stats(void)
+{
+	printk("early allocation: %ld KB\n", mm_early_count / 1024);
+	printk("late  allocation: %ld KB\n", mm_late_count / 1024);
+	printk("page  allocation: %ld KB\n", mm_page_alloc_count / 1024);
+	page_print_stats();
+}
+
 void mm_init_phase_2(void)
 {
 	obj_system_init();
@@ -153,24 +161,7 @@ void mm_init_phase_2(void)
 	slots_init();
 
 	mm_ready = true;
-
-	printk("ok, mm\n");
-	printk("early allocation: %ld KB\n", mm_early_count / 1024);
-	printk("late  allocation: %ld KB\n", mm_late_count / 1024);
-	printk("page  allocation: %ld KB\n", mm_page_alloc_count / 1024);
-	printk("page bootstrap count: %ld (%ld KB; %ld MB)\n",
-	  mm_page_bootstrap_count,
-	  (mm_page_bootstrap_count * mm_page_size(0)) / 1024,
-	  (mm_page_bootstrap_count * mm_page_size(0)) / (1024 * 1024));
-	printk("page alloced: %ld (%ld KB; %ld MB)\n",
-	  mm_page_alloced,
-	  (mm_page_alloced * mm_page_size(0)) / 1024,
-	  (mm_page_alloced * mm_page_size(0)) / (1024 * 1024));
-
-	printk("page count: %ld (%ld KB; %ld MB)\n",
-	  mm_page_count,
-	  (mm_page_count * mm_page_size(0)) / 1024,
-	  (mm_page_count * mm_page_size(0)) / (1024 * 1024));
+	mm_print_stats();
 }
 
 struct memregion *mm_physical_find_region(uintptr_t addr)

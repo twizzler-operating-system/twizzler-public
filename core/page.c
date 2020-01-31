@@ -19,6 +19,28 @@ size_t mm_page_bootstrap_count = 0;
 
 static struct arena page_arena;
 
+void page_print_stats(void)
+{
+	printk("page bootstrap count: %ld (%ld KB; %ld MB)\n",
+	  mm_page_bootstrap_count,
+	  (mm_page_bootstrap_count * mm_page_size(0)) / 1024,
+	  (mm_page_bootstrap_count * mm_page_size(0)) / (1024 * 1024));
+	printk("page alloced: %ld (%ld KB; %ld MB)\n",
+	  mm_page_alloced,
+	  (mm_page_alloced * mm_page_size(0)) / 1024,
+	  (mm_page_alloced * mm_page_size(0)) / (1024 * 1024));
+
+	printk("page count: %ld (%ld KB; %ld MB)\n",
+	  mm_page_count,
+	  (mm_page_count * mm_page_size(0)) / 1024,
+	  (mm_page_count * mm_page_size(0)) / (1024 * 1024));
+
+	for(int i = 0; i <= MAX_PGLEVEL; i++) {
+		printk(
+		  "page stack %d (%ld KB): %ld available\n", i, mm_page_size(i) / 1024, _stacks[i].avail);
+	}
+}
+
 void page_init_bootstrap(void)
 {
 	/* bootstrap page allocator */
@@ -111,7 +133,7 @@ struct page *page_alloc(int flags, int level)
 		_stacks[level].adding = true;
 		spinlock_release_restore(&_stacks[level].lock);
 		struct page *lp = page_alloc(flags, level + 1);
-		printk("splitting page %lx\n", lp->addr);
+		printk("splitting page %lx (level %d)\n", lp->addr, level + 1);
 		for(size_t i = 0; i < mm_page_size(level + 1) / mm_page_size(level); i++) {
 			struct page *np = arena_allocate(&page_arena, sizeof(struct page));
 			*np = *lp;
@@ -133,64 +155,8 @@ struct page *page_alloc(int flags, int level)
 	return p;
 }
 
-struct slabcache sc_page;
-struct slabcache sc_page_unalloc;
-
-static void _page_unal_ctor(void *_u, void *ptr)
-{
-	(void)_u;
-	struct page *p = ptr;
-	p->flags = 0;
-	krc_init(&p->rc);
-	p->lock = SPINLOCK_INIT;
-	p->level = 0;
-}
-
-static void _page_ctor(void *_u, void *ptr)
-{
-	struct page *p = ptr;
-	_page_unal_ctor(_u, ptr);
-	p->type = PAGE_TYPE_VOLATILE; /* TODO */
-	p->flags |= PAGE_ALLOCED;
-}
-
-static void _page_unal_dtor(void *_u, void *ptr)
-{
-	(void)_u;
-	struct page *p = ptr;
-}
-
-__initializer static void __init_page(void)
-{
-	slabcache_init(&sc_page, sizeof(struct page), _page_ctor, _page_unal_dtor, NULL);
-	slabcache_init(&sc_page_unalloc, sizeof(struct page), _page_unal_ctor, _page_unal_dtor, NULL);
-}
-
-struct page *page_alloc_old(int type, int level)
-{
-	// if(type == PAGE_TYPE_VOLATILE) {
-	//	struct page *p = slabcache_alloc(&sc_page_unalloc);
-	//}
-	struct page *p = slabcache_alloc(&sc_page_unalloc);
-	p->type = type;
-	p->level = level;
-	// printk("allocating persistent memory\n");
-	p->flags |= PAGE_ALLOCED;
-	return p;
-}
-
-/* TODO: implement page pinning */
-void page_pin(struct page *page)
-{
-	(void)page;
-}
-
-void page_unpin(struct page *page)
-{
-	(void)page;
-}
-
 struct page *page_alloc_nophys(void)
 {
-	return slabcache_alloc(&sc_page_unalloc);
+	struct page *page = arena_allocate(&page_arena, sizeof(struct page));
+	return page;
 }

@@ -233,6 +233,7 @@ static __inline__ unsigned long long rdtsc(void)
 #include <syscall.h>
 void kernel_main(struct processor *proc)
 {
+	mm_print_stats();
 	if(proc->flags & PROCESSOR_BSP) {
 		/* create the root object. TODO: load an old one? */
 		struct object *root = obj_create(KSO_ROOT_ID, KSO_ROOT);
@@ -285,6 +286,7 @@ void kernel_main(struct processor *proc)
 			printk("---> %x %x %x\n", elf.e_ident[0], elf.e_ident[1], elf.e_ident[2]);
 			panic("Init is not an ELF file");
 		}
+		printk("SUCCESS!\n");
 
 		obj_put(initobj);
 

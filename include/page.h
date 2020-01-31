@@ -35,3 +35,4 @@ void page_pin(struct page *page);
 struct memregion;
 void page_init(struct memregion *region);
 void page_init_bootstrap(void);
+void page_print_stats(void);

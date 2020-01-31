@@ -108,12 +108,15 @@ struct vmap {
 	int status;
 
 	struct rbnode node;
+	struct list entry;
 };
 
 // struct vmap *vm_context_map(struct vm_context *v, uint128_t objid, size_t slot, uint32_t flags);
 void vm_context_destroy(struct vm_context *v);
 struct vm_context *vm_context_create(void);
 void kso_view_write(struct object *obj, size_t slot, struct viewentry *v);
+void vm_kernel_map_object(struct object *obj);
+size_t vm_max_slot(void);
 void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags);
 struct object;
 void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object *obj);

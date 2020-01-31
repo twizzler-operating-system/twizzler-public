@@ -53,6 +53,7 @@ void obj_init(struct object *obj)
 	obj->pglevel = MAX_PGLEVEL;
 	obj->slot = NULL;
 	obj->persist = false;
+	obj->kvmap = NULL;
 	krc_init(&obj->refs);
 	krc_init_zero(&obj->pcount);
 	arch_object_init(obj);
@@ -197,6 +198,20 @@ struct object *obj_lookup(uint128_t id)
 	return obj;
 }
 
+void obj_alloc_kernel_slot(struct object *obj)
+{
+	spinlock_acquire_save(&obj->lock);
+	if(obj->kslot) {
+		spinlock_release_restore(&obj->lock);
+		return;
+	}
+	struct slot *slot = slot_alloc();
+	krc_get(&obj->refs);
+	slot->obj = obj;   /* above get */
+	obj->kslot = slot; /* move ref */
+	spinlock_release_restore(&obj->lock);
+}
+
 void obj_alloc_slot(struct object *obj)
 {
 	spinlock_acquire_save(&obj->lock);
@@ -310,63 +325,40 @@ void obj_put(struct object *o)
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 {
 	start += OBJ_NULLPAGE_SIZE;
-	if(len >= mm_page_size(0)) {
-		panic("NI - big KSO write");
-	}
-	char *data = ptr;
-	while(len > 0) {
-		struct objpage *p = obj_get_page(obj, start, false);
-		size_t thislen = len;
-		int level = p ? p->page->level : 0;
-		size_t off = start % mm_page_size(level);
-		if(thislen > (mm_page_size(level) - off))
-			thislen = mm_page_size(level) - off;
+	assert(start < OBJ_MAXSIZE && start + len < OBJ_MAXSIZE && len < OBJ_MAXSIZE);
 
-		if(p) {
-			atomic_thread_fence(memory_order_seq_cst);
+	obj_alloc_kernel_slot(obj);
+	if(!obj->kvmap)
+		vm_kernel_map_object(obj);
 
-			memcpy(data, mm_ptov(p->page->addr + off), thislen);
-			obj_put_page(p);
-		} else {
-			memset(data, 0, thislen);
-		}
-		len -= thislen;
-		start += thislen;
-		data += thislen;
-	}
+	void *addr = (char *)SLOT_TO_VADDR(obj->kvmap->slot) + start;
+	memcpy(ptr, addr, len);
 }
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 {
 	start += OBJ_NULLPAGE_SIZE;
-	if(len >= mm_page_size(0)) {
-		panic("NI - big KSO write");
-	}
-	char *data = ptr;
-	while(len > 0) {
-		struct objpage *p = obj_get_page(obj, start, true);
-		size_t thislen = len;
-		size_t off = start % mm_page_size(p->page->level);
-		if(thislen > (mm_page_size(p->page->level) - off))
-			thislen = mm_page_size(p->page->level) - off;
+	assert(start < OBJ_MAXSIZE && start + len < OBJ_MAXSIZE && len < OBJ_MAXSIZE);
 
-		memcpy(mm_ptov(p->page->addr + off), data, thislen);
-		atomic_thread_fence(memory_order_seq_cst);
-		obj_put_page(p);
-		len -= thislen;
-		start += thislen;
-		data += thislen;
-	}
+	obj_alloc_kernel_slot(obj);
+	if(!obj->kvmap)
+		vm_kernel_map_object(obj);
+
+	void *addr = (char *)SLOT_TO_VADDR(obj->kvmap->slot) + start;
+	memcpy(addr, ptr, len);
 }
 
 void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val)
 {
 	off += OBJ_NULLPAGE_SIZE;
-	struct objpage *p = obj_get_page(obj, off, true);
-	_Atomic uint64_t *loc =
-	  (_Atomic uint64_t *)(mm_ptov(p->page->addr + (off % mm_page_size(p->page->level))));
-	*loc = val;
-	obj_put_page(p);
+	assert(off < OBJ_MAXSIZE && off + 8 < OBJ_MAXSIZE);
+
+	obj_alloc_kernel_slot(obj);
+	if(!obj->kvmap)
+		vm_kernel_map_object(obj);
+
+	void *addr = (char *)SLOT_TO_VADDR(obj->kvmap->slot) + off;
+	*(_Atomic uint64_t *)addr = val;
 }
 
 /* TODO (major): with these, and the above, support obj_get_page returning "no page
@@ -565,7 +557,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	// do_map = true;
 	// perms = OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U;
 #if 1
-	if(o->kernel_obj) {
+	if(o->kernel_obj || VADDR_IS_KERNEL(vaddr)) {
 		do_map = true; // TODO: dont do this every time.
 		perms = OBJSPACE_READ | OBJSPACE_WRITE;
 	} else {
@@ -585,21 +577,24 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 #endif
 
 #if 0
-	printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT "\n",
-	  current_thread ? current_thread->id : -1,
-	  ip,
-	  loaddr,
-	  idx,
-	  vaddr,
-	  flags,
-	  IDPR(o->id));
+	if(o->id)
+		printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT "\n",
+		  current_thread ? current_thread->id : -1,
+		  ip,
+		  loaddr,
+		  idx,
+		  vaddr,
+		  flags,
+		  IDPR(o->id));
 #endif
 
 	/* TODO: something better */
 	// for(int j = 0; j < 4 && (idx < 200000 || j == 0); j++, idx++) {
 
 	if(do_map) {
-		arch_object_map_slot(o, perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
+		arch_object_map_slot(o,
+		  VADDR_IS_KERNEL(vaddr) ? o->kslot : o->slot,
+		  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
 	}
 	if(o->alloc_pages) {
 		struct objpage p;
@@ -609,7 +604,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		arch_object_map_page(o, &p);
 	} else {
 		struct objpage *p = obj_get_page(o, loaddr % OBJ_MAXSIZE, true);
-		// printk("P: %p\n", p);
+		// printk("P: %p %lx\n", p->page, p->page->addr);
 		if(!(p->flags & OBJPAGE_MAPPED)) {
 			arch_object_map_page(o, p);
 			p->flags |= OBJPAGE_MAPPED;
