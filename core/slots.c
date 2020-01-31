@@ -17,6 +17,10 @@ static struct spinlock slot_lock = SPINLOCK_INIT;
 static size_t _max_slot = 0;
 static size_t skip_bootstrap_slot;
 
+static struct object _bootstrap_object;
+static struct slot _bootstrap_slot;
+static struct vmap _bootstrap_vmap;
+
 static int __slot_compar_key(struct slot *a, size_t n)
 {
 	if(a->num > n)
@@ -33,10 +37,6 @@ static int __slot_compar(struct slot *a, struct slot *b)
 
 void slot_init_bootstrap(size_t oslot, size_t vslot)
 {
-	static struct object _bootstrap_object;
-	static struct slot _bootstrap_slot;
-	static struct vmap _bootstrap_vmap;
-
 	_bootstrap_vmap.obj = &_bootstrap_object;
 	_bootstrap_vmap.slot = vslot;
 	obj_init(&_bootstrap_object);
@@ -53,7 +53,8 @@ void slot_init_bootstrap(size_t oslot, size_t vslot)
 	_bootstrap_object.alloc_pages = true;
 
 	arch_vm_map_object(NULL, &_bootstrap_vmap, &_bootstrap_object);
-	arch_object_map_slot(&_bootstrap_object, &_bootstrap_slot, OBJSPACE_READ | OBJSPACE_WRITE);
+	arch_object_map_slot(
+	  NULL, &_bootstrap_object, &_bootstrap_slot, OBJSPACE_READ | OBJSPACE_WRITE);
 	for(unsigned int idx = 0; idx < OBJ_MAXSIZE / mm_page_size(0); idx++) {
 		arch_object_premap_page(&_bootstrap_object, idx, 0);
 	}
@@ -108,4 +109,16 @@ void slot_release(struct slot *s)
 		slot_stack = s;
 		spinlock_release_restore(&slot_lock);
 	}
+}
+
+void object_space_init(struct object_space *space)
+{
+	arch_object_space_init(space);
+	arch_object_map_slot(
+	  space, &_bootstrap_object, &_bootstrap_slot, OBJSPACE_READ | OBJSPACE_WRITE);
+}
+
+void object_space_destroy(struct object_space *space)
+{
+	arch_object_space_destroy(space);
 }

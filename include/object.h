@@ -129,7 +129,7 @@ void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val);
 int obj_check_permission(struct object *obj, uint64_t flags);
 
 struct slot;
-void arch_object_map_slot(struct object *obj, struct slot *, uint64_t flags);
+void arch_object_map_slot(struct object_space *, struct object *obj, struct slot *, uint64_t flags);
 void arch_object_unmap_page(struct object *obj, size_t idx);
 bool arch_object_map_page(struct object *obj, struct objpage *);
 bool arch_object_map_flush(struct object *obj, size_t idx);
@@ -142,15 +142,9 @@ bool arch_object_getmap(struct object *obj,
 
 void arch_object_space_init(struct object_space *space);
 void arch_object_space_destroy(struct object_space *space);
-static inline void object_space_init(struct object_space *space)
-{
-	arch_object_space_init(space);
-}
-static inline void object_space_destroy(struct object_space *space)
-{
-	arch_object_space_destroy(space);
-}
-bool arch_object_getmap_slot_flags(struct object *obj, uint64_t *flags);
+bool arch_object_getmap_slot_flags(struct object_space *space, struct object *obj, uint64_t *flags);
+void object_space_destroy(struct object_space *space);
+void object_space_init(struct object_space *space);
 void arch_object_init(struct object *obj);
 
 #define OBJSPACE_FAULT_READ 1

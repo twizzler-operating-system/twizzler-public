@@ -561,7 +561,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		do_map = true; // TODO: dont do this every time.
 		perms = OBJSPACE_READ | OBJSPACE_WRITE;
 	} else {
-		if(arch_object_getmap_slot_flags(o, &existing_flags)) {
+		if(arch_object_getmap_slot_flags(NULL, o, &existing_flags)) {
 			/* we've already mapped the object. Maybe we don't need to do a permissions check. */
 			if((existing_flags & flags) != flags) {
 				do_map = true;
@@ -592,7 +592,8 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	// for(int j = 0; j < 4 && (idx < 200000 || j == 0); j++, idx++) {
 
 	if(do_map) {
-		arch_object_map_slot(o,
+		arch_object_map_slot(NULL,
+		  o,
 		  VADDR_IS_KERNEL(vaddr) ? o->kslot : o->slot,
 		  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
 	}

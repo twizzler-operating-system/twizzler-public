@@ -286,7 +286,6 @@ void kernel_main(struct processor *proc)
 			printk("---> %x %x %x\n", elf.e_ident[0], elf.e_ident[1], elf.e_ident[2]);
 			panic("Init is not an ELF file");
 		}
-		printk("SUCCESS!\n");
 
 		obj_put(initobj);
 
