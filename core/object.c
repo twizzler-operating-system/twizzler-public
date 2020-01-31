@@ -6,6 +6,7 @@
 #include <page.h>
 #include <slab.h>
 #include <slots.h>
+#include <tmpmap.h>
 
 /* TODO: do we need a separate objpage abstraction in addition to a page abstraction */
 
@@ -161,8 +162,13 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 		struct objpage *pg = rb_entry(node, struct objpage, node);
 		if(pg->page) {
 			struct page *np = page_alloc(pg->page->type, pg->page->level);
+			assert(pg->page->level == np->level);
+			void *csrc = tmpmap_map_page(pg->page);
+			void *cdest = tmpmap_map_page(np);
 			/* TODO (perf): copy-on-write */
-			memcpy(mm_ptov(np->addr), mm_ptov(pg->page->addr), mm_page_size(pg->page->level));
+			memcpy(cdest, csrc, mm_page_size(pg->page->level));
+			tmpmap_unmap_page(cdest);
+			tmpmap_unmap_page(csrc);
 			obj_cache_page(obj, pg->idx * mm_page_size(0), np);
 		}
 	}
@@ -170,8 +176,13 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 		struct objpage *pg = rb_entry(node, struct objpage, node);
 		if(pg->page) {
 			struct page *np = page_alloc(pg->page->type, pg->page->level);
+			assert(pg->page->level == np->level);
 			/* TODO (perf): copy-on-write */
-			memcpy(mm_ptov(np->addr), mm_ptov(pg->page->addr), mm_page_size(pg->page->level));
+			void *csrc = tmpmap_map_page(pg->page);
+			void *cdest = tmpmap_map_page(np);
+			memcpy(cdest, csrc, mm_page_size(pg->page->level));
+			tmpmap_unmap_page(cdest);
+			tmpmap_unmap_page(csrc);
 			obj_cache_page(obj, pg->idx * mm_page_size(1), np);
 		}
 	}
@@ -325,8 +336,9 @@ void obj_put(struct object *o)
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 {
 	start += OBJ_NULLPAGE_SIZE;
-	assert(start < OBJ_MAXSIZE && start + len < OBJ_MAXSIZE && len < OBJ_MAXSIZE);
+	assert(start < OBJ_MAXSIZE && start + len <= OBJ_MAXSIZE && len < OBJ_MAXSIZE);
 
+	// printk(":: reading %lx -> %lx\n", start, start + len);
 	obj_alloc_kernel_slot(obj);
 	if(!obj->kvmap)
 		vm_kernel_map_object(obj);
@@ -338,7 +350,7 @@ void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 {
 	start += OBJ_NULLPAGE_SIZE;
-	assert(start < OBJ_MAXSIZE && start + len < OBJ_MAXSIZE && len < OBJ_MAXSIZE);
+	assert(start < OBJ_MAXSIZE && start + len <= OBJ_MAXSIZE && len < OBJ_MAXSIZE);
 
 	obj_alloc_kernel_slot(obj);
 	if(!obj->kvmap)
@@ -351,7 +363,7 @@ void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val)
 {
 	off += OBJ_NULLPAGE_SIZE;
-	assert(off < OBJ_MAXSIZE && off + 8 < OBJ_MAXSIZE);
+	assert(off < OBJ_MAXSIZE && off + 8 <= OBJ_MAXSIZE);
 
 	obj_alloc_kernel_slot(obj);
 	if(!obj->kvmap)
@@ -365,6 +377,7 @@ void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val)
  * associated with this location, because there's no data here" */
 objid_t obj_compute_id(struct object *obj)
 {
+	printk("computing ID\n");
 	struct metainfo mi;
 	obj_read_data(obj, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
 
@@ -373,7 +386,11 @@ objid_t obj_compute_id(struct object *obj)
 	blake2b_update(&S, &mi.nonce, sizeof(mi.nonce));
 	blake2b_update(&S, &mi.p_flags, sizeof(mi.p_flags));
 	blake2b_update(&S, &mi.kuid, sizeof(mi.kuid));
+	printk("NONCE = " IDFMT "\n", IDPR(mi.nonce));
+	printk("KUID = " IDFMT "\n", IDPR(mi.kuid));
+	size_t tl = 0;
 	if(mi.p_flags & MIP_HASHDATA) {
+		void *addr = mm_memory_alloc(mm_page_size(0), PM_TYPE_DRAM, false);
 		for(size_t s = 0; s < mi.sz; s += mm_page_size(0)) {
 			size_t rem = mm_page_size(0);
 			if(s + mm_page_size(0) > mi.sz) {
@@ -381,24 +398,34 @@ objid_t obj_compute_id(struct object *obj)
 			}
 			assert(rem <= mm_page_size(0));
 
-			struct objpage *p = obj_get_page(obj, s + OBJ_NULLPAGE_SIZE, false);
-			atomic_thread_fence(memory_order_seq_cst);
-			blake2b_update(&S, mm_ptov(p->page->addr), rem);
-			obj_put_page(p);
+			obj_read_data(obj, s, rem, addr);
+			// struct objpage *p = obj_get_page(obj, s + OBJ_NULLPAGE_SIZE, false);
+			// atomic_thread_fence(memory_order_seq_cst);
+			// void *addr = tmpmap_map_page(p->page);
+			blake2b_update(&S, addr, rem);
+			tl += rem;
+			// tmpmap_unmap_page(addr);
+			// obj_put_page(p);
 		}
 		size_t mdbottom = OBJ_METAPAGE_SIZE + sizeof(struct fotentry) * mi.fotentries;
 		size_t pos = OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + mdbottom);
 		size_t thispage = mm_page_size(0);
 		for(size_t s = pos; s < OBJ_MAXSIZE - OBJ_NULLPAGE_SIZE; s += thispage) {
-			struct objpage *p = obj_get_page(obj, pos + OBJ_NULLPAGE_SIZE, false);
+			//	struct objpage *p = obj_get_page(obj, pos + OBJ_NULLPAGE_SIZE, false);
 
 			size_t offset = pos % mm_page_size(0);
 			size_t len = mm_page_size(0) - offset;
 			atomic_thread_fence(memory_order_seq_cst);
-			blake2b_update(&S, mm_ptov(p->page->addr + offset), len);
+			// void *addr = tmpmap_map_page(p->page);
+			printk(":: %lx %lx\n", pos, len);
+			obj_read_data(obj, pos, len, addr);
+			blake2b_update(&S, (char *)addr, len);
+			tl += len;
+			// tmpmap_unmap_page(addr);
 
-			obj_put_page(p);
+			//	obj_put_page(p);
 		}
+		mm_memory_dealloc(addr);
 	}
 
 	unsigned char tmp[32];
@@ -407,6 +434,10 @@ objid_t obj_compute_id(struct object *obj)
 	for(int i = 0; i < 16; i++) {
 		out[i] = tmp[i] ^ tmp[i + 16];
 	}
+	printk("computed ID tl=%ld " IDFMT " for object " IDFMT "\n",
+	  tl,
+	  IDPR(*(objid_t *)out),
+	  IDPR(obj->id));
 	return *(objid_t *)out;
 }
 

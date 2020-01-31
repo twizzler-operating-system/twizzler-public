@@ -61,6 +61,7 @@ objid_t compute_objid(char *base)
 	if(mi->p_flags & MIP_HASHDATA) {
 		blake2b_update(&S, base + OBJ_NULLPAGE_SIZE, mi->sz);
 		size_t ml = OBJ_METAPAGE_SIZE + sizeof(struct fotentry) * mi->fotentries;
+		fprintf(stderr, "---> %ld %ld\n", mi->sz, ml);
 		blake2b_update(&S, base + OBJ_MAXSIZE - ml, ml);
 	}
 	blake2b_final(&S, tmp, 32);
