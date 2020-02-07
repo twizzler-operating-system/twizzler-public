@@ -161,7 +161,7 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 	for(struct rbnode *node = rb_first(&src->pagecache_root); node; node = rb_next(node)) {
 		struct objpage *pg = rb_entry(node, struct objpage, node);
 		if(pg->page) {
-			struct page *np = page_alloc(pg->page->type, pg->page->level);
+			struct page *np = page_alloc(pg->page->type, 0, pg->page->level);
 			assert(pg->page->level == np->level);
 			void *csrc = tmpmap_map_page(pg->page);
 			void *cdest = tmpmap_map_page(np);
@@ -175,7 +175,7 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 	for(struct rbnode *node = rb_first(&src->pagecache_level1_root); node; node = rb_next(node)) {
 		struct objpage *pg = rb_entry(node, struct objpage, node);
 		if(pg->page) {
-			struct page *np = page_alloc(pg->page->type, pg->page->level);
+			struct page *np = page_alloc(pg->page->type, 0, pg->page->level);
 			assert(pg->page->level == np->level);
 			/* TODO (perf): copy-on-write */
 			void *csrc = tmpmap_map_page(pg->page);
@@ -293,7 +293,11 @@ struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 		}
 		int level = ((addr >= mm_page_size(1)) || (obj->lowpg && 0)) ? 0 : 0; /* TODO */
 		page = objpage_alloc();
-		page->page = page_alloc(obj->persist ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, level);
+		page->page =
+		  page_alloc(obj->persist ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, level);
+		void *zaddr = tmpmap_map_page(page->page);
+		memset(zaddr, 0, mm_page_size(page->page->level));
+		tmpmap_unmap_page(zaddr);
 		//	printk("adding page %ld: %d %d\n", page->idx, page->page->level, level);
 		page->idx = addr / mm_page_size(page->page->level);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_UC, PAGE_CACHE_UC);
@@ -630,7 +634,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	}
 	if(o->alloc_pages) {
 		struct objpage p;
-		p.page = page_alloc(PAGE_TYPE_VOLATILE, 0); /* TODO: refcount, largepage */
+		p.page = page_alloc(PAGE_TYPE_VOLATILE, 0, 0); /* TODO: refcount, largepage */
 		p.idx = (loaddr % OBJ_MAXSIZE) / mm_page_size(p.page->level);
 		p.page->flags = PAGE_CACHE_WB;
 		arch_object_map_page(o, &p);

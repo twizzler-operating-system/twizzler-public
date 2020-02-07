@@ -159,7 +159,7 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 		//	obj_write_data(obj, 0, len, data);
 
 		for(size_t s = 0; s < len; s += mm_page_size(0), idx++) {
-			struct page *page = page_alloc(PAGE_TYPE_VOLATILE, 0);
+			struct page *page = page_alloc(PAGE_TYPE_VOLATILE, 0, 0);
 
 			size_t thislen = 0x1000;
 			if((len - s) < thislen)

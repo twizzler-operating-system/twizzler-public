@@ -25,10 +25,10 @@ struct page {
 #define PAGE_CACHE_WT 2
 #define PAGE_CACHE_WC 3
 
-#define PAGE_PINNED 0x8
 #define PAGE_ALLOCED 0x10
+#define PAGE_ZERO 0x20
 
-struct page *page_alloc(int type, int level);
+struct page *page_alloc(int type, int flags, int level);
 struct page *page_alloc_nophys(void);
 void page_unpin(struct page *page);
 void page_pin(struct page *page);
