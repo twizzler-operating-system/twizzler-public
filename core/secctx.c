@@ -59,6 +59,7 @@ static bool __verify_region(void *item,
   uint32_t etype,
   objid_t target)
 {
+	return true; // TODO
 	hash_state hs;
 	unsigned char hash[64];
 	size_t hashlen;
@@ -147,6 +148,7 @@ static bool __verify_region(void *item,
 				ret = false;
 				break;
 			}
+			/* TODO */
 			return true;
 
 			int stat = 0;

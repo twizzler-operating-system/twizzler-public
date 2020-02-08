@@ -43,7 +43,6 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
   bool was_userspace,
   bool ignored)
 {
-	// printk("EXC: %ld\n", frame->int_no);
 	if(!ignored) {
 		if(was_userspace) {
 			current_thread->arch.was_syscall = false;

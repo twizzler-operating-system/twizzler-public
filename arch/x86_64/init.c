@@ -165,6 +165,7 @@ void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 			if((len - s) < thislen)
 				thislen = len - s;
 			void *addr = tmpmap_map_page(page);
+			memset(addr, 0, mm_page_size(page->level));
 			memcpy(addr, data + s, thislen);
 			if((obj->id & 0xfffffffffffffffful) == 0xDA5366BF8BB01253ul) {
 				printk("cache page: %p %lx: %lx\n", page, page->addr, mm_vtop(addr));
@@ -521,6 +522,7 @@ void x86_64_processor_post_vm_init(struct processor *proc)
 	if(proc->flags & PROCESSOR_BSP)
 		kernel_init();
 	proc->arch.kernel_stack = mm_memory_alloc(KERNEL_STACK_SIZE, PM_TYPE_DRAM, true);
+	printk(":: %p\n", proc->arch.kernel_stack);
 	asm volatile("mov %%rax, %%rsp; call processor_perproc_init;" ::"a"(
 	               proc->arch.kernel_stack + KERNEL_STACK_SIZE),
 	             "D"(proc)

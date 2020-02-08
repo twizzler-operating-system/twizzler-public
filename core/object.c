@@ -257,7 +257,8 @@ void obj_cache_page(struct object *obj, size_t addr, struct page *p)
 	}
 	page->page = p;
 	page->flags &= ~OBJPAGE_MAPPED;
-	rb_insert(root, page, struct objpage, node, __objpage_compar);
+	if(node == NULL)
+		rb_insert(root, page, struct objpage, node, __objpage_compar);
 	// arch_object_map_page(obj, page->page, page->idx);
 	// page->flags |= OBJPAGE_MAPPED;
 	spinlock_release_restore(&obj->lock);
