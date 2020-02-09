@@ -293,18 +293,22 @@ struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 			return NULL;
 		}
 		int level = ((addr >= mm_page_size(1)) || (obj->lowpg && 0)) ? 0 : 0; /* TODO */
-		page = objpage_alloc();
-		page->page =
+		struct page *pp =
 		  page_alloc(obj->persist ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, level);
-		void *zaddr = tmpmap_map_page(page->page);
-		memset(zaddr, 0, mm_page_size(page->page->level));
-		tmpmap_unmap_page(zaddr);
-		//	printk("adding page %ld: %d %d\n", page->idx, page->page->level, level);
+		page = objpage_alloc();
+		page->page = pp;
+		// page->page =
+		//  page_alloc(obj->persist ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, level);
 		page->idx = addr / mm_page_size(page->page->level);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_UC, PAGE_CACHE_UC);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WB, PAGE_CACHE_WB);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WT, PAGE_CACHE_WT);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WC, PAGE_CACHE_WC);
+		printk("adding page %ld: %d %d :: " IDFMT "\n",
+		  page->idx,
+		  page->page->level,
+		  level,
+		  IDPR(obj->id));
 		krc_init_zero(&page->refs);
 		rb_insert(page->page->level ? &obj->pagecache_level1_root : &obj->pagecache_root,
 		  page,

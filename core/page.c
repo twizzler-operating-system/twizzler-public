@@ -77,17 +77,19 @@ void page_init_bootstrap(void)
 			_stacks[i].avail = 0;
 			_stacks[i].adding = false;
 		}
+		arena_create(&page_arena);
 		did_init = true;
 	}
 
 	for(size_t i = 0; i < nrpages; i++, pages++) {
-		pages->next = _stacks[0].top;
 		pages->addr = mm_physical_early_alloc();
 		pages->level = 0;
 		pages->flags = PAGE_CACHE_WB;
-		_stacks[0].top = pages;
+		__do_page_dealloc(&_stacks[0], pages);
+		// pages->next = _stacks[0].top;
+		//_stacks[0].top = pages;
+		//_stacks[0].avail++;
 		mm_page_bootstrap_count++;
-		_stacks[0].avail++;
 	}
 }
 
@@ -119,10 +121,11 @@ void page_init(struct memregion *region)
 		page->level = level;
 		page->addr = addr;
 		page->flags = PAGE_CACHE_WB;
-		page->next = _stacks[level].top;
 		page->parent = NULL;
-		_stacks[level].top = page;
-		_stacks[level].avail++;
+		__do_page_dealloc(&_stacks[level], page);
+		// page->next = _stacks[level].top;
+		//_stacks[level].top = page;
+		//_stacks[level].avail++;
 		mm_page_count += mm_page_size(level) / mm_page_size(0);
 
 		if(++i >= nrpages) {
@@ -133,7 +136,6 @@ void page_init(struct memregion *region)
 
 		addr += mm_page_size(level);
 	}
-	arena_create(&page_arena);
 }
 
 #include <tmpmap.h>
@@ -174,14 +176,21 @@ struct page *page_alloc(int type, int flags, int level)
 	if(stack->avail < 128 && level < MAX_PGLEVEL && mm_ready && !stack->adding) {
 		stack->adding = true;
 		spinlock_release_restore(&stack->lock);
-		struct page *lp = page_alloc(type, flags, level + 1);
+		struct page *lp = page_alloc(type, 0, level + 1);
 		printk("splitting page %lx (level %d)\n", lp->addr, level + 1);
 		for(size_t i = 0; i < mm_page_size(level + 1) / mm_page_size(level); i++) {
 			struct page *np = arena_allocate(&page_arena, sizeof(struct page));
-			*np = *lp;
-			np->addr += i * mm_page_size(level);
+			//*np = *lp;
+			np->type = lp->type;
+			np->flags = lp->flags & ~PAGE_ALLOCED;
+			np->lock = SPINLOCK_INIT;
+			np->root = RBINIT;
+			np->addr = i * mm_page_size(level) + lp->addr;
+			// np->addr += i * mm_page_size(level);
 			np->parent = lp;
+			np->next = NULL;
 			np->level = level;
+			printk("  %p -> %lx (%d)\n", np, np->addr, np->level);
 			spinlock_acquire_save(&stack->lock);
 			__do_page_dealloc(stack, np);
 			spinlock_release_restore(&stack->lock);
@@ -192,7 +201,10 @@ struct page *page_alloc(int type, int flags, int level)
 		spinlock_release_restore(&stack->lock);
 	}
 
+	printk(":: ALL %lx\n", p->addr);
+	assert(!(p->flags & PAGE_ALLOCED));
 	p->flags &= ~PAGE_ZERO; // TODO: track this using VM system
+	p->flags |= PAGE_ALLOCED;
 	mm_page_alloced++;
 	return p;
 }

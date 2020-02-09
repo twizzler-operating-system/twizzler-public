@@ -10,9 +10,12 @@ struct page {
 	struct page *parent, *next;
 	struct rbroot root;
 	struct rbnode node;
-	uint16_t flags : 10;
-	uint16_t type : 3;
-	uint16_t level : 3;
+	uint16_t flags;
+	uint8_t type;
+	uint8_t level;
+	// uint16_t flags : 10;
+	// uint16_t type : 3;
+	// uint16_t level : 3;
 };
 
 #define PAGE_TYPE_VOLATILE 0
