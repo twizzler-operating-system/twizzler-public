@@ -43,7 +43,6 @@ void processor_early_init(void);
 void processor_register(bool bsp, unsigned int id);
 void arch_processor_enumerate(void);
 void arch_processor_boot(struct processor *proc);
-void processor_secondary_entry(struct processor *proc);
 void arch_processor_reset(void);
 uint64_t arch_processor_get_nanoseconds(void);
 size_t arch_processor_physical_width(void);

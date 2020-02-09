@@ -140,14 +140,9 @@ void processor_perproc_init(struct processor *proc)
 		/* bootstrap processor */
 		proc = proc_bsp;
 	}
+	proc->flags |= PROCESSOR_UP;
 	arch_processor_init(proc);
 	kernel_main(proc);
-}
-
-void processor_secondary_entry(struct processor *proc)
-{
-	proc->flags |= PROCESSOR_UP;
-	processor_perproc_init(proc);
 }
 
 #include <lib/iter.h>

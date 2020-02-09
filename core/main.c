@@ -257,8 +257,9 @@ void kernel_main(struct processor *proc)
 	}
 	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
 
-	// printk("Waiting at kernel_main_barrier\n");
+	printk("Waiting at kernel_main_barrier\n");
 	processor_barrier(&kernel_main_barrier);
+	printk("POST BARRIER\n");
 
 	if(proc->flags & PROCESSOR_BSP) {
 		arena_destroy(&post_init_call_arena);

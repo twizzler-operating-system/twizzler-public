@@ -44,9 +44,12 @@ void tmpmap_unmap_page(void *addr)
 	uint8_t *bitmap = level ? l1bitmap : l0bitmap;
 	size_t i = virt / mm_page_size(level);
 	bitmap[i / 8] &= ~(1 << (i % 8));
-	spinlock_release_restore(&lock);
 	/* TODO: un-cache page from object */
 	arch_object_unmap_page(&tmpmap_object, virt / mm_page_size(0));
+
+	asm volatile("invlpg %0" ::"m"(addr) : "memory");
+
+	spinlock_release_restore(&lock);
 }
 
 void *tmpmap_map_page(struct page *page)

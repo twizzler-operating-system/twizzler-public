@@ -190,7 +190,7 @@ struct page *page_alloc(int type, int flags, int level)
 			np->parent = lp;
 			np->next = NULL;
 			np->level = level;
-			printk("  %p -> %lx (%d)\n", np, np->addr, np->level);
+			// printk("  %p -> %lx (%d)\n", np, np->addr, np->level);
 			spinlock_acquire_save(&stack->lock);
 			__do_page_dealloc(stack, np);
 			spinlock_release_restore(&stack->lock);
@@ -201,7 +201,7 @@ struct page *page_alloc(int type, int flags, int level)
 		spinlock_release_restore(&stack->lock);
 	}
 
-	printk(":: ALL %lx\n", p->addr);
+	// printk(":: ALL %lx\n", p->addr);
 	assert(!(p->flags & PAGE_ALLOCED));
 	p->flags &= ~PAGE_ZERO; // TODO: track this using VM system
 	p->flags |= PAGE_ALLOCED;

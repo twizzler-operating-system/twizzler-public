@@ -15,7 +15,7 @@ bool __spinlock_acquire(struct spinlock *lock, const char *f __unused, int l __u
 			arch_processor_relax();
 #if CONFIG_DEBUG_LOCKS
 			if(count++ == 100000 && f) {
-				panic("POTENTIAL DEADLOCK trying to acquire %s:%d (held from %s:%d)\n",
+				printk("POTENTIAL DEADLOCK trying to acquire %s:%d (held from %s:%d)\n",
 				  f,
 				  l,
 				  lock->holder_file,

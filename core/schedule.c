@@ -302,7 +302,7 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 	if(fi.view) {
 		panic("NI - different view :: %d", fault);
 	}
-	__print_fault_info(t, fault, info);
+	//__print_fault_info(t, fault, info);
 	if(fi.addr) {
 		if((void *)__failed_addr(fault, info) == fi.addr) {
 			/* probably a double-fault. Just die */

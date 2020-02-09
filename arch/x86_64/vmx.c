@@ -80,7 +80,7 @@ static inline void vmcs_write32_fixed(uint32_t msr, uint32_t vmcs_field, uint32_
 	vmcs_writel(vmcs_field, val);
 }
 
-static void x86_64_enable_vmx(void)
+static void x86_64_enable_vmx(struct processor *proc)
 {
 	uint32_t ecx = x86_64_cpuid(1, 0, 2);
 	if(!(ecx & (1 << 5))) {
@@ -106,7 +106,7 @@ static void x86_64_enable_vmx(void)
 	uint64_t cr4;
 	asm volatile("mov %%cr4, %0" : "=r"(cr4));
 	cr4 |= (1 << 13); // enable VMX
-	uintptr_t vmxon_region = mm_physical_early_alloc();
+	uintptr_t vmxon_region = proc->arch.vmxon_region;
 
 	/* get the revision ID. This is needed for several VM data structures. */
 	x86_64_rdmsr(X86_MSR_VMX_BASIC, &lo, &hi);
@@ -773,7 +773,7 @@ _Static_assert(VMCS_SIZE <= 0x1000, "");
 
 void x86_64_start_vmx(struct processor *proc)
 {
-	x86_64_enable_vmx();
+	x86_64_enable_vmx(proc);
 
 	proc->arch.launched = 0;
 	memset(proc->arch.vcpu_state_regs, 0, sizeof(proc->arch.vcpu_state_regs));
@@ -804,7 +804,7 @@ static long x86_64_rootcall(long fn, long a0, long a1, long a2)
 
 void x86_64_switch_ept(uintptr_t root)
 {
-	printk(":: SWITCH EPT!\n");
+	printk(":: SWITCH EPT: %lx\n", root);
 	if(support_ept_switch_vmfunc) {
 		int index = -1;
 		/* TODO (perf): better than just a loop, man! */

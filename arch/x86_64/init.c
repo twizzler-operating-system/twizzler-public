@@ -441,7 +441,7 @@ void x86_64_cpu_secondary_entry(struct processor *proc)
 	proc_init();
 	x86_64_lapic_init_percpu();
 	assert(proc != NULL);
-	processor_secondary_entry(proc);
+	x86_64_start_vmx(proc);
 }
 
 void x86_64_write_gdt_entry(struct x86_64_gdt_entry *entry,
@@ -539,6 +539,7 @@ void arch_processor_early_init(struct processor *proc)
 	proc->arch.kernel_stack = mm_virtual_early_alloc();
 	proc->arch.veinfo = mm_virtual_early_alloc();
 	proc->arch.vmcs = mm_physical_early_alloc();
+	proc->arch.vmxon_region = mm_physical_early_alloc();
 }
 
 void arch_processor_init(struct processor *proc)

@@ -78,7 +78,7 @@ struct arch_processor {
 		uint16_t limit;
 		uint64_t base;
 	} gdtptr;
-	uintptr_t vmcs;
+	uintptr_t vmcs, vmxon_region;
 	uint64_t vcpu_state_regs[NUM_REGS];
 	int launched;
 	uint32_t revid;

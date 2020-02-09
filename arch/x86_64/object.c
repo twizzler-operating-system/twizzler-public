@@ -227,7 +227,7 @@ void arch_object_space_init(struct object_space *space)
 	space->arch.ept[0] = mm_vtop(space->arch.pdpts[0]) | EPT_READ | EPT_WRITE | EPT_EXEC;
 	space->arch.pdpts[0][0] =
 	  EPT_READ | EPT_WRITE | EPT_EXEC | EPT_IGNORE_PAT | EPT_MEMTYPE_WB | PAGE_LARGE;
-	printk(":: ept[0]=%lx ; pdpt[0]=%lx\n", space->arch.ept[0], space->arch.pdpts[0][0]);
+	// printk(":: ept[0]=%lx ; pdpt[0]=%lx\n", space->arch.ept[0], space->arch.pdpts[0][0]);
 	// debug_print_backtrace();
 }
 

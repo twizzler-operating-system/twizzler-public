@@ -304,11 +304,13 @@ struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WB, PAGE_CACHE_WB);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WT, PAGE_CACHE_WT);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WC, PAGE_CACHE_WC);
+#if 0
 		printk("adding page %ld: %d %d :: " IDFMT "\n",
 		  page->idx,
 		  page->page->level,
 		  level,
 		  IDPR(obj->id));
+#endif
 		krc_init_zero(&page->refs);
 		rb_insert(page->page->level ? &obj->pagecache_level1_root : &obj->pagecache_root,
 		  page,
@@ -386,7 +388,6 @@ void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val)
  * associated with this location, because there's no data here" */
 objid_t obj_compute_id(struct object *obj)
 {
-	printk("computing ID\n");
 	struct metainfo mi;
 	obj_read_data(obj, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
 
@@ -395,8 +396,6 @@ objid_t obj_compute_id(struct object *obj)
 	blake2b_update(&S, &mi.nonce, sizeof(mi.nonce));
 	blake2b_update(&S, &mi.p_flags, sizeof(mi.p_flags));
 	blake2b_update(&S, &mi.kuid, sizeof(mi.kuid));
-	printk("NONCE = " IDFMT "\n", IDPR(mi.nonce));
-	printk("KUID = " IDFMT "\n", IDPR(mi.kuid));
 	size_t tl = 0;
 	if(mi.p_flags & MIP_HASHDATA) {
 		void *addr = mm_memory_alloc(mm_page_size(0), PM_TYPE_DRAM, false);
@@ -426,7 +425,6 @@ objid_t obj_compute_id(struct object *obj)
 			size_t len = mm_page_size(0) - offset;
 			atomic_thread_fence(memory_order_seq_cst);
 			// void *addr = tmpmap_map_page(p->page);
-			printk(":: %lx %lx\n", pos, len);
 			obj_read_data(obj, pos, len, addr);
 			blake2b_update(&S, (char *)addr, len);
 			tl += len;
@@ -443,15 +441,18 @@ objid_t obj_compute_id(struct object *obj)
 	for(int i = 0; i < 16; i++) {
 		out[i] = tmp[i] ^ tmp[i + 16];
 	}
+	/*
 	printk("computed ID tl=%ld " IDFMT " for object " IDFMT "\n",
 	  tl,
 	  IDPR(*(objid_t *)out),
-	  IDPR(obj->id));
+	  IDPR(obj->id));*/
 	return *(objid_t *)out;
 }
 
 bool obj_verify_id(struct object *obj, bool cache_result, bool uncache)
 {
+	if(obj->id == 0 || obj->kernel_obj)
+		return true;
 	bool result = false;
 	spinlock_acquire_save(&obj->verlock);
 
