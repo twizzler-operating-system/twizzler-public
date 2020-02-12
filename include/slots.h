@@ -1,6 +1,7 @@
 #pragma once
 
 #include <krc.h>
+#include <lib/list.h>
 #include <lib/rb.h>
 #include <memory.h>
 
@@ -11,6 +12,8 @@ struct slot {
 	size_t num;
 	struct rbnode node;
 	struct slot *next;
+	struct list spaces;
+	struct spinlock lock;
 };
 struct slot *slot_alloc(void);
 struct slot *slot_lookup(size_t);

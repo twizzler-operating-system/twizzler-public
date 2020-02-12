@@ -88,6 +88,7 @@ static inline void *mm_virtual_early_alloc(void)
 	return p;
 }
 
+#include <krc.h>
 #include <lib/rb.h>
 #include <twz/_view.h>
 
@@ -96,6 +97,7 @@ struct vm_context {
 	struct kso_view *view;
 	struct rbroot root;
 	struct spinlock lock;
+	struct krc refs;
 };
 
 void arch_mm_switch_context(struct vm_context *vm);
@@ -116,11 +118,12 @@ void vm_context_destroy(struct vm_context *v);
 struct vm_context *vm_context_create(void);
 void kso_view_write(struct object *obj, size_t slot, struct viewentry *v);
 void vm_kernel_map_object(struct object *obj);
+void vm_kernel_unmap_object(struct object *obj);
 size_t vm_max_slot(void);
 void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags);
 struct object;
 void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object *obj);
-void arch_vm_unmap_object(struct vm_context *ctx, struct vmap *map, struct object *obj);
+void arch_vm_unmap_object(struct vm_context *ctx, struct vmap *map);
 bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int level, uint64_t flags);
 bool arch_vm_unmap(struct vm_context *ctx, uintptr_t virt);
 bool arch_vm_getmap(struct vm_context *ctx,

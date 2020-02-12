@@ -89,6 +89,7 @@ struct arch_processor {
 		uint64_t linear;
 		uint64_t physical;
 		uint16_t eptidx;
+		uint64_t ip;
 	} * veinfo;
 	uintptr_t *eptp_list;
 };

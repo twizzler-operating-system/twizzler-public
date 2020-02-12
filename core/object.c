@@ -10,14 +10,11 @@
 
 /* TODO: do we need a separate objpage abstraction in addition to a page abstraction */
 
-DECLARE_IHTABLE(objtbl, 12);
-DECLARE_IHTABLE(objslots, 10);
+static struct rbroot obj_tree = RBINIT;
 
-#define NUM_TL_SLOTS (OM_ADDR_SIZE / mm_page_size(MAX_PGLEVEL) - 1)
+static struct slabcache sc_objs, sc_objpage;
 
-struct slabcache sc_objs, sc_objpage;
-
-struct spinlock objlock = SPINLOCK_INIT;
+static struct spinlock objlock = SPINLOCK_INIT;
 static int __objpage_compar_key(struct objpage *a, size_t n)
 {
 	if(a->idx > n)
@@ -30,6 +27,20 @@ static int __objpage_compar_key(struct objpage *a, size_t n)
 static int __objpage_compar(struct objpage *a, struct objpage *b)
 {
 	return __objpage_compar_key(a, b->idx);
+}
+
+static int __obj_compar_key(struct object *a, objid_t b)
+{
+	if(a->id > b)
+		return 1;
+	else if(a->id < b)
+		return -1;
+	return 0;
+}
+
+static int __obj_compar(struct object *a, struct object *b)
+{
+	return __obj_compar_key(a, b->id);
 }
 
 static void _obj_ctor(void *_u, void *ptr)
@@ -56,7 +67,7 @@ void obj_init(struct object *obj)
 	obj->persist = false;
 	obj->kvmap = NULL;
 	krc_init(&obj->refs);
-	krc_init_zero(&obj->pcount);
+	krc_init_zero(&obj->mapcount);
 	arch_object_init(obj);
 }
 
@@ -65,7 +76,7 @@ static void _obj_dtor(void *_u, void *ptr)
 	(void)_u;
 	struct object *obj = ptr;
 	assert(krc_iszero(&obj->refs));
-	assert(krc_iszero(&obj->pcount));
+	assert(krc_iszero(&obj->mapcount));
 }
 
 static struct objpage *objpage_alloc(void)
@@ -132,7 +143,7 @@ struct object *obj_create(uint128_t id, enum kso_type ksot)
 	/* TODO (major): check for duplicates */
 	if(id) {
 		spinlock_acquire_save(&objlock);
-		ihtable_insert(&objtbl, &obj->elem, obj->id);
+		rb_insert(&obj_tree, obj, struct object, node, __obj_compar);
 		spinlock_release_restore(&objlock);
 	}
 	return obj;
@@ -145,7 +156,7 @@ void obj_assign_id(struct object *obj, objid_t id)
 		panic("tried to reassign object ID");
 	}
 	obj->id = id;
-	ihtable_insert(&objtbl, &obj->elem, obj->id);
+	rb_insert(&obj_tree, obj, struct object, node, __obj_compar);
 	spinlock_release_restore(&objlock);
 }
 
@@ -191,7 +202,7 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 
 	if(id) {
 		spinlock_acquire_save(&objlock);
-		ihtable_insert(&objtbl, &obj->elem, obj->id);
+		rb_insert(&obj_tree, obj, struct object, node, __obj_compar);
 		spinlock_release_restore(&objlock);
 	}
 	return obj;
@@ -200,9 +211,10 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 struct object *obj_lookup(uint128_t id)
 {
 	spinlock_acquire_save(&objlock);
-	struct object *obj = ihtable_find(&objtbl, id, struct object, elem, id);
+	struct rbnode *node = rb_search(&obj_tree, id, struct object, node, __obj_compar_key);
 
-	if(obj) {
+	struct object *obj = node ? rb_entry(node, struct object, node) : NULL;
+	if(node) {
 		krc_get(&obj->refs);
 	}
 	spinlock_release_restore(&objlock);
@@ -217,10 +229,34 @@ void obj_alloc_kernel_slot(struct object *obj)
 		return;
 	}
 	struct slot *slot = slot_alloc();
+	printk("[slot]: allocated kslot %ld for " IDFMT " (%p %d %d)\n",
+	  slot->num,
+	  IDPR(obj->id),
+	  obj,
+	  obj->kernel_obj,
+	  obj->kso_type);
 	krc_get(&obj->refs);
 	slot->obj = obj;   /* above get */
 	obj->kslot = slot; /* move ref */
 	spinlock_release_restore(&obj->lock);
+}
+
+void obj_release_slot(struct object *obj, bool kernel)
+{
+	struct slot **dslot = kernel ? &obj->kslot : &obj->slot;
+	spinlock_acquire_save(&obj->lock);
+	if(!*dslot) {
+		spinlock_release_restore(&obj->lock);
+		return;
+	}
+
+	struct slot *slot = *dslot;
+	*dslot = NULL;
+	spinlock_release_restore(&obj->lock);
+
+	vm_kernel_unmap_object(obj);
+	object_space_release_slot(slot);
+	slot_release(slot);
 }
 
 void obj_alloc_slot(struct object *obj)
@@ -231,6 +267,12 @@ void obj_alloc_slot(struct object *obj)
 		return;
 	}
 	struct slot *slot = slot_alloc();
+	printk("[slot]: allocated uslot %ld for " IDFMT " (%p %d %d)\n",
+	  slot->num,
+	  IDPR(obj->id),
+	  obj,
+	  obj->kernel_obj,
+	  obj->kso_type);
 	krc_get(&obj->refs);
 	slot->obj = obj;  /* above get */
 	obj->slot = slot; /* move ref */
@@ -441,11 +483,13 @@ objid_t obj_compute_id(struct object *obj)
 	for(int i = 0; i < 16; i++) {
 		out[i] = tmp[i] ^ tmp[i + 16];
 	}
-	/*
+
+#if 0
 	printk("computed ID tl=%ld " IDFMT " for object " IDFMT "\n",
 	  tl,
 	  IDPR(*(objid_t *)out),
-	  IDPR(obj->id));*/
+	  IDPR(obj->id));
+#endif
 	return *(objid_t *)out;
 }
 
@@ -488,6 +532,7 @@ struct object *obj_lookup_slot(uintptr_t oaddr)
 
 int obj_check_permission(struct object *obj, uint64_t flags)
 {
+	printk("Checking permission of object %p: " IDFMT "\n", obj, IDPR(obj->id));
 	bool w = (flags & MIP_DFL_WRITE);
 	if(!obj_verify_id(obj, !w, w)) {
 		return -EINVAL;
@@ -633,10 +678,17 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	// for(int j = 0; j < 4 && (idx < 200000 || j == 0); j++, idx++) {
 
 	if(do_map) {
-		arch_object_map_slot(NULL,
-		  o,
-		  VADDR_IS_KERNEL(vaddr) ? o->kslot : o->slot,
-		  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
+		if(o->kernel_obj) {
+			/* TODO: shouldn't need this? */
+			arch_object_map_slot(NULL,
+			  o,
+			  VADDR_IS_KERNEL(vaddr) ? o->kslot : o->slot,
+			  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
+		} else {
+			object_space_map_slot(NULL,
+			  VADDR_IS_KERNEL(vaddr) ? o->kslot : o->slot,
+			  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
+		}
 	}
 	if(o->alloc_pages) {
 		struct objpage p;

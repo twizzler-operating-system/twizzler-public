@@ -224,6 +224,7 @@ static void vmx_handle_ept_violation(struct processor *proc)
 	proc->arch.veinfo->linear = vmcs_readl(VMCS_GUEST_LINEAR_ADDRESS);
 	proc->arch.veinfo->eptidx = 0; /* TODO (minor) */
 	proc->arch.veinfo->lock = 0xFFFFFFFF;
+	proc->arch.veinfo->ip = vmcs_readl(VMCS_GUEST_RIP);
 	vmx_queue_exception(20); /* #VE */
 }
 
@@ -606,6 +607,7 @@ static void __init_ept_root(void)
 	_bootstrap_object_space.arch.ept = pml4;
 	_bootstrap_object_space.arch.ept_phys = pml4phys;
 	_bootstrap_object_space.arch.pdpts = mm_virtual_early_alloc();
+	_bootstrap_object_space.arch.counts = mm_virtual_early_alloc();
 	_bootstrap_object_space.arch.pdpts[0] = pdpt;
 }
 
@@ -853,8 +855,9 @@ void x86_64_virtualization_fault(struct processor *proc)
 
 	uint64_t p = proc->arch.veinfo->physical;
 	uint64_t l = proc->arch.veinfo->linear;
+	uint64_t rip = proc->arch.veinfo->ip;
 	asm volatile("lfence;" ::: "memory");
 	atomic_store(&proc->arch.veinfo->lock, 0);
 	kernel_objspace_fault_entry(
-	  current_thread ? current_thread->arch.exception.rip : 0, p, l, flags);
+	  current_thread ? current_thread->arch.exception.rip : rip, p, l, flags);
 }

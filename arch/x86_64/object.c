@@ -41,6 +41,30 @@ bool arch_object_getmap_slot_flags(struct object_space *space, struct object *ob
 	return true;
 }
 
+void arch_object_unmap_slot(struct object_space *space, struct slot *slot)
+{
+	if(!space)
+		space = current_thread ? &current_thread->active_sc->space : &_bootstrap_object_space;
+
+	uintptr_t virt = SLOT_TO_OADDR(slot->num);
+	int pml4_idx = PML4_IDX(virt);
+	int pdpt_idx = PDPT_IDX(virt);
+
+	if(!space->arch.ept[pml4_idx]) {
+		return;
+	}
+	uint64_t *pdpt = space->arch.pdpts[pml4_idx];
+	if(pdpt[pdpt_idx])
+		space->arch.counts[pml4_idx]--;
+	pdpt[pdpt_idx] = 0;
+	int x;
+	asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
+	if(space->arch.counts[pml4_idx] == 0) {
+		mm_memory_dealloc(space->arch.pdpts[pml4_idx]);
+		space->arch.ept[pml4_idx] = 0;
+	}
+}
+
 void arch_object_map_slot(struct object_space *space,
   struct object *obj,
   struct slot *slot,
@@ -67,8 +91,10 @@ void arch_object_map_slot(struct object_space *space,
 		  mm_vtop(space->arch.pdpts[pml4_idx]) | EPT_READ | EPT_WRITE | EPT_EXEC;
 	}
 	uint64_t *pdpt = space->arch.pdpts[pml4_idx];
+	if(pdpt[pdpt_idx] == 0) {
+		space->arch.counts[pml4_idx]++;
+	}
 	pdpt[pdpt_idx] = obj->arch.pt_root | ef;
-	// printk(":: map slot: %lx %lx\n", pdpt[pdpt_idx], slot->num);
 }
 
 /* TODO: switch to passing an objpage */
@@ -224,6 +250,7 @@ void arch_object_space_init(struct object_space *space)
 	space->arch.pdpts = (void *)mm_memory_alloc(512 * sizeof(void *), PM_TYPE_DRAM, true);
 	/* 0th slot is bootstrap, we'll need that one. */
 	space->arch.pdpts[0] = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+	space->arch.counts = mm_memory_alloc(512 * sizeof(size_t), PM_TYPE_DRAM, true);
 	space->arch.ept[0] = mm_vtop(space->arch.pdpts[0]) | EPT_READ | EPT_WRITE | EPT_EXEC;
 	space->arch.pdpts[0][0] =
 	  EPT_READ | EPT_WRITE | EPT_EXEC | EPT_IGNORE_PAT | EPT_MEMTYPE_WB | PAGE_LARGE;

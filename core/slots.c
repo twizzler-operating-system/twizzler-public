@@ -1,12 +1,20 @@
+#include <lib/iter.h>
 #include <lib/rb.h>
 #include <object.h>
 #include <processor.h>
+#include <secctx.h>
 #include <slab.h>
 #include <slots.h>
 #include <spinlock.h>
 
 #include <twz/_obj.h>
 
+struct slot_entry {
+	struct object_space *space;
+	struct list entry;
+};
+
+static DECLARE_SLABCACHE(_sc_slot_entry, sizeof(struct slot_entry), NULL, NULL, NULL);
 static DECLARE_SLABCACHE(_sc_slot, sizeof(struct slot), NULL, NULL, NULL);
 
 static struct rbroot slot_root = RBINIT;
@@ -51,6 +59,7 @@ void slot_init_bootstrap(size_t oslot, size_t vslot)
 	_bootstrap_slot.obj = &_bootstrap_object;
 	_bootstrap_object.kernel_obj = true;
 	_bootstrap_object.alloc_pages = true;
+	list_init(&_bootstrap_slot.spaces);
 
 	arch_vm_map_object(NULL, &_bootstrap_vmap, &_bootstrap_object);
 	arch_object_map_slot(
@@ -72,6 +81,7 @@ void slots_init(void)
 		struct slot *s = slabcache_alloc(&_sc_slot);
 		s->num = i;
 		s->next = slot_stack;
+		list_init(&s->spaces);
 		slot_stack = s;
 		rb_insert(&slot_root, s, struct slot, node, __slot_compar);
 	}
@@ -109,6 +119,42 @@ void slot_release(struct slot *s)
 		slot_stack = s;
 		spinlock_release_restore(&slot_lock);
 	}
+}
+
+void object_space_map_slot(struct object_space *space, struct slot *slot, uint64_t flags)
+{
+	if(!space)
+		space = current_thread ? &current_thread->active_sc->space : NULL;
+	if(space) {
+		struct slot_entry *se = slabcache_alloc(&_sc_slot_entry);
+		spinlock_acquire_save(&slot->lock);
+		se->space = space;
+		krc_get(&space->refs);
+		list_insert(&slot->spaces, &se->entry);
+	} else {
+		spinlock_acquire_save(&slot->lock);
+	}
+	arch_object_map_slot(space, slot->obj, slot, flags);
+	spinlock_release_restore(&slot->lock);
+}
+
+void object_space_release_slot(struct slot *slot)
+{
+	/* to call this, we'll first have no object referencing this slot. This means it'll never be
+	 * mapped into an object_space while we're releasing it. */
+	printk("RELEASE %ld\n", slot->num);
+	struct list *e, *n;
+	for(e = list_iter_start(&slot->spaces);
+	    e != list_iter_end(&slot->spaces) && (n = list_iter_next(e));
+	    e = n) {
+		struct slot_entry *se = list_entry(e, struct slot_entry, entry);
+		printk("  X\n", slot->num);
+		arch_object_unmap_slot(se->space, slot);
+		list_remove(e);
+		/* TODO: put object space */
+		slabcache_free(se);
+	}
+	arch_object_unmap_slot(NULL, slot);
 }
 
 void object_space_init(struct object_space *space)

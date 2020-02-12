@@ -41,13 +41,35 @@ __initializer static void _init_vmctx(void)
 
 struct vm_context *vm_context_create(void)
 {
-	return slabcache_alloc(&sc_vmctx);
+	struct vm_context *ctx = slabcache_alloc(&sc_vmctx);
+	krc_init(&ctx->refs);
+	return ctx;
 }
 
 void vm_context_destroy(struct vm_context *v)
 {
 	/* TODO (major): unmap things? */
-	slabcache_free(v);
+	struct rbnode *next;
+	for(struct rbnode *node = rb_first(&v->root); node; node = next) {
+		struct vmap *map = rb_entry(node, struct vmap, node);
+		printk("unmap: " IDFMT ": %ld\n", IDPR(map->obj->id), map->slot);
+
+		arch_vm_unmap_object(v, map);
+		map->obj = NULL;
+		rb_delete(&map->node, &v->root);
+
+		next = rb_next(node);
+	}
+	/* TODO: free the context. this will need some kind of addition to the scheduler; a
+	 * "switch-away" thing */
+	// slabcache_free(v);
+}
+
+void vm_context_put(struct vm_context *v)
+{
+	if(krc_put(&v->refs)) {
+		vm_context_destroy(v);
+	}
 }
 
 static int vmap_compar_key(struct vmap *v, size_t slot)
@@ -150,7 +172,7 @@ static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 		/* TODO (major): unmap all ctxs that use this view */
 		if(node) {
 			struct vmap *map = rb_entry(node, struct vmap, node);
-			arch_vm_unmap_object(current_thread->ctx, map, obj);
+			arch_vm_unmap_object(current_thread->ctx, map);
 			rb_delete(node, &current_thread->ctx->root);
 		}
 	}
@@ -223,7 +245,8 @@ static void vm_kernel_alloc_slot(struct object *obj)
 		}
 		m->slot = counter++;
 	} else {
-		m = list_pop(&kvmap_stack);
+		struct list *e = list_pop(&kvmap_stack);
+		m = list_entry(e, struct vmap, entry);
 	}
 
 	obj->kvmap = m;
@@ -239,6 +262,19 @@ void vm_kernel_map_object(struct object *obj)
 	vm_kernel_alloc_slot(obj);
 	vm_context_map(&kernel_ctx, obj->kvmap);
 	arch_vm_map_object(&kernel_ctx, obj->kvmap, obj);
+}
+
+void vm_kernel_unmap_object(struct object *obj)
+{
+	spinlock_acquire_save(&kvmap_lock);
+	struct vmap *vmap = obj->kvmap;
+	obj->kvmap = NULL;
+	arch_vm_unmap_object(&kernel_ctx, vmap);
+	vmap->obj = NULL;
+	rb_delete(&vmap->node, &kernel_ctx.root);
+	list_insert(&kvmap_stack, &vmap->entry);
+
+	spinlock_release_restore(&kvmap_lock);
 }
 
 void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)

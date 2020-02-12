@@ -10,4 +10,5 @@ struct arch_object_space {
 	uintptr_t ept_phys;
 	uint64_t *ept;
 	uint64_t **pdpts;
+	size_t *counts;
 };

@@ -408,7 +408,10 @@ void kernel_main(struct processor *proc)
 				(long)tsa.stack_base, (long)tsa.stack_base + tsa.stack_size,
 				(long)tsa.tls_base, (long)tsa.arg);
 #endif
-		syscall_thread_spawn(ID_LO(bthrid), ID_HI(bthrid), &tsa, 0);
+		r = syscall_thread_spawn(ID_LO(bthrid), ID_HI(bthrid), &tsa, 0);
+		if(r < 0) {
+			panic("thread_spawn: %d\n", r);
+		}
 	}
 	if((proc->id == 0) && 0) {
 		arch_interrupt_set(true);

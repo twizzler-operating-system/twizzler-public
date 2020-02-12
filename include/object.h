@@ -56,7 +56,7 @@ struct object {
 
 	size_t maxsz;
 
-	struct krc refs, pcount;
+	struct krc refs, mapcount;
 
 	int pglevel;
 	int flags;
@@ -84,8 +84,7 @@ struct object {
 	struct rbroot pagecache_root, pagecache_level1_root, tstable_root;
 	// struct ihtable *pagecache, *pagecache_level1, *tstable;
 
-	struct ihelem elem, slotelem;
-	struct rbnode slotnode;
+	struct rbnode slotnode, node;
 	struct arch_object arch;
 	struct vmap *kvmap;
 	struct slot *kslot;
@@ -103,7 +102,11 @@ struct objpage {
 
 struct object_space {
 	struct arch_object_space arch;
+	struct krc refs;
 };
+
+void object_space_map_slot(struct object_space *space, struct slot *slot, uint64_t flags);
+void object_space_release_slot(struct slot *slot);
 
 struct object *obj_create(uint128_t id, enum kso_type);
 void obj_system_init(void);
@@ -122,6 +125,7 @@ void obj_assign_id(struct object *obj, objid_t id);
 objid_t obj_compute_id(struct object *obj);
 void obj_init(struct object *obj);
 void obj_system_init(void);
+void obj_release_slot(struct object *obj, bool kernel);
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);

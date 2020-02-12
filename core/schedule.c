@@ -192,6 +192,8 @@ void thread_exit(void)
 	current_processor->load--;
 	list_remove(&current_thread->all_entry);
 	/* TODO (major): cleanup thread resources */
+
+	vm_context_put(current_thread->ctx);
 }
 #include <lib/iter.h>
 void thread_print_all_threads(void)

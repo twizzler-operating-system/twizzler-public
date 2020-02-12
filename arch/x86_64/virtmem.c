@@ -141,11 +141,8 @@ void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct object 
 	}
 }
 
-void arch_vm_unmap_object(struct vm_context *ctx, struct vmap *map, struct object *obj)
+void arch_vm_unmap_object(struct vm_context *ctx, struct vmap *map)
 {
-	if(obj->slot == NULL) {
-		panic("tried to map an unslotted object");
-	}
 	uintptr_t vaddr = (uintptr_t)SLOT_TO_VADDR(map->slot);
 
 	if(arch_vm_unmap(ctx, vaddr) == false) {
