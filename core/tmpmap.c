@@ -27,7 +27,7 @@ __initializer static void tmpmap_init(void)
 
 	obj_alloc_kernel_slot(&tmpmap_object);
 
-	arch_vm_map_object(&kernel_ctx, &tmpmap_vmap, &tmpmap_object);
+	arch_vm_map_object(&kernel_ctx, &tmpmap_vmap, tmpmap_object.kslot);
 	l0bitmap = mm_memory_alloc((OBJ_MAXSIZE / mm_page_size(0)) / 8, PM_TYPE_DRAM, true);
 	l1bitmap = mm_memory_alloc((OBJ_MAXSIZE / mm_page_size(1)) / 8, PM_TYPE_DRAM, true);
 }

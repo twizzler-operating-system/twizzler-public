@@ -51,7 +51,7 @@ static void pmap_init(void)
 	obj_alloc_kernel_slot(&pmap_object);
 	arena_create(&pmap_arena);
 
-	arch_vm_map_object(&kernel_ctx, &pmap_vmap, &pmap_object);
+	arch_vm_map_object(&kernel_ctx, &pmap_vmap, pmap_object.kslot);
 }
 
 static struct pmap *pmap_get(uintptr_t phys, int cache_type, bool remap)

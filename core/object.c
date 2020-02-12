@@ -53,9 +53,6 @@ static void _obj_ctor(void *_u, void *ptr)
 	obj->pagecache_root = RBINIT;
 	obj->pagecache_level1_root = RBINIT;
 	obj->tstable_root = RBINIT;
-	// obj->pagecache = slabcache_alloc(&sc_pctable);
-	// obj->pagecache_level1 = slabcache_alloc(&sc_pctable);
-	// obj->tstable = slabcache_alloc(&sc_tstable);
 }
 
 void obj_init(struct object *obj)
@@ -86,7 +83,6 @@ static struct objpage *objpage_alloc(void)
 
 void obj_system_init(void)
 {
-	/* TODO (perf): verify all ihtable sizes */
 	slabcache_init(&sc_objs, sizeof(struct object), _obj_ctor, _obj_dtor, NULL);
 	slabcache_init(&sc_objpage, sizeof(struct objpage), NULL, NULL, NULL);
 }
@@ -241,17 +237,16 @@ void obj_alloc_kernel_slot(struct object *obj)
 	spinlock_release_restore(&obj->lock);
 }
 
-void obj_release_slot(struct object *obj, bool kernel)
+void obj_release_kernel_slot(struct object *obj)
 {
-	struct slot **dslot = kernel ? &obj->kslot : &obj->slot;
 	spinlock_acquire_save(&obj->lock);
-	if(!*dslot) {
+	if(!obj->kslot) {
 		spinlock_release_restore(&obj->lock);
 		return;
 	}
 
-	struct slot *slot = *dslot;
-	*dslot = NULL;
+	struct slot *slot = obj->kslot;
+	obj->kslot = NULL;
 	spinlock_release_restore(&obj->lock);
 
 	vm_kernel_unmap_object(obj);
@@ -259,24 +254,46 @@ void obj_release_slot(struct object *obj, bool kernel)
 	slot_release(slot);
 }
 
-void obj_alloc_slot(struct object *obj)
+void obj_release_slot(struct object *obj)
 {
 	spinlock_acquire_save(&obj->lock);
-	if(obj->slot) {
-		spinlock_release_restore(&obj->lock);
-		return;
+
+	assert(obj->slot);
+	assert(obj->mapcount.count > 0);
+
+	if(krc_put(&obj->mapcount)) {
+		/* hit zero; release */
+		struct slot *slot = obj->slot;
+		obj->slot = NULL;
+		object_space_release_slot(slot);
+		slot_release(slot);
 	}
-	struct slot *slot = slot_alloc();
+
+	spinlock_release_restore(&obj->lock);
+}
+
+struct slot *obj_alloc_slot(struct object *obj)
+{
+	spinlock_acquire_save(&obj->lock);
+	if(!obj->slot) {
+		assert(obj->mapcount.count == 0);
+		obj->slot = slot_alloc();
+		krc_get(&obj->refs);
+		obj->slot->obj = obj; /* above get */
+	}
+
+	krc_get(&obj->mapcount);
+
 	printk("[slot]: allocated uslot %ld for " IDFMT " (%p %d %d)\n",
-	  slot->num,
+	  obj->slot->num,
 	  IDPR(obj->id),
 	  obj,
 	  obj->kernel_obj,
 	  obj->kso_type);
-	krc_get(&obj->refs);
-	slot->obj = obj;  /* above get */
-	obj->slot = slot; /* move ref */
+
+	krc_get(&obj->slot->rc); /* return */
 	spinlock_release_restore(&obj->lock);
+	return obj->slot;
 }
 
 void obj_cache_page(struct object *obj, size_t addr, struct page *p)
@@ -631,10 +648,12 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 
 	struct object *o = obj_lookup_slot(loaddr);
 	if(o == NULL) {
-		panic("no object mapped to slot during object fault: vaddr=%lx, oaddr=%lx, ip=%lx",
+		panic(
+		  "no object mapped to slot during object fault: vaddr=%lx, oaddr=%lx, ip=%lx, slot=%ld",
 		  vaddr,
 		  loaddr,
-		  ip);
+		  ip,
+		  loaddr / OBJ_MAXSIZE);
 	}
 
 	uint64_t perms = 0;

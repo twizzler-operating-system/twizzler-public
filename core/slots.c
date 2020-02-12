@@ -61,7 +61,7 @@ void slot_init_bootstrap(size_t oslot, size_t vslot)
 	_bootstrap_object.alloc_pages = true;
 	list_init(&_bootstrap_slot.spaces);
 
-	arch_vm_map_object(NULL, &_bootstrap_vmap, &_bootstrap_object);
+	arch_vm_map_object(NULL, &_bootstrap_vmap, _bootstrap_object.kslot);
 	arch_object_map_slot(
 	  NULL, &_bootstrap_object, &_bootstrap_slot, OBJSPACE_READ | OBJSPACE_WRITE);
 	for(unsigned int idx = 0; idx < OBJ_MAXSIZE / mm_page_size(0); idx++) {

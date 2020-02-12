@@ -46,18 +46,29 @@ struct vm_context *vm_context_create(void)
 	return ctx;
 }
 
+void vm_map_disestablish(struct vm_context *ctx, struct vmap *map)
+{
+	arch_vm_unmap_object(ctx, map);
+	struct object *obj = map->obj;
+	map->obj = NULL;
+	rb_delete(&map->node, &ctx->root);
+
+	obj_release_slot(obj);
+	obj_put(obj);
+}
+
 void vm_context_destroy(struct vm_context *v)
 {
 	/* TODO (major): unmap things? */
 	struct rbnode *next;
 	for(struct rbnode *node = rb_first(&v->root); node; node = next) {
 		struct vmap *map = rb_entry(node, struct vmap, node);
-		printk("unmap: " IDFMT ": %ld\n", IDPR(map->obj->id), map->slot);
+		printk("unmap: " IDFMT ": %ld, with map count %ld\n",
+		  IDPR(map->obj->id),
+		  map->slot,
+		  map->obj->mapcount.count);
 
-		arch_vm_unmap_object(v, map);
-		map->obj = NULL;
-		rb_delete(&map->node, &v->root);
-
+		vm_map_disestablish(v, map);
 		next = rb_next(node);
 	}
 	/* TODO: free the context. this will need some kind of addition to the scheduler; a
@@ -93,6 +104,15 @@ void vm_vmap_init(struct vmap *vmap, struct object *obj, size_t vslot, uint32_t 
 	vmap->obj = obj;
 	vmap->flags = flags;
 	vmap->status = 0;
+}
+
+void vm_map_establish(struct vmap *map)
+{
+	struct slot *slot = obj_alloc_slot(map->obj);
+	if(slot) {
+		arch_vm_map_object(current_thread->ctx, map, slot);
+		slot_release(slot);
+	}
 }
 
 void vm_context_map(struct vm_context *v, struct vmap *m)
@@ -172,8 +192,9 @@ static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 		/* TODO (major): unmap all ctxs that use this view */
 		if(node) {
 			struct vmap *map = rb_entry(node, struct vmap, node);
-			arch_vm_unmap_object(current_thread->ctx, map);
-			rb_delete(node, &current_thread->ctx->root);
+			vm_map_disestablish(current_thread->ctx, map);
+			// arch_vm_unmap_object(current_thread->ctx, map);
+			// rb_delete(node, &current_thread->ctx->root);
 		}
 	}
 	spinlock_release_restore(&current_thread->ctx->lock);
@@ -184,11 +205,14 @@ bool vm_setview(struct thread *t, struct object *viewobj)
 {
 	obj_kso_init(viewobj, KSO_VIEW); // TODO
 	// struct object *old = (t->ctx && t->ctx->view) ? kso_get_obj(t->ctx->view, view) : NULL;
-	// struct vm_context *oldctx = t->ctx;
+	struct vm_context *oldctx = t->ctx;
+
 	t->ctx = vm_context_create();
 	krc_get(&viewobj->refs);
 	t->ctx->view = &viewobj->view;
 
+	if(oldctx)
+		vm_context_destroy(oldctx);
 	/* TODO: unmap things (or create a new context), destroy old, etc */
 	/* TODO: check object type */
 	return true;
@@ -261,7 +285,7 @@ void vm_kernel_map_object(struct object *obj)
 
 	vm_kernel_alloc_slot(obj);
 	vm_context_map(&kernel_ctx, obj->kvmap);
-	arch_vm_map_object(&kernel_ctx, obj->kvmap, obj);
+	arch_vm_map_object(&kernel_ctx, obj->kvmap, obj->kslot);
 }
 
 void vm_kernel_unmap_object(struct object *obj)
@@ -319,9 +343,6 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 		obj_put(obj);
 		vm_context_map(current_thread->ctx, map);
 	}
+	vm_map_establish(map);
 	spinlock_release_restore(&current_thread->ctx->lock);
-	if(map->obj->slot == NULL) {
-		obj_alloc_slot(map->obj);
-	}
-	arch_vm_map_object(current_thread->ctx, map, map->obj);
 }

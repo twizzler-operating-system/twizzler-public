@@ -113,7 +113,7 @@ void obj_system_init(void);
 struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot);
 struct object *obj_lookup(uint128_t id);
 bool obj_verify_id(struct object *obj, bool cache_result, bool uncache);
-void obj_alloc_slot(struct object *obj);
+struct slot *obj_alloc_slot(struct object *obj);
 void obj_alloc_kernel_slot(struct object *obj);
 struct object *obj_lookup_slot(uintptr_t oaddr);
 void obj_cache_page(struct object *obj, size_t idx, struct page *);
@@ -125,7 +125,8 @@ void obj_assign_id(struct object *obj, objid_t id);
 objid_t obj_compute_id(struct object *obj);
 void obj_init(struct object *obj);
 void obj_system_init(void);
-void obj_release_slot(struct object *obj, bool kernel);
+void obj_release_kernel_slot(struct object *obj);
+void obj_release_slot(struct object *obj);
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
