@@ -133,15 +133,17 @@ static int sp_wake(struct syncpoint *sp, long arg)
 		else if(arg > 0)
 			arg--;
 
-		list_remove(&se->entry);
 		struct thread *thr = se->thr;
 		spinlock_acquire_save(&thr->lock);
 
+		list_remove(&se->entry);
+		se->active = false;
 		for(size_t i = 0; i < thr->sleep_count; i++) {
 			if(thr->sleep_entries[i].active && se != &thr->sleep_entries[i]) {
 				struct syncpoint *op = thr->sleep_entries[i].sp;
 				spinlock_acquire_save(&op->lock);
 				list_remove(&thr->sleep_entries[i].entry);
+				thr->sleep_entries[i].active = false;
 				spinlock_release_restore(&op->lock);
 				krc_put_call(op, refs, _sp_release);
 			}
