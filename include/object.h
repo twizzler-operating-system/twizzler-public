@@ -138,6 +138,7 @@ void *obj_get_kaddr(struct object *obj);
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val);
+bool obj_get_pflags(struct object *obj, uint32_t *pf);
 int obj_check_permission(struct object *obj, uint64_t flags);
 
 struct slot;

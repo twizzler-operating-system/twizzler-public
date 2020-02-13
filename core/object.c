@@ -502,6 +502,29 @@ void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val)
 	obj_release_kaddr(obj);
 }
 
+bool obj_get_pflags(struct object *obj, uint32_t *pf)
+{
+	*pf = 0;
+	spinlock_acquire_save(&obj->lock);
+	if(obj->cpf_valid) {
+		*pf = obj->cached_pflags;
+		spinlock_release_restore(&obj->lock);
+		return true;
+	}
+
+	spinlock_release_restore(&obj->lock);
+	struct metainfo mi;
+	obj_read_data(obj, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
+	if(mi.magic != MI_MAGIC)
+		return false;
+	spinlock_acquire_save(&obj->lock);
+	*pf = obj->cached_pflags = mi.p_flags;
+	atomic_thread_fence(memory_order_seq_cst);
+	obj->cpf_valid = true;
+	spinlock_release_restore(&obj->lock);
+	return true;
+}
+
 /* TODO (major): with these, and the above, support obj_get_page returning "no page
  * associated with this location, because there's no data here" */
 objid_t obj_compute_id(struct object *obj)
@@ -603,9 +626,10 @@ int obj_check_permission(struct object *obj, uint64_t flags)
 		return -EINVAL;
 	}
 
-	struct metainfo mi;
-	obj_read_data(obj, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
-	uint32_t dfl = mi.p_flags & (MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE);
+	uint32_t p_flags;
+	if(!obj_get_pflags(obj, &p_flags))
+		return 0;
+	uint32_t dfl = p_flags & (MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE);
 
 	if((dfl & flags) == flags) {
 		return 0;
@@ -621,9 +645,8 @@ static bool __objspace_fault_calculate_perms(struct object *o,
   uint64_t *perms)
 {
 	/* optimization: just check if default permissions are enough */
-	struct metainfo mi;
-	obj_read_data(o, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
-	if(mi.magic != MI_MAGIC) {
+	uint32_t p_flags;
+	if(!obj_get_pflags(o, &p_flags)) {
 		struct fault_object_info info = {
 			.ip = ip,
 			.addr = vaddr,
@@ -635,7 +658,7 @@ static bool __objspace_fault_calculate_perms(struct object *o,
 
 		return false;
 	}
-	uint32_t dfl = mi.p_flags & (MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE);
+	uint32_t dfl = p_flags & (MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE);
 	bool ok = true;
 	if(flags & OBJSPACE_FAULT_READ) {
 		ok = ok && (dfl & MIP_DFL_READ);

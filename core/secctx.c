@@ -364,9 +364,8 @@ static int __lookup_perms(struct object *obj,
 	struct metainfo mi;
 	struct object *t = obj_lookup(target);
 	if(t) {
-#warning "CACHE p_flags!"
-		obj_read_data(t, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
-		dfl = mi.p_flags & (MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE);
+		uint32_t p_flags = 0;
+		obj_get_pflags(t, &p_flags);
 		obj_put(t);
 	}
 	if(p)
