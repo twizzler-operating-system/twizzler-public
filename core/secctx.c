@@ -630,6 +630,8 @@ static void __secctx_update_thrdrepr(struct thread *thr, int s, bool at)
 bool secctx_thread_attach(struct sctx *s, struct thread *t)
 {
 	// EPRINTK("thread %ld attach to " IDFMT "\n", t->id, IDPR(s->repr));
+	bool ok = false, found = false, force = false;
+	size_t i;
 	spinlock_acquire_save(&t->sc_lock);
 	if(t->active_sc->repr == 0) {
 		/* bootstrap context. Get rid of it, we're a real security context now! */
@@ -638,11 +640,8 @@ bool secctx_thread_attach(struct sctx *s, struct thread *t)
 		/* once for attached[0] */
 		krc_put_call(t->active_sc, refs, __secctx_krc_put);
 		/* and again for the active_sc */
-		krc_put_call(t->active_sc, refs, __secctx_krc_put);
-		t->active_sc = NULL;
+		force = true;
 	}
-	bool ok = false, found = false;
-	size_t i;
 
 	for(i = 0; i < MAX_SC; i++) {
 		if(t->attached_scs[i] == s) {
@@ -663,8 +662,10 @@ bool secctx_thread_attach(struct sctx *s, struct thread *t)
 				break;
 			}
 		}
-		if(ok && t->active_sc == NULL) {
+		if(ok && force) {
+			struct sctx *ac = t->active_sc;
 			secctx_switch(i);
+			krc_put_call(ac, refs, __secctx_krc_put);
 		}
 	}
 	spinlock_release_restore(&t->sc_lock);

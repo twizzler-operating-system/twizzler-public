@@ -124,7 +124,8 @@ void slot_release(struct slot *s)
 void object_space_map_slot(struct object_space *space, struct slot *slot, uint64_t flags)
 {
 	if(!space)
-		space = current_thread ? &current_thread->active_sc->space : NULL;
+		space =
+		  current_thread && current_thread->active_sc ? &current_thread->active_sc->space : NULL;
 	if(space) {
 		struct slot_entry *se = slabcache_alloc(&_sc_slot_entry);
 		spinlock_acquire_save(&slot->lock);

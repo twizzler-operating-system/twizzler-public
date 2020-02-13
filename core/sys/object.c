@@ -217,7 +217,7 @@ long syscall_ocreate(uint64_t kulo,
 	if(flags & 0x1000000)
 		o->lowpg = true;
 	// printk("CREATE %s OBJECT\n", o->persist ? "PERSISTENT" : "VOLATILE");
-	obj_release_kernel_slot(o);
+	// obj_release_kernel_slot(o);
 	obj_put(o);
 
 	if(retid)

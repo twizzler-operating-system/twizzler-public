@@ -56,7 +56,7 @@ struct object {
 
 	size_t maxsz;
 
-	struct krc refs, mapcount;
+	struct krc refs, mapcount, kaddr_count;
 
 	int pglevel;
 	int flags;
@@ -88,7 +88,10 @@ struct object {
 	struct arch_object arch;
 	struct vmap *kvmap;
 	struct slot *kslot;
+	void *kaddr;
 };
+
+#define obj_get_kbase(obj) ({ (void *)((char *)obj_get_kaddr(obj) + OBJ_NULLPAGE_SIZE); })
 
 struct page;
 #define OBJPAGE_MAPPED 1
@@ -125,8 +128,10 @@ void obj_assign_id(struct object *obj, objid_t id);
 objid_t obj_compute_id(struct object *obj);
 void obj_init(struct object *obj);
 void obj_system_init(void);
-void obj_release_kernel_slot(struct object *obj);
 void obj_release_slot(struct object *obj);
+
+void obj_release_kaddr(struct object *obj);
+void *obj_get_kaddr(struct object *obj);
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
