@@ -130,6 +130,8 @@ void kso_view_write(struct object *obj, size_t slot, struct viewentry *v)
 struct viewentry kso_view_lookup(struct vm_context *ctx, size_t slot)
 {
 	struct viewentry v;
+	/* TODO: make sure these reads aren't too costly. These are to KSO objects, so they should be
+	 * okay. */
 	obj_read_data(kso_get_obj(ctx->view, view),
 	  __VE_OFFSET + slot * sizeof(struct viewentry),
 	  sizeof(struct viewentry),

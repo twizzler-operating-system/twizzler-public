@@ -25,9 +25,7 @@ static void __kbd_interrupt(int v, struct interrupt_handler *ih)
 		thread_print_all_threads();
 	}
 	_f = !_f;
-	obj_write_data_atomic64(kbd_obj, offsetof(struct device_repr, syncs[0]), tmp);
-	thread_wake_object(
-	  kbd_obj, offsetof(struct device_repr, syncs[0]) + OBJ_NULLPAGE_SIZE, INT_MAX);
+	device_signal_sync(kbd_obj, 0, tmp);
 }
 
 static struct interrupt_handler _kbd_ih = {

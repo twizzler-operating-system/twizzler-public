@@ -431,6 +431,9 @@ void obj_release_kaddr(struct object *obj)
 {
 	spinlock_acquire_save(&obj->lock);
 	if(krc_put(&obj->kaddr_count)) {
+		/* TODO: but make these reclaimable */
+		if(obj->kso_type)
+			goto done;
 		// goto done;
 		struct slot *slot = obj->kslot;
 		obj->kslot = NULL;
@@ -503,51 +506,38 @@ void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val)
  * associated with this location, because there's no data here" */
 objid_t obj_compute_id(struct object *obj)
 {
-	struct metainfo mi;
-	obj_read_data(obj, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
+	void *kaddr = obj_get_kaddr(obj);
+	struct metainfo *mi = (char *)kaddr + (OBJ_MAXSIZE - OBJ_METAPAGE_SIZE);
 
 	_Alignas(16) blake2b_state S;
 	blake2b_init(&S, 32);
-	blake2b_update(&S, &mi.nonce, sizeof(mi.nonce));
-	blake2b_update(&S, &mi.p_flags, sizeof(mi.p_flags));
-	blake2b_update(&S, &mi.kuid, sizeof(mi.kuid));
+	blake2b_update(&S, &mi->nonce, sizeof(mi->nonce));
+	blake2b_update(&S, &mi->p_flags, sizeof(mi->p_flags));
+	blake2b_update(&S, &mi->kuid, sizeof(mi->kuid));
 	size_t tl = 0;
-	if(mi.p_flags & MIP_HASHDATA) {
-		void *addr = mm_memory_alloc(mm_page_size(0), PM_TYPE_DRAM, false);
-		for(size_t s = 0; s < mi.sz; s += mm_page_size(0)) {
+	atomic_thread_fence(memory_order_seq_cst);
+	if(mi->p_flags & MIP_HASHDATA) {
+		for(size_t s = 0; s < mi->sz; s += mm_page_size(0)) {
 			size_t rem = mm_page_size(0);
-			if(s + mm_page_size(0) > mi.sz) {
-				rem = mi.sz - s;
+			if(s + mm_page_size(0) > mi->sz) {
+				rem = mi->sz - s;
 			}
 			assert(rem <= mm_page_size(0));
 
-			obj_read_data(obj, s, rem, addr);
-			// struct objpage *p = obj_get_page(obj, s + OBJ_NULLPAGE_SIZE, false);
-			// atomic_thread_fence(memory_order_seq_cst);
-			// void *addr = tmpmap_map_page(p->page);
+			void *addr = (char *)kaddr + s + OBJ_NULLPAGE_SIZE;
 			blake2b_update(&S, addr, rem);
 			tl += rem;
-			// tmpmap_unmap_page(addr);
-			// obj_put_page(p);
 		}
-		size_t mdbottom = OBJ_METAPAGE_SIZE + sizeof(struct fotentry) * mi.fotentries;
+		size_t mdbottom = OBJ_METAPAGE_SIZE + sizeof(struct fotentry) * mi->fotentries;
 		size_t pos = OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + mdbottom);
 		size_t thispage = mm_page_size(0);
 		for(size_t s = pos; s < OBJ_MAXSIZE - OBJ_NULLPAGE_SIZE; s += thispage) {
-			//	struct objpage *p = obj_get_page(obj, pos + OBJ_NULLPAGE_SIZE, false);
-
 			size_t offset = pos % mm_page_size(0);
 			size_t len = mm_page_size(0) - offset;
-			atomic_thread_fence(memory_order_seq_cst);
-			// void *addr = tmpmap_map_page(p->page);
-			obj_read_data(obj, pos, len, addr);
+			void *addr = (char *)kaddr + s + OBJ_NULLPAGE_SIZE;
 			blake2b_update(&S, (char *)addr, len);
 			tl += len;
-			// tmpmap_unmap_page(addr);
-
-			//	obj_put_page(p);
 		}
-		mm_memory_dealloc(addr);
 	}
 
 	unsigned char tmp[32];
@@ -556,6 +546,8 @@ objid_t obj_compute_id(struct object *obj)
 	for(int i = 0; i < 16; i++) {
 		out[i] = tmp[i] ^ tmp[i + 16];
 	}
+
+	obj_release_kaddr(obj);
 
 #if 0
 	printk("computed ID tl=%ld " IDFMT " for object " IDFMT "\n",

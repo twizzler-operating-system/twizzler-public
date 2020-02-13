@@ -279,6 +279,8 @@ void kernel_main(struct processor *proc)
 		}
 
 		struct elf64_header elf;
+		/* this object is almost certainly not a KSO, so there's no point holding a reference to the
+		 * kaddr. */
 		obj_read_data(initobj, 0, sizeof(elf), &elf);
 		if(memcmp("\x7F"
 		          "ELF",

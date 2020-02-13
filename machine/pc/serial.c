@@ -315,9 +315,7 @@ __noinstrument static void _serial_interrupt(int i, struct interrupt_handler *h 
 					processor_print_all_stats();
 				}
 				long tmp = c;
-				obj_write_data_atomic64(ser_obj, offsetof(struct device_repr, syncs[0]), tmp);
-				thread_wake_object(
-				  ser_obj, offsetof(struct device_repr, syncs[0]) + OBJ_NULLPAGE_SIZE, INT_MAX);
+				device_signal_sync(ser_obj, 0, tmp);
 				break;
 			case 3:
 				ls = uart_read(u, UART_REG_LSR);

@@ -59,7 +59,7 @@ static bool __verify_region(void *item,
   uint32_t etype,
   objid_t target)
 {
-	return true; // TODO
+	// return true; // TODO
 	hash_state hs;
 	unsigned char hash[64];
 	size_t hashlen;
@@ -96,10 +96,7 @@ static bool __verify_region(void *item,
 		return false;
 	}
 
-	/* TODO: support public key objects with keys bigger than a page */
-	struct objpage *p = obj_get_page(ko, OBJ_NULLPAGE_SIZE, false);
-
-	struct key_hdr *hdr = mm_ptov(p->page->addr);
+	struct key_hdr *hdr = obj_get_kbase(ko);
 	if(hdr->type != etype) {
 		EPRINTK("hdr->type != cap->etype\n");
 		return false;
@@ -124,6 +121,9 @@ static bool __verify_region(void *item,
 		ret = false;
 		goto done;
 	}
+
+	obj_release_kaddr(ko);
+	obj_put(ko);
 
 	/*
 	printk("SIG: ");
@@ -169,7 +169,7 @@ static bool __verify_region(void *item,
 	}
 done:
 	mm_memory_dealloc(keydata);
-	obj_put_page(p);
+	// obj_put_page(p);
 	return ret;
 }
 
@@ -293,32 +293,32 @@ static uint32_t __lookup_perm_bucket(struct object *obj,
   objid_t target)
 {
 	uintptr_t off = (uintptr_t)b->data;
-	off -= OBJ_NULLPAGE_SIZE;
 
-	struct sccap cap;
-	obj_read_data(obj, off, sizeof(cap), &cap);
-	if(cap.magic == SC_CAP_MAGIC) {
-		if(cap.slen > 4096) {
+	struct sccap *cap;
+
+	char *kaddr = obj_get_kaddr(obj);
+
+	cap = (void *)(kaddr + off);
+	if(cap->magic == SC_CAP_MAGIC) {
+		if(cap->slen > 4096) {
 			EPRINTK("CAP length too long\n");
 			/* TODO */
 			return 0;
 		}
-		char data[cap.slen];
-		obj_read_data(obj, off + sizeof(struct sccap), cap.slen, data);
-
-		return __lookup_perm_cap(obj, &cap, gs, target, data);
-	} else if(cap.magic == SC_DLG_MAGIC) {
-		struct scdlg dlg;
-		obj_read_data(obj, off, sizeof(dlg), &dlg);
-		size_t rem = dlg.slen + dlg.dlen;
+		char *data = kaddr + off + sizeof(struct sccap);
+		return __lookup_perm_cap(obj, cap, gs, target, data);
+	} else if(cap->magic == SC_DLG_MAGIC) {
+		struct scdlg *dlg;
+		dlg = (void *)cap;
+		size_t rem = dlg->slen + dlg->dlen;
 		if(rem > 4096) {
 			EPRINTK("DLG length too long\n");
 			/* TODO */
 			return 0;
 		}
-		char data[rem];
-		obj_read_data(obj, off + sizeof(struct scdlg), rem, data);
-		return __lookup_perm_dlg(obj, (void *)&cap, gs, target, data);
+		/* TODO: bounds checking on data + lenth of data */
+		char *data = kaddr + off + sizeof(struct scdlg);
+		return __lookup_perm_dlg(obj, (void *)cap, gs, target, data);
 	} else {
 		EPRINTK("error - invalid perm object magic number\n");
 		return 0;
@@ -337,33 +337,34 @@ static int __lookup_perms(struct object *obj,
   uint32_t *p,
   bool *ingate)
 {
-	struct secctx ctx;
-	obj_read_data(obj, 0, sizeof(ctx), &ctx);
+	char *kbase = obj_get_kbase(obj);
+	struct secctx *ctx = (void *)kbase;
 
 	uint32_t perms = 0;
 	bool gatesok = false;
-	size_t slot = target % ctx.nbuckets;
+	size_t slot = target % ctx->nbuckets;
 	do {
-		struct scbucket b;
-		obj_read_data(obj, sizeof(ctx) + sizeof(b) * slot, sizeof(b), &b);
+		struct scbucket *b;
+		b = (void *)(kbase + sizeof(*ctx) + sizeof(*b) * slot);
 
-		if(b.target == target) {
+		if(b->target == target) {
 			EPRINTK("    - lookup_perms: found!\n");
 			struct scgates gs = { 0 };
-			perms |= __lookup_perm_bucket(obj, &b, &gs, target) & b.pmask;
+			perms |= __lookup_perm_bucket(obj, b, &gs, target) & b->pmask;
 			if(ipoff) {
-				__limit_gates(&gs, &b.gatemask);
+				__limit_gates(&gs, &b->gatemask);
 				if(__in_gate(&gs, ipoff))
 					gatesok = true;
 			}
 		}
 
-		slot = b.chain;
+		slot = b->chain;
 	} while(slot != 0);
 	uint32_t dfl = 0;
 	struct metainfo mi;
 	struct object *t = obj_lookup(target);
 	if(t) {
+#warning "CACHE p_flags!"
 		obj_read_data(t, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
 		dfl = mi.p_flags & (MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE);
 		obj_put(t);

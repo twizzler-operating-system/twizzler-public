@@ -207,6 +207,8 @@ long syscall_ocreate(uint64_t kulo,
 		.fotentries = 0,
 	};
 
+	o->cached_pflags = mi.p_flags;
+	o->cpf_valid = true;
 	obj_write_data(o, OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + OBJ_METAPAGE_SIZE), sizeof(mi), &mi);
 
 	objid_t id = obj_compute_id(o);

@@ -69,6 +69,8 @@ struct object {
 	bool persist; // TODO: combine these into flags
 	bool alloc_pages;
 	int cache_mode;
+	uint32_t cached_pflags;
+	bool cpf_valid;
 
 	_Atomic enum kso_type kso_type;
 	union {

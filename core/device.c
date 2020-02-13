@@ -59,6 +59,7 @@ void device_release_headers(struct object *obj)
 
 void device_signal_interrupt(struct object *obj, int inum, uint64_t val)
 {
+	/* TODO: try to make this more efficient */
 	obj_write_data_atomic64(obj, offsetof(struct device_repr, interrupts[inum]), val);
 	thread_wake_object(
 	  obj, offsetof(struct device_repr, interrupts[inum]) + OBJ_NULLPAGE_SIZE, INT_MAX);
