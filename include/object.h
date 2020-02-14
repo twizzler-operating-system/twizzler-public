@@ -155,7 +155,7 @@ bool arch_object_getmap(struct object *obj,
 
 void arch_object_space_init(struct object_space *space);
 void arch_object_space_destroy(struct object_space *space);
-bool arch_object_getmap_slot_flags(struct object_space *space, struct object *obj, uint64_t *flags);
+bool arch_object_getmap_slot_flags(struct object_space *space, struct slot *, uint64_t *flags);
 void object_space_destroy(struct object_space *space);
 void object_space_init(struct object_space *space);
 void arch_object_init(struct object *obj);

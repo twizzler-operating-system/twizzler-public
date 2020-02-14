@@ -222,12 +222,14 @@ static void __obj_alloc_kernel_slot(struct object *obj)
 	if(obj->kslot)
 		return;
 	struct slot *slot = slot_alloc();
+#if 0
 	printk("[slot]: allocated kslot %ld for " IDFMT " (%p %d %d)\n",
 	  slot->num,
 	  IDPR(obj->id),
 	  obj,
 	  obj->kernel_obj,
 	  obj->kso_type);
+#endif
 	krc_get(&obj->refs);
 	slot->obj = obj;   /* above get */
 	obj->kslot = slot; /* move ref */
@@ -289,13 +291,14 @@ struct slot *obj_alloc_slot(struct object *obj)
 
 	krc_get(&obj->mapcount);
 
+#if 0
 	printk("[slot]: allocated uslot %ld for " IDFMT " (%p %d %d)\n",
 	  obj->slot->num,
 	  IDPR(obj->id),
 	  obj,
 	  obj->kernel_obj,
 	  obj->kso_type);
-
+#endif
 	krc_get(&obj->slot->rc); /* return */
 	spinlock_release_restore(&obj->lock);
 	return obj->slot;
@@ -441,6 +444,10 @@ void obj_release_kaddr(struct object *obj)
 
 		vm_kernel_unmap_object(obj);
 		spinlock_release_restore(&obj->lock);
+		struct object *o = slot->obj;
+		assert(o == obj);
+		slot->obj = NULL;
+		obj_put(o);
 		object_space_release_slot(slot);
 		slot_release(slot);
 	}
@@ -620,7 +627,7 @@ struct object *obj_lookup_slot(uintptr_t oaddr)
 
 int obj_check_permission(struct object *obj, uint64_t flags)
 {
-	printk("Checking permission of object %p: " IDFMT "\n", obj, IDPR(obj->id));
+	// printk("Checking permission of object %p: " IDFMT "\n", obj, IDPR(obj->id));
 	bool w = (flags & MIP_DFL_WRITE);
 	if(!obj_verify_id(obj, !w, w)) {
 		return -EINVAL;
@@ -732,13 +739,17 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	bool do_map = false;
 	// do_map = true;
 	// perms = OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U;
+	/* TODO: lock the object enough for the slots to be safe */
 #if 1
 	if(o->kernel_obj || VADDR_IS_KERNEL(vaddr)) {
-		do_map = true; // TODO: dont do this every time.
+		if(!arch_object_getmap_slot_flags(NULL, o->kslot, &existing_flags)) {
+			do_map = true; // TODO: dont do this every time.
+		}
 		perms = OBJSPACE_READ | OBJSPACE_WRITE;
 	} else {
-		if(arch_object_getmap_slot_flags(NULL, o, &existing_flags)) {
-			/* we've already mapped the object. Maybe we don't need to do a permissions check. */
+		if(arch_object_getmap_slot_flags(NULL, o->slot, &existing_flags)) {
+			/* we've already mapped the object. Maybe we don't need to do a permissions check.
+			 */
 			if((existing_flags & flags) != flags) {
 				do_map = true;
 				if(!__objspace_fault_calculate_perms(o, flags, loaddr, vaddr, ip, &perms))

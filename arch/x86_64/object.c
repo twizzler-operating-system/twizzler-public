@@ -9,16 +9,14 @@
 /* TODO: get rid of this */
 extern struct object_space _bootstrap_object_space;
 
-bool arch_object_getmap_slot_flags(struct object_space *space, struct object *obj, uint64_t *flags)
+bool arch_object_getmap_slot_flags(struct object_space *space, struct slot *slot, uint64_t *flags)
 {
 	uint64_t ef = 0;
 
 	if(!space)
 		space = current_thread ? &current_thread->active_sc->space : &_bootstrap_object_space;
 
-	if(!obj->slot)
-		return false;
-	uintptr_t virt = SLOT_TO_OADDR(obj->slot->num);
+	uintptr_t virt = SLOT_TO_OADDR(slot->num);
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
 
@@ -28,7 +26,6 @@ bool arch_object_getmap_slot_flags(struct object_space *space, struct object *ob
 	uintptr_t *pdpt = space->arch.pdpts[pml4_idx];
 	if(!pdpt[pdpt_idx])
 		return false;
-	assert(obj->arch.pt_root == (pdpt[pdpt_idx] & EPT_PAGE_MASK));
 	ef = pdpt[pdpt_idx] & ~EPT_PAGE_MASK;
 	if(flags) {
 		if(ef & EPT_READ)

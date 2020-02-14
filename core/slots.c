@@ -128,6 +128,14 @@ void object_space_map_slot(struct object_space *space, struct slot *slot, uint64
 		  current_thread && current_thread->active_sc ? &current_thread->active_sc->space : NULL;
 	if(space) {
 		struct slot_entry *se = slabcache_alloc(&_sc_slot_entry);
+#if CONFIG_DEBUG
+		for(struct list *e = list_iter_start(&slot->spaces); e != list_iter_end(&slot->spaces);
+		    e = list_iter_next(e)) {
+			struct slot_entry *se = list_entry(e, struct slot_entry, entry);
+			if(se->space == space)
+				panic("tried to remap a slot to a space it is already mapped in");
+		}
+#endif
 		spinlock_acquire_save(&slot->lock);
 		se->space = space;
 		krc_get(&space->refs);
@@ -143,19 +151,20 @@ void object_space_release_slot(struct slot *slot)
 {
 	/* to call this, we'll first have no object referencing this slot. This means it'll never be
 	 * mapped into an object_space while we're releasing it. */
-	printk("RELEASE %ld\n", slot->num);
+	// printk("RELEASE %ld\n", slot->num);
 	struct list *e, *n;
-	for(e = list_iter_start(&slot->spaces);
-	    e != list_iter_end(&slot->spaces) && (n = list_iter_next(e));
-	    e = n) {
+	spinlock_acquire_save(&slot->lock);
+	for(e = list_iter_start(&slot->spaces); e != list_iter_end(&slot->spaces); e = n) {
 		struct slot_entry *se = list_entry(e, struct slot_entry, entry);
-		printk("  X\n", slot->num);
+		//	printk("  X: %ld: %p %p\n", slot->num, se, se->space);
 		arch_object_unmap_slot(se->space, slot);
+		n = list_iter_next(e);
 		list_remove(e);
 		/* TODO: put object space */
 		slabcache_free(se);
 	}
 	arch_object_unmap_slot(NULL, slot);
+	spinlock_release_restore(&slot->lock);
 }
 
 void object_space_init(struct object_space *space)
