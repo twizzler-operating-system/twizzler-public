@@ -8,8 +8,6 @@
 #include <slots.h>
 #include <tmpmap.h>
 
-/* TODO: do we need a separate objpage abstraction in addition to a page abstraction */
-
 static struct rbroot obj_tree = RBINIT;
 
 static struct slabcache sc_objs, sc_objpage;
