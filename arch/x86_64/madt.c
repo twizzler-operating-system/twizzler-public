@@ -59,6 +59,7 @@ __orderedinitializer(
 				break;
 			case INTSRC_ENTRY:
 				intsrc = (void *)rec;
+				(void)intsrc;
 				//			printk(":: INTSRC: %d %d %d %x\n",
 				//			  intsrc->bus_src,
 				//			  intsrc->irq_src,

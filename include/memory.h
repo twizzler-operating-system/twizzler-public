@@ -81,6 +81,8 @@ uintptr_t mm_vtop(void *addr);
 uintptr_t mm_vtoo(void *addr);
 uintptr_t mm_otop(uintptr_t oaddr);
 
+void mm_print_stats(void);
+
 static inline void *mm_virtual_early_alloc(void)
 {
 	void *p = mm_ptov(mm_physical_early_alloc());
@@ -137,6 +139,7 @@ struct thread;
 bool vm_setview(struct thread *, struct object *viewobj);
 bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off);
 
+void vm_context_put(struct vm_context *);
 void vm_context_map(struct vm_context *v, struct vmap *m);
 void vm_vmap_init(struct vmap *vmap, struct object *obj, size_t vslot, uint32_t flags);
 #define FAULT_EXEC 0x1

@@ -125,7 +125,6 @@ bool arch_vm_map(struct vm_context *ctx, uintptr_t virt, uintptr_t phys, int lev
  * slots, maybe? Refcounts? */
 void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct slot *slot)
 {
-	bool kernel_map = SLOT_IS_KERNEL(map->slot);
 	uintptr_t vaddr = (uintptr_t)SLOT_TO_VADDR(map->slot);
 	uintptr_t oaddr = SLOT_TO_OADDR(slot->num);
 

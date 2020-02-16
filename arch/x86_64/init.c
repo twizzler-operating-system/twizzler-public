@@ -223,7 +223,6 @@ static size_t _load_initrd(char *start, size_t modlen)
 					if(obj == NULL) {
 						obj = obj_create(id, KSO_NONE);
 					}
-					obj->flags |= OF_NOTYPECHECK;
 					load_object_data(obj, data, len);
 					count++;
 				}
@@ -236,24 +235,6 @@ static size_t _load_initrd(char *start, size_t modlen)
 		h = (struct ustar_header *)((char *)h + 512 + reclen);
 	}
 	return count;
-}
-
-static size_t mods_count;
-static uintptr_t mods_addr;
-static void x86_64_initrd(void *u __unused)
-{
-	if(mods_count == 0)
-		return;
-	printk(":: %lx\n", mods_addr);
-	struct mboot_module *m = mm_ptov(mods_addr);
-	size_t _count = 0;
-	for(unsigned i = 0; i < mods_count; i++, m++) {
-		size_t modlen = m->end - m->start;
-		printk("[initrd] loading objects from module %d (len=%ld bytes)\n", i, modlen);
-		printk(":: start = %lx\n", m->start);
-		_count = _load_initrd(mm_ptov(m->start), modlen);
-	}
-	printk("[initrd] loaded %ld objects\e[0K\n", _count);
 }
 
 void x86_64_reclaim_initrd_region(void);
@@ -304,8 +285,6 @@ static enum memory_subtype memory_subtype_map(unsigned int mtb_type)
 
 void x86_64_init(uint32_t magic, struct multiboot *mth)
 {
-	mods_count = mth->mods_count;
-	mods_addr = mth->mods_addr;
 	idt_init();
 	serial_init();
 	proc_init();
@@ -407,17 +386,7 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 			mod_len = module_tag->mod_end - module_tag->mod_start;
 		}
 	} else if(magic == 0x2BADB002) {
-		/* TODO: deprecate */
-		if(!(mth->flags & MULTIBOOT_FLAG_MEM))
-			panic("don't know how to detect memory!");
-		struct mboot_module *m = mth->mods_count == 0 ? NULL : mm_ptov(mth->mods_addr);
-		uintptr_t end = 0;
-		for(unsigned i = 0; i < mth->mods_count; i++, m++)
-			end = m->end;
-		x86_64_top_mem = mth->mem_upper * 1024 - KERNEL_LOAD_OFFSET;
-		x86_64_bot_mem = (end > PHYS((uintptr_t)&kernel_end)) ? end : PHYS((uintptr_t)&kernel_end);
-		x86_64_bot_mem = align_up(x86_64_bot_mem, 0x1000);
-		x86_64_top_mem = align_down(x86_64_top_mem, 0x1000);
+		panic("Twizzler no longer supports multiboot 1; please upgrade to multiboot 2");
 	} else {
 		panic("unknown bootloader type!");
 	}

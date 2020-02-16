@@ -30,6 +30,8 @@
 #define TWZ_SYS_OC_VOLATILE 0x2000
 #define TWZ_SYS_OC_PERSIST_ 0x4000 /* TODO: remove, make dflt etc */
 
+#define TWZ_SYS_OD_IMMEDIATE 1
+
 struct sys_invalidate_op {
 	objid_t id;
 	uint64_t offset;

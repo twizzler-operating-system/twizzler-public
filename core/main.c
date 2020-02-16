@@ -245,8 +245,7 @@ void kernel_main(struct processor *proc)
 			.nonce = 0,
 			.magic = MI_MAGIC,
 		};
-		root->idversafe = true;
-		root->idvercache = true;
+		root->flags |= OF_IDSAFE | OF_IDCACHED;
 
 		obj_write_data(
 		  root, OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + OBJ_METAPAGE_SIZE), sizeof(mi), &mi);
@@ -356,9 +355,6 @@ void kernel_main(struct processor *proc)
 		};
 
 		kso_view_write(bv, 0, &v_i);
-
-		bthr->flags |= OF_KERNELGEN;
-		bstck->flags |= OF_KERNELGEN;
 
 		char *init_argv0 = "___init";
 		obj_write_data(bstck, off, strlen(init_argv0) + 1, init_argv0);

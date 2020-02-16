@@ -57,8 +57,7 @@ void slot_init_bootstrap(size_t oslot, size_t vslot)
 	krc_get(&_bootstrap_object.refs); // to keep around
 	_bootstrap_object.kslot = &_bootstrap_slot;
 	_bootstrap_slot.obj = &_bootstrap_object;
-	_bootstrap_object.kernel_obj = true;
-	_bootstrap_object.alloc_pages = true;
+	_bootstrap_object.flags = OF_KERNEL | OF_ALLOC;
 	list_init(&_bootstrap_slot.spaces);
 
 	arch_vm_map_object(NULL, &_bootstrap_vmap, _bootstrap_object.kslot);
@@ -131,8 +130,8 @@ void object_space_map_slot(struct object_space *space, struct slot *slot, uint64
 #if CONFIG_DEBUG
 		for(struct list *e = list_iter_start(&slot->spaces); e != list_iter_end(&slot->spaces);
 		    e = list_iter_next(e)) {
-			struct slot_entry *se = list_entry(e, struct slot_entry, entry);
-			if(se->space == space)
+			struct slot_entry *xse = list_entry(e, struct slot_entry, entry);
+			if(xse->space == space)
 				panic("tried to remap a slot to a space it is already mapped in");
 		}
 #endif

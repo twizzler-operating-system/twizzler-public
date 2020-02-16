@@ -21,7 +21,7 @@ static uint8_t *l1bitmap;
 __initializer static void tmpmap_init(void)
 {
 	obj_init(&tmpmap_object);
-	tmpmap_object.kernel_obj = true;
+	tmpmap_object.flags = OF_KERNEL;
 	vm_vmap_init(&tmpmap_vmap, &tmpmap_object, KVSLOT_TMP_MAP, VM_MAP_WRITE | VM_MAP_GLOBAL);
 	vm_context_map(&kernel_ctx, &tmpmap_vmap);
 

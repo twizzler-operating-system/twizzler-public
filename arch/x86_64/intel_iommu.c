@@ -187,6 +187,7 @@ static void iommu_set_context_entry(struct iommu *im,
 
 static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
 {
+	(void)attr;
 	if(!*loc) {
 		//*loc = (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true) | (attr &
 		// RECUR_ATTR_MASK);
@@ -201,7 +202,7 @@ static void do_iommu_object_map_slot(struct object *obj, uint64_t flags)
 	/* TODO: map w/ permissions */
 	(void)flags;
 	assert(obj->slot != NULL);
-	uintptr_t virt = obj->slot->num * OBJ_MAXSIZE;
+	// uintptr_t virt = obj->slot->num * OBJ_MAXSIZE;
 	// int pml4_idx = PML4_IDX(virt);
 	// int pdpt_idx = PDPT_IDX(virt);
 

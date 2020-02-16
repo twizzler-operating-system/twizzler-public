@@ -32,7 +32,7 @@ ARCH=$(CONFIG_ARCH)
 MACHINE=$(CONFIG_MACHINE)
 
 CORE_CFLAGS=-ffreestanding -fno-omit-frame-pointer -std=gnu11 -g -D__KERNEL__
-WARN_CFLAGS=-Wall -Wextra -Wno-error=unused-variable -Wno-error=unused-function -Wno-error=unused-parameter -Wshadow
+WARN_CFLAGS=-Wall -Wextra -Wno-error=unused-variable -Wno-error=unused-function -Wno-error=unused-parameter -Wshadow -Wmissing-prototypes
 DFL_INCLUDES=-include stdbool.h -include stddef.h -include stdint.h -include printk.h -include system.h
 INCLUDE_DIRS=include machine/$(MACHINE)/include arch/$(ARCH)/include us/include third-party/include
 INCLUDES=$(addprefix -I,$(INCLUDE_DIRS))

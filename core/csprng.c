@@ -190,7 +190,6 @@ static void randinit(flag) word flag;
 
 void rand_csprng_reseed(void *entropy, size_t len)
 {
-	char *e = entropy;
 	memset(randrsl, 0, sizeof(randrsl));
 	memcpy(randrsl, entropy, len > RANDSIZ ? RANDSIZ : len);
 	randinit(1);

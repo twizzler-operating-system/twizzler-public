@@ -361,7 +361,6 @@ static int __lookup_perms(struct object *obj,
 		slot = b->chain;
 	} while(slot != 0);
 	uint32_t dfl = 0;
-	struct metainfo mi;
 	struct object *t = obj_lookup(target);
 	if(t) {
 		uint32_t p_flags = 0;

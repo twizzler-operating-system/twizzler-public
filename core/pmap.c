@@ -44,7 +44,7 @@ static int __pmap_compar(struct pmap *a, struct pmap *b)
 static void pmap_init(void)
 {
 	obj_init(&pmap_object);
-	pmap_object.kernel_obj = true;
+	pmap_object.flags = OF_KERNEL;
 	vm_vmap_init(&pmap_vmap, &pmap_object, KVSLOT_PMAP, VM_MAP_WRITE | VM_MAP_GLOBAL);
 	vm_context_map(&kernel_ctx, &pmap_vmap);
 

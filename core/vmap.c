@@ -185,6 +185,7 @@ bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off)
 
 static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 {
+	(void)obj;
 	spinlock_acquire_save(&current_thread->ctx->lock);
 	for(size_t slot = invl->offset / mm_page_size(MAX_PGLEVEL);
 	    slot <= (invl->offset + invl->length) / mm_page_size(MAX_PGLEVEL);
@@ -266,7 +267,7 @@ static void vm_kernel_alloc_slot(struct object *obj)
 	struct vmap *m;
 	if(list_empty(&kvmap_stack)) {
 		m = slabcache_alloc(&sc_vmap);
-		if(counter == KVSLOT_MAX) {
+		if((size_t)counter == KVSLOT_MAX) {
 			panic("out of kvslots");
 		}
 		m->slot = counter++;

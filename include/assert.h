@@ -5,12 +5,12 @@
 
 #define assert(cond)                                                                               \
 	do {                                                                                           \
-		if(!__builtin_expect(cond, 0))                                                             \
+		if(!__builtin_expect(!!(cond), 0))                                                         \
 			panic("assertion failure: %s", #cond);                                                 \
 	} while(0)
 #define assertmsg(cond, msg, ...)                                                                  \
 	do {                                                                                           \
-		if(!__builtin_expect(cond, 0))                                                             \
+		if(!__builtin_expect(!!(cond), 0))                                                         \
 			panic("assertion failure: %s -- " msg, #cond, ##__VA_ARGS__);                          \
 	} while(0)
 

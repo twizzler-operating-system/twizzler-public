@@ -7,9 +7,6 @@
 #include <spinlock.h>
 #include <twz/_obj.h>
 
-#define OF_NOTYPECHECK 1
-#define OF_KERNELGEN 2
-
 struct kso_view {
 };
 
@@ -51,27 +48,31 @@ struct object *get_system_object(void);
 
 struct slot;
 struct vmap;
+
+#define OF_PINNED 1
+#define OF_IDCACHED 2
+#define OF_IDSAFE 4
+#define OF_KERNEL 8
+#define OF_PERSIST 0x10
+#define OF_ALLOC 0x20
+#define OF_CPF_VALID 0x40
+#define OF_DELETE 0x80
+#define OF_VISIBLE 0x100
+
 struct object {
 	uint128_t id;
-
-	size_t maxsz;
+	struct arch_object arch;
 
 	struct krc refs, mapcount, kaddr_count;
 
-	int pglevel;
-	int flags;
 	struct slot *slot;
-	bool pinned;
-	bool lowpg;
-	bool idvercache;
-	bool idversafe;
-	bool kernel_obj;
-	bool persist; // TODO: combine these into flags
-	bool alloc_pages;
-	int cache_mode;
-	uint32_t cached_pflags;
-	bool cpf_valid;
 
+	_Atomic uint64_t flags;
+
+	uint32_t cache_mode;
+	uint32_t cached_pflags;
+
+	/* KSO stuff: what type, some data needed by each type, and callbacks */
 	_Atomic enum kso_type kso_type;
 	union {
 		struct kso_view view;
@@ -82,12 +83,17 @@ struct object {
 	struct kso_calls *kso_calls;
 	long (*kaction)(struct object *, long, long);
 
-	struct spinlock lock, tslock, verlock;
+	/* general object lock */
+	struct spinlock lock;
+
+	/* lock for thread-sync operations */
+	struct spinlock tslock;
+
 	struct rbroot pagecache_root, pagecache_level1_root, tstable_root;
-	// struct ihtable *pagecache, *pagecache_level1, *tstable;
 
 	struct rbnode slotnode, node;
-	struct arch_object arch;
+
+	/* needed for kernel to access objects */
 	struct vmap *kvmap;
 	struct slot *kslot;
 	void *kaddr;
@@ -143,6 +149,7 @@ int obj_check_permission(struct object *obj, uint64_t flags);
 
 struct slot;
 void arch_object_map_slot(struct object_space *, struct object *obj, struct slot *, uint64_t flags);
+void arch_object_unmap_slot(struct object_space *space, struct slot *slot);
 void arch_object_unmap_page(struct object *obj, size_t idx);
 bool arch_object_map_page(struct object *obj, struct objpage *);
 bool arch_object_map_flush(struct object *obj, size_t idx);

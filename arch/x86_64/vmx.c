@@ -751,7 +751,7 @@ void vtx_setup_vcpu(struct processor *proc)
 		vmcs_writel(VMCS_VMFUNC_CONTROLS, 1 /* enable EPT-switching */);
 		static uintptr_t eptp_list = 0;
 		if(!eptp_list)
-			eptp_list = mm_virtual_early_alloc();
+			eptp_list = (uintptr_t)mm_virtual_early_alloc();
 		proc->arch.eptp_list = (void *)eptp_list;
 		proc->arch.eptp_list[0] = _bootstrap_object_space.arch.ept_phys;
 		vmcs_writel(VMCS_EPTP_LIST, mm_vtop(proc->arch.eptp_list));

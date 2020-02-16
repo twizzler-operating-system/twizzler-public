@@ -208,18 +208,15 @@ long syscall_ocreate(uint64_t kulo,
 	};
 
 	o->cached_pflags = mi.p_flags;
-	o->cpf_valid = true;
+	o->flags |= OF_CPF_VALID;
 	obj_write_data(o, OBJ_MAXSIZE - (OBJ_NULLPAGE_SIZE + OBJ_METAPAGE_SIZE), sizeof(mi), &mi);
 
 	objid_t id = obj_compute_id(o);
 	obj_assign_id(o, id);
 	if(flags & TWZ_SYS_OC_PERSIST_) {
-		o->persist = true;
+		o->flags |= OF_PERSIST;
 	}
-	if(flags & 0x1000000)
-		o->lowpg = true;
 	// printk("CREATE %s OBJECT\n", o->persist ? "PERSISTENT" : "VOLATILE");
-	// obj_release_kernel_slot(o);
 	obj_put(o);
 
 	if(retid)
@@ -229,10 +226,18 @@ long syscall_ocreate(uint64_t kulo,
 
 long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags)
 {
-	printk("warning - NI: odelete\n");
-	(void)olo;
-	(void)ohi;
-	(void)flags;
+	objid_t id = MKID(ohi, olo);
+	struct object *obj = obj_lookup(id);
+	if(!obj) {
+		return -ENOENT;
+	}
+
+	if(flags & TWZ_SYS_OD_IMMEDIATE) {
+		/* "immediate" delete: the object will be marked for deletion, new lookups will return
+		 * failure. */
+	}
+
+	obj_put(obj);
 	return 0;
 }
 
@@ -244,9 +249,9 @@ long syscall_opin(uint64_t lo, uint64_t hi, uint64_t *addr, int flags)
 		return -ENOENT;
 
 	if(flags & OP_UNPIN) {
-		o->pinned = false;
+		o->flags &= ~OF_PINNED;
 	} else {
-		o->pinned = true;
+		o->flags |= OF_PINNED;
 		obj_alloc_slot(o);
 		assert(o->slot != NULL);
 		if(addr)

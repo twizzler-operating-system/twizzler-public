@@ -11,9 +11,7 @@ static DECLARE_LIST(allocators);
 static struct mem_allocator _initial_allocator;
 
 #define MAX_ALLOCATORS 16
-static size_t allocator_ctr = 0;
 static struct spinlock allocator_lock = SPINLOCK_INIT;
-static struct mem_allocator allocs[MAX_ALLOCATORS];
 
 static const char *memory_type_strings[] = {
 	[MEMORY_AVAILABLE] = "System RAM",
@@ -80,8 +78,8 @@ uintptr_t mm_otop(uintptr_t oaddr)
 uintptr_t mm_vtop(void *addr)
 {
 	uintptr_t v = (uintptr_t)addr;
-	if(v >= SLOT_TO_VADDR(KVSLOT_BOOTSTRAP)
-	   && v <= SLOT_TO_VADDR(KVSLOT_BOOTSTRAP) + (OBJ_MAXSIZE - 1)) {
+	if(v >= (uintptr_t)SLOT_TO_VADDR(KVSLOT_BOOTSTRAP)
+	   && v <= (uintptr_t)SLOT_TO_VADDR(KVSLOT_BOOTSTRAP) + (OBJ_MAXSIZE - 1)) {
 		//	printk("vtop: %p -> %lx\n", addr, (uintptr_t)addr - PHYSICAL_MAP_START);
 		return (uintptr_t)addr - PHYSICAL_MAP_START;
 	}
@@ -95,7 +93,7 @@ void *mm_ptov(uintptr_t addr)
 {
 	uintptr_t p = (uintptr_t)addr;
 	if(p >= SLOT_TO_OADDR(0) && p <= SLOT_TO_OADDR(0) + (OBJ_MAXSIZE - 1)) {
-		return (uintptr_t)addr + PHYSICAL_MAP_START;
+		return (void *)((uintptr_t)addr + PHYSICAL_MAP_START);
 	}
 	panic("UNIMP");
 }

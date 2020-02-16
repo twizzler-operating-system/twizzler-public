@@ -46,7 +46,6 @@ static void _obj_ctor(void *_u, void *ptr)
 	(void)_u;
 	struct object *obj = ptr;
 	obj->lock = SPINLOCK_INIT;
-	obj->verlock = SPINLOCK_INIT;
 	obj->tslock = SPINLOCK_INIT;
 	obj->pagecache_root = RBINIT;
 	obj->pagecache_level1_root = RBINIT;
@@ -56,10 +55,8 @@ static void _obj_ctor(void *_u, void *ptr)
 void obj_init(struct object *obj)
 {
 	_obj_ctor(NULL, obj);
-	obj->maxsz = mm_page_size(MAX_PGLEVEL);
-	obj->pglevel = MAX_PGLEVEL;
 	obj->slot = NULL;
-	obj->persist = false;
+	obj->flags = 0;
 	obj->kvmap = NULL;
 	krc_init(&obj->refs);
 	krc_init_zero(&obj->mapcount);
@@ -108,7 +105,7 @@ void kso_detach_event(struct thread *thr, bool entry, int sysc)
 
 void obj_pin(struct object *obj)
 {
-	obj->pinned = true;
+	obj->flags |= OF_PINNED;
 }
 
 void obj_kso_init(struct object *obj, enum kso_type ksot)
@@ -357,9 +354,9 @@ struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 			spinlock_release_restore(&obj->lock);
 			return NULL;
 		}
-		int level = ((addr >= mm_page_size(1)) || (obj->lowpg && 0)) ? 0 : 0; /* TODO */
-		struct page *pp =
-		  page_alloc(obj->persist ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, level);
+		int level = ((addr >= mm_page_size(1))) ? 0 : 0; /* TODO */
+		struct page *pp = page_alloc(
+		  (obj->flags & OF_PERSIST) ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, level);
 		page = objpage_alloc();
 		page->page = pp;
 		// page->page =
@@ -511,7 +508,7 @@ bool obj_get_pflags(struct object *obj, uint32_t *pf)
 {
 	*pf = 0;
 	spinlock_acquire_save(&obj->lock);
-	if(obj->cpf_valid) {
+	if(obj->flags & OF_CPF_VALID) {
 		*pf = obj->cached_pflags;
 		spinlock_release_restore(&obj->lock);
 		return true;
@@ -525,17 +522,15 @@ bool obj_get_pflags(struct object *obj, uint32_t *pf)
 	spinlock_acquire_save(&obj->lock);
 	*pf = obj->cached_pflags = mi.p_flags;
 	atomic_thread_fence(memory_order_seq_cst);
-	obj->cpf_valid = true;
+	obj->flags |= OF_CPF_VALID;
 	spinlock_release_restore(&obj->lock);
 	return true;
 }
 
-/* TODO (major): with these, and the above, support obj_get_page returning "no page
- * associated with this location, because there's no data here" */
 objid_t obj_compute_id(struct object *obj)
 {
 	void *kaddr = obj_get_kaddr(obj);
-	struct metainfo *mi = (char *)kaddr + (OBJ_MAXSIZE - OBJ_METAPAGE_SIZE);
+	struct metainfo *mi = (void *)((char *)kaddr + (OBJ_MAXSIZE - OBJ_METAPAGE_SIZE));
 
 	_Alignas(16) blake2b_state S;
 	blake2b_init(&S, 32);
@@ -588,20 +583,28 @@ objid_t obj_compute_id(struct object *obj)
 
 bool obj_verify_id(struct object *obj, bool cache_result, bool uncache)
 {
-	if(obj->id == 0 || obj->kernel_obj)
+	/* avoid the lock here when checking for KERNEL because this flag is set during creation and
+	 * never unset */
+	if(obj->id == 0 || (obj->flags & OF_KERNEL))
 		return true;
 	bool result = false;
-	spinlock_acquire_save(&obj->verlock);
+	spinlock_acquire_save(&obj->lock);
 
-	if(obj->idversafe) {
-		result = obj->idvercache;
+	if(obj->flags & OF_IDSAFE) {
+		result = !!(obj->flags & OF_IDCACHED);
 	} else {
+		spinlock_release_restore(&obj->lock);
 		objid_t c = obj_compute_id(obj);
+		spinlock_acquire_save(&obj->lock);
 		result = c == obj->id;
-		obj->idvercache = result && cache_result;
+		obj->flags |= result && cache_result ? OF_IDCACHED : 0;
 	}
-	obj->idversafe = !uncache;
-	spinlock_release_restore(&obj->verlock);
+	if(uncache) {
+		obj->flags &= ~OF_IDSAFE;
+	} else {
+		obj->flags |= OF_IDSAFE;
+	}
+	spinlock_release_restore(&obj->lock);
 	return result;
 }
 
@@ -739,9 +742,9 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	// perms = OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U;
 	/* TODO: lock the object enough for the slots to be safe */
 #if 1
-	if(o->kernel_obj || VADDR_IS_KERNEL(vaddr)) {
+	if((o->flags & OF_KERNEL) || VADDR_IS_KERNEL(vaddr)) {
 		if(!arch_object_getmap_slot_flags(NULL, o->kslot, &existing_flags)) {
-			do_map = true; // TODO: dont do this every time.
+			do_map = true;
 		}
 		perms = OBJSPACE_READ | OBJSPACE_WRITE;
 	} else {
@@ -777,7 +780,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	// for(int j = 0; j < 4 && (idx < 200000 || j == 0); j++, idx++) {
 
 	if(do_map) {
-		if(o->kernel_obj) {
+		if(o->flags & OF_KERNEL) {
 			/* TODO: shouldn't need this? */
 			arch_object_map_slot(NULL,
 			  o,
@@ -789,7 +792,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
 		}
 	}
-	if(o->alloc_pages) {
+	if(o->flags & OF_ALLOC) {
 		struct objpage p;
 		p.page = page_alloc(PAGE_TYPE_VOLATILE, 0, 0); /* TODO: refcount, largepage */
 		p.idx = (loaddr % OBJ_MAXSIZE) / mm_page_size(p.page->level);
