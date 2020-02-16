@@ -168,61 +168,6 @@ struct elf64_header {
 	uint16_t e_shstrndx;
 };
 
-#include <kalloc.h>
-/* TODO: a real allocator */
-static struct arena kalloc_arena;
-
-void *krealloc(void *p, size_t sz)
-{
-	size_t *s = (void *)((char *)p - sizeof(size_t));
-	if(*s >= sz)
-		return p;
-
-	void *n = kalloc(sz);
-	memcpy(n, p, *s);
-	kfree(p);
-	return n;
-}
-
-void *krecalloc(void *p, size_t num, size_t sz)
-{
-	return krealloc(p, num * sz);
-}
-
-void *kalloc(size_t sz)
-{
-	static _Atomic bool _init = false;
-	static struct spinlock wait = SPINLOCK_INIT;
-	if(!_init) {
-		spinlock_acquire_save(&wait);
-		if(!_init) {
-			arena_create(&kalloc_arena);
-			_init = true;
-		}
-		spinlock_release_restore(&wait);
-	}
-	sz += sizeof(size_t);
-	void *p = arena_allocate(&kalloc_arena, sz);
-	*(size_t *)p = sz;
-	p = (char *)p + sizeof(size_t);
-	// printk("kalloc: %ld -> %p\n", sz, p);
-	return p;
-}
-
-void *kcalloc(size_t num, size_t sz)
-{
-	/* TODO: overflow check */
-	void *p = kalloc(num * sz);
-	if(p)
-		memset(p, 0, num * sz);
-	return p;
-}
-
-void kfree(void *p)
-{
-	(void)p;
-	// printk("[ni] kfree (%p)\n", p);
-}
 static __inline__ unsigned long long rdtsc(void)
 {
 	unsigned hi, lo;
