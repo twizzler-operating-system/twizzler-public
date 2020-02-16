@@ -76,7 +76,7 @@ static bool __verify_region(void *item,
 			return false;
 	}
 
-	struct object *to = obj_lookup(target);
+	struct object *to = obj_lookup(target, OBJ_LOOKUP_HIDDEN);
 	struct metainfo mi;
 	obj_read_data(to, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
 	obj_put(to);
@@ -88,7 +88,7 @@ static bool __verify_region(void *item,
 		/* TODO: should we know this earlier? */
 		return false;
 	}
-	struct object *ko = obj_lookup(mi.kuid);
+	struct object *ko = obj_lookup(mi.kuid, OBJ_LOOKUP_HIDDEN);
 	// printk("VERIFY via " IDFMT ": %p\n", IDPR(mi.kuid), ko);
 
 	if(!ko) {
@@ -361,7 +361,7 @@ static int __lookup_perms(struct object *obj,
 		slot = b->chain;
 	} while(slot != 0);
 	uint32_t dfl = 0;
-	struct object *t = obj_lookup(target);
+	struct object *t = obj_lookup(target, OBJ_LOOKUP_HIDDEN);
 	if(t) {
 		uint32_t p_flags = 0;
 		obj_get_pflags(t, &p_flags);
@@ -411,7 +411,7 @@ int secctx_check_permissions(struct thread *t, uintptr_t ip, struct object *to, 
 
 	struct object *obj;
 	uint32_t p;
-	obj = obj_lookup(t->active_sc->repr);
+	obj = obj_lookup(t->active_sc->repr, OBJ_LOOKUP_HIDDEN);
 	if(!obj) {
 		panic("no repr " IDFMT, IDPR(t->active_sc->repr));
 	}
@@ -428,7 +428,7 @@ int secctx_check_permissions(struct thread *t, uintptr_t ip, struct object *to, 
 	for(int i = 0; i < MAX_SC; i++) {
 		if(!t->attached_scs[i] || t->attached_scs[i] == t->active_sc)
 			continue;
-		obj = obj_lookup(t->attached_scs[i]->repr);
+		obj = obj_lookup(t->attached_scs[i]->repr, OBJ_LOOKUP_HIDDEN);
 		if(!obj) {
 			panic("no repr " IDFMT, IDPR(t->attached_scs[i]->repr));
 		}
@@ -439,7 +439,7 @@ int secctx_check_permissions(struct thread *t, uintptr_t ip, struct object *to, 
 			obj_put(obj);
 			continue;
 		}
-		struct object *eo = obj_lookup(id);
+		struct object *eo = obj_lookup(id, OBJ_LOOKUP_HIDDEN);
 		if(!eo) {
 			obj_put(obj);
 			continue;
@@ -515,7 +515,7 @@ int secctx_fault_resolve(struct thread *t,
 
 	struct object *obj;
 	uint32_t p;
-	obj = obj_lookup(t->active_sc->repr);
+	obj = obj_lookup(t->active_sc->repr, OBJ_LOOKUP_HIDDEN);
 	if(!obj) {
 		panic("no repr " IDFMT, IDPR(t->active_sc->repr));
 	}
@@ -542,7 +542,7 @@ int secctx_fault_resolve(struct thread *t,
 	for(int i = 0; i < MAX_SC; i++) {
 		if(!t->attached_scs[i] || t->attached_scs[i] == t->active_sc)
 			continue;
-		obj = obj_lookup(t->attached_scs[i]->repr);
+		obj = obj_lookup(t->attached_scs[i]->repr, OBJ_LOOKUP_HIDDEN);
 		if(!obj) {
 			panic("no repr " IDFMT, IDPR(t->attached_scs[i]->repr));
 		}
@@ -559,7 +559,7 @@ int secctx_fault_resolve(struct thread *t,
 			obj_put(obj);
 			continue;
 		}
-		struct object *eo = obj_lookup(id);
+		struct object *eo = obj_lookup(id, OBJ_LOOKUP_HIDDEN);
 		if(!eo) {
 			obj_put(obj);
 			continue;
@@ -626,7 +626,7 @@ static void __secctx_update_thrdrepr(struct thread *thr, int s, bool at)
 	obj_write_data(to, offsetof(struct twzthread_repr, attached) + sizeof(k) * s, sizeof(k), &k);
 }
 
-bool secctx_thread_attach(struct sctx *s, struct thread *t)
+static bool secctx_thread_attach(struct sctx *s, struct thread *t)
 {
 	// EPRINTK("thread %ld attach to " IDFMT "\n", t->id, IDPR(s->repr));
 	bool ok = false, found = false, force = false;
@@ -705,7 +705,7 @@ static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 	return ok;
 }
 
-bool secctx_thread_detach(struct sctx *s, struct thread *thr)
+static bool secctx_thread_detach(struct sctx *s, struct thread *thr)
 {
 	bool ok;
 	spinlock_acquire_save(&thr->sc_lock);

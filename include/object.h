@@ -122,7 +122,10 @@ void object_space_release_slot(struct slot *slot);
 struct object *obj_create(uint128_t id, enum kso_type);
 void obj_system_init(void);
 struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot);
-struct object *obj_lookup(uint128_t id);
+
+#define OBJ_LOOKUP_HIDDEN 1
+struct object *obj_lookup(uint128_t id, int flags);
+
 bool obj_verify_id(struct object *obj, bool cache_result, bool uncache);
 struct slot *obj_alloc_slot(struct object *obj);
 void obj_alloc_kernel_slot(struct object *obj);
@@ -166,6 +169,7 @@ bool arch_object_getmap_slot_flags(struct object_space *space, struct slot *, ui
 void object_space_destroy(struct object_space *space);
 void object_space_init(struct object_space *space);
 void arch_object_init(struct object *obj);
+void arch_object_destroy(struct object *obj);
 
 #define OBJSPACE_FAULT_READ 1
 #define OBJSPACE_FAULT_WRITE 2

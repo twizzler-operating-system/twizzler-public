@@ -139,7 +139,7 @@ void page_init(struct memregion *region)
 }
 
 #include <tmpmap.h>
-void page_zero(struct page *p)
+static void page_zero(struct page *p)
 {
 	void *addr = tmpmap_map_page(p);
 	memset(addr, 0, mm_page_size(p->level));

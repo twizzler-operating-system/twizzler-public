@@ -130,7 +130,7 @@ struct object *device_register(uint32_t bustype, uint32_t devid)
 	r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &psid);
 	if(r < 0)
 		panic("failed to create device object: %d", r);
-	struct object *obj = obj_lookup(psid);
+	struct object *obj = obj_lookup(psid, OBJ_LOOKUP_HIDDEN);
 	assert(obj != NULL);
 	obj->kaction = __device_kaction;
 	obj_kso_init(obj, KSO_DEVICE);
@@ -152,7 +152,7 @@ struct object *bus_register(uint32_t bustype, uint32_t busid, size_t bssz)
 	r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &psid);
 	if(r < 0)
 		panic("failed to create bus object: %d", r);
-	struct object *obj = obj_lookup(psid);
+	struct object *obj = obj_lookup(psid, OBJ_LOOKUP_HIDDEN);
 	assert(obj != NULL);
 	// obj->kaction = __device_kaction;
 	obj_kso_init(obj, KSO_DEVBUS);

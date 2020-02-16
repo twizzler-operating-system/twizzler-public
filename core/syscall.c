@@ -3,7 +3,7 @@
 #include <syscall.h>
 #include <thread.h>
 
-long syscall_null(long a)
+static long syscall_null(long a)
 {
 	// printk("-- called null syscall\n");
 	if(a == 0x1234) {
@@ -12,7 +12,7 @@ long syscall_null(long a)
 	return 0;
 }
 
-long syscall_debug_print(const char *data, size_t len)
+static long syscall_debug_print(const char *data, size_t len)
 {
 	if(len > 1024)
 		len = 1024;

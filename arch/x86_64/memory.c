@@ -1,3 +1,4 @@
+#include <arch/x86_64.h>
 #include <memory.h>
 
 extern uint64_t x86_64_top_mem;

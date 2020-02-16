@@ -1,3 +1,4 @@
+#include <arch/x86_64.h>
 #include <memory.h>
 #include <processor.h>
 extern struct vm_context kernel_ctx;

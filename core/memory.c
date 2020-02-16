@@ -162,16 +162,6 @@ void mm_init_phase_2(void)
 	mm_print_stats();
 }
 
-struct memregion *mm_physical_find_region(uintptr_t addr)
-{
-	foreach(e, list, &physical_regions) {
-		struct memregion *reg = list_entry(e, struct memregion, entry);
-		if(addr >= reg->start && addr < reg->start + reg->length)
-			return reg;
-	}
-	return NULL;
-}
-
 uintptr_t mm_physical_early_alloc(void)
 {
 	if(!list_empty(&allocators)) {

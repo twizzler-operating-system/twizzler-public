@@ -110,7 +110,7 @@ __orderedinitializer(__orderedbefore(MADT_INITIALIZER_ORDER)) static void __ioap
 		ioapics[i].id = -1;
 }
 
-void do_init_ioapic(struct ioapic *chip)
+static void do_init_ioapic(struct ioapic *chip)
 {
 	for(int i = 0; i < 24; i++) {
 		write_ioapic_vector(chip, i, 1, 0, 0, 0, 32 + i + chip->gsib);

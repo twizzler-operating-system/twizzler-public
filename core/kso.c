@@ -10,7 +10,7 @@ static struct spinlock lock = SPINLOCK_INIT;
 void kso_root_attach(struct object *obj, uint64_t flags, int type)
 {
 	(void)flags;
-	struct object *root = obj_lookup(1);
+	struct object *root = obj_lookup(1, 0);
 	spinlock_acquire_save(&lock);
 	struct kso_attachment kar = {
 		.flags = 0,

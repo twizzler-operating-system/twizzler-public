@@ -1,9 +1,11 @@
 #include <arch/x86_64-acpi.h>
 #include <arch/x86_64-msr.h>
 #include <arch/x86_64-vmx.h>
+#include <arch/x86_64.h>
 #include <debug.h>
 #include <init.h>
 #include <kc.h>
+#include <machine/machine.h>
 #include <machine/memory.h>
 #include <machine/pc-multiboot.h>
 #include <machine/pc-multiboot2.h>
@@ -129,9 +131,7 @@ extern int kernel_start;
 #include <object.h>
 #include <page.h>
 
-extern objid_t kc_init_id;
-
-void load_object_data(struct object *obj, char *tardata, size_t tarlen)
+static void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 {
 	struct ustar_header *h = (struct ustar_header *)tardata;
 	while((char *)h < tardata + tarlen) {
@@ -219,7 +219,7 @@ static size_t _load_initrd(char *start, size_t modlen)
 						break;
 					}
 
-					struct object *obj = obj_lookup(id);
+					struct object *obj = obj_lookup(id, 0);
 					if(obj == NULL) {
 						obj = obj_create(id, KSO_NONE);
 					}
@@ -413,7 +413,7 @@ void x86_64_cpu_secondary_entry(struct processor *proc)
 	x86_64_start_vmx(proc);
 }
 
-void x86_64_write_gdt_entry(struct x86_64_gdt_entry *entry,
+static void x86_64_write_gdt_entry(struct x86_64_gdt_entry *entry,
   uint32_t base,
   uint32_t limit,
   uint8_t access,
@@ -427,7 +427,7 @@ void x86_64_write_gdt_entry(struct x86_64_gdt_entry *entry,
 	entry->access = access;
 }
 
-void x86_64_tss_init(struct processor *proc)
+static void x86_64_tss_init(struct processor *proc)
 {
 	struct x86_64_tss *tss = &proc->arch.tss;
 	memset(tss, 0, sizeof(*tss));
@@ -438,7 +438,7 @@ void x86_64_tss_init(struct processor *proc)
 	asm volatile("movw $0x2B, %%ax; ltr %%ax" ::: "rax", "memory");
 }
 
-void x86_64_gdt_init(struct processor *proc)
+static void x86_64_gdt_init(struct processor *proc)
 {
 	memset(&proc->arch.gdt, 0, sizeof(proc->arch.gdt));
 	x86_64_write_gdt_entry(&proc->arch.gdt[0], 0, 0, 0, 0);

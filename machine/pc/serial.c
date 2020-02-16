@@ -4,6 +4,7 @@
 #include <instrument.h>
 #include <interrupt.h>
 #include <machine/isa.h>
+#include <machine/machine.h>
 #include <processor.h>
 #define COM1_PORT 0x3f8 /* COM1 */
 #define COM1_IRQ 0x24
@@ -351,19 +352,21 @@ void serial_init(void)
 	  com1.divisor);
 }
 
-__noinstrument void serial_putc(char c)
+__noinstrument static void serial_putc(char c)
 {
 	while((uart_read(&com1, UART_REG_LSR) & UART_LSR_THR_EMPTY) == 0)
 		;
 	uart_write(&com1, UART_REG_DATA, c);
 }
 
-char serial_getc()
+#if 0
+static char serial_getc()
 {
 	while((uart_read(&com1, UART_REG_LSR) & UART_LSR_RX_READY) == 0)
 		;
 	return uart_read(&com1, UART_REG_DATA);
 }
+#endif
 
 __initializer static void __serial_init(void)
 {

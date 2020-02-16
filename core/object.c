@@ -103,11 +103,6 @@ void kso_detach_event(struct thread *thr, bool entry, int sysc)
 	}
 }
 
-void obj_pin(struct object *obj)
-{
-	obj->flags |= OF_PINNED;
-}
-
 void obj_kso_init(struct object *obj, enum kso_type ksot)
 {
 	obj->kso_type = ksot;
@@ -153,7 +148,7 @@ void obj_assign_id(struct object *obj, objid_t id)
 
 struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 {
-	struct object *src = obj_lookup(srcid);
+	struct object *src = obj_lookup(srcid, 0);
 	if(src == NULL) {
 		return NULL;
 	}
@@ -199,7 +194,7 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 	return obj;
 }
 
-struct object *obj_lookup(uint128_t id)
+struct object *obj_lookup(uint128_t id, int flags)
 {
 	spinlock_acquire_save(&objlock);
 	struct rbnode *node = rb_search(&obj_tree, id, struct object, node, __obj_compar_key);

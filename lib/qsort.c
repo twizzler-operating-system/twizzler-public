@@ -1,3 +1,4 @@
+#include <lib/lib.h>
 #include <string.h>
 
 static void swap(void *base, size_t size, int a, int b)
@@ -6,20 +7,19 @@ static void swap(void *base, size_t size, int a, int b)
 	memcpy(data, (void *)((uintptr_t)base + a * size), size);
 	memcpy((void *)((uintptr_t)base + a * size), (void *)((uintptr_t)base + b * size), size);
 	memcpy((void *)((uintptr_t)base + b * size), data, size);
-
 }
 
-void qsort(void* base, size_t num, size_t size, int (*compar)(const void*,const void*))
+void qsort(void *base, size_t num, size_t size, int (*compar)(const void *, const void *))
 {
 	if(num <= 1)
 		return;
 	/* TODO (perf) */
-	//int pivot = random_u32() % num;
+	// int pivot = random_u32() % num;
 	int pivot = 0;
 
 	size_t part = 0;
 	swap(base, size, pivot, 0);
-	for(size_t i=1;i<num;i++) {
+	for(size_t i = 1; i < num; i++) {
 		void *a = (void *)((uintptr_t)base + size * i);
 
 		if(compar(a, base) < 0) {
@@ -32,4 +32,3 @@ void qsort(void* base, size_t num, size_t size, int (*compar)(const void*,const 
 	if(num > part)
 		qsort((void *)((uintptr_t)base + size * (part + 1)), (num - part) - 1, size, compar);
 }
-

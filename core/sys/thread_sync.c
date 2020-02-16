@@ -170,7 +170,7 @@ static long thread_sync_single_norestore(int operation,
 	if(!vm_vaddr_lookup(addr, &id, &off)) {
 		return -1; /* TODO (major): err codes in all syscalls */
 	}
-	struct object *obj = obj_lookup(id);
+	struct object *obj = obj_lookup(id, 0);
 	if(!obj) {
 		return -1;
 	}
@@ -197,7 +197,7 @@ static long thread_sync_sleep_wakeup(long *addr, int idx)
 	if(!vm_vaddr_lookup(addr, &id, &off)) {
 		return -1; /* TODO (major): err codes in all syscalls */
 	}
-	struct object *obj = obj_lookup(id);
+	struct object *obj = obj_lookup(id, 0);
 	if(!obj) {
 		return -1;
 	}
@@ -233,7 +233,7 @@ long thread_sync_single(int operation, long *addr, long arg, struct timespec *sp
 	if(!vm_vaddr_lookup(addr, &id, &off)) {
 		return -1; /* TODO (major): err codes in all syscalls */
 	}
-	struct object *obj = obj_lookup(id);
+	struct object *obj = obj_lookup(id, 0);
 	if(!obj) {
 		return -1;
 	}

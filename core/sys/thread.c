@@ -18,7 +18,7 @@ long syscall_thread_spawn(uint64_t tidlo,
 	if(flags)
 		return -EINVAL;
 	objid_t tid = MKID(tidhi, tidlo);
-	struct object *repr = obj_lookup(tid);
+	struct object *repr = obj_lookup(tid, 0);
 	if(!repr) {
 		return -1;
 	}
@@ -41,7 +41,7 @@ long syscall_thread_spawn(uint64_t tidlo,
 
 	struct object *view = current_thread ? kso_get_obj(current_thread->ctx->view, view) : NULL;
 	if(tsa->target_view) {
-		view = obj_lookup(tsa->target_view);
+		view = obj_lookup(tsa->target_view, 0);
 		if(view == NULL) {
 			obj_put(repr);
 			return -1;
@@ -127,7 +127,7 @@ long syscall_become(struct arch_syscall_become_args *_ba)
 	struct arch_syscall_become_args ba;
 	memcpy(&ba, _ba, sizeof(ba));
 	if(ba.target_view) {
-		struct object *target_view = obj_lookup(ba.target_view);
+		struct object *target_view = obj_lookup(ba.target_view, 0);
 		if(!target_view) {
 			return -1;
 		}

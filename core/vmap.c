@@ -46,7 +46,7 @@ struct vm_context *vm_context_create(void)
 	return ctx;
 }
 
-void vm_map_disestablish(struct vm_context *ctx, struct vmap *map)
+static void vm_map_disestablish(struct vm_context *ctx, struct vmap *map)
 {
 	arch_vm_unmap_object(ctx, map);
 	struct object *obj = map->obj;
@@ -106,7 +106,7 @@ void vm_vmap_init(struct vmap *vmap, struct object *obj, size_t vslot, uint32_t 
 	vmap->status = 0;
 }
 
-void vm_map_establish(struct vmap *map)
+static void vm_map_establish(struct vmap *map)
 {
 	struct slot *slot = obj_alloc_slot(map->obj);
 	if(slot) {
@@ -127,7 +127,7 @@ void kso_view_write(struct object *obj, size_t slot, struct viewentry *v)
 	obj_write_data(obj, __VE_OFFSET + slot * sizeof(struct viewentry), sizeof(struct viewentry), v);
 }
 
-struct viewentry kso_view_lookup(struct vm_context *ctx, size_t slot)
+static struct viewentry kso_view_lookup(struct vm_context *ctx, size_t slot)
 {
 	struct viewentry v;
 	/* TODO: make sure these reads aren't too costly. These are to KSO objects, so they should be
@@ -333,7 +333,7 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 			return;
 		}
 		map = slabcache_alloc(&sc_vmap);
-		struct object *obj = obj_lookup(id);
+		struct object *obj = obj_lookup(id, 0);
 		if(!obj) {
 			struct fault_object_info info;
 			popul_info(&info, flags, ip, addr, id);

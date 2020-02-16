@@ -1,3 +1,4 @@
+#include <arch/x86_64.h>
 #include <syscall.h>
 
 static long _tsc_ps = 0;

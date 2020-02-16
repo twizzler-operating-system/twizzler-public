@@ -1,6 +1,7 @@
 #include <arch/x86_64-acpi.h>
 #include <debug.h>
 #include <init.h>
+#include <machine/pc-pcie.h>
 #include <memory.h>
 #include <page.h>
 #include <slots.h>
@@ -234,8 +235,7 @@ void iommu_object_map_slot(struct device *dev, struct object *obj)
 }
 
 /* TODO: generalize */
-void pcie_iommu_fault(uint16_t seg, uint16_t sid, uint64_t addr, bool handled);
-void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __unused)
+static void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __unused)
 {
 	for(int i = 0; i < MAX_IOMMUS; i++) {
 		struct iommu *im = &iommus[i];
@@ -287,7 +287,7 @@ void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __unused)
 	}
 }
 
-void __iommu_inv_handler(int v __unused, struct interrupt_handler *h __unused)
+static void __iommu_inv_handler(int v __unused, struct interrupt_handler *h __unused)
 {
 	printk("!!! IOMMU INV\n");
 }

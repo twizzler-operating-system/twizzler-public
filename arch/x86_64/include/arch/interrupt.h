@@ -2,6 +2,16 @@
 
 #define MAX_INTERRUPT_VECTORS 256
 
+void x86_64_ipi_tlb_shootdown(void);
+void x86_64_ipi_resume(void);
+void x86_64_ipi_halt(void);
+void x86_64_signal_eoi(void);
+
+struct x86_64_exception_frame;
+void x86_64_exception_entry(struct x86_64_exception_frame *frame, bool was_userspace, bool ignored);
+struct x86_64_syscall_frame;
+void x86_64_syscall_entry(struct x86_64_syscall_frame *frame);
+
 static inline bool arch_interrupt_set(bool on)
 {
 	register long old;

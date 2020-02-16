@@ -1,7 +1,7 @@
-#include <time.h>
-#include <thread.h>
-#include <lib/list.h>
 #include <lib/iter.h>
+#include <lib/list.h>
+#include <thread.h>
+#include <time.h>
 
 /* TODO (perf): change timer system to heap */
 
@@ -29,6 +29,7 @@ void timer_add(struct timer *t, dur_nsec time, void (*fn)(void *), void *data)
 	spinlock_release_restore(&timers_list_lock);
 }
 
+#if 0
 static void check_timers(void)
 {
 	spinlock_acquire_save(&timers_list_lock);
@@ -44,12 +45,4 @@ static void check_timers(void)
 	}
 	spinlock_release_restore(&timers_list_lock);
 }
-
-dur_nsec kernel_timer_tick(dur_nsec dt)
-{
-	cur_time += dt;
-	check_timers();
-	/* TODO (major): temp hack */
-	return 10000000; //1 ms
-}
-
+#endif

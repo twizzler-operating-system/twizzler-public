@@ -13,3 +13,4 @@ struct pcie_function {
 	struct list entry;
 	struct object *obj;
 };
+void pcie_iommu_fault(uint16_t seg, uint16_t sid, uint64_t addr, bool handled);

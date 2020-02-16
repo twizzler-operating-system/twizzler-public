@@ -1,14 +1,19 @@
+#include <debug.h>
 #include <stdarg.h>
 #include <string.h>
-#include <debug.h>
 const char *DIGITS_lower = "0123456789abcdef";
 const char *DIGITS_upper = "0123456789ABCDEF";
 #define WN_LOWER 1
 #define WN_NONEG 2
 #define WN_LJUST 4
-#define WN_ZERO  8
+#define WN_ZERO 8
 #define WN_NOPRE 16
-static char *write_number(char *buffer, long long value, int base, int options, int min_width, int precision)
+static char *write_number(char *buffer,
+  long long value,
+  int base,
+  int options,
+  int min_width,
+  int precision)
 {
 	char digits[256];
 	memset(digits, 0, 256);
@@ -28,12 +33,13 @@ static char *write_number(char *buffer, long long value, int base, int options, 
 		len++;
 	}
 
-	if(!len) len = 1;
+	if(!len)
+		len = 1;
 
 	if(negative)
 		*buffer++ = '-';
 	if(!(options & WN_LJUST)) {
-		for(int i=0;i+((len > precision) ? len : precision )< min_width;i++)
+		for(int i = 0; i + ((len > precision) ? len : precision) < min_width; i++)
 			*buffer++ = (options & WN_ZERO) ? '0' : ' ';
 	}
 	if(!(options & WN_NOPRE)) {
@@ -46,32 +52,32 @@ static char *write_number(char *buffer, long long value, int base, int options, 
 		}
 	}
 
-	for(int i=len;i<precision;i++)
+	for(int i = len; i < precision; i++)
 		*buffer++ = '0';
 
-	for(int i=len-1;i>=0;i--) {
+	for(int i = len - 1; i >= 0; i--) {
 		if(options & WN_LOWER)
 			*buffer++ = DIGITS_lower[(int)digits[i]];
 		else
 			*buffer++ = DIGITS_upper[(int)digits[i]];
 	}
 	if(options & WN_LJUST) {
-		for(int i=0;i+((len > precision ? len : precision)) < min_width;i++)
+		for(int i = 0; i + ((len > precision ? len : precision)) < min_width; i++)
 			*buffer++ = (options & WN_ZERO) ? '0' : ' ';
 	}
 
 	return buffer;
 }
 
-#define GETVAL(value,sign) \
-				do { \
-					if(l == 0)\
-						value = va_arg(args, sign int);\
-					else if(l == 1)\
-						value = va_arg(args, sign long);\
-					else \
-						value = va_arg(args, sign long long); \
-				} while(false)
+#define GETVAL(value, sign)                                                                        \
+	do {                                                                                           \
+		if(l == 0)                                                                                 \
+			value = va_arg(args, sign int);                                                        \
+		else if(l == 1)                                                                            \
+			value = va_arg(args, sign long);                                                       \
+		else                                                                                       \
+			value = va_arg(args, sign long long);                                                  \
+	} while(false)
 
 #define isnum(n) (n >= '0' && n <= '9')
 static int parse_number(const char **str)
@@ -86,7 +92,7 @@ static int parse_number(const char **str)
 	return num;
 }
 
-void vbufprintk(char *buffer, const char *fmt, va_list args)
+static void vbufprintk(char *buffer, const char *fmt, va_list args)
 {
 	const char *s = fmt;
 	char *b = buffer;
@@ -135,7 +141,8 @@ void vbufprintk(char *buffer, const char *fmt, va_list args)
 				unsigned long long uvalue;
 				case 0:
 					goto done;
-				case 'd': case 'i':
+				case 'd':
+				case 'i':
 					GETVAL(value, signed);
 					b = write_number(b, value, 10, flags, min_field_width, precision);
 					break;
@@ -168,14 +175,14 @@ void vbufprintk(char *buffer, const char *fmt, va_list args)
 					if(precision && precision < len)
 						len = precision;
 					if(!(flags & WN_LJUST)) {
-						for(int i=0;len+i < min_field_width;i++)
+						for(int i = 0; len + i < min_field_width; i++)
 							*b++ = ' ';
 					}
 					unsigned int count = 0;
 					while(*str && count++ < len)
 						*b++ = *str++;
 					if(flags & WN_LJUST) {
-						for(int i=0;len+i < min_field_width;i++)
+						for(int i = 0; len + i < min_field_width; i++)
 							*b++ = ' ';
 					}
 					break;
@@ -193,7 +200,7 @@ done:
 
 int snprintf(char *buf, size_t len, const char *fmt, ...)
 {
-	(void)len; //TODO (sec): we should actually care about this.
+	(void)len; // TODO (sec): we should actually care about this.
 	va_list args;
 	va_start(args, fmt);
 	vbufprintk(buf, fmt, args);
@@ -219,4 +226,3 @@ int vprintk(const char *fmt, va_list args)
 	debug_puts(buf);
 	return 0;
 }
-

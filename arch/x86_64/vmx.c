@@ -229,7 +229,7 @@ static void vmx_handle_ept_violation(struct processor *proc)
 }
 
 extern uint64_t clksrc_get_interrupt_countdown();
-void x86_64_vmexit_handler(struct processor *proc)
+__attribute__((used)) static void x86_64_vmexit_handler(struct processor *proc)
 {
 	/* so, in theory we now have a valid pointer to a vstate struct, and a stack
 	 * to work in (see assembly code for vmexit point below).  */
@@ -614,7 +614,7 @@ static void __init_ept_root(void)
 void vmexit_point(void);
 void vmx_entry_point(void);
 
-void vtx_setup_vcpu(struct processor *proc)
+static void vtx_setup_vcpu(struct processor *proc)
 {
 	__init_ept_root();
 	/* we have to set-up the vcpu state to "mirror" our physical CPU.

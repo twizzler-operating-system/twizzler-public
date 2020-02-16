@@ -21,7 +21,7 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 		struct kso_invl_args ko;
 		memcpy(&ko, &invl[i], sizeof(ko));
 		if(ko.flags & KSOI_VALID) {
-			struct object *o = obj_lookup(ko.id);
+			struct object *o = obj_lookup(ko.id, 0);
 			if(o && __do_invalidate(o, &ko)) {
 				suc++;
 			}
@@ -40,7 +40,7 @@ long syscall_kaction(size_t count, struct sys_kaction_args *args)
 		return -EINVAL;
 	for(size_t i = 0; i < count; i++) {
 		if(args[i].flags & KACTION_VALID) {
-			struct object *obj = obj_lookup(args->id);
+			struct object *obj = obj_lookup(args->id, 0);
 			if(!obj) {
 				args[i].result = -ENOENT;
 				continue;
@@ -60,8 +60,9 @@ long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 	objid_t paid = MKID(pahi, palo), chid = MKID(chhi, chlo);
 	uint16_t type = (ft & 0xffff);
 	uint32_t flags = (ft >> 32) & 0xffffffff;
-	struct object *parent = paid == 0 ? kso_get_obj(current_thread->throbj, thr) : obj_lookup(paid);
-	struct object *child = obj_lookup(chid);
+	struct object *parent =
+	  paid == 0 ? kso_get_obj(current_thread->throbj, thr) : obj_lookup(paid, 0);
+	struct object *child = obj_lookup(chid, 0);
 
 	if(!parent || !child) {
 		if(child)
@@ -113,8 +114,9 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 		return -EINVAL;
 
 	objid_t paid = MKID(pahi, palo), chid = MKID(chhi, chlo);
-	struct object *parent = paid == 0 ? kso_get_obj(current_thread->throbj, thr) : obj_lookup(paid);
-	struct object *child = chid == 0 ? NULL : obj_lookup(chid);
+	struct object *parent =
+	  paid == 0 ? kso_get_obj(current_thread->throbj, thr) : obj_lookup(paid, 0);
+	struct object *child = chid == 0 ? NULL : obj_lookup(chid, 0);
 
 	if(!parent) {
 		if(child)
@@ -182,7 +184,7 @@ long syscall_ocreate(uint64_t kulo,
 	}
 	struct object *o;
 	if(srcid) {
-		struct object *so = obj_lookup(srcid);
+		struct object *so = obj_lookup(srcid, 0);
 		if(!so) {
 			return -ENOENT;
 		}
@@ -227,7 +229,7 @@ long syscall_ocreate(uint64_t kulo,
 long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags)
 {
 	objid_t id = MKID(ohi, olo);
-	struct object *obj = obj_lookup(id);
+	struct object *obj = obj_lookup(id, 0);
 	if(!obj) {
 		return -ENOENT;
 	}
@@ -244,7 +246,7 @@ long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags)
 long syscall_opin(uint64_t lo, uint64_t hi, uint64_t *addr, int flags)
 {
 	objid_t id = MKID(hi, lo);
-	struct object *o = obj_lookup(id);
+	struct object *o = obj_lookup(id, 0);
 	if(!o)
 		return -ENOENT;
 
@@ -266,7 +268,7 @@ long syscall_opin(uint64_t lo, uint64_t hi, uint64_t *addr, int flags)
 long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long arg3)
 {
 	objid_t id = MKID(hi, lo);
-	struct object *o = obj_lookup(id);
+	struct object *o = obj_lookup(id, 0);
 	if(!o)
 		return -ENOENT;
 
@@ -304,7 +306,7 @@ long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long a
 			}
 			if(arg3) {
 				objid_t doid = *(objid_t *)arg3;
-				struct object *dobj = obj_lookup(doid);
+				struct object *dobj = obj_lookup(doid, 0);
 				if(!dobj) {
 					return -ENOENT;
 				}

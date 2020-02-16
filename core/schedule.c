@@ -106,7 +106,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 	}
 }
 
-void __schedule_timer_handler(int v, struct interrupt_handler *hdl)
+static void __schedule_timer_handler(int v, struct interrupt_handler *hdl)
 {
 	(void)v;
 	(void)hdl;

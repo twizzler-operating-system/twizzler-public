@@ -217,7 +217,7 @@ void kernel_main(struct processor *proc)
 			panic("No init specified");
 		}
 
-		struct object *initobj = obj_lookup(kc_init_id);
+		struct object *initobj = obj_lookup(kc_init_id, 0);
 		if(!initobj) {
 			panic("Cannot load init object");
 		}
@@ -273,9 +273,9 @@ void kernel_main(struct processor *proc)
 			printk(
 			  "Created bthrd = " IDFMT " and bstck = " IDFMT "\n", IDPR(bthrid), IDPR(bstckid));
 
-		struct object *bthr = obj_lookup(bthrid);
-		struct object *bstck = obj_lookup(bstckid);
-		struct object *bv = obj_lookup(bsvid);
+		struct object *bthr = obj_lookup(bthrid, 0);
+		struct object *bstck = obj_lookup(bstckid, 0);
+		struct object *bv = obj_lookup(bsvid, 0);
 		assert(bthr && bstck && bv);
 
 		struct viewentry v_t = {
