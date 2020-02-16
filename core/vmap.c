@@ -276,9 +276,10 @@ static void vm_kernel_alloc_slot(struct object *obj)
 		m = list_entry(e, struct vmap, entry);
 	}
 
-	obj->kvmap = m;
-	vm_vmap_init(obj->kvmap, obj, m->slot, VE_READ | VE_WRITE);
+	vm_vmap_init(m, obj, m->slot, VE_READ | VE_WRITE);
 	spinlock_release_restore(&kvmap_lock);
+
+	obj->kvmap = m;
 }
 
 void vm_kernel_map_object(struct object *obj)
@@ -287,18 +288,25 @@ void vm_kernel_map_object(struct object *obj)
 	assert(!obj->kvmap);
 
 	vm_kernel_alloc_slot(obj);
+	spinlock_acquire_save(&kernel_ctx.lock);
 	vm_context_map(&kernel_ctx, obj->kvmap);
 	arch_vm_map_object(&kernel_ctx, obj->kvmap, obj->kslot);
+	spinlock_release_restore(&kernel_ctx.lock);
 }
 
 void vm_kernel_unmap_object(struct object *obj)
 {
-	spinlock_acquire_save(&kvmap_lock);
 	struct vmap *vmap = obj->kvmap;
 	obj->kvmap = NULL;
+
+	spinlock_acquire_save(&kernel_ctx.lock);
 	arch_vm_unmap_object(&kernel_ctx, vmap);
 	vmap->obj = NULL;
 	rb_delete(&vmap->node, &kernel_ctx.root);
+	spinlock_release_restore(&kernel_ctx.lock);
+
+	spinlock_acquire_save(&kvmap_lock);
+
 	list_insert(&kvmap_stack, &vmap->entry);
 
 	spinlock_release_restore(&kvmap_lock);
