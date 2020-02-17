@@ -270,6 +270,10 @@ void obj_release_slot(struct object *obj)
 		/* hit zero; release */
 		struct slot *slot = obj->slot;
 		obj->slot = NULL;
+		/* this krc drop MUST not reduce the count to 0, because there must be a reference to obj
+		 * coming into this function */
+		bool tmp = krc_put(&obj->refs);
+		assert(!tmp);
 		object_space_release_slot(slot);
 		slot_release(slot);
 	}
