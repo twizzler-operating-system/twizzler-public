@@ -57,6 +57,13 @@ static void vm_map_disestablish(struct vm_context *ctx, struct vmap *map)
 	obj_put(obj);
 }
 
+static void __vm_context_finish_destroy(void *_v)
+{
+	struct vm_context *v = _v;
+	printk("FINISH destroy\n");
+	slabcache_free(v);
+}
+
 void vm_context_destroy(struct vm_context *v)
 {
 	/* TODO (major): unmap things? */
@@ -71,9 +78,7 @@ void vm_context_destroy(struct vm_context *v)
 		vm_map_disestablish(v, map);
 		next = rb_next(node);
 	}
-	/* TODO: free the context. this will need some kind of addition to the scheduler; a
-	 * "switch-away" thing */
-	// slabcache_free(v);
+	workqueue_insert(&current_processor->wq, &v->free_task, __vm_context_finish_destroy, v);
 }
 
 void vm_context_put(struct vm_context *v)

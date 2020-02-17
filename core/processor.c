@@ -26,6 +26,7 @@ void processor_early_init(void)
 {
 	for(int i = 0; i < PROCESSOR_MAX_CPUS; i++) {
 		arch_processor_early_init(&processors[i]);
+		workqueue_create(&processors[i].wq);
 	}
 }
 

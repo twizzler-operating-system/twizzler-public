@@ -32,6 +32,7 @@ struct processor {
 	void *percpu;
 	struct proc_stats stats;
 	struct object *obj;
+	struct workqueue wq;
 
 	long ctr;
 };

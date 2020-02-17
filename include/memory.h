@@ -4,6 +4,7 @@
 #include <machine/memory.h>
 #include <spinlock.h>
 #include <string.h>
+#include <workqueue.h>
 
 #define MM_BUDDY_MIN_SIZE 0x1000
 #define MAX_ORDER 20
@@ -100,6 +101,7 @@ struct vm_context {
 	struct rbroot root;
 	struct spinlock lock;
 	struct krc refs;
+	struct task free_task;
 };
 
 void arch_mm_switch_context(struct vm_context *vm);
