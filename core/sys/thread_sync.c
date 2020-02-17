@@ -70,6 +70,9 @@ static void _sp_release(void *_sp)
 	spinlock_acquire_save(&sp->obj->tslock);
 	rb_delete(&sp->node, &sp->obj->tstable_root);
 	spinlock_release_restore(&sp->obj->tslock);
+	struct object *obj = sp->obj;
+	sp->obj = NULL;
+	obj_put(obj);
 	slabcache_free(sp);
 }
 

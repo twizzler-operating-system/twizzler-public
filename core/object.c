@@ -185,6 +185,7 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 	}
 
 	spinlock_release_restore(&src->lock);
+	obj_put(src);
 
 	if(id) {
 		spinlock_acquire_save(&objlock);
@@ -201,7 +202,14 @@ struct object *obj_lookup(uint128_t id, int flags)
 
 	struct object *obj = node ? rb_entry(node, struct object, node) : NULL;
 	if(node) {
+		spinlock_acquire_save(&obj->lock);
+		if((obj->flags & OF_HIDDEN) && !(flags & OBJ_LOOKUP_HIDDEN)) {
+			spinlock_release_restore(&obj->lock);
+			spinlock_release_restore(&objlock);
+			return NULL;
+		}
 		krc_get(&obj->refs);
+		spinlock_release_restore(&obj->lock);
 	}
 	spinlock_release_restore(&objlock);
 	return obj;
@@ -606,6 +614,7 @@ bool obj_verify_id(struct object *obj, bool cache_result, bool uncache)
 struct object *obj_lookup_slot(uintptr_t oaddr)
 {
 	ssize_t tl = oaddr / mm_page_size(MAX_PGLEVEL);
+#warning "need to lock this shit"
 	struct slot *slot = slot_lookup(tl);
 	if(!slot) {
 		return NULL;
@@ -749,12 +758,12 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			if((existing_flags & flags) != flags) {
 				do_map = true;
 				if(!__objspace_fault_calculate_perms(o, flags, loaddr, vaddr, ip, &perms))
-					return;
+					goto done;
 			}
 		} else {
 			do_map = true;
 			if(!__objspace_fault_calculate_perms(o, flags, loaddr, vaddr, ip, &perms))
-				return;
+				goto done;
 		}
 	}
 #endif
@@ -806,5 +815,6 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	//}
 	/* TODO: put page? */
 
+done:
 	obj_put(o);
 }

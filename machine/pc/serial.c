@@ -328,6 +328,7 @@ __noinstrument static void _serial_interrupt(int i, struct interrupt_handler *h 
 
 static void __late_init_serial(void *a __unused)
 {
+	/* krc: move */
 	ser_obj = device_register(DEVICE_BT_ISA, DEVICE_ID_SERIAL);
 	kso_setname(ser_obj, "UART0");
 	kso_attach(pc_get_isa_bus(), ser_obj, DEVICE_ID_SERIAL);

@@ -242,6 +242,8 @@ static long pcie_function_init(struct object *pbobj,
 	unsigned int fnid = function | device << 3 | bus << 8;
 	kso_attach(pbobj, fobj, fnid);
 
+	obj_put(fobj);
+
 	return 0;
 }
 
@@ -311,6 +313,7 @@ __attribute__((no_sanitize("undefined"))) static void pcie_init_space(struct mcf
 	obj->kaction = __pcie_kaction;
 	device_release_headers(obj);
 	kso_root_attach(obj, 0, KSO_DEVBUS);
+	obj_put(obj);
 }
 
 static void __pcie_init(void *arg __unused)

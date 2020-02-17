@@ -74,10 +74,14 @@ long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 
 	int e;
 	if(paid && (e = obj_check_permission(parent, SCP_USE | SCP_WRITE)) != 0) {
+		obj_put(child);
+		obj_put(parent);
 		return e;
 	}
 
 	if((e = obj_check_permission(child, SCP_USE)) != 0) {
+		obj_put(child);
+		obj_put(parent);
 		return e;
 	}
 
@@ -126,10 +130,16 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 
 	int e;
 	if(paid && (e = obj_check_permission(parent, SCP_USE | SCP_WRITE)) != 0) {
+		if(child)
+			obj_put(child);
+		obj_put(parent);
 		return e;
 	}
 
 	if(child && (e = obj_check_permission(child, SCP_USE)) != 0) {
+		if(child)
+			obj_put(child);
+		obj_put(parent);
 		return e;
 	}
 
@@ -138,7 +148,6 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 		if(child)
 			obj_put(child);
 		obj_put(parent);
-		printk("B\n");
 		return -1;
 	}
 
@@ -308,12 +317,16 @@ long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long a
 				objid_t doid = *(objid_t *)arg3;
 				struct object *dobj = obj_lookup(doid, 0);
 				if(!dobj) {
+					obj_put(o);
 					return -ENOENT;
 				}
-				if(dobj->kso_type != KSO_DEVICE)
+				if(dobj->kso_type != KSO_DEVICE) {
+					obj_put(o);
 					return -EINVAL;
+				}
 				/* TODO: actually lookup the device */
 				iommu_object_map_slot(dobj->data, o);
+				obj_put(dobj);
 			}
 
 			break;

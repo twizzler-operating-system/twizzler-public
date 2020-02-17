@@ -64,12 +64,14 @@ uintptr_t mm_otop(uintptr_t oaddr)
 	if(!o) {
 		panic("mm_otop no object");
 	}
+	assert(o->flags & OF_KERNEL);
 	int level;
 	uintptr_t phys;
 	/* TODO: this might happen if we allocate memory, don't clear it, and then try to compute the
 	 * physical address before touching it. */
 	if(!arch_object_getmap(o, oaddr % OBJ_MAXSIZE, &phys, &level, NULL))
 		panic("mm_otop no such mapping");
+	obj_put(o);
 	// printk(":: %lx %lx %lx\n", oaddr, phys, oaddr % mm_page_size(level));
 
 	return phys + oaddr % mm_page_size(level);

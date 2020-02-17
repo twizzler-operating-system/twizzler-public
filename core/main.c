@@ -34,7 +34,7 @@ struct object *get_system_object(void)
 		}
 		spinlock_release_restore(&lock);
 	}
-	return system_bus;
+	return system_bus; /* krc: move */
 }
 
 static struct arena post_init_call_arena;
@@ -198,6 +198,8 @@ void kernel_main(struct processor *proc)
 		struct system_header *hdr = bus_get_busspecific(so);
 		hdr->pagesz = mm_page_size(0);
 		device_release_headers(so);
+
+		obj_put(so);
 	}
 	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
 
@@ -355,6 +357,10 @@ void kernel_main(struct processor *proc)
 		if(r < 0) {
 			panic("thread_spawn: %d\n", r);
 		}
+
+		obj_put(bthr);
+		obj_put(bstck);
+		obj_put(bv);
 	}
 	if((proc->id == 0) && 0) {
 		arch_interrupt_set(true);

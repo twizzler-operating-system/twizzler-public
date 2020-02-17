@@ -148,32 +148,17 @@ static void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 		size_t reclen = (len + 511) & ~511;
 		size_t nl = strlen(name);
 
-		size_t idx = 1;
+		size_t idx;
 		if(!strncmp(name, "data", nl) && nl == 4) {
+			idx = 1;
 		} else if(!strncmp(name, "meta", nl) && nl == 4) {
 			idx = (OBJ_MAXSIZE - (len)) / mm_page_size(0);
 		} else {
 			printk("Malformed object data\n");
+			continue;
 		}
 
-		//	obj_write_data(obj, 0, len, data);
-
-		for(size_t s = 0; s < len; s += mm_page_size(0), idx++) {
-			struct page *page = page_alloc(PAGE_TYPE_VOLATILE, 0, 0);
-
-			size_t thislen = 0x1000;
-			if((len - s) < thislen)
-				thislen = len - s;
-			void *addr = tmpmap_map_page(page);
-			memset(addr, 0, mm_page_size(page->level));
-			memcpy(addr, data + s, thislen);
-			if((obj->id & 0xfffffffffffffffful) == 0xDA5366BF8BB01253ul) {
-				printk("cache page: %p %lx: %lx\n", page, page->addr, mm_vtop(addr));
-			}
-			tmpmap_unmap_page(addr);
-			obj_cache_page(obj, idx * mm_page_size(0), page);
-		}
-
+		obj_write_data(obj, idx * mm_page_size(0) - OBJ_NULLPAGE_SIZE, len, data);
 		h = (struct ustar_header *)((char *)h + 512 + reclen);
 	}
 }
@@ -224,6 +209,7 @@ static size_t _load_initrd(char *start, size_t modlen)
 						obj = obj_create(id, KSO_NONE);
 					}
 					load_object_data(obj, data, len);
+					obj_put(obj);
 					count++;
 				}
 				break;

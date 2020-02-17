@@ -141,7 +141,7 @@ struct object *device_register(uint32_t bustype, uint32_t devid)
 	repr->device_bustype = bustype;
 	repr->device_id = devid;
 	device_release_headers(obj);
-	return obj;
+	return obj; /* krc: move */
 }
 
 struct object *bus_register(uint32_t bustype, uint32_t busid, size_t bssz)
@@ -162,7 +162,7 @@ struct object *bus_register(uint32_t bustype, uint32_t busid, size_t bssz)
 	repr->bus_type = bustype;
 	repr->children = (void *)(sizeof(struct bus_repr) + bssz + OBJ_NULLPAGE_SIZE);
 	device_release_headers(obj);
-	return obj;
+	return obj; /* krc: move */
 }
 
 void device_unregister(struct object *obj)

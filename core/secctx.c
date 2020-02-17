@@ -99,6 +99,8 @@ static bool __verify_region(void *item,
 	struct key_hdr *hdr = obj_get_kbase(ko);
 	if(hdr->type != etype) {
 		EPRINTK("hdr->type != cap->etype\n");
+		obj_release_kaddr(ko);
+		obj_put(ko);
 		return false;
 	}
 
@@ -112,6 +114,7 @@ static bool __verify_region(void *item,
 	k = nl;
 
 	// unsigned char keydata[4096];
+	/* TODO: better alloc */
 	unsigned char *keydata = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, false);
 	size_t kdout = 4096;
 	bool ret = true;
@@ -119,6 +122,8 @@ static bool __verify_region(void *item,
 	if((e = base64_decode(k, sz, keydata, &kdout)) != CRYPT_OK) {
 		printk("base64 decode error: %s\n", error_to_string(e));
 		ret = false;
+		obj_release_kaddr(ko);
+		obj_put(ko);
 		goto done;
 	}
 
@@ -149,6 +154,8 @@ static bool __verify_region(void *item,
 				break;
 			}
 			/* TODO */
+			ret = true;
+			goto done;
 			return true;
 
 			int stat = 0;
@@ -460,6 +467,7 @@ int secctx_check_permissions(struct thread *t, uintptr_t ip, struct object *to, 
 			spinlock_release_restore(&t->sc_lock);
 			if(t == current_thread)
 				secctx_switch(i);
+			obj_put(obj);
 			return 0;
 		}
 		obj_put(obj);
@@ -593,6 +601,7 @@ int secctx_fault_resolve(struct thread *t,
 			}
 			if(t == current_thread)
 				secctx_switch(i);
+			obj_put(obj);
 			return 0;
 		}
 		obj_put(obj);

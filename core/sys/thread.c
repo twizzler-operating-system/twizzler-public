@@ -49,6 +49,7 @@ long syscall_thread_spawn(uint64_t tidlo,
 		/* TODO (sec): shoud this be SCP_USE? */
 		if((r = obj_check_permission(view, SCP_WRITE))) {
 			obj_put(view);
+			obj_put(repr);
 			return r;
 		}
 	}

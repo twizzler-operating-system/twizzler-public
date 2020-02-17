@@ -229,7 +229,7 @@ static void __init_processor_objects(void *_a __unused)
 
 			kso_attach(so, d, i);
 			count++;
-			processors[i].obj = d;
+			processors[i].obj = d; /* krc: move */
 		}
 	}
 	struct system_header *hdr = bus_get_busspecific(so);

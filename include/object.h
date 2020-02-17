@@ -25,7 +25,12 @@ struct kso_invl_args {
 	uint16_t result;
 };
 
-#define kso_get_obj(ptr, type) container_of(ptr, struct object, type)
+#define kso_get_obj(ptr, type)                                                                     \
+	({                                                                                             \
+		struct object *o = container_of(ptr, struct object, type);                                 \
+		krc_get(&o->refs);                                                                         \
+		o;                                                                                         \
+	})
 
 struct object;
 struct thread;
@@ -57,7 +62,7 @@ struct vmap;
 #define OF_ALLOC 0x20
 #define OF_CPF_VALID 0x40
 #define OF_DELETE 0x80
-#define OF_VISIBLE 0x100
+#define OF_HIDDEN 0x100
 
 struct object {
 	uint128_t id;

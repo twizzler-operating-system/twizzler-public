@@ -34,6 +34,7 @@ static struct interrupt_handler _kbd_ih = {
 
 static void __late_init_kbd(void *a __unused)
 {
+	/* krc: move */
 	kbd_obj = device_register(DEVICE_BT_ISA, DEVICE_ID_KEYBOARD);
 	kso_setname(kbd_obj, "PS/2 Keyboard");
 

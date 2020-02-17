@@ -11,6 +11,7 @@ struct object *pc_get_isa_bus(void)
 	if(!init) {
 		spinlock_acquire_save(&lock);
 		if(!init) {
+			/* krc: move */
 			pc_isa_bus = bus_register(DEVICE_BT_ISA, 0, 0);
 			kso_setname(pc_isa_bus, "ISA Bus");
 			kso_root_attach(pc_isa_bus, 0, KSO_DEVBUS);
