@@ -237,7 +237,6 @@ __noinstrument void arch_thread_resume(struct thread *thread, uint64_t timeout)
 			thread->processor->stats.sctx_switch++;
 		}
 	}
-	workqueue_dowork(&thread->processor->wq);
 	if(timeout) {
 		clksrc_set_interrupt_countdown(timeout, false);
 	}

@@ -397,9 +397,13 @@ static void _objpage_release(void *page)
 	(void)page; /* TODO (major): implement */
 }
 
-static void _obj_release(void *obj)
+static void _obj_release(struct object *obj)
 {
-	(void)obj; /* TODO (major): implement */
+	if(obj->flags & OF_DELETE) {
+		printk("DELETE object " IDFMT "\n", IDPR(obj->id));
+		rb_delete(&obj->node, &obj_tree);
+		/* TODO: clean up... */
+	}
 }
 
 void obj_put_page(struct objpage *p)
@@ -409,7 +413,10 @@ void obj_put_page(struct objpage *p)
 
 void obj_put(struct object *o)
 {
-	krc_put_call(o, refs, _obj_release);
+	if(krc_put_locked(&o->refs, &objlock)) {
+		_obj_release(o);
+		spinlock_release_restore(&objlock);
+	}
 }
 
 void *obj_get_kaddr(struct object *obj)

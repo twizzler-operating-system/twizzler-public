@@ -35,7 +35,7 @@ struct thread {
 	enum thread_state state;
 	uint64_t timeslice_expire;
 	int priority;
-	struct krc refs;
+	// struct krc refs;
 	objid_t thrid;
 
 	struct processor *processor;
@@ -53,6 +53,7 @@ struct thread {
 	struct list rq_entry, all_entry;
 	struct sleep_entry *sleep_entries;
 	size_t sleep_count;
+	struct task free_task;
 };
 
 struct arch_syscall_become_args;

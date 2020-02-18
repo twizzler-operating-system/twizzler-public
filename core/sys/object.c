@@ -33,6 +33,11 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 	return suc;
 }
 
+long syscall_vmap(const void *restrict p, int cmd, long arg)
+{
+	return 0;
+}
+
 long syscall_kaction(size_t count, struct sys_kaction_args *args)
 {
 	size_t t = 0;
@@ -243,11 +248,16 @@ long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags)
 		return -ENOENT;
 	}
 
+	spinlock_acquire_save(&obj->lock);
 	if(flags & TWZ_SYS_OD_IMMEDIATE) {
 		/* "immediate" delete: the object will be marked for deletion, new lookups will return
 		 * failure. */
+		obj->flags |= OF_HIDDEN;
 	}
 
+	obj->flags |= OF_DELETE;
+
+	spinlock_release_restore(&obj->lock);
 	obj_put(obj);
 	return 0;
 }

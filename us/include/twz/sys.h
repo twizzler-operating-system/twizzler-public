@@ -23,6 +23,11 @@ static inline long __sys_debug_print(const char *str, size_t len)
 	return __syscall6(SYS_DEBUG_PRINT, (long)str, len, 0, 0, 0, 0);
 }
 
+static inline long sys_vmap(const void *restrict p, int cmd, long arg)
+{
+	return __syscall6(SYS_VMAP, (long)p, cmd, arg, 0, 0, 0);
+}
+
 static inline long sys_kconf(int cmd, long arg)
 {
 	return __syscall6(SYS_KCONF, cmd, arg, 0, 0, 0, 0);
@@ -47,6 +52,11 @@ static inline long sys_detach(objid_t pid, objid_t cid, int flags, int type)
 	uint64_t sf =
 	  (uint64_t)(type & 0xffff) | (uint64_t)fl << 32 | (uint64_t)((sysc & 0xffff) << 16);
 	return __syscall6(SYS_DETACH, ID_LO(pid), ID_HI(pid), ID_LO(cid), ID_HI(cid), sf, 0);
+}
+
+static inline long sys_odelete(objid_t id, int flags)
+{
+	return __syscall6(SYS_ODELETE, ID_LO(id), ID_HI(id), flags, 0, 0, 0);
 }
 
 static inline long sys_invalidate(struct sys_invalidate_op *invl, size_t count)

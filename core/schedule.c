@@ -1,5 +1,6 @@
 #include <clksrc.h>
 #include <debug.h>
+#include <lib/iter.h>
 #include <processor.h>
 #include <thread.h>
 
@@ -23,6 +24,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 		x86_64_wrmsr(0xe8, 0, 0);
 	}
 
+	workqueue_dowork(&proc->wq);
 	while(true) {
 		/* TODO (major): allow current thread to run again */
 		spinlock_acquire(&proc->sched_lock);
@@ -182,6 +184,22 @@ void thread_wake(struct thread *t)
 	spinlock_release_restore(&t->processor->sched_lock);
 }
 static DECLARE_LIST(allthreads);
+static struct spinlock allthreads_lock = SPINLOCK_INIT;
+
+static void __thread_finish_cleanup2(void *_t)
+{
+	struct thread *t = _t;
+	// printk("THREAD DESTROY2 %ld: %p\n", t->id, t);
+	// slabcache_free(t);
+}
+
+static void __thread_finish_cleanup(void *_t)
+{
+	struct thread *t = _t;
+
+	// printk("THREAD DESTROY %ld\n", t->id);
+	workqueue_insert(&current_processor->wq, &t->free_task, __thread_finish_cleanup2, t);
+}
 
 void thread_exit(void)
 {
@@ -190,14 +208,23 @@ void thread_exit(void)
 	current_thread->state = THREADSTATE_EXITED;
 	assert(current_processor->load > 0);
 	current_processor->load--;
+
+	spinlock_acquire_save(&allthreads_lock);
 	list_remove(&current_thread->all_entry);
+	spinlock_release_restore(&allthreads_lock);
 	/* TODO (major): cleanup thread resources */
 
 	vm_context_put(current_thread->ctx);
+
+	current_thread->ctx = NULL;
+
+	workqueue_insert(
+	  &current_processor->wq, &current_thread->free_task, __thread_finish_cleanup, current_thread);
 }
-#include <lib/iter.h>
+
 void thread_print_all_threads(void)
 {
+	spinlock_acquire_save(&allthreads_lock);
 	foreach(e, list, &allthreads) {
 		struct thread *t = list_entry(e, struct thread, all_entry);
 
@@ -207,14 +234,18 @@ void thread_print_all_threads(void)
 		printk("  state: %d\n", t->state);
 		spinlock_release_restore(&t->lock);
 	}
+	spinlock_release_restore(&allthreads_lock);
 }
 
 struct thread *thread_create(void)
 {
 	struct thread *t = slabcache_alloc(&_sc_thread);
-	krc_init(&t->refs);
+	printk("THREAD_CREATE: %ld: %p\n", t->id, t);
+	// krc_init(&t->refs);
 	t->priority = 10;
+	spinlock_acquire_save(&allthreads_lock);
 	list_insert(&allthreads, &t->all_entry);
+	spinlock_release_restore(&allthreads_lock);
 	return t;
 }
 

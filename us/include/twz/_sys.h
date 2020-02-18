@@ -15,7 +15,8 @@
 #define SYS_OPIN 12
 #define SYS_OCTL 13
 #define SYS_KCONF 14
-#define NUM_SYSCALLS 15
+#define SYS_VMAP 15
+#define NUM_SYSCALLS 16
 
 #define KCONF_RDRESET 1
 #define KCONF_ARCH_TSC_PSPERIOD 1001
@@ -31,6 +32,8 @@
 #define TWZ_SYS_OC_PERSIST_ 0x4000 /* TODO: remove, make dflt etc */
 
 #define TWZ_SYS_OD_IMMEDIATE 1
+
+#define TWZ_SYS_VMAP_WIRE 1
 
 struct sys_invalidate_op {
 	objid_t id;

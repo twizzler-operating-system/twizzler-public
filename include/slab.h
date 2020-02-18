@@ -2,8 +2,11 @@
 
 #include <spinlock.h>
 
+#define SLAB_CANARY 0x12345678abcdef55
+
 struct slabcache;
 struct slab {
+	uint64_t canary;
 	struct slab *next, *prev;
 	uint64_t alloc;
 	struct slabcache *slabcache;
@@ -11,6 +14,7 @@ struct slab {
 };
 
 struct slabcache {
+	uint64_t canary;
 	struct slab empty, partial, full;
 	void (*ctor)(void *, void *);
 	void (*dtor)(void *, void *);
@@ -29,6 +33,7 @@ struct slabcache {
 		.dtor = dt,                                                                                \
 		.ptr = _pt,                                                                                \
 		.lock = SPINLOCK_INIT,                                                                     \
+		.canary = SLAB_CANARY,                                                                     \
 	}
 
 void slabcache_init(struct slabcache *c,

@@ -49,6 +49,8 @@ static struct slab *new_slab(struct slabcache *c)
 	struct slab *s = (void *)mm_memory_alloc(slab_size(c->sz), PM_TYPE_DRAM, true);
 	s->alloc = 0;
 	s->slabcache = c;
+	s->canary = SLAB_CANARY;
+	assert(c->canary == SLAB_CANARY);
 
 	for(unsigned int i = 0; i < obj_per_slab(c->sz); i++) {
 		s->alloc |= (1ull << i);
@@ -63,6 +65,7 @@ static struct slab *new_slab(struct slabcache *c)
 static void *alloc_slab(struct slab *s, int new)
 {
 	assert(s->alloc);
+	assert(s->canary == SLAB_CANARY);
 	int slot = first_set_bit(s->alloc);
 
 	s->alloc &= ~(1ull << slot);
@@ -85,6 +88,7 @@ static void *alloc_slab(struct slab *s, int new)
 void *slabcache_alloc(struct slabcache *c)
 {
 	struct slab *s;
+	assert(c->canary == SLAB_CANARY);
 	int new = 0;
 	bool fl = spinlock_acquire(&c->lock);
 	if(!is_empty(c->partial)) {
@@ -99,6 +103,7 @@ void *slabcache_alloc(struct slabcache *c)
 	}
 
 	void *ret = alloc_slab(s, new);
+	assert(s->slabcache);
 	spinlock_release(&c->lock, fl);
 	return ret;
 }
@@ -106,7 +111,9 @@ void *slabcache_alloc(struct slabcache *c)
 void slabcache_free(void *obj)
 {
 	struct slab *s = (struct slab *)((uintptr_t)obj & (~(PAGE_SIZE - 1)));
+	assert(s->canary == SLAB_CANARY);
 	int slot = ((char *)obj - s->data) / s->slabcache->sz;
+	assert(s->slabcache->canary == SLAB_CANARY);
 
 	bool fl = spinlock_acquire(&s->slabcache->lock);
 	s->alloc |= (1ull << slot);
@@ -159,6 +166,7 @@ void slabcache_init(struct slabcache *c,
 	c->ctor = ctor;
 	c->dtor = dtor;
 	c->lock = SPINLOCK_INIT;
+	c->canary = SLAB_CANARY;
 
 	init_list(&c->empty);
 	init_list(&c->full);

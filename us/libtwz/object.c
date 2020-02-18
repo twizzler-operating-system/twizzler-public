@@ -23,6 +23,16 @@ int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 	return sys_ocreate(flags, kuid, src, id);
 }
 
+int twz_object_delete_guid(objid_t id, int flags)
+{
+	return sys_odelete(id, flags);
+}
+
+int twz_object_delete(twzobj *obj, int flags)
+{
+	return twz_object_delete_guid(twz_object_guid(obj), flags);
+}
+
 int twz_object_init_guid(twzobj *obj, objid_t id, int flags)
 {
 	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);
