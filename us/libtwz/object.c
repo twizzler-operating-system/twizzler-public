@@ -33,6 +33,11 @@ int twz_object_delete(twzobj *obj, int flags)
 	return twz_object_delete_guid(twz_object_guid(obj), flags);
 }
 
+int twz_object_wire(twzobj *obj)
+{
+	return sys_vmap(obj->base, TWZ_SYS_VMAP_WIRE, 0);
+}
+
 int twz_object_init_guid(twzobj *obj, objid_t id, int flags)
 {
 	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);

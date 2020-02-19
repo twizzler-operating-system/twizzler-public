@@ -10,6 +10,8 @@
 
 void *__copy_tls(char *);
 
+/* TODO: release thread kinda deal */
+
 int twz_thread_create(struct thread *thrd)
 {
 	struct twzthread_repr *currepr = twz_thread_repr_base();
@@ -20,6 +22,11 @@ int twz_thread_create(struct thread *thrd)
 	if((r = twz_object_init_guid(&thrd->obj, thrd->tid, FE_READ | FE_WRITE))) {
 		return r;
 	}
+
+	if((r = twz_object_wire(&thrd->obj)))
+		return r;
+	if((r = twz_object_delete(&thrd->obj, 0)))
+		return r;
 
 	struct twzthread_repr *newrepr = twz_object_base(&thrd->obj);
 
@@ -45,6 +52,10 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 	if((r = twz_object_init_guid(&thrd->obj, thrd->tid, FE_READ | FE_WRITE))) {
 		return r;
 	}
+	if((r = twz_object_wire(&thrd->obj)))
+		return r;
+	if((r = twz_object_delete(&thrd->obj, 0)))
+		return r;
 
 	struct twzthread_repr *newrepr = twz_object_base(&thrd->obj);
 
@@ -67,11 +78,13 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 		.tls_base = args->tls_base,
 		.thrd_ctrl = TWZSLOT_THRD,
 	};
+	objid_t del_id = 0;
 	if(!args->stack_base) {
 		objid_t sid;
 		if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
 			return r;
 		}
+		del_id = sid;
 
 		newrepr->fixed_points[TWZSLOT_STACK] = (struct viewentry){
 			.id = sid,
@@ -96,7 +109,11 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 		};
 	}
 
-	return sys_thrd_spawn(thrd->tid, &sa, 0);
+	r = sys_thrd_spawn(thrd->tid, &sa, 0);
+	if(del_id) {
+		twz_object_delete_guid(del_id, 0);
+	}
+	return r;
 }
 
 void twz_thread_exit(void)

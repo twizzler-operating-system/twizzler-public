@@ -153,6 +153,9 @@ long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t 
 		objid_t nid = 0;
 		twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &nid);
 		twz_view_set(NULL, slot, nid, FE_READ | FE_WRITE);
+
+		sys_vmap((void *)(slot * OBJ_MAXSIZE), TWZ_SYS_VMAP_WIRE, 0);
+		twz_object_delete_guid(nid, 0);
 	}
 
 	void *base = (void *)(slot * 1024 * 1024 * 1024 + 0x1000);
@@ -194,6 +197,11 @@ long linux_sys_fork(struct twix_register_frame *frame)
 	if((r = twz_object_init_guid(&view, vid, FE_READ | FE_WRITE))) {
 		return r;
 	}
+
+	if((r = twz_object_wire(&view)))
+		return r;
+	if((r = twz_object_delete(&view, 0)))
+		return r;
 
 	int pid = 0;
 	for(int i = 1; i < MAX_PID; i++) {

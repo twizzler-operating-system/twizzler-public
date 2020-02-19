@@ -276,6 +276,7 @@ void obj_release_slot(struct object *obj)
 		assert(!tmp);
 		object_space_release_slot(slot);
 		slot_release(slot);
+		printk("MAPCOUNT ZERO: " IDFMT "; refs=%ld\n", IDPR(obj->id), obj->refs.count);
 	}
 
 	spinlock_release_restore(&obj->lock);
@@ -399,8 +400,9 @@ static void _objpage_release(void *page)
 
 static void _obj_release(struct object *obj)
 {
+	printk("OBJ RELEASE: " IDFMT "\n", IDPR(obj->id));
 	if(obj->flags & OF_DELETE) {
-		printk("DELETE object " IDFMT "\n", IDPR(obj->id));
+		printk("FINAL DELETE object " IDFMT "\n", IDPR(obj->id));
 		rb_delete(&obj->node, &obj_tree);
 		/* TODO: clean up... */
 	}

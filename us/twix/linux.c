@@ -20,6 +20,11 @@ void __linux_init(void)
 			twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &id);
 			twz_view_set(NULL, TWZSLOT_UNIX, id, VE_READ | VE_WRITE);
 			unix_obj = TWZ_OBJECT_INIT(TWZSLOT_UNIX);
+
+			/* TODO: not sure if this is the right thing... */
+			twz_object_wire(&unix_obj);
+			twz_object_delete(&unix_obj, 0);
+
 			uh = twz_object_base(&unix_obj);
 			uh->pid = 1;
 			uh->tid = 1;

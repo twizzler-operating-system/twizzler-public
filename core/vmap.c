@@ -317,6 +317,59 @@ void vm_kernel_unmap_object(struct object *obj)
 	spinlock_release_restore(&kvmap_lock);
 }
 
+static int __do_map(struct vm_context *ctx,
+  uintptr_t ip,
+  uintptr_t addr,
+  int flags,
+  bool fault,
+  bool wire)
+{
+	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
+	if(slot >= KVSLOT_START)
+		return -EPERM;
+	struct vmap *map = NULL;
+	spinlock_acquire_save(&ctx->lock);
+	struct rbnode *node = rb_search(&ctx->root, slot, struct vmap, node, vmap_compar_key);
+	if(node) {
+		map = rb_entry(node, struct vmap, node);
+	}
+	if(!map) {
+		objid_t id;
+		uint64_t fl;
+		if(!lookup_by_slot(slot, &id, &fl)) {
+			if(fault) {
+				struct fault_object_info info;
+				popul_info(&info, flags, ip, addr, 0);
+				thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
+			}
+			spinlock_release_restore(&ctx->lock);
+			return -EINVAL;
+		}
+		struct object *obj = obj_lookup(id, 0);
+		if(!obj) {
+			if(fault) {
+				struct fault_object_info info;
+				popul_info(&info, flags, ip, addr, id);
+				info.flags |= FAULT_OBJECT_EXIST;
+				thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
+			}
+			spinlock_release_restore(&ctx->lock);
+			return -ENOENT;
+		}
+		map = slabcache_alloc(&sc_vmap);
+		vm_vmap_init(map, obj, slot, fl & (VE_READ | VE_WRITE | VE_EXEC));
+		obj_put(obj);
+		vm_context_map(ctx, map);
+	}
+	if(wire) {
+		printk("WIRE OBJECT: " IDFMT "\n", IDPR(map->obj->id));
+		map->status |= VMAP_WIRE;
+	}
+	vm_map_establish(map);
+	spinlock_release_restore(&ctx->lock);
+	return 0;
+}
+
 void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 {
 	// printk("Page Fault from %lx: %lx %x\n", ip, addr, flags);
@@ -327,38 +380,11 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 		thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
 		return;
 	}
-	size_t slot = addr / mm_page_size(MAX_PGLEVEL);
-	struct vmap *map = NULL;
-	spinlock_acquire_save(&current_thread->ctx->lock);
-	struct rbnode *node =
-	  rb_search(&current_thread->ctx->root, slot, struct vmap, node, vmap_compar_key);
-	if(node) {
-		map = rb_entry(node, struct vmap, node);
-	}
-	if(!map) {
-		objid_t id;
-		uint64_t fl;
-		if(!lookup_by_slot(slot, &id, &fl)) {
-			struct fault_object_info info;
-			popul_info(&info, flags, ip, addr, 0);
-			thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
-			spinlock_release_restore(&current_thread->ctx->lock);
-			return;
-		}
-		map = slabcache_alloc(&sc_vmap);
-		struct object *obj = obj_lookup(id, 0);
-		if(!obj) {
-			struct fault_object_info info;
-			popul_info(&info, flags, ip, addr, id);
-			info.flags |= FAULT_OBJECT_EXIST;
-			thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
-			spinlock_release_restore(&current_thread->ctx->lock);
-			return;
-		}
-		vm_vmap_init(map, obj, slot, fl & (VE_READ | VE_WRITE | VE_EXEC));
-		obj_put(obj);
-		vm_context_map(current_thread->ctx, map);
-	}
-	vm_map_establish(map);
-	spinlock_release_restore(&current_thread->ctx->lock);
+	__do_map(current_thread->ctx, ip, addr, flags, true, false);
+}
+
+int vm_context_wire(const void *p)
+{
+	return __do_map(
+	  current_thread->ctx, arch_thread_instruction_pointer(), (uintptr_t)p, 0, false, true);
 }

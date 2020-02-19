@@ -86,6 +86,9 @@ int twz_object_init_name(twzobj *obj, const char *name, int flags);
 
 void twz_object_release(twzobj *obj);
 
+int twz_object_wire(twzobj *obj);
+int twz_object_delete(twzobj *obj, int flags);
+int twz_object_delete_guid(objid_t id, int flags);
 objid_t twz_object_guid(twzobj *o);
 
 void *twz_object_getext(twzobj *obj, uint64_t tag);

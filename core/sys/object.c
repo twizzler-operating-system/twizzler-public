@@ -35,6 +35,14 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 
 long syscall_vmap(const void *restrict p, int cmd, long arg)
 {
+	switch(cmd) {
+		case TWZ_SYS_VMAP_WIRE:
+			(void)arg;
+			return vm_context_wire(p);
+			break;
+		default:
+			return -EINVAL;
+	}
 	return 0;
 }
 
@@ -247,6 +255,8 @@ long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags)
 	if(!obj) {
 		return -ENOENT;
 	}
+
+	printk("DELETE OBJECT " IDFMT ": %lx\n", IDPR(id), flags);
 
 	spinlock_acquire_save(&obj->lock);
 	if(flags & TWZ_SYS_OD_IMMEDIATE) {

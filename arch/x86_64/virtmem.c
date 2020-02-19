@@ -129,10 +129,10 @@ void arch_vm_map_object(struct vm_context *ctx, struct vmap *map, struct slot *s
 	uintptr_t vaddr = (uintptr_t)SLOT_TO_VADDR(map->slot);
 	uintptr_t oaddr = SLOT_TO_OADDR(slot->num);
 
-	/* TODO: map protections */
+	/* TODO: map protections, what happens if fails */
 	if(arch_vm_map(ctx, vaddr, oaddr, MAX_PGLEVEL, VM_MAP_USER | VM_MAP_EXEC | VM_MAP_WRITE)
 	   == false) {
-		panic("map fail");
+		// panic("map fail");
 	}
 }
 
