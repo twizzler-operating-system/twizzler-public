@@ -1,5 +1,6 @@
 #include <lib/bitmap.h>
 #include <lib/blake2.h>
+#include <lib/iter.h>
 #include <lib/rb.h>
 #include <memory.h>
 #include <object.h>
@@ -11,6 +12,8 @@
 static struct rbroot obj_tree = RBINIT;
 
 static struct slabcache sc_objs, sc_objpage;
+
+static DECLARE_SLABCACHE(sc_objtie, sizeof(struct object_tie), NULL, NULL, NULL);
 
 static struct spinlock objlock = SPINLOCK_INIT;
 static int __objpage_compar_key(struct objpage *a, size_t n)
@@ -193,6 +196,18 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 		spinlock_release_restore(&objlock);
 	}
 	return obj;
+}
+
+void obj_tie(struct object *parent, struct object *child)
+{
+	struct object_tie *tie = slabcache_alloc(&sc_objtie);
+
+	krc_get(&child->refs);
+	tie->child = child;
+
+	spinlock_acquire_save(&parent->lock);
+	list_insert(&parent->ties, &tie->entry);
+	spinlock_release_restore(&parent->lock);
 }
 
 struct object *obj_lookup(uint128_t id, int flags)
@@ -403,7 +418,16 @@ static void _obj_release(struct object *obj)
 	printk("OBJ RELEASE: " IDFMT "\n", IDPR(obj->id));
 	if(obj->flags & OF_DELETE) {
 		printk("FINAL DELETE object " IDFMT "\n", IDPR(obj->id));
-		rb_delete(&obj->node, &obj_tree);
+
+		struct list *e, *n;
+		for(e = list_iter_start(&obj->ties); e; e = n) {
+			struct object_tie *tie = list_entry(e, struct object_tie, entry);
+			printk("UNTIE object " IDFMT "\n", IDPR(tie->child->id));
+			n = list_iter_next(e);
+			list_remove(e);
+			slabcache_free(tie);
+		}
+
 		/* TODO: clean up... */
 	}
 }
@@ -416,8 +440,11 @@ void obj_put_page(struct objpage *p)
 void obj_put(struct object *o)
 {
 	if(krc_put_locked(&o->refs, &objlock)) {
-		_obj_release(o);
+		if(o->flags & OF_DELETE) {
+			rb_delete(&o->node, &obj_tree);
+		}
 		spinlock_release_restore(&objlock);
+		_obj_release(o);
 	}
 }
 

@@ -98,3 +98,8 @@ static inline long sys_octl(objid_t id, int op, long arg1, long arg2, long arg3)
 {
 	return __syscall6(SYS_OCTL, ID_LO(id), ID_HI(id), op, arg1, arg2, arg3);
 }
+
+static inline long sys_otie(objid_t parent, objid_t child, int flags)
+{
+	return __syscall6(SYS_OTIE, ID_LO(parent), ID_HI(parent), ID_LO(child), ID_HI(child), flags, 0);
+}

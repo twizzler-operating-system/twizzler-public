@@ -33,6 +33,29 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 	return suc;
 }
 
+long syscall_otie(uint64_t pidlo, uint64_t pidhi, uint64_t cidlo, uint64_t cidhi, int flags)
+{
+	objid_t pid = MKID(pidhi, pidlo);
+	objid_t cid = MKID(cidhi, cidlo);
+
+	int ret = 0;
+	struct object *parent = obj_lookup(pid, 0);
+	struct object *child = obj_lookup(cid, 0);
+
+	if(!parent || !child)
+		goto done;
+
+	obj_tie(parent, child);
+
+done:
+	if(parent)
+		obj_put(parent);
+	if(child)
+		obj_put(child);
+
+	return ret;
+}
+
 long syscall_vmap(const void *restrict p, int cmd, long arg)
 {
 	switch(cmd) {

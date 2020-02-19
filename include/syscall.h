@@ -22,6 +22,7 @@ struct timespec {
 
 long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args);
 
+long syscall_otie(uint64_t pidlo, uint64_t pidhi, uint64_t cidlo, uint64_t cidhi, int flags);
 long syscall_vmap(const void *restrict p, int cmd, long arg);
 long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count);
 

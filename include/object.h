@@ -54,6 +54,11 @@ struct object *get_system_object(void);
 struct slot;
 struct vmap;
 
+struct object_tie {
+	struct object *child;
+	struct list entry;
+};
+
 #define OF_PINNED 1
 #define OF_IDCACHED 2
 #define OF_IDSAFE 4
@@ -97,6 +102,8 @@ struct object {
 	struct rbroot pagecache_root, pagecache_level1_root, tstable_root;
 
 	struct rbnode slotnode, node;
+
+	struct list ties;
 
 	/* needed for kernel to access objects */
 	struct vmap *kvmap;
@@ -145,6 +152,7 @@ objid_t obj_compute_id(struct object *obj);
 void obj_init(struct object *obj);
 void obj_system_init(void);
 void obj_release_slot(struct object *obj);
+void obj_tie(struct object *, struct object *);
 
 void obj_release_kaddr(struct object *obj);
 void *obj_get_kaddr(struct object *obj);
