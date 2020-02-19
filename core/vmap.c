@@ -306,6 +306,7 @@ void vm_kernel_unmap_object(struct object *obj)
 
 	spinlock_acquire_save(&kernel_ctx.lock);
 	arch_vm_unmap_object(&kernel_ctx, vmap);
+	struct object *xobj = vmap->obj;
 	vmap->obj = NULL;
 	rb_delete(&vmap->node, &kernel_ctx.root);
 	spinlock_release_restore(&kernel_ctx.lock);
@@ -315,6 +316,8 @@ void vm_kernel_unmap_object(struct object *obj)
 	list_insert(&kvmap_stack, &vmap->entry);
 
 	spinlock_release_restore(&kvmap_lock);
+
+	obj_put(xobj);
 }
 
 static int __do_map(struct vm_context *ctx,

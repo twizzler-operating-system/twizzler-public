@@ -220,12 +220,12 @@ static void __obj_alloc_kernel_slot(struct object *obj)
 	if(obj->kslot)
 		return;
 	struct slot *slot = slot_alloc();
-#if 0
-	printk("[slot]: allocated kslot %ld for " IDFMT " (%p %d %d)\n",
+#if 1
+	printk("[slot]: allocated kslot %ld for " IDFMT " (%p %lx %d)\n",
 	  slot->num,
 	  IDPR(obj->id),
 	  obj,
-	  obj->kernel_obj,
+	  obj->flags,
 	  obj->kso_type);
 #endif
 	krc_get(&obj->refs);
@@ -294,12 +294,12 @@ struct slot *obj_alloc_slot(struct object *obj)
 
 	krc_get(&obj->mapcount);
 
-#if 0
-	printk("[slot]: allocated uslot %ld for " IDFMT " (%p %d %d)\n",
+#if 1
+	printk("[slot]: allocated uslot %ld for " IDFMT " (%p %lx %d)\n",
 	  obj->slot->num,
 	  IDPR(obj->id),
 	  obj,
-	  obj->kernel_obj,
+	  obj->flags,
 	  obj->kso_type);
 #endif
 	krc_get(&obj->slot->rc); /* return */
