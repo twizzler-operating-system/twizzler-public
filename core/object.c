@@ -16,6 +16,21 @@ static struct slabcache sc_objs, sc_objpage;
 static DECLARE_SLABCACHE(sc_objtie, sizeof(struct object_tie), NULL, NULL, NULL);
 
 static struct spinlock objlock = SPINLOCK_INIT;
+
+static int __objtie_compar_key(struct object_tie *a, objid_t n)
+{
+	if(a->child->id > n)
+		return 1;
+	else if(a->child->id < n)
+		return -1;
+	return 0;
+}
+
+static int __objtie_compar(struct object_tie *a, struct object_tie *b)
+{
+	return __objtie_compar_key(a, b->child->id);
+}
+
 static int __objpage_compar_key(struct objpage *a, size_t n)
 {
 	if(a->idx > n)
@@ -64,7 +79,7 @@ void obj_init(struct object *obj)
 	krc_init(&obj->refs);
 	krc_init_zero(&obj->mapcount);
 	arch_object_init(obj);
-	list_init(&obj->ties);
+	obj->ties_root = RBINIT;
 }
 
 static void _obj_dtor(void *_u, void *ptr)
@@ -201,13 +216,22 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 
 void obj_tie(struct object *parent, struct object *child)
 {
-	struct object_tie *tie = slabcache_alloc(&sc_objtie);
-
-	krc_get(&child->refs);
-	tie->child = child;
-
 	spinlock_acquire_save(&parent->lock);
-	list_insert(&parent->ties, &tie->entry);
+
+	struct rbnode *node =
+	  rb_search(&parent->ties_root, child->id, struct object_tie, node, __objtie_compar_key);
+	struct object_tie *tie;
+	if(!node) {
+		tie = slabcache_alloc(&sc_objtie);
+		krc_get(&child->refs);
+		tie->child = child;
+		tie->count = 1;
+		rb_insert(&parent->ties_root, tie, struct object_tie, node, __objtie_compar);
+	} else {
+		tie = rb_entry(node, struct object_tie, node);
+		tie->count++;
+	}
+
 	spinlock_release_restore(&parent->lock);
 }
 
@@ -420,6 +444,18 @@ static void _obj_release(struct object *obj)
 	if(obj->flags & OF_DELETE) {
 		printk("FINAL DELETE object " IDFMT "\n", IDPR(obj->id));
 
+		struct rbnode *n, *next;
+		for(n = rb_first(&obj->ties_root); n; n = next) {
+			next = rb_next(n);
+
+			struct object_tie *tie = rb_entry(n, struct object_tie, node);
+			printk("UNTIE object " IDFMT "\n", IDPR(tie->child->id));
+			rb_delete(&tie->node, &obj->ties_root);
+			obj_put(tie->child);
+			slabcache_free(tie);
+		}
+
+#if 0
 		struct list *e, *n;
 		for(e = list_iter_start(&obj->ties); e != list_iter_end(&obj->ties); e = n) {
 			struct object_tie *tie = list_entry(e, struct object_tie, entry);
@@ -428,6 +464,7 @@ static void _obj_release(struct object *obj)
 			list_remove(e);
 			slabcache_free(tie);
 		}
+#endif
 
 		/* TODO: clean up... */
 	}

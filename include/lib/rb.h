@@ -30,10 +30,10 @@ void __rb_insert(struct rbnode *node, struct rbroot *root);
 #define rb_insert(root, _new, type, memb, compar)                                                  \
 	({                                                                                             \
 		bool result = true;                                                                        \
-		struct rbnode **link = &(root)->node, *parent = NULL;                                      \
+		struct rbnode **link = &(root)->node, *_parent = NULL;                                     \
 		while(*link) {                                                                             \
-			parent = *link;                                                                        \
-			type *_node = rb_entry(parent, type, memb);                                            \
+			_parent = *link;                                                                       \
+			type *_node = rb_entry(_parent, type, memb);                                           \
 			int _r = compar(_node, _new);                                                          \
 			if(_r == 0) {                                                                          \
 				result = false;                                                                    \
@@ -44,7 +44,7 @@ void __rb_insert(struct rbnode *node, struct rbroot *root);
 				link = &(*link)->right;                                                            \
 		}                                                                                          \
 		if(result) {                                                                               \
-			rb_link_node(&(_new)->node, parent, link);                                             \
+			rb_link_node(&(_new)->node, _parent, link);                                            \
 			__rb_insert(&(_new)->node, (root));                                                    \
 		}                                                                                          \
 		result;                                                                                    \

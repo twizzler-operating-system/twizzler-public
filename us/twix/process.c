@@ -155,7 +155,6 @@ long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t 
 		twz_view_set(NULL, slot, nid, FE_READ | FE_WRITE);
 
 		twz_object_wire_guid(NULL, nid);
-		// sys_vmap((void *)(slot * OBJ_MAXSIZE), TWZ_SYS_VMAP_WIRE, 0);
 		twz_object_delete_guid(nid, 0);
 	}
 

@@ -56,7 +56,8 @@ struct vmap;
 
 struct object_tie {
 	struct object *child;
-	struct list entry;
+	struct rbnode node;
+	size_t count;
 };
 
 #define OF_PINNED 1
@@ -103,7 +104,7 @@ struct object {
 
 	struct rbnode slotnode, node;
 
-	struct list ties;
+	struct rbroot ties_root;
 
 	/* needed for kernel to access objects */
 	struct vmap *kvmap;
