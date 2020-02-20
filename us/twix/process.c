@@ -231,6 +231,7 @@ long linux_sys_fork(struct twix_register_frame *frame)
 				twz_view_fixedset(&pds[pid].thrd.obj, i, pds[pid].thrd.tid, flags);
 			else
 				twz_view_set(&view, i, pds[pid].thrd.tid, flags);
+			twz_object_wire_guid(&view, pds[pid].thrd.tid);
 		} else if(i == TWZSLOT_CVIEW) {
 			twz_view_set(&view, i, vid, VE_READ | VE_WRITE);
 		} else if(i >= TWZSLOT_FILES_BASE
@@ -249,6 +250,8 @@ long linux_sys_fork(struct twix_register_frame *frame)
 				twz_view_fixedset(&pds[pid].thrd.obj, i, nid, flags);
 			else
 				twz_view_set(&view, i, nid, flags);
+			twz_object_wire_guid(&view, nid);
+			twz_object_delete_guid(nid, 0);
 			if(i == TWZSLOT_STACK)
 				sid = nid;
 		}
@@ -259,6 +262,9 @@ long linux_sys_fork(struct twix_register_frame *frame)
 
 	twzobj stack;
 	twz_object_init_guid(&stack, sid, FE_READ | FE_WRITE);
+
+	twz_object_wire(NULL, &stack);
+	twz_object_delete(&stack, 0);
 
 	size_t soff = (uint64_t)twz_ptr_local(frame) - 1024;
 	void *childstack = twz_object_lea(&stack, (void *)soff);
@@ -281,6 +287,11 @@ long linux_sys_fork(struct twix_register_frame *frame)
 	if((r = sys_thrd_spawn(pds[pid].thrd.tid, &sa, 0))) {
 		return r;
 	}
+
+	twz_object_unwire(NULL, &view);
+	twz_object_unwire(NULL, &stack);
+	twz_object_release(&view);
+	twz_object_release(&stack);
 
 	return pid;
 }
