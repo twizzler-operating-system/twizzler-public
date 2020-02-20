@@ -78,6 +78,13 @@ void vm_context_destroy(struct vm_context *v)
 		vm_map_disestablish(v, map);
 		next = rb_next(node);
 	}
+
+	/* TODO: does this work for all contexts? */
+	struct object *obj = kso_get_obj(v->view, view);
+	printk(":: OBJ: " IDFMT "\n", IDPR(obj->id));
+	obj_free_kaddr(obj);
+	obj_put(obj); /* one for kso, one for this ref. TODO: clean this up */
+	obj_put(obj);
 	workqueue_insert(&current_processor->wq, &v->free_task, __vm_context_finish_destroy, v);
 }
 
@@ -137,10 +144,9 @@ static struct viewentry kso_view_lookup(struct vm_context *ctx, size_t slot)
 	struct viewentry v;
 	/* TODO: make sure these reads aren't too costly. These are to KSO objects, so they should be
 	 * okay. */
-	obj_read_data(kso_get_obj(ctx->view, view),
-	  __VE_OFFSET + slot * sizeof(struct viewentry),
-	  sizeof(struct viewentry),
-	  &v);
+	struct object *obj = kso_get_obj(ctx->view, view);
+	obj_read_data(obj, __VE_OFFSET + slot * sizeof(struct viewentry), sizeof(struct viewentry), &v);
+	obj_put(obj);
 	return v;
 }
 
@@ -148,16 +154,15 @@ static struct viewentry kso_view_lookup(struct vm_context *ctx, size_t slot)
 static bool lookup_by_slot(size_t slot, objid_t *id, uint64_t *flags)
 {
 	switch(slot) {
+		struct object *obj;
 		struct viewentry ve;
-		// case 0x10000:
-		//	*id = kso_get_obj(current_thread->throbj, thr)->id;
-		//	if(flags) *flags = VE_READ | VE_WRITE;
-		// break;
 		default:
-			obj_read_data(kso_get_obj(current_thread->throbj, thr),
+			obj = kso_get_obj(current_thread->throbj, thr);
+			obj_read_data(obj,
 			  slot * sizeof(struct viewentry) + sizeof(struct twzthread_repr),
 			  sizeof(struct viewentry),
 			  &ve);
+			obj_put(obj);
 			if(ve.res0 == 0 && ve.res1 == 0 && ve.flags & VE_VALID) {
 				//			printk("Slot %lx is fixed-point " IDFMT " %x\n", slot, IDPR(ve.id),
 				// ve.flags);
@@ -216,7 +221,6 @@ static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 bool vm_setview(struct thread *t, struct object *viewobj)
 {
 	obj_kso_init(viewobj, KSO_VIEW); // TODO
-	// struct object *old = (t->ctx && t->ctx->view) ? kso_get_obj(t->ctx->view, view) : NULL;
 	struct vm_context *oldctx = t->ctx;
 
 	t->ctx = vm_context_create();

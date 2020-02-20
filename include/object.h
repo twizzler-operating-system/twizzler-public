@@ -164,6 +164,7 @@ void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val);
 bool obj_get_pflags(struct object *obj, uint32_t *pf);
 int obj_check_permission(struct object *obj, uint64_t flags);
+void obj_free_kaddr(struct object *obj);
 
 struct slot;
 void arch_object_map_slot(struct object_space *, struct object *obj, struct slot *, uint64_t flags);

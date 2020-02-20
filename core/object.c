@@ -76,6 +76,7 @@ void obj_init(struct object *obj)
 	obj->slot = NULL;
 	obj->flags = 0;
 	obj->kvmap = NULL;
+	obj->kaddr = NULL;
 	krc_init(&obj->refs);
 	krc_init_zero(&obj->mapcount);
 	arch_object_init(obj);
@@ -530,9 +531,36 @@ void *obj_get_kaddr(struct object *obj)
 	return obj->kaddr;
 }
 
+void obj_free_kaddr(struct object *obj)
+{
+	spinlock_acquire_save(&obj->lock);
+	if(obj->kaddr == NULL) {
+		spinlock_release_restore(&obj->lock);
+		return;
+	}
+	krc_init_zero(&obj->kaddr_count);
+	struct slot *slot = obj->kslot;
+	obj->kslot = NULL;
+	obj->kaddr = NULL;
+
+	vm_kernel_unmap_object(obj);
+	spinlock_release_restore(&obj->lock);
+	struct object *o = slot->obj;
+	assert(o == obj);
+	slot->obj = NULL;
+	obj_put(o);
+	object_space_release_slot(slot);
+	slot_release(slot);
+	spinlock_release_restore(&obj->lock);
+}
+
 void obj_release_kaddr(struct object *obj)
 {
 	spinlock_acquire_save(&obj->lock);
+	if(obj->kaddr == NULL) {
+		spinlock_release_restore(&obj->lock);
+		return;
+	}
 	if(krc_put(&obj->kaddr_count)) {
 		/* TODO: but make these reclaimable */
 		if(obj->kso_type)

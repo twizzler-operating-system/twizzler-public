@@ -1,6 +1,7 @@
 #include <clksrc.h>
 #include <debug.h>
 #include <lib/iter.h>
+#include <object.h>
 #include <processor.h>
 #include <thread.h>
 
@@ -217,6 +218,10 @@ void thread_exit(void)
 	vm_context_put(current_thread->ctx);
 
 	current_thread->ctx = NULL;
+	struct object *obj = kso_get_obj(current_thread->throbj, thr);
+	obj_free_kaddr(obj);
+	obj_put(obj); /* one for kso, one for this ref. TODO: clean this up */
+	obj_put(obj);
 
 	workqueue_insert(
 	  &current_processor->wq, &current_thread->free_task, __thread_finish_cleanup, current_thread);
@@ -250,7 +255,6 @@ struct thread *thread_create(void)
 }
 
 #include <debug.h>
-#include <object.h>
 #include <twz/_thrd.h>
 
 static void __print_fault_info(struct thread *t, int fault, void *info)
@@ -333,10 +337,12 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 	obj_read_data(
 	  to, offsetof(struct twzthread_repr, faults) + sizeof(fi) * fault, sizeof(fi), &fi);
 	if(fi.view) {
+		obj_put(to);
 		panic("NI - different view :: %d", fault);
 	}
 	//__print_fault_info(t, fault, info);
 	if(fi.addr) {
+		obj_put(to);
 		if((void *)__failed_addr(fault, info) == fi.addr) {
 			/* probably a double-fault. Just die */
 			__print_fault_info(t, fault, info);
@@ -350,6 +356,7 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 		  offsetof(struct twzthread_repr, faults) + sizeof(fi_f) * FAULT_FAULT,
 		  sizeof(fi_f),
 		  &fi_f);
+		obj_put(to);
 		if(fi_f.addr) {
 			if((void *)__failed_addr(fault, info) == fi_f.addr) {
 				/* probably a double-fault. Just die */

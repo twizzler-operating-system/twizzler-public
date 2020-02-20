@@ -39,7 +39,7 @@ long syscall_thread_spawn(uint64_t tidlo,
 	}
 	spinlock_release_restore(&repr->lock);
 
-	struct object *view = current_thread ? kso_get_obj(current_thread->ctx->view, view) : NULL;
+	struct object *view;
 	if(tsa->target_view) {
 		view = obj_lookup(tsa->target_view, 0);
 		if(view == NULL) {
@@ -52,6 +52,8 @@ long syscall_thread_spawn(uint64_t tidlo,
 			obj_put(repr);
 			return r;
 		}
+	} else {
+		view = kso_get_obj(current_thread->ctx->view, view);
 	}
 
 	obj_write_data(repr, offsetof(struct twzthread_repr, reprid), sizeof(objid_t), &tid);

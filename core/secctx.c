@@ -633,6 +633,7 @@ static void __secctx_update_thrdrepr(struct thread *thr, int s, bool at)
 		.type = KSO_SECCTX,
 	};
 	obj_write_data(to, offsetof(struct twzthread_repr, attached) + sizeof(k) * s, sizeof(k), &k);
+	obj_put(to);
 }
 
 static bool secctx_thread_attach(struct sctx *s, struct thread *t)
