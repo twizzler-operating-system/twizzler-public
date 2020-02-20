@@ -20,8 +20,21 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 	for(size_t i = 0; i < count; i++) {
 		struct kso_invl_args ko;
 		memcpy(&ko, &invl[i], sizeof(ko));
+		printk("INVALIDATE KSO: " IDFMT " %x\n", IDPR(ko.id), ko.flags);
 		if(ko.flags & KSOI_VALID) {
-			struct object *o = obj_lookup(ko.id, 0);
+			struct object *o = NULL;
+			if(ko.flags & KSOI_CURRENT) {
+				switch(ko.id) {
+					case KSO_CURRENT_VIEW:
+						o = kso_get_obj(current_thread->ctx->view, view);
+						break;
+					default:
+						ko.result = -EINVAL;
+						break;
+				}
+			} else {
+				o = obj_lookup(ko.id, 0);
+			}
 			if(o && __do_invalidate(o, &ko)) {
 				suc++;
 			}
@@ -48,10 +61,11 @@ long syscall_otie(uint64_t pidlo, uint64_t pidhi, uint64_t cidlo, uint64_t cidhi
 	if(!parent || !child)
 		goto done;
 
-	printk("TIE: " IDFMT " -> " IDFMT "\n", IDPR(cid), IDPR(pid));
 	if(flags & OTIE_UNTIE) {
+		printk("UNTIE: " IDFMT " -> " IDFMT "\n", IDPR(cid), IDPR(pid));
 		ret = obj_untie(parent, child);
 	} else {
+		printk("TIE: " IDFMT " -> " IDFMT "\n", IDPR(cid), IDPR(pid));
 		obj_tie(parent, child);
 	}
 

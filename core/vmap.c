@@ -191,6 +191,7 @@ bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off)
 static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 {
 	(void)obj;
+	printk("VMINVAL\n");
 	spinlock_acquire_save(&current_thread->ctx->lock);
 	for(size_t slot = invl->offset / mm_page_size(MAX_PGLEVEL);
 	    slot <= (invl->offset + invl->length) / mm_page_size(MAX_PGLEVEL);
@@ -200,6 +201,9 @@ static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 		/* TODO (major): unmap all ctxs that use this view */
 		if(node) {
 			struct vmap *map = rb_entry(node, struct vmap, node);
+			printk("UNMAP VIA INVAL: " IDFMT " mapcount %ld\n",
+			  IDPR(map->obj->id),
+			  map->obj->mapcount.count);
 			vm_map_disestablish(current_thread->ctx, map);
 			// arch_vm_unmap_object(current_thread->ctx, map);
 			// rb_delete(node, &current_thread->ctx->root);

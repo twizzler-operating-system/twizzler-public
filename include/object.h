@@ -27,9 +27,9 @@ struct kso_invl_args {
 
 #define kso_get_obj(ptr, type)                                                                     \
 	({                                                                                             \
-		struct object *o = container_of(ptr, struct object, type);                                 \
-		krc_get(&o->refs);                                                                         \
-		o;                                                                                         \
+		struct object *_o = container_of(ptr, struct object, type);                                \
+		krc_get(&_o->refs);                                                                        \
+		_o;                                                                                        \
 	})
 
 struct object;

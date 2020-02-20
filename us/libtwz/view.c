@@ -113,8 +113,8 @@ static struct __viewrepr_bucket *__lookup_bucket(struct twzview_repr *v, objid_t
 	int32_t idx = id % (TWZSLOT_MAX_SLOT + 1);
 	struct __viewrepr_bucket *b = v->buckets;
 	do {
-		if(b[idx].id == 0)
-			return NULL;
+		// if(b[idx].id == 0)
+		//	return NULL;
 		if(b[idx].id == id && b[idx].flags == flags) {
 			return &b[idx];
 		}
@@ -185,8 +185,14 @@ void twz_view_release_slot(twzobj *obj, objid_t id, uint32_t flags, size_t slot)
 	assert(b);
 	assert(b->slot == slot);
 
-	if(b->refs-- == 0) {
-		assert(0);
+	debug_printf("TWZ RELEASE SLOT: " IDFMT " refs=%d\n", IDPR(id), b->refs);
+	int old = b->refs--;
+	assert(old > 0);
+	if(old == 1) {
+		twz_view_set(obj, b->slot, 0, 0);
+		b->slot = 0;
+		b->id = 0;
+		b->flags = 0;
 	}
 
 	mutex_release(&v->lock);
