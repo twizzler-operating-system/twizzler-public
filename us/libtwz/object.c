@@ -65,6 +65,16 @@ int twz_object_wire(twzobj *view, twzobj *obj)
 	// return sys_vmap(obj->base, TWZ_SYS_VMAP_WIRE, 0);
 }
 
+int twz_object_unwire(twzobj *view, twzobj *obj)
+{
+	twzobj _v;
+	if(view == NULL) {
+		view = &_v;
+		twz_view_object_init(view);
+	}
+	return twz_object_tie(view, obj, OTIE_UNTIE);
+}
+
 int twz_object_init_guid(twzobj *obj, objid_t id, int flags)
 {
 	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);

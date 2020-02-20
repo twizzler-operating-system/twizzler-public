@@ -19,6 +19,7 @@ struct thrd_spawn_args {
 };
 
 int twz_thread_create(struct thread *thrd);
+int twz_thread_release(struct thread *thrd);
 int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args);
 ssize_t twz_thread_wait(size_t count,
   struct thread **threads,
@@ -46,7 +47,7 @@ int twz_exec_view(twzobj *view,
   char *const *env);
 
 #define twz_stdstack                                                                               \
-	(twzobj)                                                                                \
+	(twzobj)                                                                                       \
 	{                                                                                              \
 		.base = SLOT_TO_VADDR(TWZSLOT_STACK)                                                       \
 	}

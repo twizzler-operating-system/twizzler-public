@@ -154,6 +154,7 @@ void obj_init(struct object *obj);
 void obj_system_init(void);
 void obj_release_slot(struct object *obj);
 void obj_tie(struct object *, struct object *);
+int obj_untie(struct object *parent, struct object *child);
 
 void obj_release_kaddr(struct object *obj);
 void *obj_get_kaddr(struct object *obj);

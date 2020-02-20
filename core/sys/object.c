@@ -38,6 +38,9 @@ long syscall_otie(uint64_t pidlo, uint64_t pidhi, uint64_t cidlo, uint64_t cidhi
 	objid_t pid = MKID(pidhi, pidlo);
 	objid_t cid = MKID(cidhi, cidlo);
 
+	if(pid == cid)
+		return -EPERM;
+
 	int ret = 0;
 	struct object *parent = obj_lookup(pid, 0);
 	struct object *child = obj_lookup(cid, 0);
@@ -46,7 +49,11 @@ long syscall_otie(uint64_t pidlo, uint64_t pidhi, uint64_t cidlo, uint64_t cidhi
 		goto done;
 
 	printk("TIE: " IDFMT " -> " IDFMT "\n", IDPR(cid), IDPR(pid));
-	obj_tie(parent, child);
+	if(flags & OTIE_UNTIE) {
+		ret = obj_untie(parent, child);
+	} else {
+		obj_tie(parent, child);
+	}
 
 done:
 	if(parent)

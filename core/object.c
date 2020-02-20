@@ -214,6 +214,30 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 	return obj;
 }
 
+int obj_untie(struct object *parent, struct object *child)
+{
+	struct object *rel = NULL;
+	spinlock_acquire_save(&parent->lock);
+
+	struct rbnode *node =
+	  rb_search(&parent->ties_root, child->id, struct object_tie, node, __objtie_compar_key);
+	struct object_tie *tie;
+	if(!node) {
+		spinlock_release_restore(&parent->lock);
+		return -ENOENT;
+	}
+	tie = rb_entry(node, struct object_tie, node);
+	if(--tie->count == 0) {
+		rb_delete(&tie->node, &parent->ties_root);
+		rel = tie->child;
+		slabcache_free(tie);
+	}
+
+	spinlock_release_restore(&parent->lock);
+	obj_put(rel);
+	return 0;
+}
+
 void obj_tie(struct object *parent, struct object *child)
 {
 	spinlock_acquire_save(&parent->lock);

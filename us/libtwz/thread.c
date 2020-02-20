@@ -12,6 +12,13 @@ void *__copy_tls(char *);
 
 /* TODO: release thread kinda deal */
 
+int twz_thread_release(struct thread *thrd)
+{
+	thrd->tid = 0;
+	twz_object_unwire(NULL, &thrd->obj);
+	twz_object_release(&thrd->obj);
+}
+
 int twz_thread_create(struct thread *thrd)
 {
 	struct twzthread_repr *currepr = twz_thread_repr_base();
