@@ -23,7 +23,7 @@ int twz_thread_create(struct thread *thrd)
 		return r;
 	}
 
-	if((r = twz_object_wire(&thrd->obj)))
+	if((r = twz_object_wire(NULL, &thrd->obj)))
 		return r;
 	if((r = twz_object_delete(&thrd->obj, 0)))
 		return r;
@@ -52,7 +52,7 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 	if((r = twz_object_init_guid(&thrd->obj, thrd->tid, FE_READ | FE_WRITE))) {
 		return r;
 	}
-	if((r = twz_object_wire(&thrd->obj)))
+	if((r = twz_object_wire(NULL, &thrd->obj)))
 		return r;
 	if((r = twz_object_delete(&thrd->obj, 0)))
 		return r;

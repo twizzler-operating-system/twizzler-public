@@ -62,7 +62,7 @@ int twz_exec_view(twzobj *view,
 	if((r = twz_object_init_guid(&stack, sid, FE_READ | FE_WRITE))) {
 		return r;
 	}
-	if((r = twz_object_wire(&stack))) {
+	if((r = twz_object_tie(view, &stack, 0))) {
 		return r;
 	}
 	if((r = twz_object_delete_guid(sid, 0))) {
@@ -156,7 +156,7 @@ int twz_exec_create_view(twzobj *view, objid_t id, objid_t *vid)
 		return r;
 	}
 
-	if((r = twz_object_wire(view)))
+	if((r = twz_object_wire(NULL, view)))
 		return r;
 	if((r = twz_object_delete(view, 0)))
 		return r;

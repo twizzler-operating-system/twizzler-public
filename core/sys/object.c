@@ -45,6 +45,7 @@ long syscall_otie(uint64_t pidlo, uint64_t pidhi, uint64_t cidlo, uint64_t cidhi
 	if(!parent || !child)
 		goto done;
 
+	printk("TIE: " IDFMT " -> " IDFMT "\n", IDPR(cid), IDPR(pid));
 	obj_tie(parent, child);
 
 done:

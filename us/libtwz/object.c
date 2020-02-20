@@ -33,9 +33,36 @@ int twz_object_delete(twzobj *obj, int flags)
 	return twz_object_delete_guid(twz_object_guid(obj), flags);
 }
 
-int twz_object_wire(twzobj *obj)
+int twz_object_tie_guid(objid_t pid, objid_t cid, int flags)
 {
-	return sys_vmap(obj->base, TWZ_SYS_VMAP_WIRE, 0);
+	return sys_otie(pid, cid, flags);
+}
+
+int twz_object_tie(twzobj *p, twzobj *c, int flags)
+{
+	return sys_otie(twz_object_guid(p), twz_object_guid(c), flags);
+}
+
+int twz_object_wire_guid(twzobj *view, objid_t id)
+{
+	twzobj _v;
+	if(view == NULL) {
+		view = &_v;
+		twz_view_object_init(view);
+	}
+
+	return twz_object_tie_guid(twz_object_guid(view), id, 0);
+}
+
+int twz_object_wire(twzobj *view, twzobj *obj)
+{
+	twzobj _v;
+	if(view == NULL) {
+		view = &_v;
+		twz_view_object_init(view);
+	}
+	return twz_object_tie(view, obj, 0);
+	// return sys_vmap(obj->base, TWZ_SYS_VMAP_WIRE, 0);
 }
 
 int twz_object_init_guid(twzobj *obj, objid_t id, int flags)

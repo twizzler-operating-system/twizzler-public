@@ -64,6 +64,7 @@ void obj_init(struct object *obj)
 	krc_init(&obj->refs);
 	krc_init_zero(&obj->mapcount);
 	arch_object_init(obj);
+	list_init(&obj->ties);
 }
 
 static void _obj_dtor(void *_u, void *ptr)
@@ -420,7 +421,7 @@ static void _obj_release(struct object *obj)
 		printk("FINAL DELETE object " IDFMT "\n", IDPR(obj->id));
 
 		struct list *e, *n;
-		for(e = list_iter_start(&obj->ties); e; e = n) {
+		for(e = list_iter_start(&obj->ties); e != list_iter_end(&obj->ties); e = n) {
 			struct object_tie *tie = list_entry(e, struct object_tie, entry);
 			printk("UNTIE object " IDFMT "\n", IDPR(tie->child->id));
 			n = list_iter_next(e);

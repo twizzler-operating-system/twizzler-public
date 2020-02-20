@@ -66,7 +66,8 @@ static int twz_map_fot_entry(twzobj *obj,
 
 	twz_view_set(NULL, slot, id, flags);
 	if(fe->flags & FE_DERIVE) {
-		sys_vmap((void *)(slot * OBJ_MAXSIZE), TWZ_SYS_VMAP_WIRE, 0);
+		twz_object_wire_guid(NULL, id);
+		//	sys_vmap((void *)(slot * OBJ_MAXSIZE), TWZ_SYS_VMAP_WIRE, 0);
 		twz_object_delete_guid(id, 0);
 	}
 	return 0;

@@ -12,6 +12,12 @@
 #include <twz/_types.h>
 
 #include <twz/debug.h>
+
+void twz_view_object_init(twzobj *obj)
+{
+	*obj = TWZ_OBJECT_INIT(TWZSLOT_CVIEW);
+}
+
 int twz_view_set(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 {
 	if(slot > TWZSLOT_MAX_SLOT) {

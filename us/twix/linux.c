@@ -22,7 +22,7 @@ void __linux_init(void)
 			unix_obj = TWZ_OBJECT_INIT(TWZSLOT_UNIX);
 
 			/* TODO: not sure if this is the right thing... */
-			twz_object_wire(&unix_obj);
+			twz_object_wire(NULL, &unix_obj);
 			twz_object_delete(&unix_obj, 0);
 
 			uh = twz_object_base(&unix_obj);
