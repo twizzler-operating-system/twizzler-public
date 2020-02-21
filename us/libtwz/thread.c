@@ -14,7 +14,7 @@ void *__copy_tls(char *);
 
 int twz_thread_release(struct thread *thrd)
 {
-	debug_printf("THREAD RELEASE: " IDFMT "\n", IDPR(twz_object_guid(&thrd->obj)));
+	// debug_printf("THREAD RELEASE: " IDFMT "\n", IDPR(twz_object_guid(&thrd->obj)));
 	thrd->tid = 0;
 	twz_object_unwire(NULL, &thrd->obj);
 	twz_object_release(&thrd->obj);

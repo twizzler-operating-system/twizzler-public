@@ -205,6 +205,7 @@ struct page *page_alloc(int type, int flags, int level)
 	assert(!(p->flags & PAGE_ALLOCED));
 	p->flags &= ~PAGE_ZERO; // TODO: track this using VM system
 	p->flags |= PAGE_ALLOCED;
+	p->cowcount = 0;
 	mm_page_alloced++;
 	return p;
 }

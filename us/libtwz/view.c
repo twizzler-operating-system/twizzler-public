@@ -185,7 +185,7 @@ void twz_view_release_slot(twzobj *obj, objid_t id, uint32_t flags, size_t slot)
 	assert(b);
 	assert(b->slot == slot);
 
-	debug_printf("TWZ RELEASE SLOT: " IDFMT " refs=%d\n", IDPR(id), b->refs);
+	// debug_printf("TWZ RELEASE SLOT: " IDFMT " refs=%d\n", IDPR(id), b->refs);
 	int old = b->refs--;
 	assert(old > 0);
 	if(old == 1) {

@@ -116,6 +116,7 @@ struct object {
 
 struct page;
 #define OBJPAGE_MAPPED 1
+#define OBJPAGE_COW 2
 struct objpage {
 	size_t idx;
 	uint64_t flags;
@@ -178,6 +179,7 @@ bool arch_object_getmap(struct object *obj,
   uintptr_t *phys,
   int *level,
   uint64_t *flags);
+void arch_object_remap_cow(struct object *obj);
 
 void arch_object_space_init(struct object_space *space);
 void arch_object_space_destroy(struct object_space *space);

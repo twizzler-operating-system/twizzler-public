@@ -38,6 +38,24 @@ bool arch_object_getmap_slot_flags(struct object_space *space, struct slot *slot
 	return true;
 }
 
+void arch_object_remap_cow(struct object *obj)
+{
+	for(int pd_idx = 0; pd_idx < 512; pd_idx++) {
+		for(int pt_idx = 0; pt_idx < 512; pt_idx++) {
+			if(obj->arch.pd[pd_idx] & PAGE_LARGE) {
+				obj->arch.pd[pd_idx] &= ~EPT_WRITE;
+			} else {
+				uint64_t *pt = obj->arch.pts[pd_idx];
+				if(pt) {
+					pt[pt_idx] &= ~EPT_WRITE;
+				}
+			}
+		}
+	}
+	int x;
+	asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
+}
+
 void arch_object_unmap_slot(struct object_space *space, struct slot *slot)
 {
 	if(!space)

@@ -13,6 +13,7 @@ struct page {
 	uint16_t flags;
 	uint8_t type;
 	uint8_t level;
+	_Atomic int32_t cowcount;
 	// uint16_t flags : 10;
 	// uint16_t type : 3;
 	// uint16_t level : 3;

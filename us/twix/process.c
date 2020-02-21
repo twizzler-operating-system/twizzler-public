@@ -300,7 +300,7 @@ long linux_sys_fork(struct twix_register_frame *frame)
 struct rusage;
 long linux_sys_wait4(long pid, int *wstatus, int options, struct rusage *rusage)
 {
-	debug_printf("WAIT: %ld %p %x\n", pid, wstatus, options);
+	// debug_printf("WAIT: %ld %p %x\n", pid, wstatus, options);
 
 	(void)pid;
 	(void)options;
@@ -321,7 +321,6 @@ long linux_sys_wait4(long pid, int *wstatus, int options, struct rusage *rusage)
 		}
 		int r = twz_thread_wait(c, thrd, sps, event, info);
 		if(r < 0) {
-			debug_printf(":: %d\n", r);
 			return r;
 		}
 
@@ -330,7 +329,7 @@ long linux_sys_wait4(long pid, int *wstatus, int options, struct rusage *rusage)
 				if(wstatus) {
 					*wstatus = 0; // TODO
 				}
-				debug_printf("HERE RET WAIT\n");
+				// debug_printf("HERE RET WAIT\n");
 				pds[pids[i]].pid = 0;
 				twz_thread_release(&pds[pids[i]].thrd);
 				return pids[i];

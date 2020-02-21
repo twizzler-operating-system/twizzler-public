@@ -60,7 +60,6 @@ static void vm_map_disestablish(struct vm_context *ctx, struct vmap *map)
 static void __vm_context_finish_destroy(void *_v)
 {
 	struct vm_context *v = _v;
-	printk("FINISH destroy\n");
 	slabcache_free(v);
 }
 
@@ -70,10 +69,12 @@ void vm_context_destroy(struct vm_context *v)
 	struct rbnode *next;
 	for(struct rbnode *node = rb_first(&v->root); node; node = next) {
 		struct vmap *map = rb_entry(node, struct vmap, node);
+#if CONFIG_DEBUG_OBJECT_SLOT
 		printk("unmap: " IDFMT ": %ld, with map count %ld\n",
 		  IDPR(map->obj->id),
 		  map->slot,
 		  map->obj->mapcount.count);
+#endif
 
 		vm_map_disestablish(v, map);
 		next = rb_next(node);
@@ -81,7 +82,9 @@ void vm_context_destroy(struct vm_context *v)
 
 	/* TODO: does this work for all contexts? */
 	struct object *obj = kso_get_obj(v->view, view);
-	printk(":: OBJ: " IDFMT "\n", IDPR(obj->id));
+#if CONFIG_DEBUG_OBJECT_SLOT
+	printk("VM_CONTEXT_DESTROY OBJ: " IDFMT "\n", IDPR(obj->id));
+#endif
 	obj_free_kaddr(obj);
 	obj_put(obj); /* one for kso, one for this ref. TODO: clean this up */
 	obj_put(obj);
@@ -196,7 +199,6 @@ bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off)
 static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 {
 	(void)obj;
-	printk("VMINVAL\n");
 	spinlock_acquire_save(&current_thread->ctx->lock);
 	for(size_t slot = invl->offset / mm_page_size(MAX_PGLEVEL);
 	    slot <= (invl->offset + invl->length) / mm_page_size(MAX_PGLEVEL);
@@ -206,9 +208,11 @@ static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 		/* TODO (major): unmap all ctxs that use this view */
 		if(node) {
 			struct vmap *map = rb_entry(node, struct vmap, node);
+#if CONFIG_DEBUG_OBJECT_SLOT
 			printk("UNMAP VIA INVAL: " IDFMT " mapcount %ld\n",
 			  IDPR(map->obj->id),
 			  map->obj->mapcount.count);
+#endif
 			vm_map_disestablish(current_thread->ctx, map);
 			// arch_vm_unmap_object(current_thread->ctx, map);
 			// rb_delete(node, &current_thread->ctx->root);
@@ -373,7 +377,6 @@ static int __do_map(struct vm_context *ctx,
 		vm_context_map(ctx, map);
 	}
 	if(wire) {
-		printk("WIRE OBJECT: " IDFMT "\n", IDPR(map->obj->id));
 		map->status |= VMAP_WIRE;
 	}
 	vm_map_establish(map);

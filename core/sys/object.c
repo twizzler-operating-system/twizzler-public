@@ -20,7 +20,6 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 	for(size_t i = 0; i < count; i++) {
 		struct kso_invl_args ko;
 		memcpy(&ko, &invl[i], sizeof(ko));
-		printk("INVALIDATE KSO: " IDFMT " %x\n", IDPR(ko.id), ko.flags);
 		if(ko.flags & KSOI_VALID) {
 			struct object *o = NULL;
 			if(ko.flags & KSOI_CURRENT) {
@@ -62,10 +61,14 @@ long syscall_otie(uint64_t pidlo, uint64_t pidhi, uint64_t cidlo, uint64_t cidhi
 		goto done;
 
 	if(flags & OTIE_UNTIE) {
+#if CONFIG_DEBUG_OBJECT_LIFE
 		printk("UNTIE: " IDFMT " -> " IDFMT "\n", IDPR(cid), IDPR(pid));
+#endif
 		ret = obj_untie(parent, child);
 	} else {
+#if CONFIG_DEBUG_OBJECT_LIFE
 		printk("TIE: " IDFMT " -> " IDFMT "\n", IDPR(cid), IDPR(pid));
+#endif
 		obj_tie(parent, child);
 	}
 
@@ -285,7 +288,9 @@ long syscall_ocreate(uint64_t kulo,
 	if(flags & TWZ_SYS_OC_PERSIST_) {
 		o->flags |= OF_PERSIST;
 	}
+#if CONFIG_DEBUG_OBJECT_LIFE
 	printk("CREATE OBJECT: " IDFMT "\n", IDPR(id));
+#endif
 	obj_put(o);
 
 	if(retid)
@@ -301,7 +306,9 @@ long syscall_odelete(uint64_t olo, uint64_t ohi, uint64_t flags)
 		return -ENOENT;
 	}
 
+#if CONFIG_DEBUG_OBJECT_LIFE
 	printk("DELETE OBJECT " IDFMT ": %lx\n", IDPR(id), flags);
+#endif
 
 	spinlock_acquire_save(&obj->lock);
 	if(flags & TWZ_SYS_OD_IMMEDIATE) {

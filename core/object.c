@@ -166,6 +166,43 @@ void obj_assign_id(struct object *obj, objid_t id)
 	spinlock_release_restore(&objlock);
 }
 
+static void obj_clone_cow(struct object *src, struct object *nobj)
+{
+	// printk("CLONE_COW " IDFMT " -> " IDFMT "\n", IDPR(src->id), IDPR(nobj->id));
+	spinlock_acquire_save(&src->lock);
+	arch_object_remap_cow(src);
+	for(struct rbnode *node = rb_first(&src->pagecache_root); node; node = rb_next(node)) {
+		struct objpage *pg = rb_entry(node, struct objpage, node);
+		if(pg->page) {
+			pg->page->cowcount++;
+			pg->flags |= OBJPAGE_COW;
+
+			struct objpage *npg = objpage_alloc();
+			npg->idx = pg->idx;
+			npg->flags = pg->flags;
+			npg->page = pg->page;
+
+			rb_insert(&nobj->pagecache_root, npg, struct objpage, node, __objpage_compar);
+		}
+	}
+	for(struct rbnode *node = rb_first(&src->pagecache_level1_root); node; node = rb_next(node)) {
+		struct objpage *pg = rb_entry(node, struct objpage, node);
+		if(pg->page) {
+			pg->page->cowcount++;
+			pg->flags |= OBJPAGE_COW;
+
+			struct objpage *npg = objpage_alloc();
+			npg->idx = pg->idx;
+			npg->flags = pg->flags;
+			npg->page = pg->page;
+
+			rb_insert(&nobj->pagecache_level1_root, npg, struct objpage, node, __objpage_compar);
+		}
+	}
+
+	spinlock_release_restore(&src->lock);
+}
+
 struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 {
 	struct object *src = obj_lookup(srcid, 0);
@@ -174,6 +211,7 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 	}
 	struct object *obj = __obj_alloc(ksot, id);
 
+#if 0
 	spinlock_acquire_save(&src->lock);
 	for(struct rbnode *node = rb_first(&src->pagecache_root); node; node = rb_next(node)) {
 		struct objpage *pg = rb_entry(node, struct objpage, node);
@@ -205,6 +243,9 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 	}
 
 	spinlock_release_restore(&src->lock);
+#else
+	obj_clone_cow(src, obj);
+#endif
 	obj_put(src);
 
 	if(id) {
@@ -285,7 +326,7 @@ static void __obj_alloc_kernel_slot(struct object *obj)
 	if(obj->kslot)
 		return;
 	struct slot *slot = slot_alloc();
-#if 1
+#if CONFIG_DEBUG_OBJECT_SLOT
 	printk("[slot]: allocated kslot %ld for " IDFMT " (%p %lx %d)\n",
 	  slot->num,
 	  IDPR(obj->id),
@@ -341,7 +382,9 @@ void obj_release_slot(struct object *obj)
 		assert(!tmp);
 		object_space_release_slot(slot);
 		slot_release(slot);
+#if CONFIG_DEBUG_OBJECT_SLOT
 		printk("MAPCOUNT ZERO: " IDFMT "; refs=%ld\n", IDPR(obj->id), obj->refs.count);
+#endif
 	}
 
 	spinlock_release_restore(&obj->lock);
@@ -359,7 +402,7 @@ struct slot *obj_alloc_slot(struct object *obj)
 
 	krc_get(&obj->mapcount);
 
-#if 1
+#if CONFIG_DEBUG_OBJECT_SLOT
 	printk("[slot]: allocated uslot %ld for " IDFMT " (%p %lx %d)\n",
 	  obj->slot->num,
 	  IDPR(obj->id),
@@ -402,10 +445,9 @@ void obj_cache_page(struct object *obj, size_t addr, struct page *p)
 #include <processor.h>
 #include <twz/_sys.h>
 
-struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
+static struct objpage *__obj_get_page(struct object *obj, size_t addr, bool alloc)
 {
 	size_t idx = addr / mm_page_size(1);
-	spinlock_acquire_save(&obj->lock);
 	struct objpage *lpage = NULL;
 	struct rbnode *node =
 	  rb_search(&obj->pagecache_level1_root, idx, struct objpage, node, __objpage_compar_key);
@@ -414,7 +456,6 @@ struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 	if(lpage && lpage->page->level == 1) {
 		/* found a large page */
 		krc_get(&lpage->refs);
-		spinlock_release_restore(&obj->lock);
 		return lpage;
 	}
 	idx = addr / mm_page_size(0);
@@ -424,7 +465,6 @@ struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 		page = rb_entry(node, struct objpage, node);
 	if(page == NULL) {
 		if(!alloc) {
-			spinlock_release_restore(&obj->lock);
 			return NULL;
 		}
 		int level = ((addr >= mm_page_size(1))) ? 0 : 0; /* TODO */
@@ -454,8 +494,15 @@ struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
 		  __objpage_compar);
 	}
 	krc_get(&page->refs);
-	spinlock_release_restore(&obj->lock);
 	return page;
+}
+
+struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
+{
+	spinlock_acquire_save(&obj->lock);
+	struct objpage *op = __obj_get_page(obj, addr, alloc);
+	spinlock_release_restore(&obj->lock);
+	return op;
 }
 
 static void _objpage_release(void *page)
@@ -465,16 +512,22 @@ static void _objpage_release(void *page)
 
 static void _obj_release(struct object *obj)
 {
+#if CONFIG_DEBUG_OBJECT_LIFE
 	printk("OBJ RELEASE: " IDFMT "\n", IDPR(obj->id));
+#endif
 	if(obj->flags & OF_DELETE) {
+#if CONFIG_DEBUG_OBJECT_LIFE
 		printk("FINAL DELETE object " IDFMT "\n", IDPR(obj->id));
+#endif
 
 		struct rbnode *n, *next;
 		for(n = rb_first(&obj->ties_root); n; n = next) {
 			next = rb_next(n);
 
 			struct object_tie *tie = rb_entry(n, struct object_tie, node);
+#if CONFIG_DEBUG_OBJECT_LIFE
 			printk("UNTIE object " IDFMT "\n", IDPR(tie->child->id));
+#endif
 			rb_delete(&tie->node, &obj->ties_root);
 			obj_put(tie->child);
 			slabcache_free(tie);
@@ -868,6 +921,17 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		  ip,
 		  loaddr / OBJ_MAXSIZE);
 	}
+#if 0
+	if(o->id)
+		printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT "\n",
+		  current_thread ? current_thread->id : -1,
+		  ip,
+		  loaddr,
+		  idx,
+		  vaddr,
+		  flags,
+		  IDPR(o->id));
+#endif
 
 	uint64_t perms = 0;
 	uint64_t existing_flags;
@@ -898,18 +962,6 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	}
 #endif
 
-#if 0
-	if(o->id)
-		printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT "\n",
-		  current_thread ? current_thread->id : -1,
-		  ip,
-		  loaddr,
-		  idx,
-		  vaddr,
-		  flags,
-		  IDPR(o->id));
-#endif
-
 	/* TODO: something better */
 	// for(int j = 0; j < 4 && (idx < 200000 || j == 0); j++, idx++) {
 
@@ -933,12 +985,36 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		p.page->flags = PAGE_CACHE_WB;
 		arch_object_map_page(o, &p);
 	} else {
-		struct objpage *p = obj_get_page(o, loaddr % OBJ_MAXSIZE, true);
-		// printk("P: %p %lx\n", p->page, p->page->addr);
-		if(!(p->flags & OBJPAGE_MAPPED)) {
+		spinlock_acquire_save(&o->lock);
+		struct objpage *p = __obj_get_page(o, loaddr % OBJ_MAXSIZE, true);
+		if(p->flags & OBJPAGE_COW) {
+			if(p->page->cowcount > 0) {
+				uint32_t old_count = atomic_fetch_sub(&p->page->cowcount, 1);
+				//	printk("COW: copy %ld: %d\n", p->idx, old_count);
+
+				struct page *np = page_alloc(p->page->type, 0, p->page->level);
+				void *csrc = tmpmap_map_page(p->page);
+				void *cdest = tmpmap_map_page(np);
+				memcpy(cdest, csrc, mm_page_size(p->page->level));
+				tmpmap_unmap_page(cdest);
+				tmpmap_unmap_page(csrc);
+
+				p->page = np;
+			}
+			p->flags &= ~OBJPAGE_COW;
 			arch_object_map_page(o, p);
 			p->flags |= OBJPAGE_MAPPED;
+
+			// for(;;)
+			//	;
+		} else {
+			// printk("P: %p %lx\n", p->page, p->page->addr);
+			if(!(p->flags & OBJPAGE_MAPPED)) {
+				arch_object_map_page(o, p);
+				p->flags |= OBJPAGE_MAPPED;
+			}
 		}
+		spinlock_release_restore(&o->lock);
 	}
 	// printk("Mapped successfully\n");
 	//	do_map = false;

@@ -245,7 +245,7 @@ void thread_print_all_threads(void)
 struct thread *thread_create(void)
 {
 	struct thread *t = slabcache_alloc(&_sc_thread);
-	printk("THREAD_CREATE: %ld: %p\n", t->id, t);
+	// printk("THREAD_CREATE: %ld: %p\n", t->id, t);
 	// krc_init(&t->refs);
 	t->priority = 10;
 	spinlock_acquire_save(&allthreads_lock);
