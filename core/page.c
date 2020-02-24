@@ -7,7 +7,7 @@ struct page_stack {
 	struct spinlock lock, lock2;
 	struct page *top;
 	struct page *top_z;
-	_Atomic size_t avail;
+	_Atomic size_t avail, nzero;
 	_Atomic bool adding;
 };
 
@@ -30,6 +30,8 @@ static struct page *__do_page_alloc(struct page_stack *stack, bool zero)
 	ret->next = NULL;
 
 	stack->avail--;
+	if(zero)
+		stack->nzero--;
 	return ret;
 }
 
@@ -39,6 +41,8 @@ static void __do_page_dealloc(struct page_stack *stack, struct page *page)
 	page->next = *top;
 	*top = page;
 	stack->avail++;
+	if(page->flags & PAGE_ZERO)
+		stack->nzero++;
 }
 
 void page_print_stats(void)
@@ -147,6 +151,20 @@ static void page_zero(struct page *p)
 	p->flags |= PAGE_ZERO;
 }
 
+void page_dealloc(struct page *p, int flags)
+{
+	if((flags & PAGE_ZERO) && !(p->flags & PAGE_ZERO)) {
+		page_zero(p);
+	}
+	p->flags &= ~PAGE_ALLOCED;
+	struct page_stack *stack = &_stacks[p->level];
+	spinlock_acquire_save(&stack->lock);
+	__do_page_dealloc(stack, p);
+	spinlock_release_restore(&stack->lock);
+}
+
+#define __PAGE_NONZERO 0x4000
+
 struct page *page_alloc(int type, int flags, int level)
 {
 	if(!mm_ready)
@@ -157,6 +175,13 @@ struct page *page_alloc(int type, int flags, int level)
 	struct page *p = __do_page_alloc(stack, zero);
 	if(!p) {
 		if(mm_ready) {
+			if(flags & __PAGE_NONZERO) {
+				if(stack->adding) {
+					spinlock_release_restore(&stack->lock);
+					return NULL;
+				}
+				goto add;
+			}
 			p = __do_page_alloc(stack, !zero);
 			if(!p) {
 				panic("out of pages; level=%d", level);
@@ -174,6 +199,7 @@ struct page *page_alloc(int type, int flags, int level)
 	}
 
 	if(stack->avail < 128 && level < MAX_PGLEVEL && mm_ready && !stack->adding) {
+	add:
 		stack->adding = true;
 		spinlock_release_restore(&stack->lock);
 		struct page *lp = page_alloc(type, 0, level + 1);
@@ -214,4 +240,41 @@ struct page *page_alloc_nophys(void)
 {
 	struct page *page = arena_allocate(&page_arena, sizeof(struct page));
 	return page;
+}
+
+#include <processor.h>
+static void __page_idle_zero(int level)
+{
+	struct page_stack *stack = &_stacks[level];
+	while(((stack->nzero < stack->avail && stack->nzero < 1024) || stack->avail < 1024)
+	      && !stack->adding) {
+#if 0
+		printk("ACTIVATE: idle zero: %d: %ld %ld %d\n",
+		  level,
+		  stack->avail,
+		  stack->nzero,
+		  processor_has_threads(current_processor));
+#endif
+		struct page *p = page_alloc(PAGE_TYPE_VOLATILE, __PAGE_NONZERO, level);
+		if(p) {
+			// page_zero(p);
+			page_dealloc(p, PAGE_ZERO);
+		}
+		if(processor_has_threads(current_processor))
+			break;
+	}
+}
+
+void page_idle_zero(void)
+{
+	static _Atomic int trying = 0;
+	if(atomic_fetch_or(&trying, 1))
+		return;
+	if(!processor_has_threads(current_processor)) {
+		__page_idle_zero(0);
+	}
+	if(!processor_has_threads(current_processor)) {
+		//	__page_idle_zero(1);
+	}
+	trying = 0;
 }

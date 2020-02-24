@@ -37,6 +37,11 @@ struct processor {
 	long ctr;
 };
 
+static inline bool processor_has_threads(struct processor *proc)
+{
+	return !list_empty(&proc->runqueue);
+}
+
 void processor_perproc_init(struct processor *proc);
 void processor_percpu_regions_init(void);
 void processor_early_init(void);

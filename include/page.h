@@ -40,3 +40,5 @@ struct memregion;
 void page_init(struct memregion *region);
 void page_init_bootstrap(void);
 void page_print_stats(void);
+void page_dealloc(struct page *p, int flags);
+void page_idle_zero(void);

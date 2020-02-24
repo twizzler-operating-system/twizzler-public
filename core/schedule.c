@@ -104,7 +104,14 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			/* we're halting here, but the arch_processor_halt function will return
 			 * after an interrupt is fired. Since we're in kernel-space, any interrupt
 			 * we get will not invoke the scheduler. */
-			arch_processor_halt();
+			page_idle_zero();
+			spinlock_acquire(&proc->sched_lock);
+			if(!processor_has_threads(proc)) {
+				spinlock_release(&proc->sched_lock, 0);
+				arch_processor_halt();
+			} else {
+				spinlock_release(&proc->sched_lock, 1);
+			}
 		}
 	}
 }

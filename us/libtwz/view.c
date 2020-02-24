@@ -161,7 +161,7 @@ static struct __viewrepr_bucket *__insert_obj(struct twzview_repr *v,
 ssize_t __alloc_slot(struct twzview_repr *v)
 {
 	for(size_t i = TWZSLOT_ALLOC_START / 8; i <= TWZSLOT_ALLOC_MAX / 8; i++) {
-		size_t idx = i / 8;
+		size_t idx = i;
 		if(v->bitmap[idx] != 0xff) {
 			for(int bit = 0; bit < 8; bit++) {
 				if(!(v->bitmap[idx] & (1 << bit))) {
@@ -172,6 +172,67 @@ ssize_t __alloc_slot(struct twzview_repr *v)
 		}
 	}
 	return -ENOSPC;
+}
+
+int twz_view_clone(twzobj *old,
+  twzobj *nobj,
+  int flags,
+  bool (*fn)(twzobj *, size_t, objid_t, uint32_t, objid_t *, uint32_t *))
+{
+	struct twzview_repr *oldv = old ? (struct twzview_repr *)twz_object_base(old)
+	                                : (struct twzview_repr *)twz_slot_to_base(TWZSLOT_CVIEW);
+	struct twzview_repr *newv = (struct twzview_repr *)twz_object_base(nobj);
+
+	mutex_acquire(&oldv->lock);
+
+	memcpy(newv->bitmap, oldv->bitmap, sizeof(newv->bitmap));
+
+	for(size_t i = 0; i < TWZSLOT_MAX_SLOT + 1; i++) {
+		if(flags & VIEW_CLONE_ENTRIES) {
+			struct viewentry *ove = &oldv->ves[i];
+			struct viewentry *nve = &newv->ves[i];
+			if(ove->flags & VE_VALID) {
+				if(!fn(nobj, i, ove->id, ove->flags, &nve->id, (uint32_t *)&nve->flags)) {
+					nve->id = 0;
+					nve->flags = 0;
+				}
+			}
+		}
+
+		struct __viewrepr_bucket *nb = &newv->buckets[i];
+		struct __viewrepr_bucket *ob = &oldv->buckets[i];
+		if(ob->id == 0)
+			continue;
+		*nb = *ob;
+		if(!fn(nobj, ob->slot, ob->id, ob->flags, &nb->id, &nb->flags)) {
+			nb->refs = 0;
+			nb->id = 0;
+			nb->flags = 0;
+		} else {
+			newv->ves[ob->slot].id = nb->id;
+			newv->ves[ob->slot].flags = nb->flags | VE_VALID;
+		}
+	}
+
+	for(size_t i = 0; i < TWZSLOT_MAX_SLOT + 1; i++) {
+		struct __viewrepr_bucket *nb = &newv->buckets[i];
+		struct __viewrepr_bucket *ob = &oldv->buckets[i];
+		if(ob->id == 0)
+			continue;
+		*nb = *ob;
+		if(!fn(nobj, ob->slot, ob->id, ob->flags, &nb->id, &nb->flags)) {
+			nb->refs = 0;
+			nb->id = 0;
+			nb->flags = 0;
+		} else {
+			newv->ves[ob->slot].id = nb->id;
+			newv->ves[ob->slot].flags = nb->flags | VE_VALID;
+		}
+	}
+
+	mutex_release(&oldv->lock);
+
+	return 0;
 }
 
 #include <assert.h>
