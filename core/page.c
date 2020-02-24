@@ -203,7 +203,7 @@ struct page *page_alloc(int type, int flags, int level)
 		stack->adding = true;
 		spinlock_release_restore(&stack->lock);
 		struct page *lp = page_alloc(type, 0, level + 1);
-		printk("splitting page %lx (level %d)\n", lp->addr, level + 1);
+		// printk("splitting page %lx (level %d)\n", lp->addr, level + 1);
 		for(size_t i = 0; i < mm_page_size(level + 1) / mm_page_size(level); i++) {
 			struct page *np = arena_allocate(&page_arena, sizeof(struct page));
 			//*np = *lp;

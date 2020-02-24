@@ -540,16 +540,47 @@ static void _obj_release(struct object *obj)
 			slabcache_free(tie);
 		}
 
-#if 0
-		struct list *e, *n;
-		for(e = list_iter_start(&obj->ties); e != list_iter_end(&obj->ties); e = n) {
-			struct object_tie *tie = list_entry(e, struct object_tie, entry);
-			printk("UNTIE object " IDFMT "\n", IDPR(tie->child->id));
-			n = list_iter_next(e);
-			list_remove(e);
-			slabcache_free(tie);
+		printk("FREEING OBJECT PAGES\n");
+		spinlock_acquire_save(&obj->lock);
+		for(struct rbnode *node = rb_first(&obj->pagecache_root); node; node = next) {
+			struct objpage *pg = rb_entry(node, struct objpage, node);
+			if(pg->page) {
+				if(pg->flags & OBJPAGE_COW) {
+					spinlock_acquire_save(&pg->page->lock);
+					if(pg->page->cowcount-- <= 1) {
+						//	page_dealloc(pg->page, 0);
+					}
+					spinlock_release_restore(&pg->page->lock);
+				} else {
+					// page_dealloc(pg->page, 0);
+				}
+				pg->page = NULL;
+			}
+			next = rb_next(node);
+			rb_delete(&pg->node, &obj->pagecache_level1_root);
+			slabcache_free(pg);
 		}
-#endif
+		for(struct rbnode *node = rb_first(&obj->pagecache_level1_root); node; node = next) {
+			struct objpage *pg = rb_entry(node, struct objpage, node);
+			if(pg->page) {
+				if(pg->flags & OBJPAGE_COW) {
+					spinlock_acquire_save(&pg->page->lock);
+					if(pg->page->cowcount-- <= 1) {
+						//	page_dealloc(pg->page, 0);
+					}
+					spinlock_release_restore(&pg->page->lock);
+				} else {
+					// page_dealloc(pg->page, 0);
+				}
+				pg->page = NULL;
+			}
+			next = rb_next(node);
+			rb_delete(&pg->node, &obj->pagecache_level1_root);
+			slabcache_free(pg);
+		}
+
+		spinlock_release_restore(&obj->lock);
+		printk("OK\n");
 
 		/* TODO: clean up... */
 	}
