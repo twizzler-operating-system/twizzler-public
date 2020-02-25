@@ -541,6 +541,7 @@ static void _obj_release(struct object *obj)
 		}
 
 		printk("FREEING OBJECT PAGES\n");
+#if 1
 		spinlock_acquire_save(&obj->lock);
 		for(struct rbnode *node = rb_first(&obj->pagecache_root); node; node = next) {
 			struct objpage *pg = rb_entry(node, struct objpage, node);
@@ -548,7 +549,7 @@ static void _obj_release(struct object *obj)
 				if(pg->flags & OBJPAGE_COW) {
 					spinlock_acquire_save(&pg->page->lock);
 					if(pg->page->cowcount-- <= 1) {
-						//	page_dealloc(pg->page, 0);
+						// page_dealloc(pg->page, 0);
 					}
 					spinlock_release_restore(&pg->page->lock);
 				} else {
@@ -558,7 +559,7 @@ static void _obj_release(struct object *obj)
 			}
 			next = rb_next(node);
 			rb_delete(&pg->node, &obj->pagecache_level1_root);
-			slabcache_free(pg);
+			//	slabcache_free(pg);
 		}
 		for(struct rbnode *node = rb_first(&obj->pagecache_level1_root); node; node = next) {
 			struct objpage *pg = rb_entry(node, struct objpage, node);
@@ -576,11 +577,12 @@ static void _obj_release(struct object *obj)
 			}
 			next = rb_next(node);
 			rb_delete(&pg->node, &obj->pagecache_level1_root);
-			slabcache_free(pg);
+			//	slabcache_free(pg);
 		}
 
 		spinlock_release_restore(&obj->lock);
 		printk("OK\n");
+#endif
 
 		/* TODO: clean up... */
 	}

@@ -248,7 +248,7 @@ static void __page_idle_zero(int level)
 	struct page_stack *stack = &_stacks[level];
 	while(((stack->nzero < stack->avail && stack->nzero < 1024) || stack->avail < 1024)
 	      && !stack->adding) {
-#if 0
+#if 1
 		printk("ACTIVATE: idle zero: %d: %ld %ld %d\n",
 		  level,
 		  stack->avail,
@@ -260,7 +260,18 @@ static void __page_idle_zero(int level)
 			// page_zero(p);
 			page_dealloc(p, PAGE_ZERO);
 		}
-		if(processor_has_threads(current_processor))
+		spinlock_acquire_save(&current_processor->sched_lock);
+		bool br = processor_has_threads(current_processor);
+		spinlock_release_restore(&current_processor->sched_lock);
+		if(br)
+			break;
+		for(volatile int i = 0; i < 100; i++)
+			arch_processor_relax();
+
+		spinlock_acquire_save(&current_processor->sched_lock);
+		br = processor_has_threads(current_processor);
+		spinlock_release_restore(&current_processor->sched_lock);
+		if(br)
 			break;
 	}
 }
@@ -270,11 +281,11 @@ void page_idle_zero(void)
 	static _Atomic int trying = 0;
 	if(atomic_fetch_or(&trying, 1))
 		return;
-	if(!processor_has_threads(current_processor)) {
-		__page_idle_zero(0);
-	}
-	if(!processor_has_threads(current_processor)) {
-		//	__page_idle_zero(1);
-	}
+	// if(!processor_has_threads(current_processor)) {
+	__page_idle_zero(0);
+	//}
+	// if(!processor_has_threads(current_processor)) {
+	//	__page_idle_zero(1);
+	//}
 	trying = 0;
 }
