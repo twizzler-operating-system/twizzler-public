@@ -151,10 +151,13 @@ static bool __verify_region(void *item,
 			if((e = dsa_import(keydata, kdout, &dk)) != CRYPT_OK) {
 				printk("dsa import error: %s\n", error_to_string(e));
 				ret = false;
+				dsa_free(&dk);
 				break;
 			}
 			/* TODO */
 			ret = true;
+
+			dsa_free(&dk);
 			goto done;
 			return true;
 

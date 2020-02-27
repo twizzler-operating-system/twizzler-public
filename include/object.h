@@ -6,6 +6,7 @@
 #include <lib/rb.h>
 #include <spinlock.h>
 #include <twz/_obj.h>
+#include <workqueue.h>
 
 struct kso_view {
 };
@@ -106,6 +107,8 @@ struct object {
 
 	struct rbroot ties_root;
 
+	struct task delete_task;
+
 	/* needed for kernel to access objects */
 	struct vmap *kvmap;
 	struct slot *kslot;
@@ -171,6 +174,7 @@ struct slot;
 void arch_object_map_slot(struct object_space *, struct object *obj, struct slot *, uint64_t flags);
 void arch_object_unmap_slot(struct object_space *space, struct slot *slot);
 void arch_object_unmap_page(struct object *obj, size_t idx);
+void arch_object_unmap_all(struct object *obj);
 bool arch_object_map_page(struct object *obj, struct objpage *);
 bool arch_object_map_flush(struct object *obj, size_t idx);
 bool arch_object_premap_page(struct object *obj, int idx, int level);

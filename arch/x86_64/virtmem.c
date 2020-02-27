@@ -186,6 +186,17 @@ void x86_64_vm_kernel_context_init(void)
 	asm volatile("mov %0, %%cr3" ::"r"(kernel_ctx.arch.pml4_phys) : "memory");
 }
 
+void arch_mm_context_destroy(struct vm_context *ctx)
+{
+	for(int i = 0; i < 256; i++) {
+		if(ctx->arch.user_pdpts[i]) {
+			mm_memory_dealloc(ctx->arch.user_pdpts[i]);
+			ctx->arch.user_pdpts[i] = NULL;
+			ctx->arch.pml4[i] = 0;
+		}
+	}
+}
+
 void arch_mm_context_init(struct vm_context *ctx)
 {
 	ctx->arch.pml4 = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);

@@ -38,15 +38,37 @@ bool arch_object_getmap_slot_flags(struct object_space *space, struct slot *slot
 	return true;
 }
 
+void arch_object_unmap_all(struct object *obj)
+{
+	assert(atomic_load(&obj->mapcount.count) == 0);
+	assert(obj->slot == NULL);
+	assert(obj->kslot == NULL);
+	/* TODO: free things */
+	for(int pd_idx = 0; pd_idx < 512; pd_idx++) {
+		if(obj->arch.pd[pd_idx] & PAGE_LARGE) {
+			obj->arch.pd[pd_idx] = 0;
+		} else {
+			uint64_t *pt = obj->arch.pts[pd_idx];
+			if(pt) {
+				for(int pt_idx = 0; pt_idx < 512; pt_idx++) {
+					pt[pt_idx] = 0;
+				}
+			}
+		}
+	}
+	int x;
+	asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
+}
+
 void arch_object_remap_cow(struct object *obj)
 {
 	for(int pd_idx = 0; pd_idx < 512; pd_idx++) {
-		for(int pt_idx = 0; pt_idx < 512; pt_idx++) {
-			if(obj->arch.pd[pd_idx] & PAGE_LARGE) {
-				obj->arch.pd[pd_idx] &= ~EPT_WRITE;
-			} else {
-				uint64_t *pt = obj->arch.pts[pd_idx];
-				if(pt) {
+		if(obj->arch.pd[pd_idx] & PAGE_LARGE) {
+			obj->arch.pd[pd_idx] &= ~EPT_WRITE;
+		} else {
+			uint64_t *pt = obj->arch.pts[pd_idx];
+			if(pt) {
+				for(int pt_idx = 0; pt_idx < 512; pt_idx++) {
 					pt[pt_idx] &= ~EPT_WRITE;
 				}
 			}
@@ -285,5 +307,15 @@ void arch_object_space_destroy(struct object_space *space)
 void arch_object_destroy(struct object *obj)
 {
 	(void)obj;
-	panic("TODO");
+	for(int i = 0; i < 512; i++) {
+		if(obj->arch.pts[i]) {
+			mm_memory_dealloc(obj->arch.pts[i]);
+			obj->arch.pts[i] = NULL;
+		}
+	}
+	mm_memory_dealloc(obj->arch.pd);
+	mm_memory_dealloc(obj->arch.pts);
+	obj->arch.pts = NULL;
+	obj->arch.pd = NULL;
+	obj->arch.pt_root = 0;
 }

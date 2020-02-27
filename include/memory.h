@@ -74,7 +74,9 @@ void mm_init_region(struct memregion *reg,
   enum memory_type type,
   enum memory_subtype);
 
-void *mm_memory_alloc(size_t length, int type, bool clear);
+#define mm_memory_alloc(l, t, c) __mm_memory_alloc(l, t, c, __FILE__, __LINE__)
+
+void *__mm_memory_alloc(size_t length, int type, bool clear, const char *, int);
 void mm_memory_dealloc(void *addr);
 uintptr_t mm_physical_early_alloc(void);
 void *mm_ptov(uintptr_t addr);
@@ -106,6 +108,7 @@ struct vm_context {
 
 void arch_mm_switch_context(struct vm_context *vm);
 void arch_mm_context_init(struct vm_context *ctx);
+void arch_mm_context_destroy(struct vm_context *ctx);
 
 #define VMAP_WIRE 1
 

@@ -23,6 +23,7 @@ static void __kbd_interrupt(int v, struct interrupt_handler *ih)
 	if(tmp == 0xe1 && !_f) {
 		processor_print_all_stats();
 		thread_print_all_threads();
+		mm_print_stats();
 	}
 	_f = !_f;
 	device_signal_sync(kbd_obj, 0, tmp);

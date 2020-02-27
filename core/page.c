@@ -181,6 +181,10 @@ struct page *page_alloc(int type, int flags, int level)
 					return NULL;
 				}
 				goto add;
+			} else {
+				if(flags & PAGE_ZERO) {
+					//	printk("MANUALLY ZEROING\n");
+				}
 			}
 			p = __do_page_alloc(stack, !zero);
 			if(!p) {
@@ -203,7 +207,7 @@ struct page *page_alloc(int type, int flags, int level)
 		stack->adding = true;
 		spinlock_release_restore(&stack->lock);
 		struct page *lp = page_alloc(type, 0, level + 1);
-		// printk("splitting page %lx (level %d)\n", lp->addr, level + 1);
+		//	printk("splitting page %lx (level %d)\n", lp->addr, level + 1);
 		for(size_t i = 0; i < mm_page_size(level + 1) / mm_page_size(level); i++) {
 			struct page *np = arena_allocate(&page_arena, sizeof(struct page));
 			//*np = *lp;
@@ -248,7 +252,7 @@ static void __page_idle_zero(int level)
 	struct page_stack *stack = &_stacks[level];
 	while(((stack->nzero < stack->avail && stack->nzero < 1024) || stack->avail < 1024)
 	      && !stack->adding) {
-#if 1
+#if 0
 		printk("ACTIVATE: idle zero: %d: %ld %ld %d\n",
 		  level,
 		  stack->avail,

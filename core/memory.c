@@ -188,7 +188,7 @@ uintptr_t mm_physical_early_alloc(void)
 	panic("out of early-alloc memory");
 }
 
-void *mm_memory_alloc(size_t length, int type, bool clear)
+void *__mm_memory_alloc(size_t length, int type, bool clear, const char *file, int linenr)
 {
 	length = align_up(length, mm_page_size(0));
 	static struct spinlock nvs = SPINLOCK_INIT;
@@ -243,7 +243,27 @@ void *mm_memory_alloc(size_t length, int type, bool clear)
 	spinlock_acquire_save(&allocator_lock);
 	foreach(e, list, &allocators) {
 		struct mem_allocator *alloc = list_entry(e, struct mem_allocator, entry);
-		// printk(":: alloc %lx: %ld %ld\n", length, alloc->free_memory, alloc->available_memory);
+#if 0
+		printk(":: alloc %lx: %ld %ld: %s:%d\n",
+		  length,
+		  alloc->free_memory,
+		  alloc->available_memory,
+		  file,
+		  linenr);
+#endif
+		// debug_print_backtrace();
+		if(alloc->free_memory > length) {
+			uintptr_t x = pmm_buddy_allocate(alloc, length);
+			if(x != 0) {
+				mm_late_count += length;
+				spinlock_release_restore(&allocator_lock);
+				if(clear)
+					memset((void *)x, 0, length);
+				// printk("alloc: %p\n", x);
+				return (void *)x;
+			}
+		}
+
 		if(alloc->available_memory >= length) {
 			void *p = (void *)alloc->marker;
 			alloc->available_memory -= length;
@@ -255,17 +275,6 @@ void *mm_memory_alloc(size_t length, int type, bool clear)
 			}
 			// printk("aalloc: %p\n", p);
 			return (void *)p;
-		}
-		if(alloc->free_memory > length) {
-			uintptr_t x = pmm_buddy_allocate(alloc, length);
-			if(x != 0) {
-				mm_late_count += length;
-				spinlock_release_restore(&allocator_lock);
-				if(clear)
-					memset((void *)x, 0, length);
-				// printk("alloc: %p\n", x);
-				return (void *)x;
-			}
 		}
 	}
 

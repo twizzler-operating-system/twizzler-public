@@ -55,11 +55,14 @@ static void vm_map_disestablish(struct vm_context *ctx, struct vmap *map)
 
 	obj_release_slot(obj);
 	obj_put(obj);
+
+	slabcache_free(map);
 }
 
 static void __vm_context_finish_destroy(void *_v)
 {
 	struct vm_context *v = _v;
+	arch_mm_context_destroy(v);
 	slabcache_free(v);
 }
 
@@ -76,8 +79,8 @@ void vm_context_destroy(struct vm_context *v)
 		  map->obj->mapcount.count);
 #endif
 
-		vm_map_disestablish(v, map);
 		next = rb_next(node);
+		vm_map_disestablish(v, map);
 	}
 
 	/* TODO: does this work for all contexts? */
@@ -88,6 +91,7 @@ void vm_context_destroy(struct vm_context *v)
 	obj_free_kaddr(obj);
 	obj_put(obj); /* one for kso, one for this ref. TODO: clean this up */
 	obj_put(obj);
+
 	workqueue_insert(&current_processor->wq, &v->free_task, __vm_context_finish_destroy, v);
 }
 

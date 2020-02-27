@@ -75,6 +75,7 @@ void obj_init(struct object *obj)
 	_obj_ctor(NULL, obj);
 	obj->slot = NULL;
 	obj->flags = 0;
+	obj->id = 0;
 	obj->kvmap = NULL;
 	obj->kaddr = NULL;
 	krc_init(&obj->refs);
@@ -93,7 +94,10 @@ static void _obj_dtor(void *_u, void *ptr)
 
 static struct objpage *objpage_alloc(void)
 {
-	return slabcache_alloc(&sc_objpage);
+	struct objpage *op = slabcache_alloc(&sc_objpage);
+	op->flags = 0;
+	op->page = NULL;
+	return op;
 }
 
 void obj_system_init(void)
@@ -377,16 +381,17 @@ void obj_release_slot(struct object *obj)
 	assert(obj->slot);
 	assert(obj->mapcount.count > 0);
 
+	// printk("REL_SLOT " IDFMT "; mapcount=%ld\n", IDPR(obj->id), obj->mapcount.count);
 	if(krc_put(&obj->mapcount)) {
 		/* hit zero; release */
 		struct slot *slot = obj->slot;
 		obj->slot = NULL;
 		/* this krc drop MUST not reduce the count to 0, because there must be a reference to obj
 		 * coming into this function */
-		bool tmp = krc_put(&obj->refs);
-		assert(!tmp);
 		object_space_release_slot(slot);
 		slot_release(slot);
+		bool tmp = krc_put(&obj->refs);
+		assert(!tmp);
 #if CONFIG_DEBUG_OBJECT_SLOT
 		printk("MAPCOUNT ZERO: " IDFMT "; refs=%ld\n", IDPR(obj->id), obj->refs.count);
 #endif
@@ -408,12 +413,13 @@ struct slot *obj_alloc_slot(struct object *obj)
 	krc_get(&obj->mapcount);
 
 #if CONFIG_DEBUG_OBJECT_SLOT
-	printk("[slot]: allocated uslot %ld for " IDFMT " (%p %lx %d)\n",
+	printk("[slot]: allocated uslot %ld for " IDFMT " (%p %lx %d), mapcount %ld\n",
 	  obj->slot->num,
 	  IDPR(obj->id),
 	  obj,
 	  obj->flags,
-	  obj->kso_type);
+	  obj->kso_type,
+	  obj->mapcount.count);
 #endif
 	krc_get(&obj->slot->rc); /* return */
 	spinlock_release_restore(&obj->lock);
@@ -517,8 +523,9 @@ static void _objpage_release(void *page)
 	(void)page; /* TODO (major): implement */
 }
 
-static void _obj_release(struct object *obj)
+static void _obj_release(void *_obj)
 {
+	struct object *obj = _obj;
 #if CONFIG_DEBUG_OBJECT_LIFE
 	printk("OBJ RELEASE: " IDFMT "\n", IDPR(obj->id));
 #endif
@@ -540,51 +547,59 @@ static void _obj_release(struct object *obj)
 			slabcache_free(tie);
 		}
 
-		printk("FREEING OBJECT PAGES\n");
+		// printk("FREEING OBJECT PAGES: %d, " IDFMT "\n", obj->kso_type, IDPR(obj->id));
+		// if(obj->kso_type)
+		//	return;
+		arch_object_unmap_all(obj);
+		//	if(obj->kso_type)
+		// return;
 #if 1
-		spinlock_acquire_save(&obj->lock);
+		// spinlock_acquire_save(&obj->lock);
 		for(struct rbnode *node = rb_first(&obj->pagecache_root); node; node = next) {
 			struct objpage *pg = rb_entry(node, struct objpage, node);
-			if(pg->page) {
+			if(pg->page && 0) {
 				if(pg->flags & OBJPAGE_COW) {
 					spinlock_acquire_save(&pg->page->lock);
 					if(pg->page->cowcount-- <= 1) {
-						// page_dealloc(pg->page, 0);
+						page_dealloc(pg->page, 0);
 					}
 					spinlock_release_restore(&pg->page->lock);
 				} else {
-					// page_dealloc(pg->page, 0);
+					page_dealloc(pg->page, 0);
 				}
 				pg->page = NULL;
 			}
 			next = rb_next(node);
-			rb_delete(&pg->node, &obj->pagecache_level1_root);
-			//	slabcache_free(pg);
+			rb_delete(&pg->node, &obj->pagecache_root);
+			//		printk(".");
+			slabcache_free(pg);
 		}
 		for(struct rbnode *node = rb_first(&obj->pagecache_level1_root); node; node = next) {
 			struct objpage *pg = rb_entry(node, struct objpage, node);
-			if(pg->page) {
+			if(pg->page && 0) {
 				if(pg->flags & OBJPAGE_COW) {
 					spinlock_acquire_save(&pg->page->lock);
 					if(pg->page->cowcount-- <= 1) {
-						//	page_dealloc(pg->page, 0);
+						page_dealloc(pg->page, 0);
 					}
 					spinlock_release_restore(&pg->page->lock);
 				} else {
-					// page_dealloc(pg->page, 0);
+					page_dealloc(pg->page, 0);
 				}
 				pg->page = NULL;
 			}
 			next = rb_next(node);
 			rb_delete(&pg->node, &obj->pagecache_level1_root);
-			//	slabcache_free(pg);
+			slabcache_free(pg);
 		}
 
-		spinlock_release_restore(&obj->lock);
-		printk("OK\n");
+		arch_object_destroy(obj);
+		// spinlock_release_restore(&obj->lock);
+		//	printk("OK\n");
 #endif
 
 		/* TODO: clean up... */
+		//	slabcache_free(obj);
 	}
 }
 
@@ -600,6 +615,7 @@ void obj_put(struct object *o)
 			rb_delete(&o->node, &obj_tree);
 		}
 		spinlock_release_restore(&objlock);
+		// workqueue_insert(&current_processor->wq, &o->delete_task, _obj_release, o);
 		_obj_release(o);
 	}
 }
@@ -962,7 +978,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		  loaddr / OBJ_MAXSIZE);
 	}
 #if 0
-	if(o->id)
+	if(o->id || 1)
 		printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT "\n",
 		  current_thread ? current_thread->id : -1,
 		  ip,
@@ -1030,6 +1046,14 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		if(!(o->flags & OF_KERNEL))
 			spinlock_acquire_save(&p->page->lock);
 
+#if 0
+		printk(":: ofl=%lx, opfl=%lx, pcc=%d, %ld %ld\n",
+		  o->flags,
+		  p->flags,
+		  p->page->cowcount,
+		  o->refs.count,
+		  o->mapcount.count);
+#endif
 		if(p->page->cowcount <= 1 && (p->flags & OBJPAGE_COW)) {
 			p->flags &= ~(OBJPAGE_COW | OBJPAGE_MAPPED);
 			p->page->cowcount = 1;
