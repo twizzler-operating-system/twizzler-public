@@ -850,21 +850,6 @@ bool obj_verify_id(struct object *obj, bool cache_result, bool uncache)
 	return result;
 }
 
-struct object *obj_lookup_slot(uintptr_t oaddr)
-{
-	ssize_t tl = oaddr / mm_page_size(MAX_PGLEVEL);
-#warning "need to lock this shit"
-	struct slot *slot = slot_lookup(tl);
-	if(!slot) {
-		return NULL;
-	}
-	struct object *obj = slot->obj;
-	if(obj) {
-		krc_get(&obj->refs);
-	}
-	slot_release(slot);
-	return obj;
-}
 #include <processor.h>
 #include <secctx.h>
 #include <thread.h>
@@ -954,6 +939,21 @@ static bool __objspace_fault_calculate_perms(struct object *o,
 	return true;
 }
 
+struct object *obj_lookup_slot(uintptr_t oaddr, struct slot **slot)
+{
+	ssize_t tl = oaddr / mm_page_size(MAX_PGLEVEL);
+#warning "need to lock this shit"
+	*slot = slot_lookup(tl);
+	if(!*slot) {
+		return NULL;
+	}
+	struct object *obj = (*slot)->obj;
+	if(obj) {
+		krc_get(&obj->refs);
+	}
+	return obj;
+}
+
 void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr, uint32_t flags)
 {
 	static size_t __c = 0;
@@ -968,7 +968,9 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		return;
 	}
 
-	struct object *o = obj_lookup_slot(loaddr);
+	struct slot *slot;
+	struct object *o = obj_lookup_slot(loaddr, &slot);
+
 	if(o == NULL) {
 		panic(
 		  "no object mapped to slot during object fault: vaddr=%lx, oaddr=%lx, ip=%lx, slot=%ld",
@@ -991,49 +993,35 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 
 	uint64_t perms = 0;
 	uint64_t existing_flags;
-	bool do_map = false;
-	// do_map = true;
-	// perms = OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U;
-	/* TODO: lock the object enough for the slots to be safe */
-#if 1
-	if((o->flags & OF_KERNEL) || VADDR_IS_KERNEL(vaddr)) {
-		if(!arch_object_getmap_slot_flags(NULL, o->kslot, &existing_flags)) {
-			do_map = true;
-		}
-		perms = OBJSPACE_READ | OBJSPACE_WRITE;
-	} else {
-		if(arch_object_getmap_slot_flags(NULL, o->slot, &existing_flags)) {
-			/* we've already mapped the object. Maybe we don't need to do a permissions check.
-			 */
-			if((existing_flags & flags) != flags) {
-				do_map = true;
-				if(!__objspace_fault_calculate_perms(o, flags, loaddr, vaddr, ip, &perms))
-					goto done;
-			}
-		} else {
-			do_map = true;
-			if(!__objspace_fault_calculate_perms(o, flags, loaddr, vaddr, ip, &perms))
-				goto done;
-		}
-	}
-#endif
 
-	/* TODO: something better */
-	// for(int j = 0; j < 4 && (idx < 200000 || j == 0); j++, idx++) {
+	bool do_map = !arch_object_getmap_slot_flags(NULL, slot, &existing_flags);
+	do_map = do_map || (existing_flags & flags) != flags;
 
 	if(do_map) {
-		if(o->flags & OF_KERNEL) {
-			/* TODO: shouldn't need this? */
-			arch_object_map_slot(NULL,
-			  o,
-			  VADDR_IS_KERNEL(vaddr) ? o->kslot : o->slot,
-			  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
+		if(!VADDR_IS_KERNEL(vaddr) && !(o->flags & OF_KERNEL)) {
+			if(!__objspace_fault_calculate_perms(o, flags, loaddr, vaddr, ip, &perms)) {
+				goto done;
+			}
+			perms &= (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U);
 		} else {
-			object_space_map_slot(NULL,
-			  VADDR_IS_KERNEL(vaddr) ? o->kslot : o->slot,
-			  perms & (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U));
+			perms = OBJSPACE_READ | OBJSPACE_WRITE;
 		}
+		if((flags & perms) != flags) {
+			panic("TODO: this mapping will never work");
+		}
+
+		spinlock_acquire_save(&slot->lock);
+		if(!arch_object_getmap_slot_flags(NULL, slot, &existing_flags)) {
+			//		if(o->flags & OF_KERNEL)
+			//			arch_object_map_slot(NULL, o, slot, perms);
+			//		else
+			object_space_map_slot(NULL, slot, perms);
+		} else if((existing_flags & flags) != flags) {
+			arch_object_map_slot(NULL, o, slot, perms);
+		}
+		spinlock_release_restore(&slot->lock);
 	}
+
 	if(o->flags & OF_ALLOC) {
 		struct objpage p;
 		p.page = page_alloc(PAGE_TYPE_VOLATILE, 0, 0); /* TODO: refcount, largepage */
@@ -1041,8 +1029,9 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		p.page->flags = PAGE_CACHE_WB;
 		arch_object_map_page(o, &p);
 	} else {
-		spinlock_acquire_save(&o->lock);
-		struct objpage *p = __obj_get_page(o, loaddr % OBJ_MAXSIZE, true);
+		struct objpage *p = obj_get_page(o, loaddr % OBJ_MAXSIZE, true);
+		if(!(o->flags & OF_KERNEL))
+			spinlock_acquire_save(&o->lock);
 		if(!(o->flags & OF_KERNEL))
 			spinlock_acquire_save(&p->page->lock);
 
@@ -1102,7 +1091,8 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		}
 		if(!(o->flags & OF_KERNEL))
 			spinlock_release_restore(&p->page->lock);
-		spinlock_release_restore(&o->lock);
+		if(!(o->flags & OF_KERNEL))
+			spinlock_release_restore(&o->lock);
 	}
 	// printk("Mapped successfully\n");
 	//	do_map = false;
@@ -1111,4 +1101,5 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 
 done:
 	obj_put(o);
+	slot_release(slot);
 }

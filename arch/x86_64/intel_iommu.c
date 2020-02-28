@@ -258,9 +258,10 @@ static void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __
 				  (sid >> 3) & 0xf,
 				  (sid & 7),
 				  flo);
-				size_t slot = flo / mm_page_size(MAX_PGLEVEL);
+				size_t slot_num = flo / mm_page_size(MAX_PGLEVEL);
 				size_t idx = (flo % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
-				struct object *o = obj_lookup_slot(flo);
+				struct slot *slot;
+				struct object *o = obj_lookup_slot(flo, &slot);
 				if(o) {
 					do_iommu_object_map_slot(o, 0);
 					iommu_set_context_entry(im, sid >> 8, sid & 0xff, ept_phys, 1);
@@ -276,9 +277,10 @@ static void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __
 
 					obj_put(o);
 				} else {
-					printk("[iommu] fault to slot %ld; unknown object\n", slot);
+					printk("[iommu] fault to slot %ld; unknown object\n", slot_num);
 				}
 				pcie_iommu_fault(im->pcie_seg, sid, flo, !!o);
+				slot_release(slot);
 			}
 		}
 		if(fsr & IOMMU_FSR_PFO) {

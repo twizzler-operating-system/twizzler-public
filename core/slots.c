@@ -122,6 +122,7 @@ void slot_release(struct slot *s)
 
 void object_space_map_slot(struct object_space *space, struct slot *slot, uint64_t flags)
 {
+	assert(slot->lock.data);
 	if(!space)
 		space =
 		  current_thread && current_thread->active_sc ? &current_thread->active_sc->space : NULL;
@@ -135,15 +136,15 @@ void object_space_map_slot(struct object_space *space, struct slot *slot, uint64
 				panic("tried to remap a slot to a space it is already mapped in");
 		}
 #endif
-		spinlock_acquire_save(&slot->lock);
+		//	spinlock_acquire_save(&slot->lock);
 		se->space = space;
 		krc_get(&space->refs);
 		list_insert(&slot->spaces, &se->entry);
 	} else {
-		spinlock_acquire_save(&slot->lock);
+		//	spinlock_acquire_save(&slot->lock);
 	}
 	arch_object_map_slot(space, slot->obj, slot, flags);
-	spinlock_release_restore(&slot->lock);
+	//	spinlock_release_restore(&slot->lock);
 }
 
 void object_space_release_slot(struct slot *slot)

@@ -146,7 +146,7 @@ struct object *obj_lookup(uint128_t id, int flags);
 bool obj_verify_id(struct object *obj, bool cache_result, bool uncache);
 struct slot *obj_alloc_slot(struct object *obj);
 void obj_alloc_kernel_slot(struct object *obj);
-struct object *obj_lookup_slot(uintptr_t oaddr);
+struct object *obj_lookup_slot(uintptr_t oaddr, struct slot **);
 void obj_cache_page(struct object *obj, size_t idx, struct page *);
 void obj_kso_init(struct object *obj, enum kso_type ksot);
 void obj_put_page(struct objpage *p);

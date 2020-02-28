@@ -60,7 +60,8 @@ uintptr_t mm_vtoo(void *addr)
 
 uintptr_t mm_otop(uintptr_t oaddr)
 {
-	struct object *o = obj_lookup_slot(oaddr);
+	struct slot *slot;
+	struct object *o = obj_lookup_slot(oaddr, &slot);
 	if(!o) {
 		panic("mm_otop no object");
 	}
@@ -72,6 +73,7 @@ uintptr_t mm_otop(uintptr_t oaddr)
 	if(!arch_object_getmap(o, oaddr % OBJ_MAXSIZE, &phys, &level, NULL))
 		panic("mm_otop no such mapping");
 	obj_put(o);
+	slot_release(slot);
 	// printk(":: %lx %lx %lx\n", oaddr, phys, oaddr % mm_page_size(level));
 
 	return phys + oaddr % mm_page_size(level);
@@ -252,7 +254,9 @@ void *__mm_memory_alloc(size_t length, int type, bool clear, const char *file, i
 		  linenr);
 #endif
 		// debug_print_backtrace();
-		if(alloc->free_memory > length) {
+		/* TODO: the buddy allocator doesn't seem to like non-0x1000 sized allocs.
+		 * But: do we even need to allocate larger bits of memory than that most of the time? */
+		if(alloc->free_memory > length && length == 0x1000) {
 			uintptr_t x = pmm_buddy_allocate(alloc, length);
 			if(x != 0) {
 				mm_late_count += length;
@@ -290,13 +294,16 @@ void *__mm_memory_alloc(size_t length, int type, bool clear, const char *file, i
 void mm_memory_dealloc(void *_addr)
 {
 	uintptr_t addr = (uintptr_t)_addr;
+	spinlock_acquire_save(&allocator_lock);
 	foreach(e, list, &allocators) {
 		struct mem_allocator *alloc = list_entry(e, struct mem_allocator, entry);
 		if(addr >= (uintptr_t)alloc->vstart && addr < (uintptr_t)alloc->vstart + alloc->length) {
 			pmm_buddy_deallocate(alloc, addr);
+			spinlock_release_restore(&allocator_lock);
 			return;
 		}
 	}
+	spinlock_release_restore(&allocator_lock);
 	panic("invalid free");
 }
 

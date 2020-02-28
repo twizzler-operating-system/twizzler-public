@@ -28,6 +28,7 @@ bool arch_object_getmap_slot_flags(struct object_space *space, struct slot *slot
 		return false;
 	ef = pdpt[pdpt_idx] & ~EPT_PAGE_MASK;
 	if(flags) {
+		*flags = 0;
 		if(ef & EPT_READ)
 			*flags |= OBJSPACE_READ;
 		if(ef & EPT_WRITE)
