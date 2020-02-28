@@ -942,7 +942,6 @@ static bool __objspace_fault_calculate_perms(struct object *o,
 struct object *obj_lookup_slot(uintptr_t oaddr, struct slot **slot)
 {
 	ssize_t tl = oaddr / mm_page_size(MAX_PGLEVEL);
-#warning "need to lock this shit"
 	*slot = slot_lookup(tl);
 	if(!*slot) {
 		return NULL;

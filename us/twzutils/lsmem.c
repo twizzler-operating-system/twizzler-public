@@ -16,17 +16,10 @@ void print_system(twzobj *sys)
 
 		struct device_repr *dr = twz_device_getrepr(&cpu);
 		struct processor_header *ph = twz_device_getds(&cpu);
-		if((dr->device_id >> 24) == 0) {
+		if((dr->device_id >> 24) == 1) {
+			printf("MEM\n");
 			/* is CPU */
-			printf("CPU %d\n", dr->device_id);
-
-			printf("  thr_switch : %-ld\n", ph->stats.thr_switch);
-			printf("  ext_intr   : %-ld\n", ph->stats.ext_intr);
-			printf("  int_intr   : %-ld\n", ph->stats.int_intr);
-			printf("  running    : %-ld\n", ph->stats.running);
-			printf("  sctx_switch: %-ld\n", ph->stats.sctx_switch);
-			printf("  shootdowns : %-ld\n", ph->stats.shootdowns);
-			printf("  syscalls   : %-ld\n", ph->stats.syscalls);
+			break;
 		}
 	}
 }

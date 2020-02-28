@@ -221,6 +221,7 @@ static void __init_processor_objects(void *_a __unused)
 {
 	struct object *so = get_system_object();
 	size_t count = 0;
+	struct bus_repr *brepr = bus_get_repr(so);
 	for(int i = 0; i < PROCESSOR_MAX_CPUS; i++) {
 		if((processors[i].flags & PROCESSOR_UP)) {
 			struct object *d = device_register(DEVICE_BT_SYSTEM, i);
@@ -228,11 +229,12 @@ static void __init_processor_objects(void *_a __unused)
 			snprintf(name, 128, "CPU %d", i);
 			kso_setname(d, name);
 
-			kso_attach(so, d, i);
+			kso_attach(so, d, brepr->max_children);
 			count++;
 			processors[i].obj = d; /* krc: move */
 		}
 	}
+	device_release_headers(so);
 	struct system_header *hdr = bus_get_busspecific(so);
 	hdr->nrcpus = count;
 	device_release_headers(so);

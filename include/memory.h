@@ -84,6 +84,7 @@ uintptr_t mm_vtop(void *addr);
 uintptr_t mm_vtoo(void *addr);
 uintptr_t mm_otop(uintptr_t oaddr);
 
+void mm_update_stats(void);
 void mm_print_stats(void);
 
 static inline void *mm_virtual_early_alloc(void)

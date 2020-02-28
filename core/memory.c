@@ -129,12 +129,52 @@ extern size_t mm_page_bootstrap_count;
 extern size_t mm_page_alloced;
 bool mm_ready = false;
 
+#include <twz/driver/memory.h>
+
+struct memory_stats mm_stats = { 0 };
+struct page_stats mm_page_stats[MAX_PGLEVEL + 1];
+
 void mm_print_stats(void)
 {
 	printk("early allocation: %ld KB\n", mm_early_count / 1024);
 	printk("late  allocation: %ld KB\n", mm_late_count / 1024);
 	printk("page  allocation: %ld KB\n", mm_page_alloc_count / 1024);
 	page_print_stats();
+}
+
+#include <device.h>
+#include <init.h>
+#include <object.h>
+#include <twz/driver/system.h>
+static struct object *mem_object = NULL;
+static struct memory_stats_header *msh = NULL;
+static void __init_mem_object(void *_a __unused)
+{
+	struct object *so = get_system_object();
+	size_t count = 0;
+	struct object *d = device_register(DEVICE_BT_SYSTEM, 1ul << 24);
+	char name[128];
+	snprintf(name, 128, "MEMORY STATS");
+	kso_setname(d, name);
+
+	struct bus_repr *brepr = bus_get_repr(so);
+	kso_attach(so, d, brepr->max_children);
+	device_release_headers(so);
+	mem_object = d; /* krc: move */
+	msh = device_get_devspecific(mem_object);
+}
+POST_INIT(__init_mem_object, NULL);
+
+void mm_update_stats(void)
+{
+	if(msh) {
+		msh->stats = mm_stats;
+		for(int i = 0; i <= MAX_PGLEVEL; i++) {
+			msh->page_stats[i] = mm_page_stats[i];
+		}
+		msh->nr_page_levels = MAX_PGLEVEL + 1;
+		device_release_headers(mem_object);
+	}
 }
 
 void mm_init_phase_2(void)

@@ -49,10 +49,7 @@ static inline void *twz_device_getds(twzobj *obj)
 	return (void *)(twz_device_getrepr(obj) + 1);
 }
 #include <twz/_sys.h>
-static inline int twz_device_map_object(twzobj *dev,
-  twzobj *obj,
-  size_t off,
-  size_t len)
+static inline int twz_device_map_object(twzobj *dev, twzobj *obj, size_t off, size_t len)
 {
 	objid_t cid = twz_object_guid(dev);
 	return twz_object_ctl(obj, OCO_MAP, off, len, &cid);
