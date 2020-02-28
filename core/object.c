@@ -981,14 +981,16 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	}
 #if 0
 	if(o->id || 1)
-		printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT "\n",
+		printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT
+		       " %lx\n",
 		  current_thread ? current_thread->id : -1,
 		  ip,
 		  loaddr,
 		  idx,
 		  vaddr,
 		  flags,
-		  IDPR(o->id));
+		  IDPR(o->id),
+		  o->flags);
 #endif
 
 	uint64_t perms = 0;
@@ -996,6 +998,8 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 
 	bool do_map = !arch_object_getmap_slot_flags(NULL, slot, &existing_flags);
 	do_map = do_map || (existing_flags & flags) != flags;
+
+	// printk("A\n");
 
 	if(do_map) {
 		if(!VADDR_IS_KERNEL(vaddr) && !(o->flags & OF_KERNEL)) {
@@ -1010,6 +1014,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			panic("TODO: this mapping will never work");
 		}
 
+		//	printk("B\n");
 		spinlock_acquire_save(&slot->lock);
 		if(!arch_object_getmap_slot_flags(NULL, slot, &existing_flags)) {
 			//		if(o->flags & OF_KERNEL)
@@ -1019,14 +1024,17 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		} else if((existing_flags & flags) != flags) {
 			arch_object_map_slot(NULL, o, slot, perms);
 		}
+		//	printk("C\n");
 		spinlock_release_restore(&slot->lock);
 	}
 
 	if(o->flags & OF_ALLOC) {
-		struct objpage p;
+		struct objpage p = { 0 };
+		// printk("X\n");
 		p.page = page_alloc(PAGE_TYPE_VOLATILE, 0, 0); /* TODO: refcount, largepage */
 		p.idx = (loaddr % OBJ_MAXSIZE) / mm_page_size(p.page->level);
 		p.page->flags = PAGE_CACHE_WB;
+		// printk("Y\n");
 		arch_object_map_page(o, &p);
 	} else {
 		struct objpage *p = obj_get_page(o, loaddr % OBJ_MAXSIZE, true);
@@ -1080,7 +1088,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			// for(;;)
 			//	;
 		} else {
-			// printk("P: %p %lx\n", p->page, p->page->addr);
+			// printk("P: %p %lx %lx\n", p->page, p->page->addr, p->flags);
 			if(!(p->flags & OBJPAGE_MAPPED)) {
 				arch_object_map_page(o, p);
 				p->flags |= OBJPAGE_MAPPED;
