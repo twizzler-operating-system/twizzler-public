@@ -158,6 +158,7 @@ static void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 			continue;
 		}
 
+		// printk("Loading object " IDFMT "\r", IDPR(obj->id));
 		obj_write_data(obj, idx * mm_page_size(0) - OBJ_NULLPAGE_SIZE, len, data);
 		h = (struct ustar_header *)((char *)h + 512 + reclen);
 	}
@@ -165,7 +166,6 @@ static void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 
 static size_t _load_initrd(char *start, size_t modlen)
 {
-	printk(":: load_initrd: %p\n", start);
 	struct ustar_header *h = (void *)start;
 
 	size_t count = 0;
@@ -178,6 +178,10 @@ static size_t _load_initrd(char *start, size_t modlen)
 		char *data = (char *)h + 512;
 		size_t len = strtol(h->size, NULL, 8);
 		size_t reclen = (len + 511) & ~511;
+
+		int compl = (((char *)h - start) * 100) / modlen;
+		if((compl % 20) == 0)
+			printk("[initrd] parsing objects: %d%%\r", compl);
 
 		switch(h->typeflag[0]) {
 			size_t nl;
@@ -477,7 +481,6 @@ void x86_64_processor_post_vm_init(struct processor *proc)
 	if(proc->flags & PROCESSOR_BSP)
 		kernel_init();
 	proc->arch.kernel_stack = mm_memory_alloc(KERNEL_STACK_SIZE, PM_TYPE_DRAM, true);
-	printk(":: %p\n", proc->arch.kernel_stack);
 	asm volatile("mov %%rax, %%rsp; call processor_perproc_init;" ::"a"(
 	               proc->arch.kernel_stack + KERNEL_STACK_SIZE),
 	             "D"(proc)

@@ -73,7 +73,6 @@ static struct pmap *pmap_get(uintptr_t phys, int cache_type, bool remap)
 	} else {
 		pmap = rb_entry(node, struct pmap, node);
 		if(remap) {
-			printk("remapping\n");
 			obj_cache_page(&pmap_object, start, &pmap->page);
 			start += mm_page_size(0);
 		}
@@ -102,6 +101,6 @@ void *pmap_allocate(uintptr_t phys, size_t len, int cache_type)
 			virt = pmap->virt;
 	}
 	spinlock_release_restore(&lock);
-	printk("pmap alloc %lx:%lx -> %lx\n", phys, phys + len - 1, virt + off);
+	// printk("pmap alloc %lx:%lx -> %lx\n", phys, phys + len - 1, virt + off);
 	return (void *)(virt + off + (uintptr_t)SLOT_TO_VADDR(KVSLOT_PMAP));
 }
