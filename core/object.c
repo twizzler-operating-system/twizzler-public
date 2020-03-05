@@ -1030,7 +1030,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	if(o->flags & OF_ALLOC) {
 		struct objpage p = { 0 };
 		// printk("X\n");
-		p.page = page_alloc(PAGE_TYPE_VOLATILE, 0, 0); /* TODO: refcount, largepage */
+		p.page = page_alloc(PAGE_TYPE_VOLATILE, PAGE_CRITICAL, 0); /* TODO: refcount, largepage */
 		p.idx = (loaddr % OBJ_MAXSIZE) / mm_page_size(p.page->level);
 		p.page->flags = PAGE_CACHE_WB;
 		// printk("Y\n");

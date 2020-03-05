@@ -202,7 +202,8 @@ struct page *page_alloc(int type, int flags, int level)
 		}
 	}
 
-	if(stack->avail < 128 && level < MAX_PGLEVEL && mm_ready && !stack->adding) {
+	if(stack->avail < 128 && level < MAX_PGLEVEL && mm_ready && !stack->adding
+	   && !(flags & PAGE_CRITICAL)) {
 	add:
 		stack->adding = true;
 		spinlock_release_restore(&stack->lock);
