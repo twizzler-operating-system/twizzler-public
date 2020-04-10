@@ -21,7 +21,13 @@ typedef struct _twz_object {
 
 #define twz_slot_to_base(s) ({ (void *)((s)*OBJ_MAXSIZE + OBJ_NULLPAGE_SIZE); })
 #define twz_base_to_slot(s) ({ ((uintptr_t)(s) / OBJ_MAXSIZE); })
-#define twz_object_base(s) ({ (void *)((uintptr_t)((s)->base) + OBJ_NULLPAGE_SIZE); })
+#define twz_object_base(s)                                                                         \
+	({                                                                                             \
+		if(!((s)->flags & TWZ_OBJ_VALID))                                                          \
+			abort();                                                                               \
+                                                                                                   \
+		(1) ? (void *)((uintptr_t)((s)->base) + OBJ_NULLPAGE_SIZE) : NULL;                         \
+	})
 
 #define TWZ_OC_HASHDATA MIP_HASHDATA
 #define TWZ_OC_DFL_READ MIP_DFL_READ
@@ -41,6 +47,7 @@ int twz_object_new(twzobj *obj, twzobj *src, twzobj *ku, uint64_t flags);
 
 _Bool objid_parse(const char *name, size_t len, objid_t *id);
 
+/* TODO: hide */
 #define twz_ptr_local(p) ({ (typeof(p))((uintptr_t)(p) & (OBJ_MAXSIZE - 1)); })
 #define twz_ptr_rebase(fe, p) ({ (typeof(p))((fe)*OBJ_MAXSIZE | (uintptr_t)twz_ptr_local(p)); })
 
@@ -59,13 +66,14 @@ __attribute__((const)) static inline void *__twz_object_lea(twzobj *o, const voi
 #define TWZ_OBJECT_FROM_PTR(p)                                                                     \
 	(twzobj)                                                                                       \
 	{                                                                                              \
-		.base = (void *)((uintptr_t)p & ~(OBJ_MAXSIZE - 1))                                        \
+		.base = (void *)((uintptr_t)p & ~(OBJ_MAXSIZE - 1)), .flags = TWZ_OBJ_VALID,               \
 	}
 
+/* TODO: hide */
 #define TWZ_OBJECT_INIT(s)                                                                         \
 	(twzobj)                                                                                       \
 	{                                                                                              \
-		.base = (void *)(SLOT_TO_VADDR(s)),                                                        \
+		.base = (void *)(SLOT_TO_VADDR(s)), .flags = TWZ_OBJ_VALID,                                \
 	}
 
 #define twz_object_lea(o, p) ({ (typeof(p)) __twz_object_lea((o), (p)); })
@@ -73,13 +81,14 @@ __attribute__((const)) static inline void *__twz_object_lea(twzobj *o, const voi
 #define twz_ptr_lea(p)                                                                             \
 	({                                                                                             \
 		twzobj _o = TWZ_OBJECT_FROM_PTR(&(p));                                                     \
+		/* TODO: this is tied to TWZ_OBJECT_FROM_PTR... if that call increments refcounts, we'll   \
+		 * need to do a release */                                                                 \
 		typeof(p) _r = (typeof(p))__twz_object_lea(&_o, (p));                                      \
-		twz_object_release(&_o);                                                                   \
 		_r;                                                                                        \
 	});
 
 #define twz_object_meta(o)                                                                         \
-	({ (struct metainfo *)(((char *)(o)->base + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE)); })
+	({ (struct metainfo *)((1) ? ((char *)(o)->base + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE) : NULL); })
 
 int twz_object_init_guid(twzobj *obj, objid_t id, int flags);
 int twz_object_init_name(twzobj *obj, const char *name, int flags);

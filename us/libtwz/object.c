@@ -362,6 +362,8 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 #endif
 
 	struct metainfo *mi = twz_object_meta(o);
+	if(mi == NULL)
+		goto fault;
 	size_t slot = (uintptr_t)p / OBJ_MAXSIZE;
 	struct fotentry *fe = _twz_object_get_fote(o, slot);
 
