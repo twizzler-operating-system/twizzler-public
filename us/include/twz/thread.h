@@ -49,7 +49,7 @@ int twz_exec_view(twzobj *view,
 #define twz_stdstack                                                                               \
 	(twzobj)                                                                                       \
 	{                                                                                              \
-		.base = SLOT_TO_VADDR(TWZSLOT_STACK)                                                       \
+		.base = SLOT_TO_VADDR(TWZSLOT_STACK), .flags = TWZ_OBJ_VALID,                              \
 	}
 struct timespec;
 int twz_thread_sync(int op, _Atomic uint64_t *addr, uint64_t val, struct timespec *timeout);

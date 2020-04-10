@@ -88,7 +88,11 @@ __attribute__((const)) static inline void *__twz_object_lea(twzobj *o, const voi
 	});
 
 #define twz_object_meta(o)                                                                         \
-	({ (struct metainfo *)((1) ? ((char *)(o)->base + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE) : NULL); })
+	({                                                                                             \
+		(struct metainfo *)(((o)->flags & TWZ_OBJ_VALID)                                           \
+		                      ? ((char *)(o)->base + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE)              \
+		                      : NULL);                                                             \
+	})
 
 int twz_object_init_guid(twzobj *obj, objid_t id, int flags);
 int twz_object_init_name(twzobj *obj, const char *name, int flags);

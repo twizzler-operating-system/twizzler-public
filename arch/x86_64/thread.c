@@ -106,6 +106,8 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 		return;
 	}
 
+	/* TODO: validate that stack is in a reasonable object */
+
 	*--stack = *jmp;
 
 	if(infolen & 0xf) {
