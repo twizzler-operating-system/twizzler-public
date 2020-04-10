@@ -98,6 +98,14 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 		rsp = &t->arch.exception.userrsp;
 	}
 
+	uintptr_t stack_after = (uintptr_t)stack - (infolen + 4 * 8);
+	uintptr_t bot_stack = ((uintptr_t)stack & ~(OBJ_MAXSIZE - 1)) + OBJ_NULLPAGE_SIZE;
+	if(stack_after <= bot_stack) {
+		printk("thread %ld exceeded stack during fault raise\n", t->id);
+		thread_exit();
+		return;
+	}
+
 	*--stack = *jmp;
 
 	if(infolen & 0xf) {
