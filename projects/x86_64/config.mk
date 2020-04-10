@@ -19,8 +19,7 @@ CONFIG_PRINT_SYSCALLS=n
 CONFIG_DEBUG_LOCKS=n
 
 # set this to your toolchain path
-TOOLCHAIN_PATH=
+TOOLCHAIN_PATH=#/home/dbittman/code/twizzler-kernel/.tc
 
-QEMU_FLAGS+=-cpu host,migratable=false,host-cache-info=true -machine q35
 QEMU_FLAGS+="-enable-kvm"
 
