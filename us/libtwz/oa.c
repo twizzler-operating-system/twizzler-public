@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <errno.h>
+#include <internal/alloc.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -219,86 +220,6 @@ void slab_test()
 		;
 }
 #endif
-
-/* based on https://github.com/matianfu/buddy/blob/master/buddy.c */
-
-/* TODO: robust, persist */
-
-#define POOLSIZE (1ul << MAX_ORDER)
-#define BLOCKSIZE(i) (1ul << (i))
-
-#define OFF(b, h) ((uintptr_t)b - (h)->start)
-#define _BOF(b, i, h) (OFF(b, h) ^ (1 << (i)))
-#define BOF(b, i, h) ((void *)(_BOF(b, i, h) + (h)->start))
-
-static void *__buddy_alloc(twzobj *o, struct twzoa_header *hdr, size_t size)
-{
-	unsigned int i = 0, order;
-	size++;
-
-	while(BLOCKSIZE(i) < size)
-		i++;
-	order = i = (i < MIN_ORDER) ? MIN_ORDER : i;
-
-	for(;; i++) {
-		if(i > hdr->bdy.max_order)
-			return NULL;
-		if(hdr->bdy.flist[i])
-			break;
-	}
-
-	void *block = hdr->bdy.flist[i];
-	void *vblock = twz_object_lea(o, block);
-	if(block == (void *)4) {
-		for(int j = 0; j < MAX_ORDER + 2; j++) {
-			DEBUG("       %p\n", hdr->bdy.flist[j]);
-		}
-	}
-	DEBUG("::: %d %p %p\n", i, block, vblock);
-	hdr->bdy.flist[i] = *(void **)vblock;
-	DEBUG(":: %p\n", *(void **)vblock);
-
-	while(i-- > order) {
-		void *buddy = BOF(block, i, hdr);
-		DEBUG("assign %d %p\n", i, buddy);
-		hdr->bdy.flist[i] = buddy;
-	}
-	*(((uint8_t *)vblock) - 1) = (uint8_t)order;
-	return block;
-}
-
-static void __buddy_free(twzobj *o, struct twzoa_header *hdr, void *block)
-{
-	void *vblock = twz_object_lea(o, block);
-	// fetch order in previous byte
-	int i = *((uint8_t *)vblock - 1);
-
-	for(;; i++) {
-		// calculate buddy
-		void *buddy = BOF(block, i, hdr);
-		void **p = &(hdr->bdy.flist[i]);
-
-		// find buddy in list
-		while((*p != NULL) && (*p != buddy)) {
-			void **vp = twz_object_lea(o, (*p));
-			p = (void **)*vp;
-		}
-
-		// not found, insert into list
-		if(*p != buddy) {
-			DEBUG("--> %d %p %p\n", i, hdr->bdy.flist[i], block);
-			*(void **)vblock = hdr->bdy.flist[i];
-			hdr->bdy.flist[i] = block;
-			return;
-		}
-		// found, merged block starts from the lower one
-		block = (block < buddy) ? block : buddy;
-		// remove buddy out of list
-		void **vp = twz_object_lea(o, (*p));
-		DEBUG("--> :: %p %p\n", *p, vp);
-		*p = (void *)*vp;
-	}
-}
 
 void oa_hdr_free(twzobj *obj, struct twzoa_header *hdr, void *p)
 {

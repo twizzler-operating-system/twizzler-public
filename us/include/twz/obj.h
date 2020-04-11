@@ -119,4 +119,5 @@ void *__twz_ptr_swizzle(twzobj *o, const void *p, uint64_t flags);
 #define twz_ptr_swizzle(o, p, f) ({ (typeof(p)) __twz_ptr_swizzle((o), (p), (f)); })
 
 #include <sys/types.h>
+/* TODO: make internal */
 ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags);
