@@ -85,7 +85,7 @@ int twz_exec_view(twzobj *view,
 		envc++;
 	}
 
-	sp = OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + 0x4000 + OBJ_NULLPAGE_SIZE);
+	sp = OBJ_TOPDATA;
 	str_space = ((str_space - 1) & ~15) + 16;
 
 	/* 4 for: 1 NULL each for argv and env, argc, and final null after env */

@@ -36,7 +36,7 @@ int twz_view_set(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 #warning "TODO: seems like this happens too much?"
 	if((old & VE_VALID)) {
 		struct sys_invalidate_op op = {
-			.offset = slot * OBJ_MAXSIZE,
+			.offset = SLOT_TO_VADDR(slot),
 			.length = 1,
 			.flags = KSOI_VALID | KSOI_CURRENT,
 			.id = KSO_CURRENT_VIEW,
@@ -63,7 +63,7 @@ int twz_view_fixedset(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 
 	if(old & VE_VALID) {
 		struct sys_invalidate_op op = {
-			.offset = slot * OBJ_MAXSIZE,
+			.offset = SLOT_TO_VADDR(slot),
 			.length = 1,
 			.flags = KSOI_VALID | KSOI_CURRENT,
 			.id = KSO_CURRENT_VIEW,
