@@ -8,6 +8,8 @@
 #include <twz/thread.h>
 #include <twz/view.h>
 
+#include <twz.h>
+
 #define PRINT(...) fprintf(stderr, ##__VA_ARGS__)
 
 static struct {
@@ -67,7 +69,6 @@ static int twz_map_fot_entry(twzobj *obj,
 	twz_view_set(NULL, slot, id, flags);
 	if(fe->flags & FE_DERIVE) {
 		twz_object_wire_guid(NULL, id);
-		//	sys_vmap((void *)(slot * OBJ_MAXSIZE), TWZ_SYS_VMAP_WIRE, 0);
 		twz_object_delete_guid(id, 0);
 	}
 	return 0;
@@ -78,7 +79,7 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 	(void)source;
 	(void)id;
 	// PRINT("%lx %x %lx (" IDFMT ")\n", addr, cause, source, IDPR(id));
-	uint64_t offset = addr % OBJ_MAXSIZE;
+	uint64_t offset = twz_ptr_local(addr);
 	if(offset < OBJ_NULLPAGE_SIZE) {
 		FPR("NULL pointer");
 		return -EINVAL;
@@ -102,15 +103,15 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 		return -EINVAL;
 	}
 
+	twzobj o0 = twz_object_from_ptr(NULL);
 	// struct metainfo *mi = twz_slot_to_meta(0);
-	struct metainfo *mi = (void *)(OBJ_MAXSIZE - OBJ_METAPAGE_SIZE);
+	struct metainfo *mi = twz_object_meta(&o0);
 	if(mi->magic != MI_MAGIC) {
 		FPR("Invalid object");
 		return -EINVLOBJ;
 	}
 
-	size_t slot = (addr / OBJ_MAXSIZE);
-	twzobj o0 = twz_object_from_ptr(NULL);
+	size_t slot = VADDR_TO_SLOT(addr);
 	struct fotentry *fe = _twz_object_get_fote(&o0, slot);
 
 	if(!(atomic_load(&fe->flags) & _FE_VALID) || fe->id == 0) {

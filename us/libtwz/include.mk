@@ -5,7 +5,7 @@ LIBTWZ_OBJ=$(addprefix $(BUILDDIR)/,$(LIBTWZ_SRC:.c=.o))
 $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo "[CC]      $@"
-	@$(TWZCC) $(TWZCFLAGS) -c -o $@ -MD -fPIC $<
+	@$(TWZCC) $(TWZCFLAGS) -Ius/libtwz/include  -c -o $@ -MD -fPIC $<
 
 $(BUILDDIR)/us/libtwz/libtwz.a: $(LIBTWZ_OBJ)
 	@mkdir -p $(dir $@)

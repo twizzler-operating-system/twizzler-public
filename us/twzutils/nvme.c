@@ -4,6 +4,7 @@
 #include <string.h>
 #include <twz/name.h>
 #include <twz/obj.h>
+#include <twz/objctl.h>
 #include <twz/sys.h>
 #include <twz/thread.h>
 

@@ -13,6 +13,8 @@
 
 #include <twz/debug.h>
 
+#include <twz.h>
+
 void twz_view_object_init(twzobj *obj)
 {
 	*obj = twz_object_from_ptr(SLOT_TO_VADDR(TWZSLOT_CVIEW));

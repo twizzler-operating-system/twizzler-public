@@ -20,8 +20,6 @@
 
 #define OBJ_MAXSIZE (1ul << 30)
 
-#define OBJ_MAXFOTE (1ul << 20)
-
 typedef unsigned __int128 nonce_t;
 
 struct metaext {
@@ -79,3 +77,8 @@ enum kso_type {
 	KSO_DEVICE,
 	KSO_MAX,
 };
+
+#define OBJ_MAXFOTE ((1ul << 20) - 0x1000 / sizeof(struct fotentry))
+#define OBJ_TOPDATA (OBJ_MAXSIZE - (0x1000 + OBJ_MAXFOTE * sizeof(struct fotentry)))
+
+_Static_assert(OBJ_TOPDATA == 0x3E000000, "");

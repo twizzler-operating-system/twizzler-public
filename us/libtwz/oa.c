@@ -204,7 +204,7 @@ void slab_test()
 
 	DEBUG("SLAB TEST\n");
 	struct twzoa_header *hdr = twz_object_base(&o);
-	oa_hdr_init(&o, hdr, 0x3000, OBJ_MAXSIZE - 0x8000);
+	oa_hdr_init(&o, hdr, 0x3000, OBJ_TOPDATA);
 
 	long long s = rdtsc();
 	for(size_t i = 0; i < 1000000; i++) {

@@ -11,6 +11,9 @@
 #include <twz/view.h>
 
 #include <twz/persist.h>
+
+#include <twz.h>
+
 static void _twz_lea_fault(twzobj *o,
   const void *p,
   uintptr_t ip,
@@ -18,7 +21,7 @@ static void _twz_lea_fault(twzobj *o,
   uint32_t retval __attribute__((unused)))
 {
 	/* TODO: all of these calculations... */
-	size_t slot = (uintptr_t)p / OBJ_MAXSIZE;
+	size_t slot = VADDR_TO_SLOT(p);
 	struct fault_pptr_info fi = {
 		.objid = twz_object_guid(o), .fote = slot, .ptr = p, .info = info, .ip = ip
 	};
@@ -131,7 +134,7 @@ int twz_object_init_guid(twzobj *obj, objid_t id, int flags)
 		return slot;
 	}
 
-	obj_init(obj, (void *)(OBJ_MAXSIZE * slot), flags, id, 0);
+	obj_init(obj, SLOT_TO_VADDR(slot), flags, id, 0);
 	return 0;
 }
 
@@ -183,7 +186,7 @@ int twz_object_init_name(twzobj *obj, const char *name, int flags)
 	if(slot < 0)
 		return slot;
 
-	obj_init(obj, (void *)(OBJ_MAXSIZE * slot), flags, id, 0);
+	obj_init(obj, SLOT_TO_VADDR(slot), flags, id, 0);
 	return 0;
 }
 
@@ -202,8 +205,7 @@ void twz_object_release(twzobj *obj)
 	if(obj->_int_flags & TWZ_OBJ_NORELEASE) {
 		libtwz_panic("tried to release an object marked no-release-needed");
 	}
-	twz_view_release_slot(
-	  NULL, twz_object_guid(obj), obj->_int_vf, twz_base_to_slot(obj->_int_base));
+	twz_view_release_slot(NULL, twz_object_guid(obj), obj->_int_vf, VADDR_TO_SLOT(obj->_int_base));
 	obj->_int_base = NULL;
 	obj->_int_flags = 0;
 }
@@ -397,7 +399,7 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 {
 #if 1
 	if(o->_int_flags & TWZ_OBJ_CACHE) {
-		size_t fe = twz_base_to_slot(p);
+		size_t fe = VADDR_TO_SLOT(p);
 		if(fe < TWZ_OBJ_CACHE_SIZE && o->_int_cache[fe]) {
 			return twz_ptr_rebase(o->_int_cache[fe], p);
 		}
@@ -411,7 +413,7 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 	struct metainfo *mi = twz_object_meta(o);
 	if(mi == NULL)
 		goto fault;
-	size_t slot = (uintptr_t)p / OBJ_MAXSIZE;
+	size_t slot = VADDR_TO_SLOT(p);
 	struct fotentry *fe = _twz_object_get_fote(o, slot);
 
 	uint64_t info = FAULT_PPTR_INVALID;
@@ -450,7 +452,7 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 		info = FAULT_PPTR_RESOURCES;
 	}
 
-	size_t e = twz_base_to_slot(p);
+	size_t e = VADDR_TO_SLOT(p);
 	void *_r = twz_ptr_rebase(ns, (void *)p);
 	if(e < TWZ_OBJ_CACHE_SIZE) {
 		o->_int_cache[e] = ns;

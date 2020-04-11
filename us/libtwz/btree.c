@@ -800,7 +800,7 @@ int bt_init(twzobj *obj, struct btree_hdr *hdr)
 	tx_init(&hdr->tx, __BT_HDR_LOG_SZ);
 	_clwb_len(hdr, sizeof(*hdr));
 	_pfence();
-	return oa_hdr_init(obj, &hdr->oa, 0x3000, OBJ_MAXSIZE - 0x8000);
+	return oa_hdr_init(obj, &hdr->oa, 0x3000, OBJ_TOPDATA);
 }
 
 struct btree_node *bt_lookup_cmp(twzobj *obj,

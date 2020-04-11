@@ -5,10 +5,6 @@
 
 #include <stddef.h>
 
-#define TWZ_OBJ_VALID 1
-#define TWZ_OBJ_NORELEASE 2
-
-#define TWZ_OBJ_CACHE 64
 #define TWZ_OBJ_CACHE_SIZE 16
 typedef struct _twz_object {
 	void *_int_base;
@@ -20,10 +16,6 @@ typedef struct _twz_object {
 	uint32_t _int_cache[TWZ_OBJ_CACHE_SIZE];
 } twzobj;
 
-/* TODO: hide */
-#define twz_slot_to_base(s) ({ (void *)((s)*OBJ_MAXSIZE + OBJ_NULLPAGE_SIZE); })
-#define twz_base_to_slot(s) ({ ((uintptr_t)(s) / OBJ_MAXSIZE); })
-
 void *twz_object_base(twzobj *);
 
 #define TWZ_OC_HASHDATA MIP_HASHDATA
@@ -33,7 +25,6 @@ void *twz_object_base(twzobj *);
 #define TWZ_OC_DFL_USE MIP_DFL_USE
 #define TWZ_OC_DFL_DEL MIP_DFL_DEL
 #define TWZ_OC_ZERONONCE 0x1000
-
 #define TWZ_OC_VOLATILE 0x2000
 
 int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id);
@@ -42,17 +33,21 @@ int twz_object_new(twzobj *obj, twzobj *src, twzobj *ku, uint64_t flags);
 
 #define TWZ_KU_USER ((void *)0xfffffffffffffffful)
 
+/* TODO: new API for this, audit */
 _Bool objid_parse(const char *name, size_t len, objid_t *id);
 
 /* TODO: hide */
 #define twz_ptr_local(p) ({ (typeof(p))((uintptr_t)(p) & (OBJ_MAXSIZE - 1)); })
-#define twz_ptr_rebase(fe, p) ({ (typeof(p))((fe)*OBJ_MAXSIZE | (uintptr_t)twz_ptr_local(p)); })
+#define twz_ptr_rebase(fe, p)                                                                      \
+	({ (typeof(p))((uintptr_t)SLOT_TO_VADDR(fe) | (uintptr_t)twz_ptr_local(p)); })
+
+#define twz_ptr_islocal(p) ({ ((p) < OBJ_MAXSIZE); })
 
 void *__twz_object_lea_foreign(twzobj *o, const void *p);
 
 __attribute__((const)) static inline void *__twz_object_lea(twzobj *o, const void *p)
 {
-	if(__builtin_expect((uintptr_t)p < OBJ_MAXSIZE, 1)) {
+	if(__builtin_expect(twz_ptr_islocal(p), 1)) {
 		return (void *)((uintptr_t)o->_int_base + (uintptr_t)p);
 	} else {
 		void *r = __twz_object_lea_foreign(o, p);
@@ -62,30 +57,11 @@ __attribute__((const)) static inline void *__twz_object_lea(twzobj *o, const voi
 
 twzobj twz_object_from_ptr(const void *);
 
-/*
-#define TWZ_OBJECT_FROM_PTR(p)                                                                     \
-    (twzobj)                                                                                       \
-    {                                                                                              \
-        .base = (void *)((uintptr_t)p & ~(OBJ_MAXSIZE - 1)), .flags = TWZ_OBJ_VALID,               \
-    }
-*/
-
-#if 0
-/* TODO: hide */
-#define TWZ_OBJECT_INIT(s)                                                                         \
-	(twzobj)                                                                                       \
-	{                                                                                              \
-		.base = (void *)(SLOT_TO_VADDR(s)), .flags = TWZ_OBJ_VALID,                                \
-	}
-#endif
-
 #define twz_object_lea(o, p) ({ (typeof(p)) __twz_object_lea((o), (p)); })
 
 #define twz_ptr_lea(p)                                                                             \
 	({                                                                                             \
-		twzobj _o = TWZ_OBJECT_FROM_PTR(&(p));                                                     \
-		/* TODO: this is tied to TWZ_OBJECT_FROM_PTR... if that call increments refcounts, we'll   \
-		 * need to do a release */                                                                 \
+		twzobj _o = twz_object_from_ptr(&(p));                                                     \
 		typeof(p) _r = (typeof(p))__twz_object_lea(&_o, (p));                                      \
 		_r;                                                                                        \
 	});
@@ -122,6 +98,7 @@ int __twz_ptr_store_name(twzobj *o,
   const char *name,
   const void *p,
   uint64_t flags);
+
 void *__twz_ptr_swizzle(twzobj *o, const void *p, uint64_t flags);
 
 #define twz_ptr_store_guid(o, l, t, p, f)                                                          \
@@ -137,16 +114,6 @@ void *__twz_ptr_swizzle(twzobj *o, const void *p, uint64_t flags);
 	})
 
 #define twz_ptr_swizzle(o, p, f) ({ (typeof(p)) __twz_ptr_swizzle((o), (p), (f)); })
-
-int twz_object_kaction(twzobj *obj, long cmd, ...);
-int twz_object_pin(twzobj *obj, uintptr_t *oaddr, int flags);
-int twz_object_ctl(twzobj *obj, int cmd, ...);
-
-static inline struct fotentry *_twz_object_get_fote(twzobj *obj, size_t e)
-{
-	struct metainfo *mi = twz_object_meta(obj);
-	return (struct fotentry *)((char *)mi - sizeof(struct fotentry) * e);
-}
 
 #include <sys/types.h>
 ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags);
