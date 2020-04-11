@@ -20,6 +20,22 @@ int twz_thread_release(struct thread *thrd)
 	twz_object_release(&thrd->obj);
 }
 
+twzobj *__twz_get_stdstack_obj(void)
+{
+	static twzobj *_Atomic obj = NULL;
+	static _Atomic int x = 0;
+	if(!obj) {
+		while(atomic_exchange(&x, 1))
+			;
+		if(!obj) {
+			obj = malloc(sizeof(*obj));
+			*obj = twz_object_from_ptr(SLOT_TO_VADDR(TWZSLOT_STACK));
+		}
+		x = 0;
+	}
+	return obj;
+}
+
 int twz_thread_create(struct thread *thrd)
 {
 	struct twzthread_repr *currepr = twz_thread_repr_base();

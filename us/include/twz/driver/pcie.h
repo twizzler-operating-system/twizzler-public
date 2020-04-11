@@ -252,7 +252,8 @@ static inline bool pcief_capability_get(struct pcie_function_header *pf,
   int id,
   union pcie_capability_ptr *cap)
 {
-	struct pcie_config_space *space = twz_object_lea(&TWZ_OBJECT_FROM_PTR(pf), pf->space);
+	twzobj pf_obj = twz_object_from_ptr(pf);
+	struct pcie_config_space *space = twz_object_lea(&pf_obj, pf->space);
 	if(space->device.cap_ptr) {
 		size_t offset = space->device.cap_ptr;
 		do {

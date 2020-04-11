@@ -11,6 +11,54 @@
 #include <twz/view.h>
 
 #include <twz/persist.h>
+static void _twz_lea_fault(twzobj *o,
+  const void *p,
+  uintptr_t ip,
+  uint32_t info,
+  uint32_t retval __attribute__((unused)))
+{
+	/* TODO: all of these calculations... */
+	size_t slot = (uintptr_t)p / OBJ_MAXSIZE;
+	struct fault_pptr_info fi = {
+		.objid = twz_object_guid(o), .fote = slot, .ptr = p, .info = info, .ip = ip
+	};
+	twz_fault_raise(FAULT_PPTR, &fi);
+}
+
+void *twz_object_base(twzobj *obj)
+{
+	if(!(obj->_int_flags & TWZ_OBJ_VALID)) {
+		_twz_lea_fault(obj, NULL, (uintptr_t)__builtin_return_address(0), FAULT_PPTR_INVALID, 0);
+	}
+	return (void *)((char *)obj->_int_base + OBJ_NULLPAGE_SIZE);
+}
+
+static void obj_init(twzobj *obj, void *base, uint32_t vf, objid_t id, uint64_t flags)
+{
+	obj->_int_base = base;
+	obj->_int_id = id;
+	obj->_int_vf = vf;
+	obj->_int_flags = TWZ_OBJ_VALID | flags;
+}
+
+twzobj twz_object_from_ptr(const void *p)
+{
+	twzobj tmp;
+	obj_init(&tmp, (void *)((uintptr_t)p & ~(OBJ_MAXSIZE - 1)), 0, 0, TWZ_OBJ_NORELEASE);
+	return tmp;
+}
+
+struct metainfo *twz_object_meta(twzobj *obj)
+{
+	if(!(obj->_int_flags & TWZ_OBJ_VALID)) {
+		_twz_lea_fault(obj,
+		  (void *)(OBJ_MAXSIZE - OBJ_METAPAGE_SIZE),
+		  (uintptr_t)__builtin_return_address(0),
+		  FAULT_PPTR_INVALID,
+		  0);
+	}
+	return (struct metainfo *)((char *)obj->_int_base + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE);
+}
 
 int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 {
@@ -79,34 +127,31 @@ int twz_object_init_guid(twzobj *obj, objid_t id, int flags)
 {
 	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);
 	if(slot < 0) {
-		obj->flags = 0;
+		obj->_int_flags = 0;
 		return slot;
 	}
 
-	obj->base = (void *)(OBJ_MAXSIZE * (slot));
-	obj->id = id;
-	obj->flags = TWZ_OBJ_VALID;
-	obj->vf = flags;
+	obj_init(obj, (void *)(OBJ_MAXSIZE * slot), flags, id, 0);
 	return 0;
 }
 
 objid_t twz_object_guid(twzobj *o)
 {
 	/* TODO: 128bit ATOMIC */
-	if(o->id)
-		return o->id;
+	if(o->_int_id)
+		return o->_int_id;
 	objid_t id = 0;
-	if(twz_vaddr_to_obj(o->base, &id, NULL)) {
+	if(twz_vaddr_to_obj(o->_int_base, &id, NULL)) {
 		struct fault_object_info fi = {
 			.objid = 0,
 			.ip = (uintptr_t)&twz_object_guid,
-			.addr = (uintptr_t)o->base,
+			.addr = (uintptr_t)o->_int_base,
 			.flags = FAULT_OBJECT_UNKNOWN,
 		};
 		twz_fault_raise(FAULT_OBJECT, &fi);
 		return twz_object_guid(o);
 	}
-	return (o->id = id);
+	return (o->_int_id = id);
 }
 
 int twz_object_new(twzobj *obj, twzobj *src, twzobj *ku, uint64_t flags)
@@ -134,22 +179,33 @@ int twz_object_init_name(twzobj *obj, const char *name, int flags)
 	if(r < 0)
 		return r;
 	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);
-	obj->flags = 0;
+	obj->_int_flags = 0;
 	if(slot < 0)
 		return slot;
 
-	obj->vf = flags;
-	obj->base = (void *)(OBJ_MAXSIZE * (slot));
-	obj->id = id;
-	obj->flags = TWZ_OBJ_VALID;
+	obj_init(obj, (void *)(OBJ_MAXSIZE * slot), flags, id, 0);
 	return 0;
+}
+
+#include <stdarg.h>
+__attribute__((noreturn)) libtwz_panic(const char *s, ...)
+{
+	va_list va;
+	va_start(va, s);
+	vfprintf(stderr, s, va);
+	va_end(va);
+	abort();
 }
 
 void twz_object_release(twzobj *obj)
 {
-	twz_view_release_slot(NULL, twz_object_guid(obj), obj->vf, twz_base_to_slot(obj->base));
-	obj->base = NULL;
-	obj->flags = 0;
+	if(obj->_int_flags & TWZ_OBJ_NORELEASE) {
+		libtwz_panic("tried to release an object marked no-release-needed");
+	}
+	twz_view_release_slot(
+	  NULL, twz_object_guid(obj), obj->_int_vf, twz_base_to_slot(obj->_int_base));
+	obj->_int_base = NULL;
+	obj->_int_flags = 0;
 }
 
 int twz_object_kaction(twzobj *obj, long cmd, ...)
@@ -337,26 +393,17 @@ void *__twz_ptr_swizzle(twzobj *obj, const void *p, uint64_t flags)
 	return twz_ptr_rebase(fe, p);
 }
 
-static void _twz_lea_fault(twzobj *o, const void *p, uintptr_t ip, uint32_t info, uint32_t retval)
-{
-	size_t slot = (uintptr_t)p / OBJ_MAXSIZE;
-	struct fault_pptr_info fi = {
-		.objid = twz_object_guid(o), .fote = slot, .ptr = p, .info = info, .ip = ip
-	};
-	twz_fault_raise(FAULT_PPTR, &fi);
-}
-
 void *__twz_object_lea_foreign(twzobj *o, const void *p)
 {
 #if 1
-	if(o->flags & TWZ_OBJ_CACHE) {
+	if(o->_int_flags & TWZ_OBJ_CACHE) {
 		size_t fe = twz_base_to_slot(p);
-		if(fe < TWZ_OBJ_CACHE_SIZE && o->cache[fe]) {
-			return twz_ptr_rebase(o->cache[fe], p);
+		if(fe < TWZ_OBJ_CACHE_SIZE && o->_int_cache[fe]) {
+			return twz_ptr_rebase(o->_int_cache[fe], p);
 		}
 	} else {
-		memset(o->cache, 0, sizeof(o->cache));
-		o->flags |= TWZ_OBJ_CACHE;
+		memset(o->_int_cache, 0, sizeof(o->_int_cache));
+		o->_int_flags |= TWZ_OBJ_CACHE;
 	}
 
 #endif
@@ -406,7 +453,7 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 	size_t e = twz_base_to_slot(p);
 	void *_r = twz_ptr_rebase(ns, (void *)p);
 	if(e < TWZ_OBJ_CACHE_SIZE) {
-		o->cache[e] = ns;
+		o->_int_cache[e] = ns;
 	}
 	return _r;
 fault:

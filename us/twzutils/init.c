@@ -26,7 +26,7 @@ bool term_ready = false;
 #define EPRINTF(...) ({ term_ready ? fprintf(stderr, ##__VA_ARGS__) : debug_printf(__VA_ARGS__); })
 void tmain(void *a)
 {
-	struct service_info *info = twz_object_lea(&twz_stdstack, a);
+	struct service_info *info = twz_object_lea(twz_stdstack, a);
 	int r;
 
 	char buffer[1024];
@@ -165,7 +165,7 @@ void start_login(void)
 void logmain(void *arg)
 {
 	kso_set_name(NULL, "[instance] init-logger");
-	objid_t *lid = twz_object_lea(&twz_stdstack, arg);
+	objid_t *lid = twz_object_lea(twz_stdstack, arg);
 
 	objid_t target;
 	twz_vaddr_to_obj(lid, &target, NULL);

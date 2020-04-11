@@ -21,7 +21,7 @@ static int __check_fd_valid(int fd)
 			return -EBADF;
 		}
 		fds[fd].valid = true;
-		fds[fd].obj = TWZ_OBJECT_INIT(TWZSLOT_FILES_BASE + fd);
+		fds[fd].obj = twz_object_from_ptr(SLOT_TO_VADDR(TWZSLOT_FILES_BASE + fd));
 		fds[fd].taken = true;
 	} else if(!fds[fd].taken) {
 		return -EBADF;

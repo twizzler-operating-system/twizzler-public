@@ -23,7 +23,7 @@ long linux_sys_open(const char *path, int flags, int mode)
 
 	file->taken = true;
 	twz_view_set(NULL, TWZSLOT_FILES_BASE + file->fd, id, file->fl);
-	file->obj = TWZ_OBJECT_INIT(TWZSLOT_FILES_BASE + file->fd);
+	file->obj = twz_object_from_ptr(SLOT_TO_VADDR(TWZSLOT_FILES_BASE + file->fd));
 
 	return file->fd;
 }

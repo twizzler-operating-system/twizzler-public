@@ -46,11 +46,9 @@ int twz_exec_view(twzobj *view,
   char const *const *argv,
   char *const *env);
 
-#define twz_stdstack                                                                               \
-	(twzobj)                                                                                       \
-	{                                                                                              \
-		.base = SLOT_TO_VADDR(TWZSLOT_STACK), .flags = TWZ_OBJ_VALID,                              \
-	}
+twzobj *__twz_get_stdstack_obj(void);
+#define twz_stdstack ({ __twz_get_stdstack_obj(); })
+
 struct timespec;
 int twz_thread_sync(int op, _Atomic uint64_t *addr, uint64_t val, struct timespec *timeout);
 struct sys_thread_sync_args;

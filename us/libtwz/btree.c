@@ -37,7 +37,6 @@ static inline struct btree_node *__l(twzobj *obj, void *x)
 {
 	if(x == NULL)
 		return NULL;
-	return (void *)((uintptr_t)x + obj->base);
 	struct btree_node *r = twz_object_lea(obj, x);
 	return r;
 }

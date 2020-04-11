@@ -15,7 +15,7 @@
 
 void twz_view_object_init(twzobj *obj)
 {
-	*obj = TWZ_OBJECT_INIT(TWZSLOT_CVIEW);
+	*obj = twz_object_from_ptr(SLOT_TO_VADDR(TWZSLOT_CVIEW));
 }
 
 int twz_view_set(twzobj *obj, size_t slot, objid_t target, uint32_t flags)

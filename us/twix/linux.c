@@ -19,7 +19,7 @@ void __linux_init(void)
 			objid_t id;
 			twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &id);
 			twz_view_set(NULL, TWZSLOT_UNIX, id, VE_READ | VE_WRITE);
-			unix_obj = TWZ_OBJECT_INIT(TWZSLOT_UNIX);
+			unix_obj = twz_object_from_ptr(SLOT_TO_VADDR(TWZSLOT_UNIX));
 
 			/* TODO: not sure if this is the right thing... */
 			twz_object_wire(NULL, &unix_obj);

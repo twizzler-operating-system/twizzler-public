@@ -110,7 +110,7 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 	}
 
 	size_t slot = (addr / OBJ_MAXSIZE);
-	twzobj o0 = TWZ_OBJECT_INIT(0);
+	twzobj o0 = twz_object_from_ptr(NULL);
 	struct fotentry *fe = _twz_object_get_fote(&o0, slot);
 
 	if(!(atomic_load(&fe->flags) & _FE_VALID) || fe->id == 0) {

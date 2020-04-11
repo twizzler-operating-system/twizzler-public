@@ -262,7 +262,7 @@ long linux_sys_fork(struct twix_register_frame *frame)
 
 	twz_view_set(&view, TWZSLOT_CVIEW, vid, VE_READ | VE_WRITE);
 
-	twz_object_new(&stack, &twz_stdstack, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
+	twz_object_new(&stack, twz_stdstack, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
 	twz_object_tie(&pds[pid].thrd.obj, &stack, 0);
 	sid = twz_object_guid(&stack);
 	twz_view_fixedset(&pds[pid].thrd.obj, TWZSLOT_STACK, sid, VE_READ | VE_WRITE | VE_FIXED);

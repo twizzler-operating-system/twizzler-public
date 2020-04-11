@@ -41,7 +41,7 @@ int pty_ioctl_client(twzobj *obj, int request, long arg)
 {
 	struct pty_client_hdr *hdr = twz_object_base(obj);
 	struct pty_hdr *sh = twz_object_lea(obj, hdr->server);
-	twzobj sh_obj = TWZ_OBJECT_FROM_PTR(sh);
+	twzobj sh_obj = twz_object_from_ptr(sh);
 	return pty_ioctl_server(&sh_obj, request, arg);
 }
 
@@ -150,7 +150,7 @@ ssize_t pty_read_client(twzobj *obj, void *ptr, size_t len, unsigned flags)
 {
 	struct pty_client_hdr *hdr = twz_object_base(obj);
 	struct pty_hdr *sh = twz_object_lea(obj, hdr->server);
-	twzobj sh_obj = TWZ_OBJECT_FROM_PTR(sh);
+	twzobj sh_obj = twz_object_from_ptr(sh);
 	return bstream_hdr_read(&sh_obj, twz_object_lea(&sh_obj, sh->stoc), ptr, len, flags);
 }
 
@@ -158,7 +158,7 @@ ssize_t pty_write_client(twzobj *obj, const void *ptr, size_t len, unsigned flag
 {
 	struct pty_client_hdr *hdr = twz_object_base(obj);
 	struct pty_hdr *sh = twz_object_lea(obj, hdr->server);
-	twzobj sh_obj = TWZ_OBJECT_FROM_PTR(sh);
+	twzobj sh_obj = twz_object_from_ptr(sh);
 	if(sh->termios.c_oflag & OPOST) {
 		for(size_t i = 0; i < len; i++) {
 			postprocess_char(&sh_obj, sh, ((char *)ptr)[i]);
