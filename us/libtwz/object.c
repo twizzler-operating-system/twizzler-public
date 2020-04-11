@@ -71,7 +71,28 @@ int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 	if(flags & TWZ_OC_VOLATILE) {
 		flags = (flags & ~TWZ_OC_VOLATILE) | TWZ_SYS_OC_VOLATILE;
 	}
-	return sys_ocreate(flags, kuid, src, id);
+	int r = sys_ocreate(flags, kuid, src, id);
+
+	if(r < 0) {
+		return r;
+	}
+
+	if(!(flags & TWZ_OC_TIED_NONE)) {
+		if(flags & TWZ_OC_TIED_VIEW) {
+			if((r = twz_object_wire_guid(NULL, *id))) {
+				twz_object_delete_guid(*id, 0);
+				*id = 0;
+				return r;
+			}
+		} else {
+			struct twzthread_repr *repr = twz_thread_repr_base();
+			if((r = twz_object_tie_guid(repr->reprid, *id, 0))) {
+				twz_object_delete_guid(*id, 0);
+				*id = 0;
+				return r;
+			}
+		}
+	}
 }
 
 int twz_object_delete_guid(objid_t id, int flags)

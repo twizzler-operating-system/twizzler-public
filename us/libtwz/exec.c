@@ -88,13 +88,15 @@ int twz_exec_view(twzobj *view,
 	sp = OBJ_TOPDATA;
 	str_space = ((str_space - 1) & ~15) + 16;
 
+	/* TODO: check if we have enough space... */
+
 	/* 4 for: 1 NULL each for argv and env, argc, and final null after env */
 	long *vector_off = (void *)(sp - (str_space + (argc + envc + 4) * sizeof(char *)));
 	long *vector = twz_object_lea(&stack, vector_off);
 
 	size_t v = 0;
 	vector[v++] = argc;
-	char *str = sp + (char *)twz_object_base(&stack);
+	char *str = (char *)twz_object_lea(&stack, sp);
 	for(size_t i = 0; i < argc; i++) {
 		const char *s = argv[i];
 		str -= strlen(s) + 1;

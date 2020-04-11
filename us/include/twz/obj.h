@@ -27,6 +27,9 @@ void *twz_object_base(twzobj *);
 #define TWZ_OC_ZERONONCE 0x1000
 #define TWZ_OC_VOLATILE 0x2000
 
+#define TWZ_OC_TIED_NONE 0x10000
+#define TWZ_OC_TIED_VIEW 0x20000
+
 int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id);
 
 int twz_object_new(twzobj *obj, twzobj *src, twzobj *ku, uint64_t flags);
