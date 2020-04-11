@@ -20,20 +20,11 @@ static void _twz_lea_fault(twzobj *o,
   uint32_t info,
   uint32_t retval __attribute__((unused)))
 {
-	/* TODO: all of these calculations... */
 	size_t slot = VADDR_TO_SLOT(p);
 	struct fault_pptr_info fi = {
 		.objid = twz_object_guid(o), .fote = slot, .ptr = p, .info = info, .ip = ip
 	};
 	twz_fault_raise(FAULT_PPTR, &fi);
-}
-
-void *twz_object_base(twzobj *obj)
-{
-	if(!(obj->_int_flags & TWZ_OBJ_VALID)) {
-		_twz_lea_fault(obj, NULL, (uintptr_t)__builtin_return_address(0), FAULT_PPTR_INVALID, 0);
-	}
-	return (void *)((char *)obj->_int_base + OBJ_NULLPAGE_SIZE);
 }
 
 static void obj_init(twzobj *obj, void *base, uint32_t vf, objid_t id, uint64_t flags)
@@ -44,6 +35,16 @@ static void obj_init(twzobj *obj, void *base, uint32_t vf, objid_t id, uint64_t 
 	obj->_int_flags = TWZ_OBJ_VALID | flags;
 }
 
+EXTERNAL
+void *twz_object_base(twzobj *obj)
+{
+	if(!(obj->_int_flags & TWZ_OBJ_VALID)) {
+		_twz_lea_fault(obj, NULL, (uintptr_t)__builtin_return_address(0), FAULT_PPTR_INVALID, 0);
+	}
+	return (void *)((char *)obj->_int_base + OBJ_NULLPAGE_SIZE);
+}
+
+EXTERNAL
 twzobj twz_object_from_ptr(const void *p)
 {
 	twzobj tmp;
@@ -51,6 +52,7 @@ twzobj twz_object_from_ptr(const void *p)
 	return tmp;
 }
 
+EXTERNAL
 struct metainfo *twz_object_meta(twzobj *obj)
 {
 	if(!(obj->_int_flags & TWZ_OBJ_VALID)) {
@@ -63,31 +65,41 @@ struct metainfo *twz_object_meta(twzobj *obj)
 	return (struct metainfo *)((char *)obj->_int_base + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE);
 }
 
+EXTERNAL
 int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 {
+	/* fixup flags for system call */
 	if(flags & TWZ_OC_ZERONONCE) {
 		flags = (flags & ~TWZ_OC_ZERONONCE) | TWZ_SYS_OC_ZERONONCE;
 	}
 	if(flags & TWZ_OC_VOLATILE) {
 		flags = (flags & ~TWZ_OC_VOLATILE) | TWZ_SYS_OC_VOLATILE;
 	}
-	int r = sys_ocreate(flags, kuid, src, id);
 
-	if(r < 0) {
+	int r;
+	if((r = sys_ocreate(flags, kuid, src, id))) {
 		return r;
 	}
 
-	if(!(flags & TWZ_OC_TIED_NONE)) {
+	/* by default, twz_object_create ties a volatile object to the lifetime of the thread creating
+	 * the object. This can be disabled, and we can tie the object to the view instead. These cover
+	 * the two most common ties made for objects. */
+	if(!(flags & TWZ_OC_TIED_NONE) && (flags & TWZ_OC_VOLATILE)) {
 		if(flags & TWZ_OC_TIED_VIEW) {
 			if((r = twz_object_wire_guid(NULL, *id))) {
-				twz_object_delete_guid(*id, 0);
+				/* NOTE: if delete fails, we're pretty screwed anyway. */
+				if(twz_object_delete_guid(*id, 0)) {
+					libtwz_panic("failed to delete object during cleanup");
+				}
 				*id = 0;
 				return r;
 			}
 		} else {
 			struct twzthread_repr *repr = twz_thread_repr_base();
 			if((r = twz_object_tie_guid(repr->reprid, *id, 0))) {
-				twz_object_delete_guid(*id, 0);
+				if(twz_object_delete_guid(*id, 0)) {
+					libtwz_panic("failed to delete object during cleanup");
+				}
 				*id = 0;
 				return r;
 			}
@@ -95,29 +107,35 @@ int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 	}
 }
 
+EXTERNAL
 int twz_object_delete_guid(objid_t id, int flags)
 {
 	return sys_odelete(id, flags);
 }
 
+EXTERNAL
 int twz_object_delete(twzobj *obj, int flags)
 {
 	return twz_object_delete_guid(twz_object_guid(obj), flags);
 }
 
+EXTERNAL
 int twz_object_tie_guid(objid_t pid, objid_t cid, int flags)
 {
 	return sys_otie(pid, cid, flags);
 }
 
+EXTERNAL
 int twz_object_tie(twzobj *p, twzobj *c, int flags)
 {
 	return sys_otie(twz_object_guid(p), twz_object_guid(c), flags);
 }
 
+EXTERNAL
 int twz_object_wire_guid(twzobj *view, objid_t id)
 {
 	twzobj _v;
+	/* if view == NULL, we're requesting to be tied to the current view. */
 	if(view == NULL) {
 		view = &_v;
 		twz_view_object_init(view);
@@ -126,6 +144,7 @@ int twz_object_wire_guid(twzobj *view, objid_t id)
 	return twz_object_tie_guid(twz_object_guid(view), id, 0);
 }
 
+EXTERNAL
 int twz_object_wire(twzobj *view, twzobj *obj)
 {
 	twzobj _v;
@@ -134,9 +153,9 @@ int twz_object_wire(twzobj *view, twzobj *obj)
 		twz_view_object_init(view);
 	}
 	return twz_object_tie(view, obj, 0);
-	// return sys_vmap(obj->base, TWZ_SYS_VMAP_WIRE, 0);
 }
 
+EXTERNAL
 int twz_object_unwire(twzobj *view, twzobj *obj)
 {
 	twzobj _v;
@@ -147,6 +166,7 @@ int twz_object_unwire(twzobj *view, twzobj *obj)
 	return twz_object_tie(view, obj, OTIE_UNTIE);
 }
 
+EXTERNAL
 int twz_object_init_guid(twzobj *obj, objid_t id, int flags)
 {
 	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);
@@ -159,6 +179,7 @@ int twz_object_init_guid(twzobj *obj, objid_t id, int flags)
 	return 0;
 }
 
+EXTERNAL
 objid_t twz_object_guid(twzobj *o)
 {
 	/* TODO: 128bit ATOMIC */
@@ -178,6 +199,7 @@ objid_t twz_object_guid(twzobj *o)
 	return (o->_int_id = id);
 }
 
+EXTERNAL
 int twz_object_new(twzobj *obj, twzobj *src, twzobj *ku, uint64_t flags)
 {
 	objid_t kuid;
@@ -193,17 +215,24 @@ int twz_object_new(twzobj *obj, twzobj *src, twzobj *ku, uint64_t flags)
 	int r = twz_object_create(flags, kuid, src ? twz_object_guid(src) : 0, &id);
 	if(r)
 		return r;
-	return twz_object_init_guid(obj, id, FE_READ | FE_WRITE);
+	if((r = twz_object_init_guid(obj, id, FE_READ | FE_WRITE))) {
+		if(twz_object_delete_guid(id, 0)) {
+			libtwz_panic("failed to delete object during cleanup");
+		}
+		return r;
+	}
+	return 0;
 }
 
+EXTERNAL
 int twz_object_init_name(twzobj *obj, const char *name, int flags)
 {
+	obj->_int_flags = 0;
 	objid_t id;
 	int r = twz_name_resolve(NULL, name, NULL, 0, &id);
 	if(r < 0)
 		return r;
 	ssize_t slot = twz_view_allocate_slot(NULL, id, flags);
-	obj->_int_flags = 0;
 	if(slot < 0)
 		return slot;
 
@@ -211,16 +240,7 @@ int twz_object_init_name(twzobj *obj, const char *name, int flags)
 	return 0;
 }
 
-#include <stdarg.h>
-__attribute__((noreturn)) libtwz_panic(const char *s, ...)
-{
-	va_list va;
-	va_start(va, s);
-	vfprintf(stderr, s, va);
-	va_end(va);
-	abort();
-}
-
+EXTERNAL
 void twz_object_release(twzobj *obj)
 {
 	if(obj->_int_flags & TWZ_OBJ_NORELEASE) {
@@ -229,8 +249,10 @@ void twz_object_release(twzobj *obj)
 	twz_view_release_slot(NULL, twz_object_guid(obj), obj->_int_vf, VADDR_TO_SLOT(obj->_int_base));
 	obj->_int_base = NULL;
 	obj->_int_flags = 0;
+	obj->_int_id = 0;
 }
 
+EXTERNAL
 int twz_object_kaction(twzobj *obj, long cmd, ...)
 {
 	va_list va;
@@ -248,6 +270,7 @@ int twz_object_kaction(twzobj *obj, long cmd, ...)
 	return r ? r : ka.result;
 }
 
+EXTERNAL
 int twz_object_ctl(twzobj *obj, int cmd, ...)
 {
 	va_list va;
@@ -260,15 +283,18 @@ int twz_object_ctl(twzobj *obj, int cmd, ...)
 	return sys_octl(twz_object_guid(obj), cmd, arg1, arg2, arg3);
 }
 
+EXTERNAL
 int twz_object_pin(twzobj *obj, uintptr_t *oaddr, int flags)
 {
 	uintptr_t pa;
 	int r = sys_opin(twz_object_guid(obj), &pa, flags);
-	if(oaddr)
+	if(oaddr) {
 		*oaddr = pa + OBJ_NULLPAGE_SIZE;
+	}
 	return r;
 }
 
+EXTERNAL
 void *twz_object_getext(twzobj *obj, uint64_t tag)
 {
 	struct metainfo *mi = twz_object_meta(obj);
@@ -284,6 +310,7 @@ void *twz_object_getext(twzobj *obj, uint64_t tag)
 	return NULL;
 }
 
+EXTERNAL
 int twz_object_addext(twzobj *obj, uint64_t tag, void *ptr)
 {
 	struct metainfo *mi = twz_object_meta(obj);
@@ -304,6 +331,7 @@ int twz_object_addext(twzobj *obj, uint64_t tag, void *ptr)
 	return -ENOSPC;
 }
 
+EXTERNAL
 int twz_object_delext(twzobj *obj, uint64_t tag, void *ptr)
 {
 	struct metainfo *mi = twz_object_meta(obj);
@@ -344,6 +372,7 @@ static ssize_t _twz_object_scan_fot(twzobj *obj, objid_t id, uint64_t flags)
 	return -1;
 }
 
+EXTERNAL
 ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags)
 {
 	ssize_t r = _twz_object_scan_fot(obj, id, flags);
@@ -391,18 +420,21 @@ static int __twz_ptr_make(twzobj *obj, objid_t id, const void *p, uint32_t flags
 	return 0;
 }
 
+EXTERNAL
 int __twz_ptr_store_guid(twzobj *obj, const void **res, twzobj *tgt, const void *p, uint64_t flags)
 {
 	objid_t target;
 	if(!tgt) {
 		int r = twz_vaddr_to_obj(p, &target, NULL);
-		if(r)
+		if(r) {
 			return r;
+		}
 	}
 
 	return __twz_ptr_make(obj, tgt ? twz_object_guid(tgt) : target, p, flags, res);
 }
 
+EXTERNAL
 void *__twz_ptr_swizzle(twzobj *obj, const void *p, uint64_t flags)
 {
 	objid_t target;
@@ -416,13 +448,14 @@ void *__twz_ptr_swizzle(twzobj *obj, const void *p, uint64_t flags)
 	return twz_ptr_rebase(fe, p);
 }
 
+EXTERNAL
 void *__twz_object_lea_foreign(twzobj *o, const void *p)
 {
+	size_t slot = VADDR_TO_SLOT(p);
 #if 1
 	if(o->_int_flags & TWZ_OBJ_CACHE) {
-		size_t fe = VADDR_TO_SLOT(p);
-		if(fe < TWZ_OBJ_CACHE_SIZE && o->_int_cache[fe]) {
-			return twz_ptr_rebase(o->_int_cache[fe], p);
+		if(slot < TWZ_OBJ_CACHE_SIZE && o->_int_cache[slot]) {
+			return twz_ptr_rebase(o->_int_cache[slot], p);
 		}
 	} else {
 		memset(o->_int_cache, 0, sizeof(o->_int_cache));
@@ -432,9 +465,6 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 #endif
 
 	struct metainfo *mi = twz_object_meta(o);
-	if(mi == NULL)
-		goto fault;
-	size_t slot = VADDR_TO_SLOT(p);
 	struct fotentry *fe = _twz_object_get_fote(o, slot);
 
 	uint64_t info = FAULT_PPTR_INVALID;
@@ -471,12 +501,12 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 	ssize_t ns = twz_view_allocate_slot(NULL, id, fe->flags & (FE_READ | FE_WRITE | FE_EXEC));
 	if(ns < 0) {
 		info = FAULT_PPTR_RESOURCES;
+		goto fault;
 	}
 
-	size_t e = VADDR_TO_SLOT(p);
 	void *_r = twz_ptr_rebase(ns, (void *)p);
-	if(e < TWZ_OBJ_CACHE_SIZE) {
-		o->_int_cache[e] = ns;
+	if(slot < TWZ_OBJ_CACHE_SIZE) {
+		o->_int_cache[slot] = ns;
 	}
 	return _r;
 fault:
