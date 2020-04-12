@@ -267,6 +267,7 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 
 int obj_untie(struct object *parent, struct object *child)
 {
+	// printk("untying " IDFMT " -> " IDFMT "\n", IDPR(child->id), IDPR(parent->id));
 	struct object *rel = NULL;
 	spinlock_acquire_save(&parent->lock);
 
@@ -291,6 +292,7 @@ int obj_untie(struct object *parent, struct object *child)
 
 void obj_tie(struct object *parent, struct object *child)
 {
+	// printk("tying " IDFMT " -> " IDFMT "\n", IDPR(child->id), IDPR(parent->id));
 	spinlock_acquire_save(&parent->lock);
 
 	struct rbnode *node =

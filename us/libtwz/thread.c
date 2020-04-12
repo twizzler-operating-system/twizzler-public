@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <twz/_err.h>
 #include <twz/_slots.h>
@@ -10,14 +12,18 @@
 
 void *__copy_tls(char *);
 
-/* TODO: release thread kinda deal */
-
 int twz_thread_release(struct thread *thrd)
 {
-	// debug_printf("THREAD RELEASE: " IDFMT "\n", IDPR(twz_object_guid(&thrd->obj)));
+	if(thrd->tid == 0) {
+		return -EINVAL;
+	}
 	thrd->tid = 0;
-	twz_object_unwire(NULL, &thrd->obj);
+	int r;
+	if((r = twz_object_unwire(NULL, &thrd->obj))) {
+		libtwz_panic("failed to unwire thread object during thread release: %s\n", strerror(-r));
+	}
 	twz_object_release(&thrd->obj);
+	return 0;
 }
 
 twzobj *__twz_get_stdstack_obj(void)
@@ -84,16 +90,30 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 		.tls_base = args->tls_base,
 		.thrd_ctrl = TWZSLOT_THRD,
 	};
-	objid_t del_id = 0;
 	if(!args->stack_base) {
-		objid_t sid;
-		if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
+		twzobj stack;
+		if((r = twz_object_new(&stack,
+		      NULL,
+		      NULL,
+		      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_VOLATILE | TWZ_OC_TIED_NONE))) {
+			twz_thread_release(thrd);
 			return r;
 		}
-		del_id = sid;
+
+		if((r = twz_object_tie(&thrd->obj, &stack, 0))) {
+			if(twz_object_delete(&stack, 0)) {
+				libtwz_panic("failed to delete object during cleanup");
+			}
+			twz_thread_release(thrd);
+			return r;
+		}
+
+		if(twz_object_delete(&stack, 0)) {
+			libtwz_panic("failed to delete stack object during thread spawn");
+		}
 
 		newrepr->fixed_points[TWZSLOT_STACK] = (struct viewentry){
-			.id = sid,
+			.id = twz_object_guid(&stack),
 			.flags = VE_READ | VE_WRITE | VE_VALID,
 		};
 		sa.stack_base = (char *)SLOT_TO_VADDR(TWZSLOT_STACK) + OBJ_NULLPAGE_SIZE;
@@ -101,11 +121,11 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 		sa.tls_base =
 		  (char *)SLOT_TO_VADDR(TWZSLOT_STACK) + OBJ_NULLPAGE_SIZE + TWZ_THREAD_STACK_SIZE;
 
-		twzobj stack;
-		twz_object_init_guid(&stack, sid, FE_READ | FE_WRITE);
 		/* TODO: can we reduce these permissions? */
 		r = twz_ptr_store_guid(&stack, &sa.arg, NULL, args->arg, FE_READ | FE_WRITE);
 		if(r) {
+			/* stack is already deleted, and tied to thread */
+			twz_thread_release(thrd);
 			return r;
 		}
 	} else {
@@ -115,10 +135,10 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 		};
 	}
 
-	r = sys_thrd_spawn(thrd->tid, &sa, 0);
-	if(del_id) {
-		twz_object_delete_guid(del_id, 0);
+	if((r = sys_thrd_spawn(thrd->tid, &sa, 0) < 0)) {
+		twz_thread_release(thrd);
 	}
+
 	return r;
 }
 

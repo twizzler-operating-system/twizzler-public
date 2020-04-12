@@ -81,10 +81,10 @@ int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 		return r;
 	}
 
-	/* by default, twz_object_create ties a volatile object to the lifetime of the thread creating
+	/* by default, twz_object_create ties objects to the lifetime of the thread creating
 	 * the object. This can be disabled, and we can tie the object to the view instead. These cover
 	 * the two most common ties made for objects. */
-	if(!(flags & TWZ_OC_TIED_NONE) && (flags & TWZ_OC_VOLATILE)) {
+	if(!(flags & TWZ_OC_TIED_NONE)) {
 		if(flags & TWZ_OC_TIED_VIEW) {
 			if((r = twz_object_wire_guid(NULL, *id))) {
 				/* NOTE: if delete fails, we're pretty screwed anyway. */
