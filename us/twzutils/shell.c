@@ -101,13 +101,13 @@ void tmain(char *cmd)
 		r = twz_name_resolve(NULL, args[0], NULL, 0, &id);
 		if(r) {
 			printf("failed to resolve '%s'\n", buf);
-			twz_thread_exit();
+			twz_thread_exit(1);
 		}
 	}
 
 	r = execv(buf, args);
 	fprintf(stderr, "failed to exec %s: %d", args[0], r);
-	twz_thread_exit();
+	twz_thread_exit(r);
 }
 
 int main()

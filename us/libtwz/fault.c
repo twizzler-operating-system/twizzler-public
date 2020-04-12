@@ -10,6 +10,8 @@
 
 #include <twz.h>
 
+#define EXIT_CODE_FAULT(f) ({ 256 + (f); })
+
 #define PRINT(...) fprintf(stderr, ##__VA_ARGS__)
 
 static struct {
@@ -241,16 +243,16 @@ static __attribute__((used)) void __twz_fault_entry_c(int fault,
 {
 	if(fault == FAULT_OBJECT) {
 		if(__fault_obj_default(fault, _info) < 0) {
-			twz_thread_exit();
+			twz_thread_exit(EXIT_CODE_FAULT(fault));
 		}
 	} else if(fault == FAULT_FAULT) {
 		__twz_fault_unhandled(_info, frame);
-		twz_thread_exit();
+		twz_thread_exit(EXIT_CODE_FAULT(fault));
 		return;
 	}
 	if((fault >= NUM_FAULTS || !_fault_table[fault].fn) && fault != FAULT_OBJECT) {
 		PRINT("Unhandled exception: %d", fault);
-		twz_thread_exit();
+		twz_thread_exit(EXIT_CODE_FAULT(fault));
 	}
 	if(_fault_table[fault].fn) {
 		_fault_table[fault].fn(fault, _info);
@@ -345,6 +347,6 @@ void twz_fault_raise(int fault, void *data)
 	} else {
 		fprintf(stderr, "  -- RAISE FAULT %d: unhandled.\n", fault);
 		__twz_fault_unhandled_print(fault, data);
-		twz_thread_exit();
+		twz_thread_exit(EXIT_CODE_FAULT(fault));
 	}
 }

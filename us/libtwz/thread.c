@@ -12,6 +12,16 @@
 
 void *__copy_tls(char *);
 
+struct twzthread_repr *twz_thread_repr_base(void)
+{
+	uint64_t a;
+	asm volatile("rdgsbase %%rax" : "=a"(a));
+	if(!a) {
+		libtwz_panic("could not find twz_thread_repr_base");
+	}
+	return (struct twzthread_repr *)(a + OBJ_NULLPAGE_SIZE);
+}
+
 int twz_thread_release(struct thread *thrd)
 {
 	if(thrd->tid == 0) {
@@ -92,6 +102,7 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 	};
 	if(!args->stack_base) {
 		twzobj stack;
+		/* if we weren't provided a stack, make a new one tied to the thread object */
 		if((r = twz_object_new(&stack,
 		      NULL,
 		      NULL,
@@ -142,12 +153,13 @@ int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 	return r;
 }
 
-void twz_thread_exit(void)
+void twz_thread_exit(uint64_t ecode)
 {
-	//__seg_gs struct twzthread_repr *repr = (uintptr_t)OBJ_NULLPAGE_SIZE;
 	struct twzthread_repr *repr = twz_thread_repr_base();
-	repr->syncs[THRD_SYNC_EXIT] = 1; /* TODO: error code */
+	repr->syncinfos[THRD_SYNC_EXIT] = ecode;
+	repr->syncs[THRD_SYNC_EXIT] = 1;
 	sys_thrd_ctl(THRD_CTL_EXIT, (long)&repr->syncs[THRD_SYNC_EXIT]);
+	__builtin_unreachable();
 }
 
 ssize_t twz_thread_wait(size_t count,

@@ -174,9 +174,7 @@ long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t 
 #include <twz/thread.h>
 long linux_sys_exit(int code)
 {
-	(void)code;
-	/* TODO: code */
-	twz_thread_exit();
+	twz_thread_exit(code);
 	return 0;
 }
 

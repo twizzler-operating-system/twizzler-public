@@ -38,8 +38,8 @@ __attribute__((used)) static int __do_exec(uint64_t entry,
 		.rdi = (long)vector,
 		.rsp = (long)SLOT_TO_VADDR(TWZSLOT_STACK) + 0x200000,
 	};
-	sys_become(&ba);
-	twz_thread_exit();
+	int r = sys_become(&ba);
+	twz_thread_exit(r);
 	return 0;
 }
 
@@ -136,7 +136,7 @@ int twz_exec_view(twzobj *view,
 	                     "d"((uint64_t)vid),
 	                     "c"((uint64_t)(vid >> 64)),
 	                     "r"(r8));
-	twz_thread_exit();
+	twz_thread_exit(ret);
 	return ret;
 }
 

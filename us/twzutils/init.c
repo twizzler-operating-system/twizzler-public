@@ -35,14 +35,14 @@ void tmain(void *a)
 	r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
 	if(r) {
 		EPRINTF("failed to detach: %d\n", r);
-		twz_thread_exit();
+		twz_thread_exit(r);
 	}
 
 	if(info->sctx) {
 		r = sys_attach(0, info->sctx, 0, KSO_SECCTX);
 		if(r) {
 			EPRINTF("failed to attach " IDFMT ": %d\n", IDPR(info->sctx), r);
-			twz_thread_exit();
+			twz_thread_exit(r);
 		}
 	}
 
@@ -51,7 +51,7 @@ void tmain(void *a)
 	  (char *[]){
 	    info->name, info->arg[0] ? info->arg : NULL, info->arg2[0] ? info->arg2 : NULL, NULL });
 	EPRINTF("failed to exec '%s': %d\n", info->name, r);
-	twz_thread_exit();
+	twz_thread_exit(r);
 }
 
 void start_service(struct service_info *info)
@@ -60,14 +60,14 @@ void start_service(struct service_info *info)
 	r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
 	if(r) {
 		EPRINTF("failed to detach: %d\n", r);
-		twz_thread_exit();
+		twz_thread_exit(r);
 	}
 
 	if(info->sctx) {
 		r = sys_attach(0, info->sctx, 0, KSO_SECCTX);
 		if(r) {
 			EPRINTF("failed to attach " IDFMT ": %d\n", IDPR(info->sctx), r);
-			twz_thread_exit();
+			twz_thread_exit(r);
 		}
 	}
 
@@ -152,7 +152,7 @@ void start_login(void)
 	r = sys_attach(0, lsi, 0, KSO_SECCTX);
 	if(r) {
 		EPRINTF("failed to attach " IDFMT ": %d\n", IDPR(lsi), r);
-		twz_thread_exit();
+		twz_thread_exit(r);
 	}
 
 	kso_set_name(NULL, "[instance] login");
@@ -477,12 +477,12 @@ int main()
 	r = twz_name_resolve(NULL, "usr_bin_init.sctx", NULL, 0, &si);
 	if(r) {
 		EPRINTF("failed to resolve 'init.sctx'");
-		twz_thread_exit();
+		twz_thread_exit(r);
 	}
 	r = sys_attach(0, si, 0, KSO_SECCTX);
 	if(r) {
 		EPRINTF("failed to attach: %d", r);
-		twz_thread_exit();
+		twz_thread_exit(r);
 	}
 
 	int fd;

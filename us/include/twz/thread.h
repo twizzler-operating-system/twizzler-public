@@ -2,8 +2,8 @@
 #include <twz/_thrd.h>
 #include <twz/_types.h>
 #include <twz/obj.h>
-void twz_thread_exit(void);
 
+#define TWZ_THREAD_STACK_SIZE 0x200000
 struct thread {
 	objid_t tid;
 	twzobj obj;
@@ -18,39 +18,29 @@ struct thrd_spawn_args {
 	char *tls_base; /* tls base address. */
 };
 
+__attribute__((non_null, const)) struct twzthread_repr *twz_thread_repr_base(void);
+twzobj *__twz_get_stdstack_obj(void);
+#define twz_stdstack ({ __twz_get_stdstack_obj(); })
+
 int twz_thread_create(struct thread *thrd);
+
 int twz_thread_release(struct thread *thrd);
+
 int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args);
+
+__attribute__((noreturn)) void twz_thread_exit(uint64_t);
+
 ssize_t twz_thread_wait(size_t count,
   struct thread **threads,
   int *syncpoints,
   long *event,
   uint64_t *info);
+
 int twz_thread_ready(struct thread *thread, int sp, uint64_t info);
-
-#define twz_thread_repr_base()                                                                     \
-	({                                                                                             \
-		uint64_t a;                                                                                \
-		asm volatile("rdgsbase %%rax" : "=a"(a));                                                  \
-		(struct twzthread_repr *)(a + OBJ_NULLPAGE_SIZE);                                          \
-	})
-
-#define TWZ_THREAD_STACK_SIZE 0x200000
-
-int twz_exec(objid_t id, char const *const *argv, char *const *env);
-
-int twz_exec_create_view(twzobj *view, objid_t id, objid_t *vid);
-int twz_exec_view(twzobj *view,
-  objid_t vid,
-  size_t entry,
-  char const *const *argv,
-  char *const *env);
-
-twzobj *__twz_get_stdstack_obj(void);
-#define twz_stdstack ({ __twz_get_stdstack_obj(); })
 
 struct timespec;
 int twz_thread_sync(int op, _Atomic uint64_t *addr, uint64_t val, struct timespec *timeout);
+
 struct sys_thread_sync_args;
 void twz_thread_sync_init(struct sys_thread_sync_args *args,
   int op,
@@ -59,6 +49,15 @@ void twz_thread_sync_init(struct sys_thread_sync_args *args,
   struct timespec *timeout);
 
 int twz_thread_sync_multiple(size_t count, struct sys_thread_sync_args *);
+
+/* TODO: get rid of these from the standard library */
+int twz_exec(objid_t id, char const *const *argv, char *const *env);
+int twz_exec_create_view(twzobj *view, objid_t id, objid_t *vid);
+int twz_exec_view(twzobj *view,
+  objid_t vid,
+  size_t entry,
+  char const *const *argv,
+  char *const *env);
 
 #ifndef __KERNEL__
 #include <stdatomic.h>

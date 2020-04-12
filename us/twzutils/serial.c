@@ -215,7 +215,7 @@ void somain(void *a)
 		ssize_t r = twzio_read(&p_obj, buf, 128, 0, 0);
 		if(r < 0) {
 			debug_printf("ERR: %ld\n", r);
-			twz_thread_exit();
+			twz_thread_exit(r);
 		}
 		for(size_t i = 0; i < (size_t)r; i++) {
 			// if(buf[i] == '\r')

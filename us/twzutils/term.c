@@ -84,7 +84,7 @@ void kbmain(void *a)
 		ssize_t r = twzio_read(&kbobj, buf, 128, 0, 0);
 		if(r < 0) {
 			debug_printf("ERR: %ld\n", r);
-			twz_thread_exit();
+			twz_thread_exit(r);
 		}
 		process_keyboard(&ptyobj, buf, r);
 	}
