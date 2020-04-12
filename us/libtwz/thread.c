@@ -162,6 +162,7 @@ void twz_thread_exit(uint64_t ecode)
 	__builtin_unreachable();
 }
 
+#include <alloca.h>
 ssize_t twz_thread_wait(size_t count,
   struct thread **threads,
   int *syncpoints,
@@ -173,7 +174,14 @@ ssize_t twz_thread_wait(size_t count,
 	if(count > 4096)
 		return -EINVAL;
 
+	struct sys_thread_sync_args *args;
+	if(count < 16) {
+		args = alloca(sizeof(*args) * count);
+	} else {
+		args = calloc(count, sizeof(*args));
+	}
 	size_t ready;
+	int r = 0;
 	do {
 		ready = 0;
 		struct sys_thread_sync_args args[count];
@@ -193,12 +201,17 @@ ssize_t twz_thread_wait(size_t count,
 			}
 		}
 		if(!ready) {
-			int r = sys_thread_sync(count, args);
+			r = sys_thread_sync(count, args);
 			if(r < 0)
-				return r;
+				break;
 		}
 	} while(ready == 0);
-	return ready;
+
+	if(count >= 16) {
+		free(args);
+	}
+
+	return r ? r : ready;
 }
 
 #include <limits.h>
