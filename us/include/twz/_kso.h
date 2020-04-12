@@ -3,6 +3,17 @@
 #include <stdint.h>
 #include <twz/_objid.h>
 
+enum kso_type {
+	KSO_NONE,
+	KSO_VIEW,
+	KSO_SECCTX,
+	KSO_THREAD,
+	KSO_ROOT,
+	KSO_DEVBUS,
+	KSO_DEVICE,
+	KSO_MAX,
+};
+
 #define KSO_NAME_MAXLEN 1024
 
 struct kso_attachment {

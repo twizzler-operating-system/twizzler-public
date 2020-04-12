@@ -5,6 +5,7 @@
 #include <lib/inthash.h>
 #include <lib/rb.h>
 #include <spinlock.h>
+#include <twz/_kso.h>
 #include <twz/_obj.h>
 #include <workqueue.h>
 

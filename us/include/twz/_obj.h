@@ -66,18 +66,6 @@ struct fotentry {
 };
 
 _Static_assert(sizeof(struct fotentry) == 32, "");
-
-enum kso_type {
-	KSO_NONE,
-	KSO_VIEW,
-	KSO_SECCTX,
-	KSO_THREAD,
-	KSO_ROOT,
-	KSO_DEVBUS,
-	KSO_DEVICE,
-	KSO_MAX,
-};
-
 #define OBJ_MAXFOTE ((1ul << 20) - 0x1000 / sizeof(struct fotentry))
 #define OBJ_TOPDATA (OBJ_MAXSIZE - (0x1000 + OBJ_MAXFOTE * sizeof(struct fotentry)))
 
