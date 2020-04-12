@@ -38,6 +38,7 @@ struct device_repr {
 #ifndef __KERNEL__
 
 #include <twz/obj.h>
+#include <twz/objctl.h>
 
 static inline struct device_repr *twz_device_getrepr(twzobj *obj)
 {

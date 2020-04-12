@@ -32,11 +32,13 @@ static inline unsigned long long rdtsc(void)
 }
 
 #define tc 1
-int max = 1000000 / tc;
+unsigned int max = 1000000 / tc;
 _Atomic long total_ops = 0;
 _Atomic long total_ns = 0;
 void test_insert(twzobj *index, twzobj *data, int id)
 {
+	(void)index;
+	(void)data;
 	int r;
 	struct timespec start, end, diff;
 	printf("Starting insert\n");
@@ -60,6 +62,8 @@ void test_insert(twzobj *index, twzobj *data, int id)
 
 void test_lookup(twzobj *index, twzobj *data, int id)
 {
+	(void)index;
+	(void)data;
 	int r;
 	struct timespec start, end, diff;
 	clock_gettime(CLOCK_MONOTONIC, &start);
@@ -82,14 +86,16 @@ void test_lookup(twzobj *index, twzobj *data, int id)
 
 void test(twzobj *index, twzobj *data)
 {
-	int max = 1000000;
+	(void)index;
+	(void)data;
+	unsigned int max = 1000000;
 	int r;
 	struct timespec start, end, diff;
 	for(int i = 0; i < 1000; i++) {
 		clock_gettime(CLOCK_MONOTONIC, &start);
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		timespec_diff(&start, &end, &diff);
-		printf("CALIB: %ld ns :: %ld\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, 0);
+		printf("CALIB: %ld ns :: %ld\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, 0ul);
 	}
 
 	clock_gettime(CLOCK_MONOTONIC, &start);
@@ -123,6 +129,8 @@ void test(twzobj *index, twzobj *data)
 
 void verify(twzobj *index, twzobj *data)
 {
+	(void)index;
+	(void)data;
 	struct twzkv_item key = { .data = "fruit", .length = 6 };
 	struct twzkv_item val = { .data = "apple", .length = 6 };
 

@@ -14,5 +14,7 @@
 
 #define TWZSLOT_FILES_BASE 0x1a000
 
+#ifndef __KERNEL__
 #define SLOT_TO_VADDR(s) ({ (void *)((s)*OBJ_MAXSIZE); })
 #define VADDR_TO_SLOT(s) ({ (size_t)((uintptr_t)(s) / OBJ_MAXSIZE); })
+#endif

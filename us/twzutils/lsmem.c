@@ -9,13 +9,13 @@
 void print_system(twzobj *sys)
 {
 	struct bus_repr *rep = twz_bus_getrepr(sys);
-	struct system_header *sh = twz_bus_getbs(sys);
+	// struct system_header *sh = twz_bus_getbs(sys);
 	for(size_t i = 0; i < rep->max_children; i++) {
 		twzobj cpu;
 		twz_bus_open_child(sys, &cpu, i, FE_READ);
 
 		struct device_repr *dr = twz_device_getrepr(&cpu);
-		struct processor_header *ph = twz_device_getds(&cpu);
+		// struct processor_header *ph = twz_device_getds(&cpu);
 		if((dr->device_id >> 24) == 1) {
 			printf("MEM\n");
 			/* is CPU */
@@ -38,7 +38,7 @@ int main()
 			case KSO_DEVBUS:
 				twz_object_init_guid(&bus, k->id, FE_READ);
 				struct bus_repr *rep = twz_bus_getrepr(&bus);
-				struct system_header *sh = twz_bus_getbs(&bus);
+				//	struct system_header *sh = twz_bus_getbs(&bus);
 				if(rep->bus_type == DEVICE_BT_SYSTEM) {
 					print_system(&bus);
 				}

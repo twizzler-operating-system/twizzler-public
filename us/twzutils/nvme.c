@@ -535,7 +535,7 @@ int nvmec_identify(struct nvme_controller *nc)
 		return -1;
 	}
 	fprintf(stderr, "READ: %x %x\n", status, cres);
-	fprintf(stderr, "%s\n", r_memory);
+	fprintf(stderr, "%s\n", (char *)r_memory);
 
 	return 0;
 }

@@ -6,6 +6,7 @@
 #include <twz/debug.h>
 #include <twz/driver/bus.h>
 #include <twz/driver/device.h>
+#include <twz/objctl.h>
 #include <twz/sys.h>
 #include <twz/thread.h>
 

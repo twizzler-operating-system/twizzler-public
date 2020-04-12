@@ -20,6 +20,7 @@ struct service_info {
 	char arg[1024];
 	char arg2[1024];
 };
+int create_pty_pair(char *server, char *client);
 
 bool term_ready = false;
 
@@ -302,6 +303,12 @@ int main()
 	long max = 1000000;
 	int k;
 	twzobj o;
+	(void)k;
+	(void)o;
+	(void)max;
+	(void)diff;
+	(void)start;
+	(void)end;
 #if 0
 	for(int f = 0; f < 30; f++) {
 		max = 1000000000;
