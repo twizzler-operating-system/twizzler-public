@@ -6,6 +6,8 @@ void mutex_acquire(struct mutex *m)
 {
 	if(!_twz_rcode) {
 		uint64_t r = sys_kconf(KCONF_RDRESET, 0);
+		/* this code will always be the same within the same power cycle. We can afford a few
+		 * overwrites. */
 		_twz_rcode = r;
 	}
 
@@ -22,6 +24,7 @@ void mutex_acquire(struct mutex *m)
 				asm("pause");
 		}
 	}
+	/* try to grab the lock by spinning */
 	long v;
 	for(int i = 0; i < 100; i++) {
 		v = 0;
@@ -30,6 +33,7 @@ void mutex_acquire(struct mutex *m)
 		}
 		asm("pause");
 	}
+	/* indicate waiting */
 	if(v)
 		v = atomic_exchange(&m->sleep, 2);
 
@@ -39,8 +43,11 @@ void mutex_acquire(struct mutex *m)
 		.arg = 2,
 	};
 
+	/* actually sleep for the lock */
 	while(v) {
-		sys_thread_sync(1, &args);
+		if(sys_thread_sync(1, &args) < 0) {
+			libtwz_panic("mutex_acquire thread sync error");
+		}
 
 		v = atomic_exchange(&m->sleep, 2);
 	}
@@ -51,9 +58,11 @@ void mutex_release(struct mutex *m)
 	if(atomic_load(&m->sleep) == 2) {
 		atomic_store(&m->sleep, 0);
 	} else if(atomic_exchange(&m->sleep, 0) == 1) {
+		/* no-one was waiting! */
 		return;
 	}
 
+	/* try to downgrade to non-waiting case */
 	for(int i = 0; i < 100; i++) {
 		long v = 1;
 		if(atomic_load(&m->sleep)) {
@@ -62,10 +71,13 @@ void mutex_release(struct mutex *m)
 		}
 		asm("pause");
 	}
+	/* wake up anyone who is waiting */
 	struct sys_thread_sync_args args = {
 		.op = THREAD_SYNC_WAKE,
 		.addr = (uint64_t *)&m->sleep,
 		.arg = 1,
 	};
-	sys_thread_sync(1, &args);
+	if(sys_thread_sync(1, &args) < 0) {
+		libtwz_panic("mutex_acquire thread sync error");
+	}
 }

@@ -70,17 +70,18 @@ static int twz_map_fot_entry(twzobj *obj,
 
 	twz_view_set(NULL, slot, id, flags);
 	if(fe->flags & FE_DERIVE) {
-		twz_object_wire_guid(NULL, id);
-		twz_object_delete_guid(id, 0);
+		if(twz_object_wire_guid(NULL, id)) {
+			libtwz_panic("failed to wire guid during fault handling");
+		}
+		if(twz_object_delete_guid(id, 0)) {
+			libtwz_panic("failed to delete object during fault handling");
+		}
 	}
 	return 0;
 }
 
 static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t id)
 {
-	(void)source;
-	(void)id;
-	// PRINT("%lx %x %lx (" IDFMT ")\n", addr, cause, source, IDPR(id));
 	uint64_t offset = twz_ptr_local(addr);
 	if(offset < OBJ_NULLPAGE_SIZE) {
 		FPR("NULL pointer");
@@ -106,7 +107,6 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 	}
 
 	twzobj o0 = twz_object_from_ptr(NULL);
-	// struct metainfo *mi = twz_slot_to_meta(0);
 	struct metainfo *mi = twz_object_meta(&o0);
 	if(mi->magic != MI_MAGIC) {
 		FPR("Invalid object");
@@ -115,6 +115,11 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 
 	size_t slot = VADDR_TO_SLOT(addr);
 	struct fotentry *fe = _twz_object_get_fote(&o0, slot);
+
+	if(!fe) {
+		FPR("Invalid pointer");
+		return -EINVAL;
+	}
 
 	if(!(atomic_load(&fe->flags) & _FE_VALID) || fe->id == 0) {
 		struct fault_pptr_info fi = {
@@ -127,14 +132,6 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 		twz_fault_raise(FAULT_PPTR, &fi);
 		return -ENOENT;
 	}
-
-#if 0
-	if(fe->flags & FE_NAME) {
-		PRINT("Slot: %ld - %s\n", slot, fe->name.data);
-	} else {
-		PRINT("Slot: %ld - " IDFMT "\n", slot, IDPR(fe->id));
-	}
-#endif
 
 	return twz_map_fot_entry(&o0, slot, fe, id, addr, source);
 }
@@ -170,6 +167,8 @@ static const char *fault_names[] = {
 	[FAULT_NULL] = "FAULT_NULL",
 	[FAULT_SCTX] = "FAULT_SCTX",
 	[FAULT_EXCEPTION] = "FAULT_EXCEPTION",
+	[FAULT_PPTR] = "FAULT_PPTR",
+	[FAULT_PAGE] = "FAULT_PAGE",
 };
 
 struct stackframe {
@@ -241,6 +240,9 @@ static __attribute__((used)) void __twz_fault_entry_c(int fault,
   void *_info,
   struct fault_frame *frame)
 {
+	/* we provide default handling for FAULT_OBJECT that always runs. We also handle double-faults
+	 * here explicitly. Unlike FAULT_OBJECT, a thread cannot catch double-faults, and they are
+	 * fatal. */
 	if(fault == FAULT_OBJECT) {
 		if(__fault_obj_default(fault, _info) < 0) {
 			twz_thread_exit(EXIT_CODE_FAULT(fault));
@@ -251,7 +253,8 @@ static __attribute__((used)) void __twz_fault_entry_c(int fault,
 		return;
 	}
 	if((fault >= NUM_FAULTS || !_fault_table[fault].fn) && fault != FAULT_OBJECT) {
-		PRINT("Unhandled exception: %d", fault);
+		fprintf(stderr, "  -- FAULT %d: unhandled.\n", fault);
+		__twz_fault_unhandled_print(fault, _info);
 		twz_thread_exit(EXIT_CODE_FAULT(fault));
 	}
 	if(_fault_table[fault].fn) {
@@ -329,16 +332,12 @@ int twz_fault_set(int fault, void (*fn)(int, void *))
 	_fault_table[fault].fn = fn;
 	struct twzthread_repr *repr = twz_thread_repr_base();
 
-	/* have to do this manually, because fault handling during init
-	 * may not use any global data (since the data object may not be mapped) */
-
 	repr->faults[fault] = (struct faultinfo){
 		.addr = fn ? (void *)__twz_fault_entry : NULL,
 	};
 	return 0;
 }
 
-/* raise a fault for ourselves. */
 void twz_fault_raise(int fault, void *data)
 {
 	void (*fn)(int, void *) = atomic_load(&_fault_table[fault].fn);
