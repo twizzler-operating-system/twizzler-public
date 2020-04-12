@@ -127,13 +127,16 @@ static void *get_slab(twzobj *o, struct twzoa_header *hdr, int sc)
 	// DEBUG("  allocating from slab %p (%d / %d)\n", slab, slab->nrobj, nr_objs(slab));
 	DEBUG("  allocating from slab %p (%d) sz=%d\n", slab, slab->nrobj, slab->sz);
 
-	int i, x;
+	int i = -1, x;
 	for(x = 0; x < 4; x++) {
 		DEBUG("    trying %lx\n", slab->alloc[x]);
 		if(slab->alloc[x]) {
 			i = __builtin_ffsll(slab->alloc[x]) - 1;
 			break;
 		}
+	}
+	if(i == -1) {
+		libtwz_panic("i == -1");
 	}
 
 	slab->alloc[x] &= ~(1ull << i);

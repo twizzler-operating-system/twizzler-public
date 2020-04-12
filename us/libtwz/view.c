@@ -33,10 +33,9 @@ int twz_view_set(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 	ves[slot].res1 = 0;
 	atomic_store(&ves[slot].flags, flags | VE_VALID);
 
-#warning "TODO: seems like this happens too much?"
 	if((old & VE_VALID)) {
 		struct sys_invalidate_op op = {
-			.offset = SLOT_TO_VADDR(slot),
+			.offset = (long)SLOT_TO_VADDR(slot),
 			.length = 1,
 			.flags = KSOI_VALID | KSOI_CURRENT,
 			.id = KSO_CURRENT_VIEW,
@@ -63,7 +62,7 @@ int twz_view_fixedset(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 
 	if(old & VE_VALID) {
 		struct sys_invalidate_op op = {
-			.offset = SLOT_TO_VADDR(slot),
+			.offset = (long)SLOT_TO_VADDR(slot),
 			.length = 1,
 			.flags = KSOI_VALID | KSOI_CURRENT,
 			.id = KSO_CURRENT_VIEW,
@@ -104,7 +103,7 @@ int twz_vaddr_to_obj(const void *v, objid_t *id, uint32_t *fl)
 	uint32_t tf;
 	int r = twz_view_get(NULL, VADDR_TO_SLOT(v), id, &tf);
 	if(!r && !(tf & VE_VALID))
-		return ENOENT;
+		return -ENOENT;
 	if(fl)
 		*fl = tf;
 	return r;

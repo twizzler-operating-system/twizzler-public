@@ -9,6 +9,7 @@
 
 #define MAX_FD 1024
 
+__attribute__((noreturn)) void twix_panic(const char *s, ...);
 struct iovec;
 struct stat;
 struct twix_register_frame;

@@ -30,6 +30,9 @@ long linux_sys_open(const char *path, int flags, int mode)
 
 long linux_sys_fcntl(int fd, int cmd, long arg)
 {
+	(void)fd;
+	(void)cmd;
+	(void)arg;
 	return -ENOTSUP;
 	return 0;
 }

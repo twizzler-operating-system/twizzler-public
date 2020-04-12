@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <string.h>
 #include <twz/_slots.h>
+#include <twz/thread.h>
 #include <twz/view.h>
 
 static twzobj unix_obj;
@@ -32,6 +33,17 @@ void __linux_init(void)
 
 		uh = twz_object_base(&unix_obj);
 	}
+}
+
+#include <stdarg.h>
+#include <stdio.h>
+__attribute__((noreturn)) void twix_panic(const char *s, ...)
+{
+	va_list ap;
+	va_start(ap, s);
+	vfprintf(stderr, s, ap);
+	va_end(ap);
+	twz_thread_exit(~0ul);
 }
 
 #include <sys/utsname.h>

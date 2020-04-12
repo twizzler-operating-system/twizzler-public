@@ -96,7 +96,7 @@ int twz_exec_view(twzobj *view,
 
 	size_t v = 0;
 	vector[v++] = argc;
-	char *str = (char *)twz_object_lea(&stack, sp);
+	char *str = (char *)twz_object_lea(&stack, (char *)sp);
 	for(size_t i = 0; i < argc; i++) {
 		const char *s = argv[i];
 		str -= strlen(s) + 1;

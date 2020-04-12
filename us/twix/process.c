@@ -212,8 +212,10 @@ static bool __fork_view_clone(twzobj *nobj,
 			return false;
 		}
 		*nflags = oflags;
-		twz_object_wire_guid(nobj, nid);
-		twz_object_delete_guid(*nid, 0);
+		r = twz_object_wire_guid(nobj, *nid);
+		if(r || (r = twz_object_delete_guid(*nid, 0))) {
+			twix_panic("failed to copy object");
+		}
 	}
 
 	return false;
@@ -419,6 +421,9 @@ long linux_sys_futex(int *uaddr,
   int *uaddr2,
   int val3)
 {
+	(void)timeout;
+	(void)uaddr2;
+	(void)val3;
 	switch((op & FUTEX_CMD_MASK)) {
 		case FUTEX_WAIT:
 			return 0; // TODO

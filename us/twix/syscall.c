@@ -104,7 +104,8 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_getegid] = linux_sys_getegid,
 	[LINUX_SYS_uname] = linux_sys_uname,
 };
-static const char *syscall_names[] = {
+
+__attribute__((unused)) static const char *syscall_names[] = {
 	[0] = "read",
 	[1] = "write",
 	[2] = "open",

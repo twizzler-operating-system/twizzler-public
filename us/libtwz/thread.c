@@ -76,7 +76,9 @@ int twz_thread_create(struct thread *thrd)
 	return 0;
 
 error:
-	twz_object_delete(&thrd, 0);
+	if(twz_object_delete(&thrd->obj, 0)) {
+		libtwz_panic("failed to delete object during cleanup");
+	}
 	twz_object_release(&thrd->obj);
 	return r;
 }
@@ -213,7 +215,7 @@ ssize_t twz_thread_wait(size_t count,
 		free(args);
 	}
 
-	return r ? r : ready;
+	return r ? (ssize_t)r : (ssize_t)ready;
 }
 
 #include <limits.h>

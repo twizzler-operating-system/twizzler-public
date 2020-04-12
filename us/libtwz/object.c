@@ -22,7 +22,7 @@ static void _twz_lea_fault(twzobj *o,
 {
 	size_t slot = VADDR_TO_SLOT(p);
 	struct fault_pptr_info fi = {
-		.objid = twz_object_guid(o), .fote = slot, .ptr = p, .info = info, .ip = ip
+		.objid = o ? twz_object_guid(o) : 0, .fote = slot, .ptr = p, .info = info, .ip = ip
 	};
 	twz_fault_raise(FAULT_PPTR, &fi);
 }
@@ -110,6 +110,7 @@ int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 			libtwz_panic("failed to delete object whily tying");
 		}
 	}
+	return 0;
 }
 
 EXTERNAL
@@ -447,13 +448,17 @@ void *__twz_ptr_swizzle(twzobj *obj, const void *p, uint64_t flags)
 {
 	objid_t target;
 	int r = twz_vaddr_to_obj(p, &target, NULL);
-	if(r)
-		return r;
+	if(r) {
+		_twz_lea_fault(NULL, p, (uintptr_t)__builtin_return_address(0), FAULT_PPTR_INVALID, r);
+		return NULL;
+	}
 
 	ssize_t fe = twz_object_addfot(obj, target, flags);
-	if(fe < 0)
-		return fe;
-	return twz_ptr_rebase(fe, p);
+	if(fe < 0) {
+		_twz_lea_fault(obj, NULL, (uintptr_t)__builtin_return_address(0), FAULT_PPTR_RESOURCES, r);
+		return NULL;
+	}
+	return twz_ptr_rebase(fe, (void *)p);
 }
 
 EXTERNAL
@@ -463,7 +468,7 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 #if 1
 	if(o->_int_flags & TWZ_OBJ_CACHE) {
 		if(slot < TWZ_OBJ_CACHE_SIZE && o->_int_cache[slot]) {
-			return twz_ptr_rebase(o->_int_cache[slot], p);
+			return twz_ptr_rebase(o->_int_cache[slot], (void *)p);
 		}
 	} else {
 		memset(o->_int_cache, 0, sizeof(o->_int_cache));
@@ -476,7 +481,6 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 	struct fotentry *fe = _twz_object_get_fote(o, slot);
 
 	uint64_t info = FAULT_PPTR_INVALID;
-	const char *name;
 
 	int r = 0;
 	if(__builtin_expect(slot >= mi->fotentries, 0)) {
@@ -492,7 +496,6 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 		r = twz_name_resolve(o, fe->name.data, fe->name.nresolver, 0, &id);
 		if(r) {
 			info = FAULT_PPTR_RESOLVE;
-			name = fe->name.data;
 			goto fault;
 		}
 	} else {
@@ -500,8 +503,8 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 	}
 
 	if(__builtin_expect(fe->flags & FE_DERIVE, 0)) {
-		/* Currently, the derive bit can only be used for executables in slot 0. This may change in
-		 * the future. */
+		/* Currently, the derive bit can only be used for executables in slot 0. This may change
+		 * in the future. */
 		info = FAULT_PPTR_DERIVE;
 		goto fault;
 	}

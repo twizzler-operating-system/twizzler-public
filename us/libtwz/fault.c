@@ -192,15 +192,15 @@ static void __twz_fault_unhandled_print(int fault_nr, void *data)
 		if(si->pneed & SCP_EXEC)
 			rp[_r++] = 'x';
 		rp[_r] = 0;
-		PRINT("  when accessing " IDFMT " at addr %lx, requesting %s (%lx)\n",
+		PRINT("  when accessing " IDFMT " at addr %lx, requesting %s (%x)\n",
 		  IDPR(si->target),
 		  si->addr,
 		  rp,
 		  si->pneed);
 	} else if(fault_nr == FAULT_EXCEPTION) {
 		struct fault_exception_info *ei = (void *)data;
-		PRINT("  ecode: %d\n", ei->code);
-		PRINT("  info : %x\n", ei->arg0);
+		PRINT("  ecode: %ld\n", ei->code);
+		PRINT("  info : %lx\n", ei->arg0);
 		uint16_t fcw;
 		asm volatile("fstcw %0" : "=m"(fcw));
 		PRINT("  fcw: %x\n", fcw);
