@@ -38,23 +38,17 @@ twzobj *__twz_get_stdstack_obj(void)
 
 int twz_thread_create(struct thread *thrd)
 {
-	struct twzthread_repr *currepr = twz_thread_repr_base();
 	int r;
-	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &thrd->tid))) {
-		return r;
-	}
-	if((r = twz_object_init_guid(&thrd->obj, thrd->tid, FE_READ | FE_WRITE))) {
-		return r;
-	}
+	struct twzthread_repr *currepr = twz_thread_repr_base();
 
-	if((r = twz_object_wire(NULL, &thrd->obj)))
-		return r;
-	if((r = twz_object_delete(&thrd->obj, 0)))
-		return r;
+	if((r = twz_object_new(
+	      &thrd->obj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_TIED_VIEW))) {
+		goto error;
+	}
 
 	struct twzthread_repr *newrepr = twz_object_base(&thrd->obj);
 
-	newrepr->reprid = thrd->tid;
+	newrepr->reprid = thrd->tid = twz_object_guid(&thrd->obj);
 	for(size_t i = 0; i < NUM_FAULTS; i++) {
 		newrepr->faults[i] = currepr->faults[i];
 	}
@@ -64,34 +58,22 @@ int twz_thread_create(struct thread *thrd)
 		.flags = VE_READ | VE_WRITE | VE_VALID,
 	};
 	return 0;
+
+error:
+	twz_object_delete(&thrd, 0);
+	twz_object_release(&thrd->obj);
+	return r;
 }
 
 int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args)
 {
-	struct twzthread_repr *currepr = twz_thread_repr_base();
 	int r;
-	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &thrd->tid))) {
+	if((r = twz_thread_create(thrd))) {
 		return r;
 	}
-	if((r = twz_object_init_guid(&thrd->obj, thrd->tid, FE_READ | FE_WRITE))) {
-		return r;
-	}
-	if((r = twz_object_wire(NULL, &thrd->obj)))
-		return r;
-	if((r = twz_object_delete(&thrd->obj, 0)))
-		return r;
 
+	struct twzthread_repr *currepr = twz_thread_repr_base();
 	struct twzthread_repr *newrepr = twz_object_base(&thrd->obj);
-
-	newrepr->reprid = thrd->tid;
-	for(size_t i = 0; i < NUM_FAULTS; i++) {
-		newrepr->faults[i] = currepr->faults[i];
-	}
-
-	newrepr->fixed_points[TWZSLOT_THRD] = (struct viewentry){
-		.id = thrd->tid,
-		.flags = VE_READ | VE_WRITE | VE_VALID,
-	};
 
 	struct sys_thrd_spawn_args sa = {
 		.target_view = args->target_view,

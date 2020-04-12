@@ -16,6 +16,7 @@ int twz_name_resolve(twzobj *obj,
   objid_t *id);
 int twz_name_assign(objid_t id, const char *name);
 
+/* TODO: remove this */
 int twz_name_reverse_lookup(objid_t id,
   char *name,
   size_t *nl,

@@ -104,6 +104,11 @@ int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 				return r;
 			}
 		}
+
+		/* now that we've tied the object, delete it to start refcounting it */
+		if(twz_object_delete_guid(*id, 0)) {
+			libtwz_panic("failed to delete object whily tying");
+		}
 	}
 }
 
@@ -246,7 +251,10 @@ void twz_object_release(twzobj *obj)
 	if(obj->_int_flags & TWZ_OBJ_NORELEASE) {
 		libtwz_panic("tried to release an object marked no-release-needed");
 	}
-	twz_view_release_slot(NULL, twz_object_guid(obj), obj->_int_vf, VADDR_TO_SLOT(obj->_int_base));
+	if(obj->_int_flags & TWZ_OBJ_VALID) {
+		twz_view_release_slot(
+		  NULL, twz_object_guid(obj), obj->_int_vf, VADDR_TO_SLOT(obj->_int_base));
+	}
 	obj->_int_base = NULL;
 	obj->_int_flags = 0;
 	obj->_int_id = 0;
