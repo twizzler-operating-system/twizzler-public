@@ -174,6 +174,8 @@ ssize_t twz_thread_wait(size_t count,
 	if(count > 4096)
 		return -EINVAL;
 
+	/* for small numbers of count (the most common case) just grab some memory off the stack.
+	 * Otherwise, call malloc to not blow the stack up */
 	struct sys_thread_sync_args *args;
 	if(count < 16) {
 		args = alloca(sizeof(*args) * count);
@@ -184,22 +186,22 @@ ssize_t twz_thread_wait(size_t count,
 	int r = 0;
 	do {
 		ready = 0;
-		struct sys_thread_sync_args args[count];
 		for(size_t i = 0; i < count; i++) {
 			struct twzthread_repr *r = twz_object_base(&threads[i]->obj);
 
-			args[i].addr = (uint64_t *)&r->syncs[syncpoints[i]];
-			args[i].arg = 0;
-			args[i].op = THREAD_SYNC_SLEEP;
-			args[i].flags = 0;
+			twz_thread_sync_init(&args[i], THREAD_SYNC_SLEEP, &r->syncs[syncpoints[i]], 0, NULL);
+			/* check each one before calling thread_sync to wait on them */
 			if(r->syncs[syncpoints[i]]) {
-				if(event)
+				if(event) {
 					event[i] = 1;
-				if(info)
+				}
+				if(info) {
 					info[i] = r->syncinfos[syncpoints[i]];
+				}
 				ready++;
 			}
 		}
+		/* no threads were "ready" according to our definition, so wait for one of them */
 		if(!ready) {
 			r = sys_thread_sync(count, args);
 			if(r < 0)
@@ -246,9 +248,11 @@ void twz_thread_sync_init(struct sys_thread_sync_args *args,
 		.arg = val,
 		.spec = timeout,
 	};
-	if(timeout)
+	if(timeout) {
 		args->flags |= THREAD_SYNC_TIMEOUT;
+	}
 }
+
 int twz_thread_sync(int op, _Atomic uint64_t *addr, uint64_t val, struct timespec *timeout)
 {
 	struct sys_thread_sync_args args = {
