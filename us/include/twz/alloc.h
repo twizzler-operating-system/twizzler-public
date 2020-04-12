@@ -2,8 +2,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <twz/_types.h>
 #include <twz/mutex.h>
-#include <twz/obj.h>
 
 #define NR_SZS 28
 
@@ -21,6 +21,7 @@ struct twzoa_header {
 	struct mutex m;
 };
 
+twzobj;
 int oa_init(twzobj *obj, size_t start, size_t end);
 int oa_hdr_init(twzobj *obj, struct twzoa_header *h, size_t start, size_t end);
 void oa_hdr_free(twzobj *obj, struct twzoa_header *hdr, void *p);
