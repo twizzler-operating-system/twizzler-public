@@ -60,9 +60,11 @@ void tmain(const char *username)
 	exit(1);
 }
 
-int main()
+int main(int argc, char **argv)
 {
-	printf("Setting SCE to AUX.\n");
+	int k = 0x7fffffff;
+	k += argc;
+	printf("Setting SCE to AUX.\n%d\n", k);
 	for(;;) {
 		char buffer[1024];
 		printf("Twizzler Login: ");
