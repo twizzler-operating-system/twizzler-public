@@ -37,35 +37,35 @@ fi
 BINUTILSVER=2.32
 GCCVER=9.2.0
 
-#wget ftp://ftp.gnu.org/gnu/binutils/binutils-${BINUTILSVER}.tar.bz2 -O binutils-${BINUTILSVER}.tar.bz2
-#wget ftp://ftp.gnu.org/gnu/gcc/gcc-${GCCVER}/gcc-${GCCVER}.tar.xz -O gcc-${GCCVER}.tar.xz
+wget ftp://ftp.gnu.org/gnu/binutils/binutils-${BINUTILSVER}.tar.bz2 -O binutils-${BINUTILSVER}.tar.bz2
+wget ftp://ftp.gnu.org/gnu/gcc/gcc-${GCCVER}/gcc-${GCCVER}.tar.xz -O gcc-${GCCVER}.tar.xz
 
 echo Cleaning and extracting sources
 
-#[ -d binutils-$BINUTILSVER ] && rm -r binutils-$BINUTILSVER
-#[ -d gcc-$GCCVER ] && rm -r gcc-$GCCVER
+[ -d binutils-$BINUTILSVER ] && rm -r binutils-$BINUTILSVER
+[ -d gcc-$GCCVER ] && rm -r gcc-$GCCVER
 
-#tar xf binutils-${BINUTILSVER}.tar.bz2
-#tar xf gcc-${GCCVER}.tar.xz
+tar xf binutils-${BINUTILSVER}.tar.bz2
+tar xf gcc-${GCCVER}.tar.xz
 
 echo Patching sources
 
-#cd binutils-$BINUTILSVER
-#patch -p1 < ../binutils-$BINUTILSVER-twizzler-hosted.patch
-#cd ../gcc-$GCCVER
-#patch -p1 < ../gcc-$GCCVER-twizzler-hosted.patch
-#cd ..
+cd binutils-$BINUTILSVER
+patch -p1 < ../binutils-$BINUTILSVER-twizzler-hosted.patch
+cd ../gcc-$GCCVER
+patch -p1 < ../gcc-$GCCVER-twizzler-hosted.patch
+cd ..
 
 
-#[ -d build-binutils-hosted ] && rm -r build-binutils-hosted
-#[ -d build-gcc-hosted ] && rm -r build-gcc-hosted
+[ -d build-binutils-hosted ] && rm -r build-binutils-hosted
+[ -d build-gcc-hosted ] && rm -r build-gcc-hosted
 
 mkdir -p build-binutils-hosted build-gcc-hosted
 cd build-binutils-hosted
 
-#../binutils-${BINUTILSVER}/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --disable-werror --enable-shared
-#make -j6
-#make install
+../binutils-${BINUTILSVER}/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-nls --disable-werror --enable-shared
+make -j6
+make install
 
 cd ../build-gcc-hosted
 

@@ -2,10 +2,10 @@ TWZUTILS=init login nls shell input pcie serial term bstream pty tst nvme kls ls
 
 LIBS_tst=-lncurses
 LIBS_sqb=-lsqlite3
-LIBS_login=-lasan -lubsan
+LIBS_login=-lubsan
 CFLAGS_term=-O3 -march=native -msse2 -msse4 -msse -mavx -ffast-math
 CFLAGS_init=-O3 -march=native
-CFLAGS_login=-O3 -march=native -fsanitize=undefined -fsanitize=address
+CFLAGS_login=-O3 -march=native -fsanitize=undefined
 CFLAGS_init_test=-O3 -march=native
 EXTRAS_term=$(BUILDDIR)/us/twzutils/kbd.o
 EXTRAS_init=$(BUILDDIR)/us/twzutils/init_test.o

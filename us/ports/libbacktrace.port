@@ -1,0 +1,30 @@
+#!/bin/sh
+
+NAME=libbacktrace
+VERSION=1.0
+DEPS=
+desc="Support for backtracing within executables"
+
+DOWNLOADS=(https://github.com/ianlancetaylor/libbacktrace/archive/master.zip)
+HASHES=(-)
+
+SPLITS=()
+
+function prepare() {
+	unzip master.zip
+	cd libbacktrace-master
+	cp $PORTDIR/config.sub .
+	./configure --prefix=/usr --host=$TARGET --datadir=/usr/share
+}
+
+function build() {
+	cd libbacktrace-master
+	make $MAKEFLAGS 
+}
+
+function install() {
+	cd libbacktrace-master
+	make $MAKEFLAGS DESTDIR=$SYSROOT install
+}
+
+
