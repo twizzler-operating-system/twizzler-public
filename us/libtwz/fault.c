@@ -254,13 +254,13 @@ __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info, struct fa
 		}
 	} else if(fault == FAULT_FAULT) {
 		struct fault_fault_info *ffi = _info;
-		_twz_default_exception_handler(ffi->fault_nr);
+		_twz_default_exception_handler(ffi->fault_nr, ffi->data);
 		__twz_fault_unhandled(_info, frame);
 		twz_thread_exit(EXIT_CODE_FAULT(fault));
 		return;
 	}
 	if((fault >= NUM_FAULTS || !_fault_table[fault].fn) && fault != FAULT_OBJECT) {
-		_twz_default_exception_handler(fault);
+		_twz_default_exception_handler(fault, _info);
 		fprintf(stderr, "  -- FAULT %d: unhandled.\n", fault);
 		__twz_fault_unhandled_print(fault, _info);
 		twz_thread_exit(EXIT_CODE_FAULT(fault));
@@ -366,6 +366,14 @@ int twz_fault_set(int fault, void (*fn)(int, void *, void *), void *userdata)
 	return 0;
 }
 
+void _twz_try_unhandled(int fault, void *data)
+{
+	fprintf(stderr, "  -- FAULT %d: unhandled (returned from try block).\n", fault);
+	__twz_fault_unhandled_print(fault, data);
+	libtwz_do_backtrace();
+	twz_thread_exit(EXIT_CODE_FAULT(fault));
+}
+
 void twz_fault_raise(int fault, void *data)
 {
 	void (*fn)(int, void *, void *) = atomic_load(&_fault_table[fault].fn);
@@ -373,9 +381,11 @@ void twz_fault_raise(int fault, void *data)
 	if(fn) {
 		fn(fault, data, userdata);
 	} else {
-		_twz_default_exception_handler(fault);
+		fprintf(stderr, "TRYING TO RAISE\n");
+		_twz_default_exception_handler(fault, data);
 		fprintf(stderr, "  -- RAISE FAULT %d: unhandled.\n", fault);
 		__twz_fault_unhandled_print(fault, data);
+		libtwz_do_backtrace();
 		twz_thread_exit(EXIT_CODE_FAULT(fault));
 	}
 }
@@ -386,9 +396,10 @@ void twz_fault_raise_data(int fault, void *data, void *userdata)
 	if(fn) {
 		fn(fault, data, userdata);
 	} else {
-		_twz_default_exception_handler(fault);
+		_twz_default_exception_handler(fault, data);
 		fprintf(stderr, "  -- RAISE FAULT %d: unhandled.\n", fault);
 		__twz_fault_unhandled_print(fault, data);
+		libtwz_do_backtrace();
 		twz_thread_exit(EXIT_CODE_FAULT(fault));
 	}
 }

@@ -30,7 +30,7 @@ void __panic(const char *file, int linenr, int flags, const char *msg, ...)
 		                                   : current_thread->arch.exception.int_no);
 		uintptr_t pc = current_thread->arch.was_syscall ? current_thread->arch.syscall.rcx
 		                                                : current_thread->arch.exception.rip;
-		printk("  pc: %ld ; code = ", pc);
+		printk("  pc: %lx ; code = ", pc);
 		unsigned char *ip = (void *)pc;
 		for(int i = 0; i < 32; i++)
 			printk("%x ", *(ip + i));

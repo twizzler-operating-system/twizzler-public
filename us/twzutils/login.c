@@ -131,14 +131,19 @@ void try_test(void)
 		twztry
 		{
 			printf("In inner try\n");
-			int *p = NULL;
-			volatile int x = *p;
+			//	int *p = NULL;
+			//	volatile int x = *p;
+			//		twz_fault_raise(FAULT_OBJECT, NULL);
+			void *p = 0x8000000001000;
+			twzobj o0 = twz_object_from_ptr(NULL);
+			void *v = twz_object_lea(&o0, p);
 		}
 		twztry_end;
 	}
-	twzcatch(FAULT_NULL)
+	twzcatch_all
 	{
-		printf("In catch\n");
+		//		struct fault_null_info *fni = twzcatch_data();
+		printf("In catch:: %d %lx\n", twzcatch_fnum(), 0);
 	}
 	twztry_end;
 	printf("After try block\n");
@@ -178,7 +183,7 @@ void try_test(void)
 
 int main(int argc, char **argv)
 {
-	// try_test();
+	try_test();
 	// int k = 0x7fffffff;
 	//	k += argc;
 	printf("Setting SCE to AUX.\n\n");

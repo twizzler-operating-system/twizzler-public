@@ -24,6 +24,7 @@ static void _twz_lea_fault(twzobj *o,
 	struct fault_pptr_info fi = {
 		.objid = o ? twz_object_guid(o) : 0, .fote = slot, .ptr = p, .info = info, .ip = ip
 	};
+	fprintf(stderr, "RAISING\n");
 	twz_fault_raise(FAULT_PPTR, &fi);
 }
 
