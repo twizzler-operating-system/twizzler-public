@@ -15,7 +15,8 @@
 #define PRINT(...) fprintf(stderr, ##__VA_ARGS__)
 
 static struct {
-	void (*fn)(int, void *);
+	void (*fn)(int, void *, void *);
+	void *userdata;
 } _fault_table[NUM_FAULTS];
 
 #define FPR(s)                                                                                     \
@@ -217,6 +218,15 @@ static void __twz_fault_unhandled_print(int fault_nr, void *data)
 #endif
 }
 
+#include <twz/twztry.h>
+_Thread_local jmp_buf *_twz_jmp_buf = NULL;
+static void _twz_default_exception_handler(int fault)
+{
+	if(_twz_jmp_buf) {
+		longjmp(*_twz_jmp_buf, fault + 1);
+	}
+}
+
 static void __twz_fault_unhandled(struct fault_fault_info *info, struct fault_frame *frame)
 {
 	struct twzthread_repr *repr = twz_thread_repr_base();
@@ -241,17 +251,20 @@ __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info, struct fa
 			twz_thread_exit(EXIT_CODE_FAULT(fault));
 		}
 	} else if(fault == FAULT_FAULT) {
+		struct fault_fault_info *ffi = _info;
+		_twz_default_exception_handler(ffi->fault_nr);
 		__twz_fault_unhandled(_info, frame);
 		twz_thread_exit(EXIT_CODE_FAULT(fault));
 		return;
 	}
 	if((fault >= NUM_FAULTS || !_fault_table[fault].fn) && fault != FAULT_OBJECT) {
+		_twz_default_exception_handler(fault);
 		fprintf(stderr, "  -- FAULT %d: unhandled.\n", fault);
 		__twz_fault_unhandled_print(fault, _info);
 		twz_thread_exit(EXIT_CODE_FAULT(fault));
 	}
 	if(_fault_table[fault].fn) {
-		_fault_table[fault].fn(fault, _info);
+		_fault_table[fault].fn(fault, _info, _fault_table[fault].userdata);
 	}
 }
 
@@ -334,9 +347,15 @@ void __twz_fault_init(void)
 	};
 }
 
-int twz_fault_set(int fault, void (*fn)(int, void *))
+void *twz_fault_get_userdata(int fault)
+{
+	return _fault_table[fault].userdata;
+}
+
+int twz_fault_set(int fault, void (*fn)(int, void *, void *), void *userdata)
 {
 	_fault_table[fault].fn = fn;
+	_fault_table[fault].userdata = userdata;
 	struct twzthread_repr *repr = twz_thread_repr_base();
 
 	repr->faults[fault] = (struct faultinfo){
@@ -347,10 +366,25 @@ int twz_fault_set(int fault, void (*fn)(int, void *))
 
 void twz_fault_raise(int fault, void *data)
 {
-	void (*fn)(int, void *) = atomic_load(&_fault_table[fault].fn);
+	void (*fn)(int, void *, void *) = atomic_load(&_fault_table[fault].fn);
+	void *userdata = _fault_table[fault].userdata;
 	if(fn) {
-		fn(fault, data);
+		fn(fault, data, userdata);
 	} else {
+		_twz_default_exception_handler(fault);
+		fprintf(stderr, "  -- RAISE FAULT %d: unhandled.\n", fault);
+		__twz_fault_unhandled_print(fault, data);
+		twz_thread_exit(EXIT_CODE_FAULT(fault));
+	}
+}
+
+void twz_fault_raise_data(int fault, void *data, void *userdata)
+{
+	void (*fn)(int, void *, void *) = atomic_load(&_fault_table[fault].fn);
+	if(fn) {
+		fn(fault, data, userdata);
+	} else {
+		_twz_default_exception_handler(fault);
 		fprintf(stderr, "  -- RAISE FAULT %d: unhandled.\n", fault);
 		__twz_fault_unhandled_print(fault, data);
 		twz_thread_exit(EXIT_CODE_FAULT(fault));
