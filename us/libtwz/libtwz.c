@@ -50,7 +50,8 @@ static void __print_backtrace_line(int frnr,
   size_t line,
   const char *function)
 {
-	printf("#%-3d \e[34m%10lx \e[33m%-24s \e[32m%s\e[0m:\e[36m%ld\e[0m\n",
+	fprintf(stderr,
+	  "#%-3d \e[34m%10lx \e[33m%-24s \e[32m%s\e[0m:\e[36m%ld\e[0m\n",
 	  frnr,
 	  (unsigned long)pc,
 	  function,

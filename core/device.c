@@ -160,7 +160,7 @@ struct object *bus_register(uint32_t bustype, uint32_t busid, size_t bssz)
 	struct bus_repr *repr = bus_get_repr(obj);
 	repr->bus_id = busid;
 	repr->bus_type = bustype;
-	repr->children = (void *)(sizeof(struct bus_repr) + bssz + OBJ_NULLPAGE_SIZE);
+	repr->children = (void *)align_up(sizeof(struct bus_repr) + bssz + OBJ_NULLPAGE_SIZE, 16);
 	device_release_headers(obj);
 	return obj; /* krc: move */
 }

@@ -99,6 +99,7 @@ SYSLIBS=$(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/l
 -include $(BUILDDIR)/us/*/*.d
 
 include us/twzutils/include.mk
+include us/testbench/include.mk
 
 #TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .obj,$(foreach x,$(PROGS),twzutils/$(x))))
 #TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),twzutils/$(x))))

@@ -125,7 +125,7 @@ void nls_print(struct twz_nament *ne, bool info, bool read, bool id)
 void nls(bool id, bool l)
 {
 	static _Alignas(_Alignof(struct twz_nament)) char buffer[1024];
-	twz_fault_set(FAULT_SCTX, __nls_fault_handler);
+	twz_fault_set(FAULT_SCTX, __nls_fault_handler, NULL);
 
 	char *startname = NULL;
 	ssize_t r;

@@ -109,8 +109,76 @@ void bar()
 	asm volatile("hlt");
 }
 
+#include <setjmp.h>
+#include <twz/fault.h>
+_Thread_local jmp_buf *_jmp_buf = NULL;
+
+void _fault_handler(int f, void *d, void *ud)
+{
+	if(!_jmp_buf) {
+		fprintf(stderr, "UNCAUGHT EXCEPTION\n");
+		twz_thread_exit(1);
+	}
+	longjmp(*_jmp_buf, f + 1);
+}
+
+#include <twz/twztry.h>
+void try_test(void)
+{
+	twztry
+	{
+		printf("In try!\n");
+		twztry
+		{
+			printf("In inner try\n");
+			int *p = NULL;
+			volatile int x = *p;
+		}
+		twztry_end;
+	}
+	twzcatch(FAULT_NULL)
+	{
+		printf("In catch\n");
+	}
+	twztry_end;
+	printf("After try block\n");
+
+#if 0
+	jmp_buf jb;
+	jmp_buf *pj = _jmp_buf;
+	_jmp_buf = &jb;
+
+	if(!setjmp(*_jmp_buf)) {
+		fprintf(stderr, "in try\n");
+
+		jmp_buf jb;
+		jmp_buf *pj = _jmp_buf;
+		_jmp_buf = &jb;
+
+		if(!setjmp(*_jmp_buf)) {
+			fprintf(stderr, "in try inner\n");
+
+			int *p = NULL;
+			volatile int x = *p;
+
+		} else {
+			fprintf(stderr, "in catch inner\n");
+			longjmp(*pj, 1);
+		}
+
+		_jmp_buf = pj;
+
+	} else {
+		fprintf(stderr, "in catch\n");
+	}
+
+	_jmp_buf = pj;
+#endif
+}
+
 int main(int argc, char **argv)
 {
+	// try_test();
 	// int k = 0x7fffffff;
 	//	k += argc;
 	printf("Setting SCE to AUX.\n\n");

@@ -24,10 +24,7 @@ static inline void *twz_bus_getbs(twzobj *obj)
 	return (void *)(twz_bus_getrepr(obj) + 1);
 }
 
-static inline int twz_bus_open_child(twzobj *bus,
-  twzobj *ch,
-  size_t num,
-  uint32_t flags)
+static inline int twz_bus_open_child(twzobj *bus, twzobj *ch, size_t num, uint32_t flags)
 {
 	struct bus_repr *br = twz_bus_getrepr(bus);
 	struct kso_attachment *ids = twz_object_lea(bus, br->children);
