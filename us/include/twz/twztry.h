@@ -7,6 +7,7 @@
 #include <setjmp.h>
 
 extern _Thread_local jmp_buf *_twz_jmp_buf;
+extern _Thread_local void *_twz_excep_data;
 
 #define twztry                                                                                     \
 	{                                                                                              \
@@ -22,6 +23,8 @@ extern _Thread_local jmp_buf *_twz_jmp_buf;
 #define twzcatch(f)                                                                                \
 	break;                                                                                         \
 	case((f) + 1):
+
+#define twzcatch_data() _twz_excep_data
 
 #define twztry_end                                                                                 \
 	}                                                                                              \
