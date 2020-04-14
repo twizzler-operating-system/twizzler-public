@@ -111,10 +111,10 @@ void bar()
 
 int main(int argc, char **argv)
 {
-	int k = 0x7fffffff;
-	k += argc;
-	printf("Setting SCE to AUX.\n%d\n", k);
-	// bar();
+	// int k = 0x7fffffff;
+	//	k += argc;
+	printf("Setting SCE to AUX.\n\n");
+	//	bar();
 	for(;;) {
 		char buffer[1024];
 		printf("Twizzler Login: ");

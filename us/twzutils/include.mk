@@ -2,7 +2,7 @@ TWZUTILS=init login nls shell input pcie serial term bstream pty tst nvme kls ls
 
 LIBS_tst=-lncurses
 LIBS_sqb=-lsqlite3
-LIBS_login=-lubsan -Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive
+LIBS_login=#-lubsan -Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive
 CFLAGS_term=-O3 -march=native -msse2 -msse4 -msse -mavx -ffast-math
 CFLAGS_init=-O3 -march=native
 CFLAGS_login=-O3 -march=native -fsanitize=undefined -fno-omit-frame-pointer
@@ -12,11 +12,14 @@ EXTRAS_init=$(BUILDDIR)/us/twzutils/init_test.o
 EXTRAS_kvdr=$(BUILDDIR)/us/twzutils/kv.o
 ALL_EXTRAS=$(EXTRAS_term) $(EXTRAS_init) $(EXTRAS_kvdr)
 
+TWZUTILSLIBS=-lubsan -Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive
 #TWZLDFLAGS=-lubsan
+
+TWZUTILSCFLAGS=-fsanitize=undefined -g
 
 $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
 	@echo "[LD]      $@"
-	$(TWZCC) -static $(TWZLDFLAGS) -g -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@))
+	$(TWZCC) -static $(TWZLDFLAGS) -g -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@)) $(TWZUTILSLIBS)
 	@echo "[SPLIT]   $@"
 	@$(BUILDDIR)/utils/elfsplit $@.elf
 	@cp $@.elf $@
@@ -26,7 +29,7 @@ $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.o $(SYSROOT_READY) $
 
 $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.opp $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
 	@echo "[LD]      $@"
-	@$(TWZCXX) -static $(TWZLDFLAGS) -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@))
+	@$(TWZCXX) -static $(TWZLDFLAGS) -g -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@)) $(TWZUTILSLIBS)
 	@echo "[SPLIT]   $@"
 	@$(BUILDDIR)/utils/elfsplit $@.elf
 	@cp $@.elf $@
@@ -38,13 +41,13 @@ $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.opp $(SYSROOT_READY)
 $(BUILDDIR)/us/twzutils/%.o: us/twzutils/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo "[CC]      $@"
-	@echo $(CFLAGS_$(basename $(notdir $@)))
-	$(TWZCC) $(TWZCFLAGS) -o $@ $(CFLAGS_$(basename $(notdir $@))) -c -MD $<
+	#@echo $(CFLAGS_$(basename $(notdir $@)))
+	@$(TWZCC) $(TWZCFLAGS) $(TWZUTILSCFLAGS) -o $@ $(CFLAGS_$(basename $(notdir $@))) -c -MD $<
 
 $(BUILDDIR)/us/twzutils/%.opp: us/twzutils/%.cpp $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo "[CC]      $@"
-	@$(TWZCXX) $(TWZCFLAGS) -o $@ -c -MD $<
+	@$(TWZCXX) $(TWZCFLAGS) $(TWZUTILSCFLAGS) -o $@ -c -MD $<
 
 $(BUILDDIR)/us/sysroot/usr/share/pcieids: /usr/share/hwdata/pci.ids
 	@mkdir -p $(dir $@)

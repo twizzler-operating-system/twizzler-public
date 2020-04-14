@@ -122,10 +122,10 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 
 	*--stack = *jmp;
 	*--stack = *rbp;
-	printk("raise: from %lx, orig frame = %lx\n", *jmp, *rbp);
-	printk("raise: Setting stack = %p = %lx\n", stack, *rbp);
+	// printk("raise: from %lx, orig frame = %lx\n", *jmp, *rbp);
+	// printk("raise: Setting stack = %p = %lx\n", stack, *rbp);
 	*rbp = (long)stack;
-	printk("raise: Setting rbp = %lx\n", *rbp);
+	// printk("raise: Setting rbp = %lx\n", *rbp);
 
 	if(infolen & 0xf) {
 		panic("infolen must be 16-byte aligned (was %ld)", infolen);
