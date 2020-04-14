@@ -15,6 +15,9 @@ struct file *twix_get_cwd(void)
 
 static int __check_fd_valid(int fd)
 {
+	if(fd < 0 || fd >= MAX_FD) {
+		return -EBADF;
+	}
 	if(!fds[fd].valid) {
 		twz_view_get(NULL, TWZSLOT_FILES_BASE + fd, NULL, &fds[fd].fl);
 		if(!(fds[fd].fl & VE_VALID)) {
