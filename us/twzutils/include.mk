@@ -2,10 +2,10 @@ TWZUTILS=init login nls shell input pcie serial term bstream pty tst nvme kls ls
 
 LIBS_tst=-lncurses
 LIBS_sqb=-lsqlite3
-LIBS_login=-lubsan
+LIBS_login=-lubsan -Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive
 CFLAGS_term=-O3 -march=native -msse2 -msse4 -msse -mavx -ffast-math
 CFLAGS_init=-O3 -march=native
-CFLAGS_login=-O3 -march=native -fsanitize=undefined
+CFLAGS_login=-O3 -march=native -fsanitize=undefined -fno-omit-frame-pointer
 CFLAGS_init_test=-O3 -march=native
 EXTRAS_term=$(BUILDDIR)/us/twzutils/kbd.o
 EXTRAS_init=$(BUILDDIR)/us/twzutils/init_test.o
@@ -16,11 +16,12 @@ ALL_EXTRAS=$(EXTRAS_term) $(EXTRAS_init) $(EXTRAS_kvdr)
 
 $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
 	@echo "[LD]      $@"
-	$(TWZCC) -static $(TWZLDFLAGS) -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@))
+	$(TWZCC) -static $(TWZLDFLAGS) -g -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@))
 	@echo "[SPLIT]   $@"
 	@$(BUILDDIR)/utils/elfsplit $@.elf
-	@mv $@.elf.text $@
+	@cp $@.elf $@
 	@mv $@.elf.data $@.data
+	@rm $@.elf.text
 	@mv $@.elf $(BUILDDIR)/us/twzutils/$(notdir $@)
 
 $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.opp $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
@@ -28,8 +29,9 @@ $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.opp $(SYSROOT_READY)
 	@$(TWZCXX) -static $(TWZLDFLAGS) -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@))
 	@echo "[SPLIT]   $@"
 	@$(BUILDDIR)/utils/elfsplit $@.elf
-	@mv $@.elf.text $@
+	@cp $@.elf $@
 	@mv $@.elf.data $@.data
+	@rm $@.elf.text
 	@mv $@.elf $(BUILDDIR)/us/twzutils/$(notdir $@)
 
 

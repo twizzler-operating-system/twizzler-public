@@ -14,6 +14,7 @@
 #define LINUX_SYS_stat 4
 #define LINUX_SYS_fstat 5
 
+#define LINUX_SYS_lseek 8
 #define LINUX_SYS_mmap 9
 
 #define LINUX_SYS_ioctl 16
@@ -103,6 +104,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_geteuid] = linux_sys_geteuid,
 	[LINUX_SYS_getegid] = linux_sys_getegid,
 	[LINUX_SYS_uname] = linux_sys_uname,
+	[LINUX_SYS_lseek] = linux_sys_lseek,
 };
 
 __attribute__((unused)) static const char *syscall_names[] = {

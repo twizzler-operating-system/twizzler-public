@@ -82,7 +82,7 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 		panic("NI - raise fault in non-current thread");
 	}
 
-	uint64_t *arg0, *arg1, *jmp, *stack, *rsp;
+	uint64_t *arg0, *arg1, *jmp, *stack, *rsp, *rbp;
 
 	if(t->arch.was_syscall) {
 		stack = (uint64_t *)t->arch.syscall.rsp;
@@ -90,15 +90,19 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 		arg1 = &t->arch.syscall.rsi;
 		jmp = &t->arch.syscall.rcx;
 		rsp = &t->arch.syscall.rsp;
+		rbp = &t->arch.syscall.rbp;
 	} else {
 		stack = (uint64_t *)t->arch.exception.userrsp;
 		arg0 = &t->arch.exception.rdi;
 		arg1 = &t->arch.exception.rsi;
 		jmp = &t->arch.exception.rip;
 		rsp = &t->arch.exception.userrsp;
+		rbp = &t->arch.exception.rbp;
 	}
 
-	uintptr_t stack_after = (uintptr_t)stack - (infolen + 4 * 8);
+	long red_zone = 128;
+
+	uintptr_t stack_after = (uintptr_t)stack - (infolen + 5 * 8 + red_zone);
 	uintptr_t bot_stack = ((uintptr_t)stack & ~(OBJ_MAXSIZE - 1)) + OBJ_NULLPAGE_SIZE;
 	if(stack_after <= bot_stack) {
 		printk("thread %ld exceeded stack during fault raise\n", t->id);
@@ -107,8 +111,21 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 	}
 
 	/* TODO: validate that stack is in a reasonable object */
+	if(((unsigned long)stack & 0xFFFFFFFFFFFFFFF0) != (unsigned long)stack) {
+		panic("NI");
+		/* set up stack alignment correctly
+		 * (mis-aligned going into a function call) */
+		stack--;
+	}
+
+	stack -= red_zone / 8;
 
 	*--stack = *jmp;
+	*--stack = *rbp;
+	printk("raise: from %lx, orig frame = %lx\n", *jmp, *rbp);
+	printk("raise: Setting stack = %p = %lx\n", stack, *rbp);
+	*rbp = (long)stack;
+	printk("raise: Setting rbp = %lx\n", *rbp);
 
 	if(infolen & 0xf) {
 		panic("infolen must be 16-byte aligned (was %ld)", infolen);
@@ -117,12 +134,6 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 	stack -= infolen / 8;
 	long info_base_user = (long)stack;
 	memcpy(stack, info, infolen);
-
-	if(((unsigned long)stack & 0xFFFFFFFFFFFFFFF0) != (unsigned long)stack) {
-		/* set up stack alignment correctly
-		 * (mis-aligned going into a function call) */
-		stack--;
-	}
 
 	*--stack = *rsp;
 	*--stack = *arg1;

@@ -60,11 +60,61 @@ void tmain(const char *username)
 	exit(1);
 }
 
+#if 0
+#include <backtrace-supported.h>
+#include <backtrace.h>
+
+struct bt_ctx {
+	struct backtrace_state *state;
+	int error;
+};
+
+void foo()
+{
+	struct backtrace_state *state =
+	  backtrace_create_state(NULL, BACKTRACE_SUPPORTS_THREADS, error_callback, NULL);
+	struct bt_ctx ctx = { state, 0 };
+	backtrace_print(state, 0, stdout);
+	// backtrace_simple(state, 0, simple_callback, error_callback, &ctx);
+}
+#endif
+
+__attribute__((used)) void foo2()
+{
+	printf("Hi\n");
+	libtwz_do_backtrace();
+}
+
+asm(".global foo;\
+	foo:;\
+	.cfi_startproc;\
+	.cfi_def_cfa rsp, 8;\
+		push %rbp;\
+	.cfi_def_cfa rsp, 16;\
+		mov %rsp, %rbp;\
+		call foo2;\
+		pop %rbp;\
+	.cfi_def_cfa rsp, 8;\
+		retq;\
+		.cfi_endproc;\
+		");
+
+extern void foo();
+void bar()
+{
+	fprintf(stderr, "CALLED BACKTRACE\n");
+	foo();
+	// libtwz_do_backtrace();
+	fprintf(stderr, "FAULTED BACKTRACE\n");
+	asm volatile("hlt");
+}
+
 int main(int argc, char **argv)
 {
 	int k = 0x7fffffff;
 	k += argc;
 	printf("Setting SCE to AUX.\n%d\n", k);
+	bar();
 	for(;;) {
 		char buffer[1024];
 		printf("Twizzler Login: ");

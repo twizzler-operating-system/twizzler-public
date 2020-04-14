@@ -199,14 +199,7 @@ static void __twz_fault_unhandled_print(int fault_nr, void *data)
 		  si->pneed);
 	} else if(fault_nr == FAULT_EXCEPTION) {
 		struct fault_exception_info *ei = (void *)data;
-		PRINT("  ecode: %ld\n", ei->code);
-		PRINT("  info : %lx\n", ei->arg0);
-		uint16_t fcw;
-		asm volatile("fstcw %0" : "=m"(fcw));
-		PRINT("  fcw: %x\n", fcw);
-		uint16_t mxcsr;
-		asm volatile("stmxcsr %0" : "=m"(mxcsr));
-		PRINT("  mxcsr: %x\n", mxcsr);
+		PRINT("  ecode: %ld, info: %lx\n", ei->code, ei->arg0);
 	} else if(fault_nr == FAULT_PPTR) {
 		struct fault_pptr_info *pi = (void *)data;
 		PRINT("objid: " IDFMT "; fote: %ld\n", IDPR(pi->objid), pi->fote);
@@ -227,18 +220,18 @@ static void __twz_fault_unhandled_print(int fault_nr, void *data)
 static void __twz_fault_unhandled(struct fault_fault_info *info, struct fault_frame *frame)
 {
 	struct twzthread_repr *repr = twz_thread_repr_base();
-	PRINT("unhandled fault: %s in thread " IDFMT " (%s)\n",
+	PRINT("\e[1;31munhandled fault\e[0;1m: \e[1;35m%s\e[0;1m in thread " IDFMT " (%s)\e[0m\n",
 	  fault_names[info->fault_nr],
 	  IDPR(repr->reprid),
 	  repr->hdr.name);
-	uint64_t *pp = (void *)(frame->rsp - 8);
-	PRINT("  pc: %lx\n", pp[0]);
+	uint64_t *pp = (void *)(frame->rbp + 8);
+	PRINT("  occurred at: %lx\n", pp[0]);
 	__twz_fault_unhandled_print(info->fault_nr, info->data);
+
+	libtwz_do_backtrace();
 }
 
-static __attribute__((used)) void __twz_fault_entry_c(int fault,
-  void *_info,
-  struct fault_frame *frame)
+__attribute__((used)) void __twz_fault_entry_c(int fault, void *_info, struct fault_frame *frame)
 {
 	/* we provide default handling for FAULT_OBJECT that always runs. We also handle double-faults
 	 * here explicitly. Unlike FAULT_OBJECT, a thread cannot catch double-faults, and they are
@@ -265,9 +258,20 @@ static __attribute__((used)) void __twz_fault_entry_c(int fault,
 /* TODO: arch-dep */
 /* Stack comes in as mis-aligned (like any function call),
  * so maintain that alignment until the call below. */
+
+/* the CFI directives are there to indicate to the debugging system where the canonical frame
+ * address is (since we no longer rely on rbp). In this case, the kernel pushes both the return IP
+ * and RBP (and RSP) before jumping here. It then set the RBP to be the frame pointer as if this
+ * were a function call. So set the CFA to 16 off RBP, as normal (this looks like a function without
+ * a prologue; the prologue is provided by the kernel) */
 asm(" \
-                .extern __twz_fault_entry_c ;\
-                __twz_fault_entry: ;\
+        .extern __twz_fault_entry_c ;\
+		.globl __twz_fault_entry;\
+		.type __twz_fault_entry, @function;\
+		.loc_mark_labels 1;\
+        __twz_fault_entry: ;\
+						.cfi_startproc;\
+						.cfi_def_cfa rbp, 16;\
                         pushq %rax;\
                         pushq %rbx;\
                         pushq %rcx;\
@@ -303,13 +307,16 @@ asm(" \
                         popq %rsi;\
                         popq %rsp;\
 \
-                        subq $8, %rsp;\
-                        retq;\
+                        subq $144, %rsp;\
+						popq %rbp;\
+						addq $136, %rsp;\
+						jmp *-136(%rsp);\
+		.cfi_endproc;\
         ");
-/* the subq is to move the stack back to where we stored the RIP for return.
- * We had to store the unmodified rsp from the kernel's frame to reload it
- * accurately, but the unmodified rsp is 8 above the location where we put the
- * return address */
+/* the fault handler has to take the red zone into account. But we also can't burn a register. So
+ * restore the stack and then jmp to where we stored the IP (128 + 8). Basically, we're restoring
+ * the stack and returing to the address the kernel pushed; we know where it is, it's just not
+ * "nearby". */
 
 void __twz_fault_entry(void);
 void __twz_fault_init(void)

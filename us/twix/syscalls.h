@@ -87,6 +87,7 @@ long linux_sys_arch_prctl(int code, unsigned long addr);
 
 long linux_sys_open(const char *path, int flags, int mode);
 long linux_sys_close(int fd);
+long linux_sys_lseek(int fd, off_t off, int whence);
 
 long linux_sys_access(const char *pathname, int mode);
 long linux_sys_faccessat(int dirfd, const char *pathname, int mode, int flags);

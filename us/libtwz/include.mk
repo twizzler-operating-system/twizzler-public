@@ -5,7 +5,7 @@ LIBTWZ_OBJ=$(addprefix $(BUILDDIR)/,$(LIBTWZ_SRC:.c=.o))
 $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo "[CC]      $@"
-	@$(TWZCC) $(TWZCFLAGS) -Ius/libtwz/include -include us/libtwz/include/libtwz.h -c -o $@ -MD -fPIC $<
+	@$(TWZCC) $(TWZCFLAGS) -fno-omit-frame-pointer -g3 -Ius/libtwz/include -include us/libtwz/include/libtwz.h -c -o $@ -MD -fPIC $<
 
 $(BUILDDIR)/us/libtwz/libtwz.a: $(LIBTWZ_OBJ)
 	@mkdir -p $(dir $@)
