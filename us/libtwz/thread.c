@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <twz/_err.h>
@@ -160,7 +161,8 @@ void twz_thread_exit(uint64_t ecode)
 	struct twzthread_repr *repr = twz_thread_repr_base();
 	repr->syncinfos[THRD_SYNC_EXIT] = ecode;
 	repr->syncs[THRD_SYNC_EXIT] = 1;
-	sys_thrd_ctl(THRD_CTL_EXIT, (long)&repr->syncs[THRD_SYNC_EXIT]);
+	int r = sys_thrd_ctl(THRD_CTL_EXIT, (long)&repr->syncs[THRD_SYNC_EXIT]);
+	(void)r;
 	__builtin_unreachable();
 }
 
@@ -228,6 +230,10 @@ int twz_thread_ready(struct thread *thread, int sp, uint64_t info)
 		repr = twz_thread_repr_base();
 	}
 
+	if(sp >= THRD_SYNCPOINTS) {
+		return -EINVAL;
+	}
+
 	repr->syncinfos[sp] = info;
 	repr->syncs[sp] = 1;
 	struct sys_thread_sync_args args = {
@@ -271,4 +277,25 @@ int twz_thread_sync(int op, _Atomic uint64_t *addr, uint64_t val, struct timespe
 int twz_thread_sync_multiple(size_t c, struct sys_thread_sync_args *args)
 {
 	return sys_thread_sync(c, args);
+}
+
+uint64_t twz_thread_cword_consume(_Atomic uint64_t *w, uint64_t reset)
+{
+	while(true) {
+		uint64_t tmp = atomic_exchange(w, reset);
+		if(tmp != reset) {
+			return tmp;
+		}
+		if(twz_thread_sync(THREAD_SYNC_SLEEP, w, reset, NULL) < 0) {
+			libtwz_panic("thread_sync failed");
+		}
+	}
+}
+
+void twz_thread_cword_wake(_Atomic uint64_t *w, uint64_t val)
+{
+	*w = val;
+	if(twz_thread_sync(THREAD_SYNC_WAKE, w, INT_MAX, NULL) < 0) {
+		libtwz_panic("thread_sync failed");
+	}
 }

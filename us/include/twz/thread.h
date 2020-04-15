@@ -22,15 +22,15 @@ __attribute__((non_null, const)) struct twzthread_repr *twz_thread_repr_base(voi
 twzobj *__twz_get_stdstack_obj(void);
 #define twz_stdstack ({ __twz_get_stdstack_obj(); })
 
-int twz_thread_create(struct thread *thrd);
+__must_check int twz_thread_create(struct thread *thrd);
 
 int twz_thread_release(struct thread *thrd);
 
-int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args);
+__must_check int twz_thread_spawn(struct thread *thrd, struct thrd_spawn_args *args);
 
 __attribute__((noreturn)) void twz_thread_exit(uint64_t);
 
-ssize_t twz_thread_wait(size_t count,
+__must_check ssize_t twz_thread_wait(size_t count,
   struct thread **threads,
   int *syncpoints,
   long *event,
@@ -39,7 +39,10 @@ ssize_t twz_thread_wait(size_t count,
 int twz_thread_ready(struct thread *thread, int sp, uint64_t info);
 
 struct timespec;
-int twz_thread_sync(int op, _Atomic uint64_t *addr, uint64_t val, struct timespec *timeout);
+__must_check int twz_thread_sync(int op,
+  _Atomic uint64_t *addr,
+  uint64_t val,
+  struct timespec *timeout);
 
 struct sys_thread_sync_args;
 void twz_thread_sync_init(struct sys_thread_sync_args *args,
@@ -48,7 +51,7 @@ void twz_thread_sync_init(struct sys_thread_sync_args *args,
   uint64_t val,
   struct timespec *timeout);
 
-int twz_thread_sync_multiple(size_t count, struct sys_thread_sync_args *);
+__must_check int twz_thread_sync_multiple(size_t count, struct sys_thread_sync_args *);
 
 /* TODO: get rid of these from the standard library */
 int twz_exec(objid_t id, char const *const *argv, char *const *env);
@@ -60,24 +63,6 @@ int twz_exec_view(twzobj *view,
   char *const *env);
 
 #ifndef __KERNEL__
-#include <stdatomic.h>
-#include <twz/_sys.h>
-static inline uint64_t twz_thread_cword_consume(_Atomic uint64_t *w, uint64_t reset)
-{
-	while(true) {
-		uint64_t tmp = atomic_exchange(w, reset);
-		if(tmp != reset) {
-			return tmp;
-		}
-		twz_thread_sync(THREAD_SYNC_SLEEP, w, reset, NULL);
-	}
-}
-
-#include <limits.h>
-static inline void twz_thread_cword_wake(_Atomic uint64_t *w, uint64_t val)
-{
-	*w = val;
-	twz_thread_sync(THREAD_SYNC_WAKE, w, INT_MAX, NULL);
-}
-
+void twz_thread_cword_wake(_Atomic uint64_t *w, uint64_t val);
+uint64_t twz_thread_cword_consume(_Atomic uint64_t *w, uint64_t reset);
 #endif

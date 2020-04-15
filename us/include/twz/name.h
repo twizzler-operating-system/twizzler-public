@@ -1,4 +1,7 @@
 #pragma once
+
+#include <twz/__twz.h>
+
 #include <twz/_objid.h>
 #include <twz/_types.h>
 
@@ -9,7 +12,7 @@ struct twz_nament {
 	char name[];
 };
 
-int twz_name_resolve(twzobj *obj,
+__must_check int twz_name_resolve(twzobj *obj,
   const char *name,
   int (*fn)(twzobj *, const char *, int, objid_t *),
   int flags,

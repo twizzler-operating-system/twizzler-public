@@ -19,7 +19,7 @@ TWZUTILSCFLAGS=-fsanitize=undefined -g
 
 $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
 	@echo "[LD]      $@"
-	$(TWZCC) -static $(TWZLDFLAGS) -g -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@)) $(TWZUTILSLIBS)
+	@$(TWZCC) -static $(TWZLDFLAGS) -g -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@)) $(TWZUTILSLIBS)
 	@echo "[SPLIT]   $@"
 	@$(BUILDDIR)/utils/elfsplit $@.elf
 	@cp $@.elf $@
@@ -41,7 +41,6 @@ $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.opp $(SYSROOT_READY)
 $(BUILDDIR)/us/twzutils/%.o: us/twzutils/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo "[CC]      $@"
-	#@echo $(CFLAGS_$(basename $(notdir $@)))
 	@$(TWZCC) $(TWZCFLAGS) $(TWZUTILSCFLAGS) -o $@ $(CFLAGS_$(basename $(notdir $@))) -c -MD $<
 
 $(BUILDDIR)/us/twzutils/%.opp: us/twzutils/%.cpp $(MUSL_HDRS)

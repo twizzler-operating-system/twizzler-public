@@ -11,10 +11,10 @@ long linux_sys_arch_prctl(int code, unsigned long addr)
 {
 	switch(code) {
 		case ARCH_SET_FS:
-			sys_thrd_ctl(THRD_CTL_SET_FS, (long)addr);
+			return sys_thrd_ctl(THRD_CTL_SET_FS, (long)addr);
 			break;
 		case ARCH_SET_GS:
-			sys_thrd_ctl(THRD_CTL_SET_GS, (long)addr);
+			return sys_thrd_ctl(THRD_CTL_SET_GS, (long)addr);
 			break;
 		default:
 			return -EINVAL;

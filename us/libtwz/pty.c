@@ -178,8 +178,12 @@ int pty_obj_init_server(twzobj *obj, struct pty_hdr *hdr)
 	int r;
 	if((r = twz_object_addext(obj, TWZIO_METAEXT_TAG, &hdr->io)))
 		return r;
-	bstream_obj_init(obj, twz_object_lea(obj, hdr->stoc), PTY_NBITS);
-	bstream_obj_init(obj, twz_object_lea(obj, hdr->ctos), PTY_NBITS);
+	if((r = bstream_obj_init(obj, twz_object_lea(obj, hdr->stoc), PTY_NBITS))) {
+		return r;
+	}
+	if((r = bstream_obj_init(obj, twz_object_lea(obj, hdr->ctos), PTY_NBITS))) {
+		return r;
+	}
 	mutex_init(&hdr->buffer_lock);
 	hdr->bufpos = 0;
 

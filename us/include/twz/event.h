@@ -21,7 +21,7 @@ struct event {
 };
 
 void event_obj_init(twzobj *obj, struct evhdr *hdr);
-int event_init(struct event *ev, struct evhdr *hdr, uint64_t events, struct timespec *timeout);
+void event_init(struct event *ev, struct evhdr *hdr, uint64_t events, struct timespec *timeout);
 int event_wait(size_t count, struct event *ev);
 int event_wake(struct evhdr *ev, uint64_t events, long wcount);
 uint64_t event_clear(struct evhdr *hdr, uint64_t events);

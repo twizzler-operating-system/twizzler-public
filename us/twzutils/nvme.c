@@ -646,7 +646,10 @@ void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
 		q->sps[cid] = result;
 		twz_thread_sync_init(&sas[j], THREAD_SYNC_WAKE, &q->sps[cid], INT_MAX, NULL);
 	}
-	twz_thread_sync_multiple(i, sas);
+	if(twz_thread_sync_multiple(i, sas) < 0) {
+		fprintf(stderr, "nvme interrupt thread_sync failed\n");
+		abort();
+	}
 	if(more)
 		nvmeq_interrupt(nc, q);
 }

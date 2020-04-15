@@ -171,8 +171,6 @@ void logmain(void *arg)
 	kso_set_name(NULL, "[instance] init-logger");
 	objid_t *lid = twz_object_lea(twz_stdstack, arg);
 
-	objid_t target;
-	twz_vaddr_to_obj(lid, &target, NULL);
 	twzobj sobj;
 	twz_object_init_guid(&sobj, *lid, FE_READ | FE_WRITE);
 	twz_thread_ready(NULL, THRD_SYNC_READY, 1);
@@ -482,7 +480,11 @@ int main()
 		abort();
 	}
 
-	twz_thread_wait(1, (struct thread *[]){ &lthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+	if(twz_thread_wait(1, (struct thread *[]){ &lthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL)
+	   < 0) {
+		EPRINTF("failed to wait for logging thread\n");
+		abort();
+	}
 	objid_t si;
 	r = twz_name_resolve(NULL, "usr_bin_init.sctx", NULL, 0, &si);
 	if(r) {

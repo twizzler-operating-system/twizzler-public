@@ -150,13 +150,9 @@ int twz_exec_create_view(twzobj *view, objid_t id, objid_t *vid)
 		return r;
 	}
 
-	if((r = twz_view_set(view, TWZSLOT_CVIEW, *vid, VE_READ | VE_WRITE))) {
-		return r;
-	}
+	twz_view_set(view, TWZSLOT_CVIEW, *vid, VE_READ | VE_WRITE);
 
-	if((r = twz_view_set(view, 0, id, VE_READ | VE_EXEC))) {
-		return r;
-	}
+	twz_view_set(view, 0, id, VE_READ | VE_EXEC);
 
 	if((r = twz_object_wire(NULL, view)))
 		return r;

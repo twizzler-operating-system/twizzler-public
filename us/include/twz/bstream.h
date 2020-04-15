@@ -1,5 +1,7 @@
 #pragma once
 
+#include <twz/__twz.h>
+
 #include <stdint.h>
 #include <twz/event.h>
 #include <twz/io.h>
@@ -35,9 +37,6 @@ ssize_t bstream_hdr_write(twzobj *obj,
   const void *ptr,
   size_t len,
   unsigned flags);
-ssize_t bstream_hdr_read(twzobj *obj,
-  struct bstream_hdr *,
-  void *ptr,
-  size_t len,
-  unsigned flags);
-int bstream_obj_init(twzobj *obj, struct bstream_hdr *hdr, uint32_t nbits);
+ssize_t bstream_hdr_read(twzobj *obj, struct bstream_hdr *, void *ptr, size_t len, unsigned flags);
+
+__must_check int bstream_obj_init(twzobj *obj, struct bstream_hdr *hdr, uint32_t nbits);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <twz/__twz.h>
+
 #include <stdint.h>
 #include <sys/ioctl.h>
 #include <termios.h>
@@ -38,5 +40,7 @@ ssize_t pty_write_server(twzobj *obj, const void *ptr, size_t len, unsigned flag
 ssize_t pty_read_server(twzobj *obj, void *ptr, size_t len, unsigned flags);
 ssize_t pty_write_client(twzobj *obj, const void *ptr, size_t len, unsigned flags);
 ssize_t pty_read_client(twzobj *obj, void *ptr, size_t len, unsigned flags);
-int pty_obj_init_server(twzobj *obj, struct pty_hdr *hdr);
-int pty_obj_init_client(twzobj *obj, struct pty_client_hdr *hdr, struct pty_hdr *);
+
+__must_check int pty_obj_init_server(twzobj *obj, struct pty_hdr *hdr);
+
+__must_check int pty_obj_init_client(twzobj *obj, struct pty_client_hdr *hdr, struct pty_hdr *);

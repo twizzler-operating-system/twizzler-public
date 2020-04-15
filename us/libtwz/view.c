@@ -20,10 +20,10 @@ void twz_view_object_init(twzobj *obj)
 	*obj = twz_object_from_ptr(SLOT_TO_VADDR(TWZSLOT_CVIEW));
 }
 
-int twz_view_set(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
+void twz_view_set(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 {
 	if(slot > TWZSLOT_MAX_SLOT) {
-		return -EINVAL;
+		libtwz_panic("slot number too large: %ld", slot);
 	}
 	struct viewentry *ves = obj ? ((struct twzview_repr *)twz_object_base(obj))->ves
 	                            : ((struct twzview_repr *)twz_slot_to_base(TWZSLOT_CVIEW))->ves;
@@ -40,16 +40,16 @@ int twz_view_set(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 			.flags = KSOI_VALID | KSOI_CURRENT,
 			.id = KSO_CURRENT_VIEW,
 		};
-		return sys_invalidate(&op, 1);
+		if(sys_invalidate(&op, 1) < 0) {
+			libtwz_panic("failed to invalidate view entry");
+		}
 	}
-
-	return 0;
 }
 
-int twz_view_fixedset(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
+void twz_view_fixedset(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 {
 	if(slot > TWZSLOT_MAX_SLOT) {
-		return -EINVAL;
+		libtwz_panic("slot number too large: %ld", slot);
 	}
 	flags &= ~VE_FIXED;
 	struct viewentry *ves = obj ? ((struct twzthread_repr *)twz_object_base(obj))->fixed_points
@@ -67,16 +67,16 @@ int twz_view_fixedset(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 			.flags = KSOI_VALID | KSOI_CURRENT,
 			.id = KSO_CURRENT_VIEW,
 		};
-		return sys_invalidate(&op, 1);
+		if(sys_invalidate(&op, 1) < 0) {
+			libtwz_panic("failed to invalidate view entry");
+		}
 	}
-
-	return 0;
 }
 
-int twz_view_get(twzobj *obj, size_t slot, objid_t *target, uint32_t *flags)
+void twz_view_get(twzobj *obj, size_t slot, objid_t *target, uint32_t *flags)
 {
 	if(slot > TWZSLOT_MAX_SLOT) {
-		return -EINVAL;
+		libtwz_panic("slot number too large: %ld", slot);
 	}
 	struct viewentry *ves;
 	uint32_t extra_flags = 0;
@@ -95,18 +95,17 @@ int twz_view_get(twzobj *obj, size_t slot, objid_t *target, uint32_t *flags)
 		*flags = atomic_load(&ves->flags) | extra_flags;
 	if(target)
 		*target = ves->id;
-	return 0;
 }
 
 int twz_vaddr_to_obj(const void *v, objid_t *id, uint32_t *fl)
 {
 	uint32_t tf;
-	int r = twz_view_get(NULL, VADDR_TO_SLOT(v), id, &tf);
-	if(!r && !(tf & VE_VALID))
+	twz_view_get(NULL, VADDR_TO_SLOT(v), id, &tf);
+	if(!(tf & VE_VALID))
 		return -ENOENT;
 	if(fl)
 		*fl = tf;
-	return r;
+	return 0;
 }
 
 static struct __viewrepr_bucket *__lookup_bucket(struct twzview_repr *v, objid_t id, uint32_t flags)
@@ -280,9 +279,7 @@ ssize_t twz_view_allocate_slot(twzobj *obj, objid_t id, uint32_t flags)
 			return slot;
 		}
 		b = __insert_obj(v, id, flags, slot);
-		int r;
-		if((r = twz_view_set(obj, slot, id, flags)) < 0)
-			return r;
+		twz_view_set(obj, slot, id, flags);
 	}
 
 	mutex_release(&v->lock);

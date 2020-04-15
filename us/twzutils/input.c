@@ -26,7 +26,9 @@ ssize_t get_input(char *buf, size_t len)
 				.addr = (uint64_t *)&dr->syncs[0],
 			};
 
-			sys_thread_sync(1, &args);
+			int r = sys_thread_sync(1, &args);
+			if(r)
+				return r;
 		} else {
 			buf[c++] = x;
 		}
@@ -54,7 +56,10 @@ int main(int argc, char **argv)
 
 	dr = twz_object_base(&ks_obj);
 
-	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
+	if(sys_thrd_ctl(THRD_CTL_SET_IOPL, 3)) {
+		fprintf(stderr, "failed to set IOPL to 3\n");
+		abort();
+	}
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
 		fprintf(stderr, "failed to mark ready");
 		abort();

@@ -185,7 +185,10 @@ ssize_t get_input(char *buf, size_t len)
 				.addr = (uint64_t *)&dr->syncs[0],
 			};
 
-			sys_thread_sync(1, &args);
+			int r = sys_thread_sync(1, &args);
+			if(r < 0) {
+				return r;
+			}
 		} else {
 			// if(x == '\r')
 			//	x = '\n';
@@ -203,7 +206,10 @@ void somain(void *a)
 	(void)a;
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] serial.output");
 
-	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
+	if(sys_thrd_ctl(THRD_CTL_SET_IOPL, 3)) {
+		fprintf(stderr, "failed to set IOPL to 3\n");
+		abort();
+	}
 	int r;
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
 		fprintf(stderr, "failed to mark ready");
@@ -257,7 +263,11 @@ int main(int argc, char **argv)
 		abort();
 	}
 
-	twz_thread_wait(1, (struct thread *[]){ &kthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+	if(twz_thread_wait(1, (struct thread *[]){ &kthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL)
+	   < 0) {
+		fprintf(stderr, "failed to wait for thread\n");
+		abort();
+	}
 
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
 		fprintf(stderr, "failed to mark ready");

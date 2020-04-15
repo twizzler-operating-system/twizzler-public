@@ -22,7 +22,7 @@ static _Atomic uint64_t *__event_point(struct event *ev)
 	return &ev->hdr->point;
 }
 
-int event_init(struct event *ev, struct evhdr *hdr, uint64_t events, struct timespec *timeout)
+void event_init(struct event *ev, struct evhdr *hdr, uint64_t events, struct timespec *timeout)
 {
 	ev->hdr = hdr;
 	ev->events = events;
@@ -31,7 +31,6 @@ int event_init(struct event *ev, struct evhdr *hdr, uint64_t events, struct time
 		ev->timeout = *timeout;
 		ev->flags |= EV_TIMEOUT;
 	}
-	return 0;
 }
 
 uint64_t event_clear(struct evhdr *hdr, uint64_t events)

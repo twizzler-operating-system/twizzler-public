@@ -35,7 +35,7 @@ static void tx_init(struct twz_tx *tx, uint32_t logsz)
 	_pfence();
 }
 
-static inline int __tx_add_noflush(struct twz_tx *tx, void *p, uint16_t len)
+__must_check static inline int __tx_add_noflush(struct twz_tx *tx, void *p, uint16_t len)
 {
 	if(tx->tmpend + sizeof(struct __tx_log_entry) + len > tx->logsz)
 		return -ENOMEM;
@@ -51,7 +51,7 @@ static inline int __tx_add_noflush(struct twz_tx *tx, void *p, uint16_t len)
 	return 0;
 }
 
-static inline int __tx_add_commit(struct twz_tx *tx)
+__must_check static inline int __tx_add_commit(struct twz_tx *tx)
 {
 	_clwb_len(tx->log, tx->tmpend);
 	_pfence();
@@ -60,7 +60,7 @@ static inline int __tx_add_commit(struct twz_tx *tx)
 	_pfence();
 }
 
-static inline int __tx_add(struct twz_tx *tx, void *p, uint16_t len)
+__must_check static inline int __tx_add(struct twz_tx *tx, void *p, uint16_t len)
 {
 	if(tx->tmpend + sizeof(struct __tx_log_entry) + len > tx->logsz)
 		return -ENOMEM;
@@ -86,7 +86,7 @@ static inline int __same_line(void *a, void *b)
 	return ((uintptr_t)a & ~(__CL_SIZE - 1)) == ((uintptr_t)b & ~(__CL_SIZE - 1));
 }
 
-static inline int __tx_cleanup(twzobj *obj, struct twz_tx *tx, _Bool abort)
+static inline void __tx_cleanup(twzobj *obj, struct twz_tx *tx, _Bool abort)
 {
 	uint32_t e = 0;
 	void *last_vp = NULL;
@@ -131,14 +131,14 @@ static inline int __tx_cleanup(twzobj *obj, struct twz_tx *tx, _Bool abort)
 	tx->tmpend = 0;
 }
 
-static inline int __tx_commit(twzobj *obj, struct twz_tx *tx)
+static inline void __tx_commit(twzobj *obj, struct twz_tx *tx)
 {
-	return __tx_cleanup(obj, tx, 0);
+	__tx_cleanup(obj, tx, 0);
 }
 
-static inline int __tx_abort(twzobj *obj, struct twz_tx *tx)
+static inline void __tx_abort(twzobj *obj, struct twz_tx *tx)
 {
-	return __tx_cleanup(obj, tx, 1);
+	__tx_cleanup(obj, tx, 1);
 }
 
 #include <assert.h>

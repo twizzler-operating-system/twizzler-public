@@ -72,7 +72,10 @@ void kbmain(void *a)
 	(void)a;
 	kso_set_name(NULL, "[instance] term.input");
 
-	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
+	if(sys_thrd_ctl(THRD_CTL_SET_IOPL, 3)) {
+		fprintf(stderr, "failed to set IOPL to 3\n");
+		abort();
+	}
 	int r;
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
 		fprintf(stderr, "failed to mark ready");
@@ -783,7 +786,11 @@ int main(int argc, char **argv)
 		abort();
 	}
 
-	twz_thread_wait(1, (struct thread *[]){ &kthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
+	if(twz_thread_wait(1, (struct thread *[]){ &kthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL)
+	   < 0) {
+		fprintf(stderr, "failed to wait for thread\n");
+		abort();
+	}
 
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
 		fprintf(stderr, "failed to mark ready");
