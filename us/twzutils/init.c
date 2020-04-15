@@ -92,7 +92,10 @@ void start_stream_device(objid_t id)
 	twz_object_init_guid(&dobj, id, FE_READ);
 
 	objid_t uid;
-	twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &uid);
+	if(twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &uid)) {
+		EPRINTF("failed to create object for stream\n");
+		return;
+	}
 	sprintf(drv_info.arg2, IDFMT, IDPR(uid));
 
 	twzobj stream;

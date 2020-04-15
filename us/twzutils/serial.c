@@ -238,8 +238,14 @@ int main(int argc, char **argv)
 	if(!kernel_side || !primary)
 		abort();
 
-	twz_object_init_name(&ks_obj, kernel_side, FE_READ | FE_WRITE);
-	twz_object_init_name(&p_obj, primary, FE_READ | FE_WRITE);
+	if(twz_object_init_name(&ks_obj, kernel_side, FE_READ | FE_WRITE)) {
+		fprintf(stderr, "failed to load object %s\n", kernel_side);
+		return 1;
+	}
+	if(twz_object_init_name(&p_obj, primary, FE_READ | FE_WRITE)) {
+		fprintf(stderr, "failed to load object %s\n", primary);
+		return 1;
+	}
 
 	setup_pty(80, 25);
 	dr = twz_object_base(&ks_obj);

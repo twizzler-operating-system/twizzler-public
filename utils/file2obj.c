@@ -1,3 +1,4 @@
+#include <err.h>
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -284,8 +285,7 @@ int main(int argc, char **argv)
 
 	int outfd = open(outfile, O_RDWR | O_CREAT | O_TRUNC, 0644);
 	if(outfd < 0) {
-		perror("open out");
-		return 1;
+		err(1, "open out: %s", outfile);
 	}
 
 	struct stat st;

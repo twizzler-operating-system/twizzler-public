@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include <twz/fault.h>
+#include <twz/twztry.h>
 
 struct test {
 	const char *name;
@@ -40,12 +41,6 @@ static void _test_test(struct test *test)
 	TEST_CHECK_EQ(test, x, y - 1);
 }
 
-jmp_buf jmp;
-static void _fault_handler(int f, void *d, void *ud)
-{
-	longjmp(jmp, 1);
-}
-
 static void _foo_bar(struct test *test)
 {
 	int x = 1;
@@ -53,13 +48,20 @@ static void _foo_bar(struct test *test)
 
 	TEST_CHECK_EQ(test, x, y);
 
-	int *p = NULL;
+	twztry
+	{
+		int *p = NULL;
+		volatile int z = *p;
+	}
+	twzcatch(FAULT_NULL)
+	{
+	}
+	twztry_end;
 	/*
 	    jmp_buf jmp;
 	    jmp_buf *pj = _try_buf;
 	    _try_buf = &jmp;
 	    if(!setjmp(jmp)) {
-	        volatile int z = *p;
 	    } else {
 	        printf("Caught exception\n");
 	    }
@@ -94,12 +96,16 @@ static size_t successes = 0, fails = 0, incompletes = 0;
 void run_test(struct test *test)
 {
 	printf("\e[32mSTARTING TEST \e[1;33m%s\e[0m\n", test->name);
-	if(!setjmp(jmp)) {
+	twztry
+	{
 		test->fn(test);
-	} else {
+	}
+	twzcatch_all
+	{
 		printf("  \e[1;31m-- test ended prematurely due to fault\e[0m\n");
 		incompletes++;
 	}
+	twztry_end;
 	if(test->nr_errors > 0) {
 		printf("  \e[1;31m-- encountered \e[1;37m%ld\e[1;31m errors\e[0m\n", test->nr_errors);
 		fails++;
@@ -137,11 +143,6 @@ int main(int argc, char **argv)
 				break;
 		}
 	}
-
-	twz_fault_set(FAULT_OBJECT, _fault_handler, NULL);
-	twz_fault_set(FAULT_PPTR, _fault_handler, NULL);
-	twz_fault_set(FAULT_SCTX, _fault_handler, NULL);
-	twz_fault_set(FAULT_NULL, _fault_handler, NULL);
 
 	if(all) {
 		for(size_t i = 0; i < nr_tests; i++) {

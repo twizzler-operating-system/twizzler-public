@@ -18,13 +18,11 @@ void __linux_init(void)
 		twz_view_get(NULL, TWZSLOT_UNIX, NULL, &fl);
 		if(!(fl & VE_VALID)) {
 			objid_t id;
-			twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &id);
+			if(twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &id)) {
+				twix_panic("failed to create unix object");
+			}
 			twz_view_set(NULL, TWZSLOT_UNIX, id, VE_READ | VE_WRITE);
 			unix_obj = twz_object_from_ptr(SLOT_TO_VADDR(TWZSLOT_UNIX));
-
-			/* TODO: not sure if this is the right thing... */
-			twz_object_wire(NULL, &unix_obj);
-			twz_object_delete(&unix_obj, 0);
 
 			uh = twz_object_base(&unix_obj);
 			uh->pid = 1;

@@ -760,8 +760,14 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	twz_object_init_name(&kbobj, input, FE_READ | FE_WRITE);
-	twz_object_init_name(&ptyobj, pty, FE_READ | FE_WRITE);
+	if(twz_object_init_name(&kbobj, input, FE_READ | FE_WRITE)) {
+		fprintf(stderr, "failed to load object %s\n", input);
+		return 1;
+	}
+	if(twz_object_init_name(&ptyobj, pty, FE_READ | FE_WRITE)) {
+		fprintf(stderr, "failed to load object %s\n", pty);
+		return 1;
+	}
 
 	fb.init = 1;
 	if((r = twz_object_init_name(&fb.obj, output, FE_READ | FE_WRITE))) {
