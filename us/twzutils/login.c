@@ -183,7 +183,7 @@ void try_test(void)
 
 int main(int argc, char **argv)
 {
-	try_test();
+	// try_test();
 	// int k = 0x7fffffff;
 	//	k += argc;
 	printf("Setting SCE to AUX.\n\n");

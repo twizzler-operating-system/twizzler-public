@@ -449,7 +449,7 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
 #if 0
 		if(num != 12 && num != 13 && num != 14)
-			debug_printf("Unimplemented Linux system call: %ld (%s)\n", num, syscall_names[num]);
+			twix_log("Unimplemented Linux system call: %ld (%s)\n", num, syscall_names[num]);
 #endif
 		return -ENOSYS;
 	}
@@ -462,8 +462,20 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 		return -ENOSYS;
 	}
 	long r = syscall_table[num](a0, a1, a2, a3, a4, a5);
-	// debug_printf("sc %ld ret %ld\n", num, r);
+	// twix_log("sc %ld ret %ld\n", num, r);
 	return r;
+}
+
+#include <stdarg.h>
+#include <stdio.h>
+void twix_log(char *str, ...)
+{
+	char buf[2048];
+	va_list ap;
+	va_start(ap, str);
+	vsnprintf(buf, sizeof(buf), str, ap);
+	va_end(ap);
+	twix_syscall(LINUX_SYS_write, 1, (long)buf, strlen(buf), 0, 0, 0);
 }
 
 static long twix_syscall_frame(struct twix_register_frame *frame,
@@ -479,7 +491,7 @@ static long twix_syscall_frame(struct twix_register_frame *frame,
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
 #if 0
 		if(num != 12 && num != 13 && num != 14)
-			debug_printf("Unimplemented Linux system call: %ld (%s)\n", num, syscall_names[num]);
+			twix_log("Unimplemented Linux system call: %ld (%s)\n", num, syscall_names[num]);
 #endif
 		return -ENOSYS;
 	}
@@ -491,7 +503,7 @@ static long twix_syscall_frame(struct twix_register_frame *frame,
 		return syscall_table[num](frame, a0, a1, a2, a3, a4, a5);
 	}
 	long r = syscall_table[num](a0, a1, a2, a3, a4, a5);
-	// debug_printf("sc %ld ret %ld\n", num, r);
+	// twix_log("sc %ld ret %ld\n", num, r);
 	return r;
 }
 

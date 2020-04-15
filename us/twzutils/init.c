@@ -99,12 +99,12 @@ void start_stream_device(objid_t id)
 	twz_object_init_guid(&stream, uid, FE_READ | FE_WRITE);
 
 	if((r = bstream_obj_init(&stream, twz_object_base(&stream), 16))) {
-		debug_printf("failed to init bstream");
+		EPRINTF("failed to init bstream");
 		abort();
 	}
 
 	struct device_repr *dr = twz_object_base(&dobj);
-	debug_printf("[init] starting device driver: %d %s\n", dr->device_id, dr->hdr.name);
+	EPRINTF("[init] starting device driver: %d %s\n", dr->device_id, dr->hdr.name);
 	if(dr->device_id == DEVICE_ID_KEYBOARD) {
 		if(!fork()) {
 			sprintf(drv_info.arg, IDFMT, IDPR(id));
@@ -255,13 +255,13 @@ int main()
 		}
 		long long b = rdtsc();
 
-		debug_printf("::U %ld\n", b - a);
+		EPRINTF("::U %ld\n", b - a);
 	}
 
 	for(;;)
 		;
 #endif
-	debug_printf("Bootstrapping naming system\n");
+	EPRINTF("Bootstrapping naming system\n");
 	if(__name_bootstrap() == -1) {
 		EPRINTF("Failed to bootstrap namer\n");
 		abort();
@@ -279,7 +279,7 @@ int main()
 	}
 	long long end = rdtsc();
 
-	debug_printf("OK: %d %ld\n", errno, (end - start) / 100000);
+	EPRINTF("OK: %d %ld\n", errno, (end - start) / 100000);
 
 	for(;;)
 		;
@@ -291,7 +291,7 @@ int main()
 		__syscall6(0, 0, 0, 0, 0, 0, 0);
 	}
 	long e = rdtsc();
-	debug_printf("----> %ld ;; %ld\n", e - s, (e - s) / i);
+	EPRINTF("----> %ld ;; %ld\n", e - s, (e - s) / i);
 	for(;;)
 		;
 	slab_test();
@@ -327,7 +327,7 @@ int main()
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		timespec_diff(&start, &end, &diff);
 
-		debug_printf("SET-VIEW: %ld ns, %ld ops\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, max);
+		EPRINTF("SET-VIEW: %ld ns, %ld ops\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, max);
 
 #if 0
 		clock_gettime(CLOCK_MONOTONIC, &start);
@@ -338,7 +338,7 @@ int main()
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		timespec_diff(&start, &end, &diff);
 
-		debug_printf(
+		EPRINTF(
 		  "CALIBRATE: %ld ns, %ld ops\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, max);
 
 		if((twz_object_new(
@@ -357,7 +357,7 @@ int main()
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		timespec_diff(&start, &end, &diff);
 
-		debug_printf(
+		EPRINTF(
 		  "INTRA-PTR-TRANSLATE: %ld ns, %ld ops\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, max);
 
 		twzobj other;
@@ -373,13 +373,13 @@ int main()
 			void *_v = twz_object_lea(&o, p);
 			asm volatile("" ::"r"(_v) : "memory");
 			long long _b = rdtsc();
-			debug_printf("FIRST-TIME-CROSS: %ld cycles\n", _b - _a);
+			EPRINTF("FIRST-TIME-CROSS: %ld cycles\n", _b - _a);
 			p = (void *)twz_ptr_rebase(2, p);
 			_a = rdtsc();
 			_v = twz_object_lea(&o, p);
 			asm volatile("" ::"r"(_v) : "memory");
 			_b = rdtsc();
-			debug_printf("FIRST-TIME-CROSS: %ld cycles\n", _b - _a);
+			EPRINTF("FIRST-TIME-CROSS: %ld cycles\n", _b - _a);
 		}
 
 		clock_gettime(CLOCK_MONOTONIC, &start);
@@ -391,7 +391,7 @@ int main()
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		timespec_diff(&start, &end, &diff);
 
-		debug_printf(
+		EPRINTF(
 		  "CROSS-PTR-TRANSLATE: %ld ns, %ld ops\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, max);
 #endif
 	}
@@ -409,7 +409,7 @@ int main()
 		bt_init(&o, twz_object_base(&o));
 
 		int x;
-		debug_printf("Starting insert\n");
+		EPRINTF("Starting insert\n");
 		max = 1000000;
 		clock_gettime(CLOCK_MONOTONIC, &start);
 		for(k = 0; k < max; k++) {
@@ -421,7 +421,7 @@ int main()
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		timespec_diff(&start, &end, &diff);
 
-		debug_printf(
+		EPRINTF(
 		  "INSERT RBT: %ld ns, %ld ops\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, max);
 
 		clock_gettime(CLOCK_MONOTONIC, &start);
@@ -431,7 +431,7 @@ int main()
 		}
 		clock_gettime(CLOCK_MONOTONIC, &end);
 		timespec_diff(&start, &end, &diff);
-		debug_printf(
+		EPRINTF(
 		  "LOOKUP RBT: %ld ns, %ld ops\n", diff.tv_nsec + diff.tv_sec * 1000000000ul, max);
 	}
 	// bt_print_tree(&o, twz_object_base(&o));
@@ -445,30 +445,30 @@ int main()
 	objid_t lid;
 	twzobj lobj;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &lid))) {
-		debug_printf("failed to create log object");
+		EPRINTF("failed to create log object");
 		abort();
 	}
 	if((r = twz_object_init_guid(&lobj, lid, FE_READ | FE_WRITE))) {
-		debug_printf("failed to open log object");
+		EPRINTF("failed to open log object");
 		abort();
 	}
 	if((r = twz_name_assign(lid, "dev:dfl:log"))) {
-		debug_printf("failed to assign log object name");
+		EPRINTF("failed to assign log object name");
 		abort();
 	}
 
 	if((r = bstream_obj_init(&lobj, twz_object_base(&lobj), 16))) {
-		debug_printf("failed to init log bstream");
+		EPRINTF("failed to init log bstream");
 		abort();
 	}
 
 	objid_t nid;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &nid))) {
-		debug_printf("failed to create null object");
+		EPRINTF("failed to create null object");
 		abort();
 	}
 	if((r = twz_name_assign(nid, "dev:null"))) {
-		debug_printf("failed to assign null object name");
+		EPRINTF("failed to assign null object name");
 		abort();
 	}
 

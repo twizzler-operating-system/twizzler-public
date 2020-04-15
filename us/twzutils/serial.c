@@ -206,7 +206,7 @@ void somain(void *a)
 	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
 	int r;
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
-		debug_printf("failed to mark ready");
+		fprintf(stderr, "failed to mark ready");
 		abort();
 	}
 
@@ -214,7 +214,7 @@ void somain(void *a)
 		char buf[128];
 		ssize_t r = twzio_read(&p_obj, buf, 128, 0, 0);
 		if(r < 0) {
-			debug_printf("ERR: %ld\n", r);
+			fprintf(stderr, "ERR: %ld\n", r);
 			twz_thread_exit(r);
 		}
 		for(size_t i = 0; i < (size_t)r; i++) {
@@ -243,48 +243,18 @@ int main(int argc, char **argv)
 
 	setup_pty(80, 25);
 	dr = twz_object_base(&ks_obj);
-#if 0
-	objid_t ksid, usid;
-	objid_parse(kernel_side, strlen(kernel_side), &ksid);
-	objid_parse(user_side, strlen(user_side), &usid);
-
-	twz_object_init_guid(&ks_obj, ksid, FE_READ | FE_WRITE);
-	twz_object_init_guid(&us_obj, usid, FE_READ | FE_WRITE);
-
-
-	objid_t sid;
-	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
-		debug_printf("failed to create screen object");
-		abort();
-	}
-
-	if((r = twz_object_init_guid(&so_obj, sid, FE_READ | FE_WRITE))) {
-		debug_printf("failed to open screen object");
-		abort();
-	}
-
-	if((r = bstream_obj_init(&so_obj, twz_object_base(&so_obj), 16))) {
-		debug_printf("failed to init screen bstream");
-		abort();
-	}
-
-	if((r = twz_name_assign(sid, "dev:output:serial"))) {
-		debug_printf("failed to assign screen object name");
-		abort();
-	}
-#endif
 
 	struct thread kthr;
 	if((r = twz_thread_spawn(
 	      &kthr, &(struct thrd_spawn_args){ .start_func = somain, .arg = NULL }))) {
-		debug_printf("failed to spawn kb thread");
+		fprintf(stderr, "failed to spawn kb thread");
 		abort();
 	}
 
 	twz_thread_wait(1, (struct thread *[]){ &kthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
-		debug_printf("failed to mark ready");
+		fprintf(stderr, "failed to mark ready");
 		abort();
 	}
 
@@ -292,7 +262,7 @@ int main(int argc, char **argv)
 		char buf[128];
 		ssize_t r = get_input(buf, 127);
 		if(r < 0) {
-			debug_printf("ERR!: %d\n", (int)r);
+			fprintf(stderr, "ERR!: %d\n", (int)r);
 			return 1;
 		}
 		size_t count = 0;
@@ -305,7 +275,7 @@ int main(int argc, char **argv)
 		} while(count < (size_t)r);
 
 		if(w < 0) {
-			debug_printf("ERR!: %d\n", (int)w);
+			fprintf(stderr, "ERR!: %d\n", (int)w);
 			return 1;
 		}
 	}

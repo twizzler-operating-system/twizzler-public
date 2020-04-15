@@ -208,13 +208,31 @@ int snprintf(char *buf, size_t len, const char *fmt, ...)
 	return strlen(buf);
 }
 
+#include <string.h>
 int printk(const char *fmt, ...)
 {
 	va_list args;
 	va_start(args, fmt);
 	char buf[1024];
 	vbufprintk(buf, fmt, args);
-	debug_puts(buf);
+	if(0 && buf[0] == '[') {
+		char *b = strnchr(buf, ']', 11);
+		if(b) {
+			*++b = 0;
+			ptrdiff_t diff = b - buf;
+			debug_puts(buf);
+			if(diff < 10) {
+				for(unsigned i = 0; i < 10 - diff; i++) {
+					debug_puts(" ");
+				}
+			}
+			debug_puts(b + 1);
+		} else {
+			debug_puts(buf);
+		}
+	} else {
+		debug_puts(buf);
+	}
 	va_end(args);
 	return 0;
 }

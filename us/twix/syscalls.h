@@ -23,6 +23,7 @@ struct file *twix_alloc_fd(void);
 struct file *twix_get_fd(int fd);
 void twix_copy_fds(twzobj *view);
 struct file *twix_get_cwd(void);
+void twix_log(char *buf, ...);
 
 #include <twz/obj.h>
 struct file {

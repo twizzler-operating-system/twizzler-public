@@ -1,5 +1,7 @@
 #pragma once
 
+#include <twz/__twz.h>
+
 #include <twz/_obj.h>
 #include <twz/_slots.h>
 
@@ -30,9 +32,9 @@ void *twz_object_base(twzobj *);
 #define TWZ_OC_TIED_NONE 0x10000
 #define TWZ_OC_TIED_VIEW 0x20000
 
-int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id);
+__must_check int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id);
 
-int twz_object_new(twzobj *obj, twzobj *src, twzobj *ku, uint64_t flags);
+__must_check int twz_object_new(twzobj *obj, twzobj *src, twzobj *ku, uint64_t flags);
 
 #define TWZ_KU_USER ((void *)0xfffffffffffffffful)
 
@@ -72,31 +74,32 @@ twzobj twz_object_from_ptr(const void *);
 struct metainfo *twz_object_meta(twzobj *);
 
 int twz_object_init_guid(twzobj *obj, objid_t id, int flags);
-int twz_object_init_name(twzobj *obj, const char *name, int flags);
+
+__must_check int twz_object_init_name(twzobj *obj, const char *name, int flags);
 
 void twz_object_release(twzobj *obj);
 
-int twz_object_tie(twzobj *p, twzobj *c, int flags);
-int twz_object_wire_guid(twzobj *view, objid_t id);
-int twz_object_tie_guid(objid_t pid, objid_t cid, int flags);
-int twz_object_wire(twzobj *, twzobj *);
-int twz_object_unwire(twzobj *view, twzobj *obj);
-int twz_object_delete(twzobj *obj, int flags);
-int twz_object_delete_guid(objid_t id, int flags);
+__must_check int twz_object_tie(twzobj *p, twzobj *c, int flags);
+__must_check int twz_object_wire_guid(twzobj *view, objid_t id);
+__must_check int twz_object_tie_guid(objid_t pid, objid_t cid, int flags);
+__must_check int twz_object_wire(twzobj *, twzobj *);
+__must_check int twz_object_unwire(twzobj *view, twzobj *obj);
+__must_check int twz_object_delete(twzobj *obj, int flags);
+__must_check int twz_object_delete_guid(objid_t id, int flags);
 objid_t twz_object_guid(twzobj *o);
 
 void *twz_object_getext(twzobj *obj, uint64_t tag);
-int twz_object_addext(twzobj *obj, uint64_t tag, void *ptr);
+__must_check int twz_object_addext(twzobj *obj, uint64_t tag, void *ptr);
 int twz_object_delext(twzobj *obj, uint64_t tag, void *ptr);
 
 // TODO: audit uses of _store_
 #define TWZ_PTR_FLAGS_COPY 0xfffffffffffffffful
-int __twz_ptr_store_guid(twzobj *o,
+__must_check int __twz_ptr_store_guid(twzobj *o,
   const void **loc,
   twzobj *target,
   const void *p,
   uint64_t flags);
-int __twz_ptr_store_name(twzobj *o,
+__must_check int __twz_ptr_store_name(twzobj *o,
   const void **loc,
   const char *name,
   const void *p,
@@ -120,4 +123,4 @@ void *__twz_ptr_swizzle(twzobj *o, const void *p, uint64_t flags);
 
 #include <sys/types.h>
 /* TODO: make internal */
-ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags);
+__must_check ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags);

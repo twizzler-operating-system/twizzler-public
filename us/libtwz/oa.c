@@ -200,7 +200,7 @@ static void *__slab_alloc(twzobj *o, struct twzoa_header *hdr, size_t size)
 	return get_slab(o, hdr, sc);
 }
 
-#if 1
+#if 0
 void slab_test()
 {
 	twzobj o;
@@ -217,7 +217,7 @@ void slab_test()
 	}
 	long long e = rdtsc();
 
-	debug_printf(":: %ld\n", (e - s) / (4 * 1000000));
+	fprintf(stderr, ":: %ld\n", (e - s) / (4 * 1000000));
 
 	for(;;)
 		;

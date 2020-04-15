@@ -381,7 +381,6 @@ void twz_fault_raise(int fault, void *data)
 	if(fn) {
 		fn(fault, data, userdata);
 	} else {
-		fprintf(stderr, "TRYING TO RAISE\n");
 		_twz_default_exception_handler(fault, data);
 		fprintf(stderr, "  -- RAISE FAULT %d: unhandled.\n", fault);
 		__twz_fault_unhandled_print(fault, data);

@@ -806,7 +806,7 @@ static long x86_64_rootcall(long fn, long a0, long a1, long a2)
 
 void x86_64_switch_ept(uintptr_t root)
 {
-	printk(":: SWITCH EPT: %lx\n", root);
+	// printk(":: SWITCH EPT: %lx\n", root);
 	if(support_ept_switch_vmfunc) {
 		int index = -1;
 		/* TODO (perf): better than just a loop, man! */

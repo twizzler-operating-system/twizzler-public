@@ -42,8 +42,6 @@ int main(int argc, char **argv)
 	char *kernel_side = argv[1];
 	char *user_side = argv[2];
 
-	debug_printf("INPUT start %s -> %s\n", kernel_side, user_side);
-
 	if(!kernel_side || !user_side)
 		abort();
 
@@ -58,7 +56,7 @@ int main(int argc, char **argv)
 
 	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
-		debug_printf("failed to mark ready");
+		fprintf(stderr, "failed to mark ready");
 		abort();
 	}
 
@@ -66,7 +64,7 @@ int main(int argc, char **argv)
 		char buf[128];
 		ssize_t r = get_input(buf, 127);
 		if(r < 0) {
-			debug_printf("ERR!: %d\n", (int)r);
+			fprintf(stderr, "ERR!: %d\n", (int)r);
 			return 1;
 		}
 		size_t count = 0;
@@ -79,7 +77,7 @@ int main(int argc, char **argv)
 		} while(count < (size_t)r);
 
 		if(w < 0) {
-			debug_printf("ERR!: %d\n", (int)w);
+			fprintf(stderr, "ERR!: %d\n", (int)w);
 			return 1;
 		}
 	}

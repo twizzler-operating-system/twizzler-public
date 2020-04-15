@@ -1,7 +1,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <twz/debug.h>
 #include <twz/hier.h>
 #include <twz/io.h>
 #include <twz/name.h>
@@ -34,10 +33,10 @@ int twix_openpathat(int dfd, const char *path, int flags, objid_t *id)
 long linux_sys_stat(const char *path, struct stat *sb)
 {
 	twzobj obj;
-	debug_printf(":: stat %s\n", path);
+	twix_log(":: stat %s\n", path);
 	int r = twz_object_init_name(&obj, path, FE_READ);
 	if(r < 0) {
-		debug_printf("--- stat %s: no obj\n", path);
+		twix_log("--- stat %s: no obj\n", path);
 		return r;
 	}
 
@@ -65,7 +64,7 @@ long linux_sys_fstat(int fd, struct stat *sb)
 
 long linux_sys_faccessat(int dirfd, const char *pathname, int mode, int flags)
 {
-	debug_printf("ACCESS: (%d) %s\n", dirfd, pathname);
+	twix_log("ACCESS: (%d) %s\n", dirfd, pathname);
 	objid_t id;
 	int r = twix_openpathat(dirfd, pathname, flags, &id);
 
@@ -96,6 +95,6 @@ long linux_sys_faccessat(int dirfd, const char *pathname, int mode, int flags)
 long linux_sys_access(const char *pathname, int mode)
 {
 	long r = linux_sys_faccessat(AT_FDCWD, pathname, mode, 0);
-	debug_printf("  :: %ld\n", r);
+	twix_log("  :: %ld\n", r);
 	return r;
 }

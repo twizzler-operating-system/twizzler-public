@@ -20,7 +20,7 @@ int main()
 		std::cerr << "Caught: " << msg << "\n";
 	}
 
-	debug_printf("TRYING NCURSES\n");
+	fprintf(stderr, "TRYING NCURSES\n");
 	if(!initscr()) /* Start curses mode 		  */
 		err(1, "initscr");
 	printw("Hello World !!!"); /* Print Hello World		  */

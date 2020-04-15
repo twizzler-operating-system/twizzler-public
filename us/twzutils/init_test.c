@@ -1,5 +1,6 @@
 //#define __HAVE_CLWB 1
 
+#include <stdio.h>
 #include <twz/obj.h>
 #include <twz/tx.h>
 static __inline__ unsigned long long rdtsc(void)
@@ -59,7 +60,7 @@ void init_test_init(void)
 	f->x = f->y = 0;
 
 	long r = sys_kconf(KCONF_RDRESET, 0);
-	debug_printf("RDRESET: %ld\n", r);
+	fprintf(stderr, "RDRESET: %ld\n", r);
 
 #if 0
 	int rcode;
@@ -74,7 +75,6 @@ void init_test_init(void)
 	}
 	TXOPT_END;
 
-	debug_printf(":: %d %d: %d\n", f->x, f->y, rcode);
 
 	for(;;)
 		;
@@ -83,7 +83,6 @@ void init_test_init(void)
 
 void init_test_iter(void)
 {
-	// debug_printf("ITER\n");
 	struct foo *f = twz_object_base(&o);
 #if !MANUAL
 #if 1

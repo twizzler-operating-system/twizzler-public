@@ -36,7 +36,7 @@ extern _Thread_local void *_Atomic _twz_excep_data;
  * user code */
 extern void _twz_try_unhandled(int, void *);
 
-/* start a try-catch block. */
+/* start a try-catch block. Use our stack to backup the value of _twz_jmp_buf. */
 #define twztry                                                                                     \
 	{                                                                                              \
 		jmp_buf _jb;                                                                               \
@@ -46,7 +46,9 @@ extern void _twz_try_unhandled(int, void *);
 		switch((_fc = setjmp(_jb))) {                                                              \
 			case 0:
 
-/* catch fault number f. */
+/* catch fault number f. Note that because fault numbers start at 0, we need to add 1 to them
+ * because setjmp returns 0 on first pass. The corresponding code in libtwz must take this into
+ * account too. */
 #define twzcatch(f)                                                                                \
 	_hdl = 1;                                                                                      \
 	break;                                                                                         \

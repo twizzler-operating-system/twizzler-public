@@ -12,8 +12,6 @@
 
 #include "pcie.h"
 
-//#define printf debug_printf
-
 twzobj pcie_cs_obj;
 objid_t pcie_cs_oid;
 static twzobj pids;
@@ -255,7 +253,7 @@ void pcie_load_driver(struct pcie_function *pf)
 
 int main(int argc, char **argv)
 {
-	debug_printf("[pcie] loading PCIe bus %s\n", argv[1]);
+	printf("[pcie] loading PCIe bus %s\n", argv[1]);
 
 	if(!objid_parse(argv[1], strlen(argv[1]), &pcie_cs_oid) || argc == 1) {
 		printf("invalid object ID: %s\n", argv[1]);

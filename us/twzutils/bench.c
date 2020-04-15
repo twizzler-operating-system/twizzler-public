@@ -20,8 +20,6 @@ void timespec_diff(struct timespec *start, struct timespec *stop, struct timespe
 void do_test(char *mem, long stride, int w)
 {
 	for(unsigned long i = 0; i < 1000000000ul; i++) {
-		//	if(i % 10000000 == 0)
-		//		debug_printf(":: %ld / 1000000000\n", i);
 		char *x = mem + (i * stride) % (1024 * 1024 * 1024 - OBJ_NULLPAGE_SIZE);
 		char r = 0;
 		if(w)

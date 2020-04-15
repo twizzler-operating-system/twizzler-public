@@ -34,10 +34,9 @@ long linux_sys_clock_gettime(clockid_t clock, struct timespec *tp)
 			/* TODO: overflow? */
 			tp->tv_sec = ((long)((double)ts / (1000.0 / (double)tsc_ps))) / 1000000000ul;
 			tp->tv_nsec = ((long)((double)ts / (1000.0 / (double)tsc_ps))) % 1000000000ul;
-			//		debug_printf(":: %ld -> %ld %ld\n", ts, tp->tv_sec, tp->tv_nsec);
 			break;
 		default:
-			debug_printf(":: CGT: %ld\n", clock);
+			twix_log(":: CGT: %ld\n", clock);
 			return -ENOTSUP;
 	}
 	return 0;

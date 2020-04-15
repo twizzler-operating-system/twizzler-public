@@ -443,7 +443,7 @@ void keyboard_state_machine(twzobj *out_obj, unsigned char scancode)
 		case 0xfd:
 		case 0xfe:
 		case 0xff:
-			debug_printf("internal keyboard error: %x\n", scancode);
+			fprintf(stderr, "internal keyboard error: %x\n", scancode);
 			return;
 	}
 	/* TODO: actually handle escaped codes */
@@ -477,7 +477,7 @@ void keyboard_state_machine(twzobj *out_obj, unsigned char scancode)
 			if(shift ^ capslock && key < 256)
 				key = toupper(key);
 			if(key == 0)
-				debug_printf("unknown scancode: %x (%d %d %d)\n", scancode, shift, ctrl, alt);
+				fprintf(stderr, "unknown scancode: %x (%d %d %d)\n", scancode, shift, ctrl, alt);
 			else if(!release && key < 256) {
 				sendkey(out_obj, (unsigned char)key);
 			} else if(!release) {

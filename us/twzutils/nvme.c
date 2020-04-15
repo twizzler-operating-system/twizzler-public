@@ -627,11 +627,6 @@ void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
 	while(i < 16) {
 		bool phase;
 		struct nvme_cmp *cmp = nvmeq_cq_peek(q, i, &phase);
-		// debug_printf("peeked at %x (%d %d) -> %d\n",
-		//  cmp->cmp_dword[3],
-		//  !!(cmp->cmp_dword[3] & NVME_CMP_DW3_PHASE),
-		//  phase,
-		//  cmp->cmp_dword[3] & 0xffff);
 		if(!!(cmp->cmp_dword[3] & NVME_CMP_DW3_PHASE) != phase) {
 			more = false;
 			break;
@@ -646,7 +641,6 @@ void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
 	}
 	struct sys_thread_sync_args sas[16];
 	for(uint32_t j = 0; j < i; j++) {
-		// debug_printf(":: :: :: %x %x\n", buf[j]->cmp_dword[3], buf[j]->cmp_dword[2]);
 		uint16_t cid = buf[j]->cmp_dword[3] & 0xffff;
 		uint64_t result = ((uint64_t)buf[j]->cmp_dword[0] << 32) | buf[j]->cmp_dword[3];
 		q->sps[cid] = result;

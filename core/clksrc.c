@@ -10,7 +10,7 @@ static struct clksrc *best_countdown = NULL;
 
 void clksrc_register(struct clksrc *cs)
 {
-	printk("[clk]: registered '%s': flags=%lx, period=%ldps, prec=%ldns, rtime=%ldns\n",
+	printk("[clk] registered '%s': flags=%lx, period=%ldps, prec=%ldns, rtime=%ldns\n",
 	  cs->name,
 	  cs->flags,
 	  cs->period_ps,
@@ -20,21 +20,21 @@ void clksrc_register(struct clksrc *cs)
 	list_insert(&sources, &cs->entry);
 	if(best_monotonic == NULL && (cs->flags & CLKSRC_MONOTONIC)) {
 		best_monotonic = cs;
-		printk("[clk]: assigned 'best monotonic' to %s\n", cs->name);
+		printk("[clk] assigned 'best monotonic' to %s\n", cs->name);
 	} else {
 		if((cs->flags & CLKSRC_MONOTONIC) && (cs->read_time < best_monotonic->read_time)) {
 			best_monotonic = cs;
-			printk("[clk]: assigned 'best monotonic' to %s\n", cs->name);
+			printk("[clk] assigned 'best monotonic' to %s\n", cs->name);
 		}
 	}
 
 	if(best_countdown == NULL && (cs->flags & CLKSRC_INTERRUPT)) {
 		best_countdown = cs;
-		printk("[clk]: assigned 'best countdown' to %s\n", cs->name);
+		printk("[clk] assigned 'best countdown' to %s\n", cs->name);
 	} else {
 		if((cs->flags & CLKSRC_INTERRUPT) && (cs->precision < best_countdown->precision)) {
 			best_countdown = cs;
-			printk("[clk]: assigned 'best countdown' to %s\n", cs->name);
+			printk("[clk] assigned 'best countdown' to %s\n", cs->name);
 		}
 	}
 	spinlock_release_restore(&lock);

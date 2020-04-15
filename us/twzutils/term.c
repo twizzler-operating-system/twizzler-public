@@ -75,7 +75,7 @@ void kbmain(void *a)
 	sys_thrd_ctl(THRD_CTL_SET_IOPL, 3);
 	int r;
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
-		debug_printf("failed to mark ready");
+		fprintf(stderr, "failed to mark ready");
 		abort();
 	}
 
@@ -83,7 +83,7 @@ void kbmain(void *a)
 		char buf[128];
 		ssize_t r = twzio_read(&kbobj, buf, 128, 0, 0);
 		if(r < 0) {
-			debug_printf("ERR: %ld\n", r);
+			fprintf(stderr, "ERR: %ld\n", r);
 			twz_thread_exit(r);
 		}
 		process_keyboard(&ptyobj, buf, r);
@@ -227,10 +227,10 @@ static void draw_glyph(const struct fb *restrict fb,
 			}
 			break;
 		default:
-			debug_printf("Unsupported mode for %x: %d\n", c, glyph->mode);
+			fprintf(stderr, "Unsupported mode for %x: %d\n", c, glyph->mode);
 	}
 	// uint64_t end = rdtsc();
-	// debug_printf("TSC: %ld\n", end - start);
+	// fprintf(stderr, "TSC: %ld\n", end - start);
 }
 void fb_render_cursor(struct fb *fb)
 {
@@ -266,7 +266,7 @@ static void fb_flip(struct fb *fb)
 	fb_render_cursor(fb);
 
 	// uint64_t e = rdtsc();
-	// debug_printf("flip: %ld\n", e - s);
+	// fprintf(stderr, "flip: %ld\n", e - s);
 }
 
 #if 0
@@ -408,7 +408,7 @@ void fb_render(struct fb *fb, int c)
 
 			if(!glyph) {
 				if(ssfn_lasterr(&fb->ctx)) {
-					debug_printf("render %x: %d\n", c, ssfn_lasterr(&fb->ctx));
+					fprintf(stderr, "render %x: %d\n", c, ssfn_lasterr(&fb->ctx));
 				}
 				return;
 			}
@@ -507,12 +507,12 @@ void init_fb(struct fb *fb)
 		ssfn_font_t *_font_start = twz_object_base(&font);
 
 		if((r = ssfn_load(&fb->ctx, _font_start))) {
-			debug_printf("load:%d\n", r);
+			fprintf(stderr, "load:%d\n", r);
 			fb->init = 0;
 			return;
 		}
 		if((r = ssfn_load(&fb->bold_ctx, _font_start))) {
-			debug_printf("load:%d\n", r);
+			fprintf(stderr, "load:%d\n", r);
 			fb->init = 0;
 			return;
 		}
@@ -524,7 +524,7 @@ void init_fb(struct fb *fb)
 		      fb->gl_h,       /* style and size */
 		      SSFN_MODE_ALPHA /* rendering mode */
 		      ))) {
-			debug_printf("select: %d\n", r);
+			fprintf(stderr, "select: %d\n", r);
 			fb->init = 0;
 			return;
 		}
@@ -536,7 +536,7 @@ void init_fb(struct fb *fb)
 		      fb->gl_h,       /* style and size */
 		      SSFN_MODE_ALPHA /* rendering mode */
 		      ))) {
-			debug_printf("select: %d\n", r);
+			fprintf(stderr, "select: %d\n", r);
 			fb->init = 0;
 			return;
 		}
@@ -566,7 +566,7 @@ void process_esc(struct fb *fb, int c)
 {
 	(void)fb;
 	(void)c;
-	debug_printf(" -- unhandled ESC %c\n", c);
+	fprintf(stderr, " -- unhandled ESC %c\n", c);
 }
 
 #include <ctype.h>
@@ -579,7 +579,7 @@ void process_csi(struct fb *fb, int c)
 		fb->esc_argc++;
 	} else {
 		fb->esc_argc++;
-		// debug_printf("CSI seq %c (%d %d)\n", c, fb->esc_args[0], fb->esc_args[1]);
+		// fprintf(stderr, "CSI seq %c (%d %d)\n", c, fb->esc_args[0], fb->esc_args[1]);
 		switch(c) {
 			case 'P':
 				fb_del_chars(fb, fb->esc_args[0]);
@@ -621,7 +621,7 @@ void process_csi(struct fb *fb, int c)
 						fb_clear_screen(fb, 0, fb->max_y);
 						break;
 					default:
-						debug_printf("bad arg to CSI J: %d\n", fb->esc_args[0]);
+						fprintf(stderr, "bad arg to CSI J: %d\n", fb->esc_args[0]);
 				}
 				break;
 			case 'H':
@@ -639,7 +639,7 @@ void process_csi(struct fb *fb, int c)
 
 				fb->x = fb->esc_args[1];
 				fb->y = fb->esc_args[0];
-				// debug_printf(" got H CSI: %d %d\n", fb->x, fb->y);
+				// fprintf(stderr, " got H CSI: %d %d\n", fb->x, fb->y);
 
 				break;
 			case 'm':
@@ -671,7 +671,8 @@ void process_csi(struct fb *fb, int c)
 				}
 				break;
 			default:
-				debug_printf(" -- unhandled CSI %c (%d %d %d)\n",
+				fprintf(stderr,
+				  " -- unhandled CSI %c (%d %d %d)\n",
 				  c,
 				  fb->esc_args[0],
 				  fb->esc_args[1],
@@ -762,53 +763,9 @@ int main(int argc, char **argv)
 	twz_object_init_name(&kbobj, input, FE_READ | FE_WRITE);
 	twz_object_init_name(&ptyobj, pty, FE_READ | FE_WRITE);
 
-#if 0
-	objid_t kid;
-	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &kid))) {
-		debug_printf("failed to create screen object");
-		abort();
-	}
-
-	if((r = twz_object_init_guid(&out_obj, kid, FE_READ | FE_WRITE))) {
-		debug_printf("failed to open screen object");
-		abort();
-	}
-
-	if((r = bstream_obj_init(&out_obj, twz_object_base(&out_obj), 16))) {
-		debug_printf("failed to init screen bstream");
-		abort();
-	}
-
-	if((r = twz_name_assign(kid, "dev:dfl:input"))) {
-		debug_printf("failed to assign screen object name");
-		abort();
-	}
-
-	objid_t sid;
-	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
-		debug_printf("failed to create screen object");
-		abort();
-	}
-
-	if((r = twz_object_init_guid(&screen_obj, sid, FE_READ | FE_WRITE))) {
-		debug_printf("failed to open screen object");
-		abort();
-	}
-
-	if((r = bstream_obj_init(&screen_obj, twz_object_base(&screen_obj), 16))) {
-		debug_printf("failed to init screen bstream");
-		abort();
-	}
-
-	if((r = twz_name_assign(sid, "dev:dfl:screen"))) {
-		debug_printf("failed to assign screen object name");
-		abort();
-	}
-#endif
-
 	fb.init = 1;
 	if((r = twz_object_init_name(&fb.obj, output, FE_READ | FE_WRITE))) {
-		debug_printf("term: failed to open framebuffer: %d\n", r);
+		fprintf(stderr, "term: failed to open framebuffer: %d\n", r);
 		fb.init = 0;
 	}
 
@@ -816,14 +773,14 @@ int main(int argc, char **argv)
 	struct thread kthr;
 	if((r = twz_thread_spawn(
 	      &kthr, &(struct thrd_spawn_args){ .start_func = kbmain, .arg = NULL }))) {
-		debug_printf("failed to spawn kb thread");
+		fprintf(stderr, "failed to spawn kb thread");
 		abort();
 	}
 
 	twz_thread_wait(1, (struct thread *[]){ &kthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
 
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
-		debug_printf("failed to mark ready");
+		fprintf(stderr, "failed to mark ready");
 		abort();
 	}
 

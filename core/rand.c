@@ -45,5 +45,5 @@ void rand_register_entropy_source(struct entropy_source *src)
 	spinlock_acquire_save(&lock);
 	list_insert(&sources, &src->entry);
 	spinlock_release_restore(&lock);
-	printk("[rand]: registered entropy source '%s'\n", src->name);
+	printk("[rand] registered entropy source '%s'\n", src->name);
 }

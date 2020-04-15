@@ -291,7 +291,6 @@ long linux_sys_fork(struct twix_register_frame *frame)
 				//		twz_view_set(&view, i, id, flags);
 			} else if(i == TWZSLOT_STACK) {
 			} else {
-				//	debug_printf("FORK: copy-derive: %ld (%lx): %x\n", i, i, flags);
 				/* Copy-derive */
 				objid_t nid;
 				if((r = twz_object_create(
@@ -356,8 +355,6 @@ long linux_sys_fork(struct twix_register_frame *frame)
 struct rusage;
 long linux_sys_wait4(long pid, int *wstatus, int options, struct rusage *rusage)
 {
-	// debug_printf("WAIT: %ld %p %x\n", pid, wstatus, options);
-
 	(void)pid;
 	(void)options;
 	(void)rusage;
@@ -385,7 +382,6 @@ long linux_sys_wait4(long pid, int *wstatus, int options, struct rusage *rusage)
 				if(wstatus) {
 					*wstatus = 0; // TODO
 				}
-				// debug_printf("HERE RET WAIT\n");
 				pds[pids[i]].pid = 0;
 				twz_thread_release(&pds[pids[i]].thrd);
 				return pids[i];
@@ -432,7 +428,7 @@ long linux_sys_futex(int *uaddr,
 			return 0; // TODO
 			break;
 		default:
-			debug_printf("futex %d: %p (%x) %x\n", op, uaddr, uaddr ? *uaddr : 0, val);
+			twix_log("futex %d: %p (%x) %x\n", op, uaddr, uaddr ? *uaddr : 0, val);
 			return -ENOTSUP;
 	}
 	return 0;

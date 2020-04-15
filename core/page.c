@@ -102,7 +102,7 @@ void page_init(struct memregion *region)
 	uintptr_t addr = region->start;
 	if(addr == 0)
 		addr += mm_page_size(0);
-	printk("init region %lx -> %lx (%ld KB; %ld MB)\n",
+	printk("[mm] init region %lx -> %lx (%ld KB; %ld MB)\n",
 	  region->start,
 	  region->start + region->length,
 	  region->length / 1024,
