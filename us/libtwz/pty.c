@@ -176,63 +176,89 @@ int pty_obj_init_server(twzobj *obj, struct pty_hdr *hdr)
 	                                   + bstream_hdr_size(PTY_NBITS));
 
 	int r;
-	if((r = twz_object_addext(obj, TWZIO_METAEXT_TAG, &hdr->io)))
-		return r;
+	if((r = twz_object_addext(obj, TWZIO_METAEXT_TAG, &hdr->io))) {
+		goto cleanup;
+	}
 	if((r = bstream_obj_init(obj, twz_object_lea(obj, hdr->stoc), PTY_NBITS))) {
-		return r;
+		goto cleanup;
 	}
 	if((r = bstream_obj_init(obj, twz_object_lea(obj, hdr->ctos), PTY_NBITS))) {
-		return r;
+		goto cleanup;
 	}
 	mutex_init(&hdr->buffer_lock);
 	hdr->bufpos = 0;
 
 	twzobj co;
 	r = twz_object_init_name(&co, PTY_CTRL_OBJ, FE_READ | FE_EXEC);
-	if(r)
-		return r;
+	if(r) {
+		goto cleanup;
+	}
 
 	r = twz_ptr_store_guid(
 	  obj, &hdr->io.read, &co, TWZ_GATE_CALL(NULL, PTY_GATE_READ_SERVER), FE_READ | FE_EXEC);
-	if(r)
-		return r;
+	if(r) {
+		goto cleanup2;
+	}
 	r = twz_ptr_store_guid(
 	  obj, &hdr->io.write, &co, TWZ_GATE_CALL(NULL, PTY_GATE_WRITE_SERVER), FE_READ | FE_EXEC);
-	if(r)
-		return r;
+	if(r) {
+		goto cleanup2;
+	}
 	r = twz_ptr_store_guid(
 	  obj, &hdr->io.ioctl, &co, TWZ_GATE_CALL(NULL, PTY_GATE_IOCTL_SERVER), FE_READ | FE_EXEC);
-	if(r)
-		return r;
+	if(r) {
+		goto cleanup2;
+	}
 
+	twz_object_release(&co);
 	return 0;
+
+cleanup2:
+	twz_object_release(&co);
+cleanup:
+	twz_object_delext(obj, TWZIO_METAEXT_TAG, &hdr->io);
+	return r;
 }
 
 int pty_obj_init_client(twzobj *obj, struct pty_client_hdr *hdr, struct pty_hdr *sh)
 {
-	twz_ptr_store_guid(obj, &hdr->server, NULL, sh, FE_READ | FE_WRITE);
-
 	int r;
-	if((r = twz_object_addext(obj, TWZIO_METAEXT_TAG, &hdr->io)))
-		return r;
+	if((r = twz_ptr_store_guid(obj, &hdr->server, NULL, sh, FE_READ | FE_WRITE))) {
+		goto cleanup;
+	}
+
+	if((r = twz_object_addext(obj, TWZIO_METAEXT_TAG, &hdr->io))) {
+		goto cleanup;
+	}
 
 	twzobj co;
 	r = twz_object_init_name(&co, PTY_CTRL_OBJ, FE_READ | FE_EXEC);
-	if(r)
-		return r;
+	if(r) {
+		goto cleanup;
+	}
 
 	r = twz_ptr_store_guid(
 	  obj, &hdr->io.read, &co, TWZ_GATE_CALL(NULL, PTY_GATE_READ_CLIENT), FE_READ | FE_EXEC);
-	if(r)
-		return r;
+	if(r) {
+		goto cleanup2;
+	}
 	r = twz_ptr_store_guid(
 	  obj, &hdr->io.write, &co, TWZ_GATE_CALL(NULL, PTY_GATE_WRITE_CLIENT), FE_READ | FE_EXEC);
-	if(r)
-		return r;
+	if(r) {
+		goto cleanup2;
+	}
 	r = twz_ptr_store_guid(
 	  obj, &hdr->io.ioctl, &co, TWZ_GATE_CALL(NULL, PTY_GATE_IOCTL_CLIENT), FE_READ | FE_EXEC);
-	if(r)
-		return r;
+	if(r) {
+		goto cleanup2;
+	}
 
+	twz_object_release(&co);
 	return 0;
+
+cleanup2:
+	twz_object_release(&co);
+cleanup:
+	twz_object_delext(obj, TWZIO_METAEXT_TAG, &hdr->io);
+	return r;
 }
