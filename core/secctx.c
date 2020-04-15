@@ -613,7 +613,7 @@ fault_noperm:
 	spinlock_release_restore(&t->sc_lock);
 	*perms = 0;
 	/* TODO: check if this is right */
-	struct fault_sctx_info info = twz_fault_build_sctx_info(target, ip, ip, needed);
+	struct fault_sctx_info info = twz_fault_build_sctx_info(target, (void *)ip, (void *)ip, needed);
 	thread_raise_fault(t, FAULT_SCTX, &info, sizeof(info));
 
 	return -1;

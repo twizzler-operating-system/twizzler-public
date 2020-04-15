@@ -16,7 +16,7 @@
 
 static void _twz_lea_fault(twzobj *o,
   const void *p,
-  uintptr_t ip,
+  void *ip,
   uint32_t info,
   uint32_t retval __attribute__((unused)))
 {
@@ -38,7 +38,11 @@ EXTERNAL
 void *twz_object_base(twzobj *obj)
 {
 	if(!(obj->_int_flags & TWZ_OBJ_VALID)) {
-		_twz_lea_fault(obj, NULL, (uintptr_t)__builtin_return_address(0), FAULT_PPTR_INVALID, 0);
+		_twz_lea_fault(obj,
+		  NULL,
+		  __builtin_extract_return_addr(__builtin_return_address(0)),
+		  FAULT_PPTR_INVALID,
+		  0);
 	}
 	return (void *)((char *)obj->_int_base + OBJ_NULLPAGE_SIZE);
 }
@@ -57,7 +61,7 @@ struct metainfo *twz_object_meta(twzobj *obj)
 	if(!(obj->_int_flags & TWZ_OBJ_VALID)) {
 		_twz_lea_fault(obj,
 		  (void *)(OBJ_MAXSIZE - OBJ_METAPAGE_SIZE),
-		  (uintptr_t)__builtin_return_address(0),
+		  __builtin_extract_return_addr(__builtin_return_address(0)),
 		  FAULT_PPTR_INVALID,
 		  0);
 	}
@@ -446,13 +450,21 @@ void *__twz_ptr_swizzle(twzobj *obj, const void *p, uint64_t flags)
 	objid_t target;
 	int r = twz_vaddr_to_obj(p, &target, NULL);
 	if(r) {
-		_twz_lea_fault(NULL, p, (uintptr_t)__builtin_return_address(0), FAULT_PPTR_INVALID, r);
+		_twz_lea_fault(NULL,
+		  p,
+		  __builtin_extract_return_addr(__builtin_return_address(0)),
+		  FAULT_PPTR_INVALID,
+		  r);
 		return NULL;
 	}
 
 	ssize_t fe = twz_object_addfot(obj, target, flags);
 	if(fe < 0) {
-		_twz_lea_fault(obj, NULL, (uintptr_t)__builtin_return_address(0), FAULT_PPTR_RESOURCES, r);
+		_twz_lea_fault(obj,
+		  NULL,
+		  __builtin_extract_return_addr(__builtin_return_address(0)),
+		  FAULT_PPTR_RESOURCES,
+		  r);
 		return NULL;
 	}
 	return twz_ptr_rebase(fe, (void *)p);
@@ -518,6 +530,6 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 	}
 	return _r;
 fault:
-	_twz_lea_fault(o, p, (uintptr_t)__builtin_return_address(0), info, r);
+	_twz_lea_fault(o, p, __builtin_extract_return_addr(__builtin_return_address(0)), info, r);
 	return NULL;
 }

@@ -36,15 +36,15 @@ struct faultinfo {
 
 struct fault_object_info {
 	objid_t objid;
-	uint64_t ip;
-	uint64_t addr;
+	void *ip;
+	void *addr;
 	uint64_t flags;
 	uint64_t pad;
 } __attribute__((packed));
 
 static inline struct fault_object_info twz_fault_build_object_info(objid_t id,
-  uint64_t ip,
-  uint64_t addr,
+  void *ip,
+  void *addr,
   uint64_t flags)
 {
 	struct fault_object_info fi;
@@ -59,11 +59,11 @@ static inline struct fault_object_info twz_fault_build_object_info(objid_t id,
 /* null faults: happen when access occurs in a valid object slot in the null page. */
 
 struct fault_null_info {
-	uint64_t ip;
-	uint64_t addr;
+	void *ip;
+	void *addr;
 } __attribute__((packed));
 
-static inline struct fault_null_info twz_fault_build_null_info(uint64_t ip, uint64_t addr)
+static inline struct fault_null_info twz_fault_build_null_info(void *ip, void *addr)
 {
 	struct fault_null_info fi;
 	fi.ip = ip;
@@ -74,12 +74,12 @@ static inline struct fault_null_info twz_fault_build_null_info(uint64_t ip, uint
 /* exception faults: occur due to CPU exceptions (GPF, DIV0, etc). */
 
 struct fault_exception_info {
-	uint64_t ip;
+	void *ip;
 	uint64_t code; /* architecture specific */
 	uint64_t arg0; /* architecture specific */
 } __attribute__((packed));
 
-static inline struct fault_exception_info twz_fault_build_exception_info(uint64_t ip,
+static inline struct fault_exception_info twz_fault_build_exception_info(void *ip,
   uint64_t code,
   uint64_t arg0)
 {
@@ -94,16 +94,16 @@ static inline struct fault_exception_info twz_fault_build_exception_info(uint64_
 
 struct fault_sctx_info {
 	objid_t target;
-	uint64_t ip;
-	uint64_t addr;
+	void *ip;
+	void *addr;
 	uint32_t pneed;
 	uint32_t pad;
 	uint64_t pad64;
 } __attribute__((packed));
 
 static inline struct fault_sctx_info twz_fault_build_sctx_info(objid_t target,
-  uint64_t ip,
-  uint64_t addr,
+  void *ip,
+  void *addr,
   uint32_t pneed)
 {
 	struct fault_sctx_info fi;
@@ -143,17 +143,17 @@ static inline struct fault_fault_info twz_fault_build_fault_info(uint32_t fault_
 
 struct fault_page_info {
 	objid_t objid;
-	uintptr_t vaddr;
+	void *vaddr;
 	size_t pgnr;
 	uint64_t info;
-	uintptr_t ip;
+	void *ip;
 } __attribute__((packed));
 
 static inline struct fault_page_info twz_fault_build_page_info(objid_t id,
-  uintptr_t vaddr,
+  void *vaddr,
   size_t pagenr,
   uint64_t info,
-  uintptr_t ip)
+  void *ip)
 {
 	struct fault_page_info fi;
 	fi.objid = id;
@@ -183,7 +183,7 @@ enum {
 struct fault_pptr_info {
 	objid_t objid;
 	size_t fote;
-	uintptr_t ip;
+	void *ip;
 	uint32_t info;
 	uint32_t retval;
 	uint64_t flags;
@@ -193,7 +193,7 @@ struct fault_pptr_info {
 
 static inline struct fault_pptr_info twz_fault_build_pptr_info(objid_t id,
   size_t fote,
-  uintptr_t ip,
+  void *ip,
   uint32_t info,
   uint32_t retval,
   uint64_t flags,

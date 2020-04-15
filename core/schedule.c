@@ -276,32 +276,32 @@ static void __print_fault_info(struct thread *t, int fault, void *info)
 		case FAULT_OBJECT:
 			foi = info;
 			printk("foi->objid " IDFMT "\n", IDPR(foi->objid));
-			printk("foi->ip    %lx\n", foi->ip);
-			printk("foi->addr  %lx\n", foi->addr);
+			printk("foi->ip    %p\n", foi->ip);
+			printk("foi->addr  %p\n", foi->addr);
 			printk("foi->flags %lx\n", foi->flags);
 			break;
 		case FAULT_NULL:
 			fni = info;
-			printk("fni->ip    %lx\n", fni->ip);
-			printk("fni->addr  %lx\n", fni->addr);
+			printk("fni->ip    %p\n", fni->ip);
+			printk("fni->addr  %p\n", fni->addr);
 			break;
 		case FAULT_EXCEPTION:
 			fei = info;
-			printk("fei->ip    %lx\n", fei->ip);
+			printk("fei->ip    %p\n", fei->ip);
 			printk("fei->code  %lx\n", fei->code);
 			printk("fei->arg0  %lx\n", fei->arg0);
 			break;
 		case FAULT_SCTX:
 			fsi = info;
 			printk("fsi->target " IDFMT "\n", IDPR(fsi->target));
-			printk("fsi->ip     %lx\n", fsi->ip);
-			printk("fsi->addr   %lx\n", fsi->addr);
+			printk("fsi->ip     %p\n", fsi->ip);
+			printk("fsi->addr   %p\n", fsi->addr);
 			printk("fsi->pneed  %x\n", fsi->pneed);
 			break;
 	}
 }
 
-static uint64_t __failed_addr(int f, void *info)
+static void *__failed_addr(int f, void *info)
 {
 	switch(f) {
 		struct fault_object_info *foi;
@@ -350,7 +350,7 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 	//__print_fault_info(t, fault, info);
 	if(fi.addr) {
 		obj_put(to);
-		if((void *)__failed_addr(fault, info) == fi.addr) {
+		if(__failed_addr(fault, info) == fi.addr) {
 			/* probably a double-fault. Just die */
 			__print_fault_info(t, fault, info);
 			thread_exit();

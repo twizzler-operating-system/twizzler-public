@@ -20,13 +20,13 @@ static struct {
 } _fault_table[NUM_FAULTS];
 
 #define FPR(s)                                                                                     \
-	fprintf(stderr, "  -- FAULT: " s " (ip=%lx, addr=%lx, id=" IDFMT ")\n", source, addr, IDPR(id))
+	fprintf(stderr, "  -- FAULT: " s " (ip=%p, addr=%p, id=" IDFMT ")\n", source, addr, IDPR(id))
 static int twz_map_fot_entry(twzobj *obj,
   size_t slot,
   struct fotentry *fe,
   objid_t srcid,
-  uintptr_t addr,
-  uintptr_t ip)
+  void *addr,
+  void *ip)
 {
 	objid_t id;
 	if(fe->flags & FE_NAME) {
@@ -68,9 +68,9 @@ static int twz_map_fot_entry(twzobj *obj,
 	return 0;
 }
 
-static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t id)
+static int twz_handle_fault(void *addr, int cause, void *source, objid_t id)
 {
-	uint64_t offset = twz_ptr_local(addr);
+	uintptr_t offset = (uintptr_t)twz_ptr_local(addr);
 	if(offset < OBJ_NULLPAGE_SIZE) {
 		FPR("NULL pointer");
 		return -EINVAL;
@@ -111,7 +111,7 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 
 	if(!(atomic_load(&fe->flags) & _FE_VALID) || fe->id == 0) {
 		struct fault_pptr_info fi =
-		  twz_fault_build_pptr_info(id, slot, source, FAULT_PPTR_INVALID, 0, 0, NULL, (void *)addr);
+		  twz_fault_build_pptr_info(id, slot, source, FAULT_PPTR_INVALID, 0, 0, NULL, addr);
 		twz_fault_raise(FAULT_PPTR, &fi);
 		return -ENOENT;
 	}
@@ -175,7 +175,7 @@ static void __twz_fault_unhandled_print(int fault_nr, void *data)
 		if(si->pneed & SCP_EXEC)
 			rp[_r++] = 'x';
 		rp[_r] = 0;
-		PRINT("  when accessing " IDFMT " at addr %lx, requesting %s (%x)\n",
+		PRINT("  when accessing " IDFMT " at addr %p, requesting %s (%x)\n",
 		  IDPR(si->target),
 		  si->addr,
 		  rp,
@@ -187,7 +187,7 @@ static void __twz_fault_unhandled_print(int fault_nr, void *data)
 		struct fault_pptr_info *pi = (void *)data;
 		PRINT("objid: " IDFMT "; fote: %ld\n", IDPR(pi->objid), pi->fote);
 		PRINT(
-		  "ip: %lx; info: %x; retval: %x; flags: %lx\n", pi->ip, pi->info, pi->retval, pi->flags);
+		  "ip: %p; info: %x; retval: %x; flags: %lx\n", pi->ip, pi->info, pi->retval, pi->flags);
 		PRINT("name: %p; ptr: %p\n", pi->name, pi->ptr);
 	}
 

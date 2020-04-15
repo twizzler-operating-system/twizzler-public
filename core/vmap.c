@@ -273,7 +273,7 @@ static inline void popul_info(struct fault_object_info *info,
 	if(flags & FAULT_EXEC) {
 		iflags |= FAULT_OBJECT_EXEC;
 	}
-	*info = twz_fault_build_object_info(objid, ip, addr, iflags);
+	*info = twz_fault_build_object_info(objid, (void *)ip, (void *)addr, iflags);
 }
 
 static void vm_kernel_alloc_slot(struct object *obj)
