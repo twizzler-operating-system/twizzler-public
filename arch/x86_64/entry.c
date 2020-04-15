@@ -94,11 +94,8 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
 			panic("!! MCE: %lx\n", frame->rip);
 		} else if(frame->int_no < 32) {
 			if(was_userspace) {
-				struct fault_exception_info info = {
-					.ip = frame->rip,
-					.code = frame->int_no,
-					.arg0 = frame->err_code,
-				};
+				struct fault_exception_info info =
+				  twz_fault_build_exception_info(frame->rip, frame->int_no, frame->err_code);
 				if(frame->int_no == 19) {
 					/* SIMD exception; get info from MXCSR */
 					asm volatile("stmxcsr %0" : "=m"(info.arg0));

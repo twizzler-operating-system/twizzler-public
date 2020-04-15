@@ -373,12 +373,7 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 			}
 
 			/* thread can catch an unhandled fault */
-			struct fault_fault_info ffi = {
-				.fault_nr = fault,
-				.info = 0,
-				.resv = 0,
-				.len = infolen,
-			};
+			struct fault_fault_info ffi = twz_fault_build_fault_info(fault, 0, infolen);
 			size_t nl = infolen + sizeof(ffi);
 			nl = ((nl - 1) & ~0xf) + 0x10; /* infolen must be 16 aligned */
 			char tmp[nl];

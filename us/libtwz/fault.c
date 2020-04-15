@@ -32,15 +32,8 @@ static int twz_map_fot_entry(twzobj *obj,
 	if(fe->flags & FE_NAME) {
 		int r = twz_name_resolve(obj, fe->name.data, fe->name.nresolver, 0, &id);
 		if(r < 0) {
-			struct fault_pptr_info fi = {
-				.ptr = (void *)addr,
-				.ip = ip,
-				.info = FAULT_PPTR_RESOLVE,
-				.objid = srcid,
-				.retval = r,
-				.fote = slot,
-				.name = fe->name.data,
-			};
+			struct fault_pptr_info fi = twz_fault_build_pptr_info(
+			  srcid, slot, ip, FAULT_PPTR_RESOLVE, r, 0, fe->name.data, (void *)addr);
 			twz_fault_raise(FAULT_PPTR, &fi);
 			return r;
 		}
@@ -55,14 +48,8 @@ static int twz_map_fot_entry(twzobj *obj,
 		objid_t nid;
 		int err;
 		if((err = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, id, &nid)) < 0) {
-			struct fault_pptr_info fi = {
-				.ptr = (void *)addr,
-				.ip = ip,
-				.info = FAULT_PPTR_DERIVE,
-				.objid = srcid,
-				.retval = err,
-				.fote = slot,
-			};
+			struct fault_pptr_info fi = twz_fault_build_pptr_info(
+			  srcid, slot, ip, FAULT_PPTR_DERIVE, err, 0, NULL, (void *)addr);
 			twz_fault_raise(FAULT_PPTR, &fi);
 			return err;
 		}
@@ -123,13 +110,8 @@ static int twz_handle_fault(uintptr_t addr, int cause, uintptr_t source, objid_t
 	}
 
 	if(!(atomic_load(&fe->flags) & _FE_VALID) || fe->id == 0) {
-		struct fault_pptr_info fi = {
-			.ptr = (void *)addr,
-			.ip = source,
-			.info = FAULT_PPTR_INVALID,
-			.objid = id,
-			.fote = slot,
-		};
+		struct fault_pptr_info fi =
+		  twz_fault_build_pptr_info(id, slot, source, FAULT_PPTR_INVALID, 0, 0, NULL, (void *)addr);
 		twz_fault_raise(FAULT_PPTR, &fi);
 		return -ENOENT;
 	}

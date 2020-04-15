@@ -261,21 +261,19 @@ static inline void popul_info(struct fault_object_info *info,
   uintptr_t addr,
   objid_t objid)
 {
-	memset(info, 0, sizeof(*info));
+	uint64_t iflags = 0;
 	if(!(flags & FAULT_ERROR_PERM)) {
-		info->flags |= FAULT_OBJECT_NOMAP;
+		iflags |= FAULT_OBJECT_NOMAP;
 	}
 	if(flags & FAULT_WRITE) {
-		info->flags |= FAULT_OBJECT_WRITE;
+		iflags |= FAULT_OBJECT_WRITE;
 	} else {
-		info->flags |= FAULT_OBJECT_READ;
+		iflags |= FAULT_OBJECT_READ;
 	}
 	if(flags & FAULT_EXEC) {
-		info->flags |= FAULT_OBJECT_EXEC;
+		iflags |= FAULT_OBJECT_EXEC;
 	}
-	info->ip = ip;
-	info->addr = addr;
-	info->objid = objid;
+	*info = twz_fault_build_object_info(objid, ip, addr, iflags);
 }
 
 static void vm_kernel_alloc_slot(struct object *obj)

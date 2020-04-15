@@ -885,12 +885,8 @@ static bool __objspace_fault_calculate_perms(struct object *o,
 	/* optimization: just check if default permissions are enough */
 	uint32_t p_flags;
 	if(!obj_get_pflags(o, &p_flags)) {
-		struct fault_object_info info = {
-			.ip = ip,
-			.addr = vaddr,
-			.objid = o->id,
-			.flags = FAULT_OBJECT_INVALID,
-		};
+		struct fault_object_info info =
+		  twz_fault_build_object_info(o->id, ip, vaddr, FAULT_OBJECT_INVALID);
 		thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
 		obj_put(o);
 
@@ -923,12 +919,8 @@ static bool __objspace_fault_calculate_perms(struct object *o,
 
 	bool w = (*perms & OBJSPACE_WRITE);
 	if(!obj_verify_id(o, !w, w)) {
-		struct fault_object_info info = {
-			.ip = ip,
-			.addr = vaddr,
-			.objid = o->id,
-			.flags = FAULT_OBJECT_INVALID,
-		};
+		struct fault_object_info info =
+		  twz_fault_build_object_info(o->id, ip, vaddr, FAULT_OBJECT_INVALID);
 		thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
 		obj_put(o);
 		return false;
@@ -961,10 +953,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	__c++;
 	size_t idx = (loaddr % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
 	if(idx == 0 && !VADDR_IS_KERNEL(vaddr)) {
-		struct fault_null_info info = {
-			.ip = ip,
-			.addr = vaddr,
-		};
+		struct fault_null_info info = twz_fault_build_null_info(ip, vaddr);
 		thread_raise_fault(current_thread, FAULT_NULL, &info, sizeof(info));
 		return;
 	}

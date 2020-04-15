@@ -21,9 +21,8 @@ static void _twz_lea_fault(twzobj *o,
   uint32_t retval __attribute__((unused)))
 {
 	size_t slot = VADDR_TO_SLOT(p);
-	struct fault_pptr_info fi = {
-		.objid = o ? twz_object_guid(o) : 0, .fote = slot, .ptr = p, .info = info, .ip = ip
-	};
+	struct fault_pptr_info fi =
+	  twz_fault_build_pptr_info(o ? twz_object_guid(o) : 0, slot, ip, info, retval, 0, NULL, p);
 	twz_fault_raise(FAULT_PPTR, &fi);
 }
 
@@ -193,12 +192,10 @@ objid_t twz_object_guid(twzobj *o)
 		return o->_int_id;
 	objid_t id = 0;
 	if(twz_vaddr_to_obj(o->_int_base, &id, NULL)) {
-		struct fault_object_info fi = {
-			.objid = 0,
-			.ip = (uintptr_t)&twz_object_guid,
-			.addr = (uintptr_t)o->_int_base,
-			.flags = FAULT_OBJECT_UNKNOWN,
-		};
+		struct fault_object_info fi = twz_fault_build_object_info(0,
+		  __builtin_extract_return_addr(__builtin_return_address(0)),
+		  o->_int_base,
+		  FAULT_OBJECT_UNKNOWN);
 		twz_fault_raise(FAULT_OBJECT, &fi);
 		return twz_object_guid(o);
 	}
