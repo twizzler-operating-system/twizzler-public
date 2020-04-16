@@ -34,6 +34,47 @@ static void obj_init(twzobj *obj, void *base, uint32_t vf, objid_t id, uint64_t 
 	obj->_int_flags = TWZ_OBJ_VALID | flags;
 }
 
+EXTERNAL void twz_object_setsz(twzobj *obj, enum twz_object_setsz_mode mode, ssize_t amount)
+{
+	struct metainfo *mi = twz_object_meta(obj);
+	if(!(mi->flags & MIF_SZ)) {
+		if(mode == TWZ_OSSM_RELATIVE) {
+			struct fault_object_info fi = twz_fault_build_object_info(twz_object_guid(obj),
+			  __builtin_extract_return_addr(__builtin_return_address(0)),
+			  NULL,
+			  FAULT_OBJECT_UNSIZED);
+			twz_fault_raise(FAULT_OBJECT, &fi);
+		}
+		mi->flags |= MIF_SZ;
+	}
+
+	switch(mode) {
+		case TWZ_OSSM_RELATIVE:
+			if(mi->sz + amount < 0 || mi->sz + amount > OBJ_TOPDATA) {
+				_twz_lea_fault(obj,
+				  (void *)(mi->sz + amount),
+				  __builtin_extract_return_addr(__builtin_return_address(0)),
+				  FAULT_PPTR_INVALID,
+				  0);
+				break;
+			}
+			mi->sz += amount;
+			break;
+		case TWZ_OSSM_ABSOLUTE:
+			if(amount < 0 || amount > OBJ_TOPDATA) {
+				_twz_lea_fault(obj,
+				  (void *)amount,
+				  __builtin_extract_return_addr(__builtin_return_address(0)),
+				  FAULT_PPTR_INVALID,
+				  0);
+				break;
+			}
+			mi->sz = amount;
+			break;
+	}
+	return;
+}
+
 EXTERNAL
 void *twz_object_base(twzobj *obj)
 {

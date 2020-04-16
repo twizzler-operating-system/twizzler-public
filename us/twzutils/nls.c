@@ -1,4 +1,4 @@
-#include <setjmp.h>
+#include <dirent.h>
 #include <stdlib.h>
 #include <twz/_err.h>
 #include <twz/bstream.h>
@@ -9,16 +9,7 @@
 #include <twz/thread.h>
 #include <unistd.h>
 
-static jmp_buf buf;
-
 static bool human_readable = false;
-
-void __nls_fault_handler(int f, void *info)
-{
-	(void)f;
-	(void)info;
-	longjmp(buf, 1);
-}
 
 void print_size(size_t sz)
 {
@@ -39,18 +30,26 @@ void print_size(size_t sz)
 		printf("%10ld ", sz);
 }
 
-void nls_print(struct twz_nament *ne, bool info, bool read, bool id)
+void nls_print(const char *path, const char *name, bool info, bool read, bool print_id)
 {
+	char full[1024];
+	snprintf(full, sizeof(full), "%s/%s", path, name);
+	objid_t id;
+	int r;
+	if((r = twz_name_resolve(NULL, full, NULL, 0, &id))) {
+		fprintf(stderr, "failed to resolve name `%s'\n", name);
+		return;
+	}
 	if(!info) {
-		if(id) {
-			printf(IDFMT " %s\n", IDPR(ne->id), ne->name);
+		if(print_id) {
+			printf(IDFMT " %s\n", IDPR(id), name);
 		} else {
-			printf("%s\n", ne->name);
+			printf("%s\n", name);
 		}
 	} else {
 		if(read) {
 			twzobj obj;
-			twz_object_init_guid(&obj, ne->id, FE_READ);
+			twz_object_init_guid(&obj, id, FE_READ);
 
 			fflush(stdout);
 			struct metainfo *mi = twz_object_meta(&obj);
@@ -87,21 +86,23 @@ void nls_print(struct twz_nament *ne, bool info, bool read, bool id)
 				*bp = 0;
 
 				printf(" %s ", buf);
-				if(mi->kuid) {
-					char kuname[128];
-					size_t kunamelen = sizeof(kuname);
-					int r = twz_name_reverse_lookup(mi->kuid, kuname, &kunamelen, NULL, 0);
+				//				if(mi->kuid) {
+				/*
+				char kuname[128];
+				size_t kunamelen = sizeof(kuname);
+				int r = twz_name_reverse_lookup(mi->kuid, kuname, &kunamelen, NULL, 0);
 
-					const char *reason = "";
-					if(r == -ENOENT) {
-						reason = "(unknown kuid)";
-					} else if(r == -ENOSPC) {
-						reason = "(name too long)";
-					}
-					printf("%15s ", r ? reason : kuname);
-				} else {
-					printf("%15s ", "*");
+				const char *reason = "";
+				if(r == -ENOENT) {
+				    reason = "(unknown kuid)";
+				} else if(r == -ENOSPC) {
+				    reason = "(name too long)";
 				}
+				printf("%15s ", r ? reason : kuname);
+				*/
+				//				} else {
+				printf("%15s ", "*");
+				//				}
 				if(mi->flags & MIF_SZ) {
 					if(human_readable)
 						print_size(mi->sz);
@@ -115,17 +116,17 @@ void nls_print(struct twz_nament *ne, bool info, bool read, bool id)
 			printf("!------               ?          ? ");
 		}
 		if(id) {
-			printf(IDFMT " %s\n", IDPR(ne->id), ne->name);
+			printf(IDFMT " %s\n", IDPR(id), name);
 		} else {
-			printf("%s\n", ne->name);
+			printf("%s\n", name);
 		}
 	}
 }
 
+#if 0
 void nls(bool id, bool l)
 {
 	static _Alignas(_Alignof(struct twz_nament)) char buffer[1024];
-	twz_fault_set(FAULT_SCTX, __nls_fault_handler, NULL);
 
 	char *startname = NULL;
 	ssize_t r;
@@ -140,11 +141,15 @@ void nls(bool id, bool l)
 	while((r = twz_name_dfl_getnames(startname, (void *)buffer, sizeof(buffer))) > 0) {
 		ne = (void *)buffer;
 		for(i = 0; i < (size_t)r; ne = (void *)((uintptr_t)ne + ne->reclen), i++) {
-			if(!setjmp(buf)) {
+			twztry
+			{
 				nls_print(ne, l, true, id);
-			} else {
+			}
+			catch_all
+			{
 				nls_print(ne, l, false, id);
 			}
+			twztry_end;
 			startname = ne->name;
 		}
 	}
@@ -153,12 +158,37 @@ void nls(bool id, bool l)
 		fprintf(stderr, "err: %ld\n", r);
 	}
 }
+#endif
+
+#include <err.h>
+#include <twz/twztry.h>
+void nls(const char *path, bool id, bool l)
+{
+	DIR *d = opendir(path);
+	if(!d) {
+		err(1, "failed to open directory: %s\n", ".");
+	}
+	struct dirent *de;
+	while((de = readdir(d))) {
+		twztry
+		{
+			nls_print(path, de->d_name, l, true, id);
+		}
+		twzcatch(FAULT_SCTX)
+		{
+			nls_print(path, de->d_name, l, false, id);
+		}
+		twztry_end;
+		//	printf(":: %s\n", de->d_name);
+	}
+}
 
 void usage(void)
 {
-	fprintf(stderr, "nls [-li]: Print Twizzler Default Namespace\n");
+	fprintf(stderr, "nls [-lih]: Print Twizzler Default Namespace\n");
 	fprintf(stderr, "-l: Show information about objects\n");
 	fprintf(stderr, "-i: Show object ID\n");
+	fprintf(stderr, "-h: Show sizes in human readable format\n");
 	exit(0);
 }
 
@@ -182,6 +212,10 @@ int main(int argc, char **argv)
 				usage();
 		}
 	}
-	nls(id, l);
+	char *path = ".";
+	if(optind < argc) {
+		path = argv[optind];
+	}
+	nls(path, id, l);
 	return 0;
 }

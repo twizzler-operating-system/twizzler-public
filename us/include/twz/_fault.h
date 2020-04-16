@@ -33,6 +33,7 @@ struct faultinfo {
 #define FAULT_OBJECT_EXIST 16
 #define FAULT_OBJECT_INVALID 32
 #define FAULT_OBJECT_UNKNOWN 64
+#define FAULT_OBJECT_UNSIZED 128
 
 struct fault_object_info {
 	objid_t objid;

@@ -13,7 +13,7 @@ done
 
 for nd in $(find projects/$PROJECT/build/us/objroot -name '__ns*.dat'); do
 	ns=${nd/.dat/}
-	echo processing $ns '<-' $nd
+	#echo processing $ns '<-' $nd >&2
 	projects/$PROJECT/build/utils/appendobj $ns < $nd
 	rm $nd
 	id=$(projects/$PROJECT/build/utils/objstat -i $ns)

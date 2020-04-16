@@ -92,6 +92,14 @@ void *twz_object_getext(twzobj *obj, uint64_t tag);
 __must_check int twz_object_addext(twzobj *obj, uint64_t tag, void *ptr);
 int twz_object_delext(twzobj *obj, uint64_t tag, void *ptr);
 
+enum twz_object_setsz_mode {
+	TWZ_OSSM_ABSOLUTE,
+	TWZ_OSSM_RELATIVE,
+};
+
+#include <twz/_types.h>
+void twz_object_setsz(twzobj *obj, enum twz_object_setsz_mode mode, ssize_t amount);
+
 // TODO: audit uses of _store_
 #define TWZ_PTR_FLAGS_COPY 0xfffffffffffffffful
 __must_check int __twz_ptr_store_guid(twzobj *o,

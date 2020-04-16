@@ -4,6 +4,8 @@
 #include <twz/hier.h>
 #include <twz/obj.h>
 
+/* TODO: thread-safe */
+
 static struct twz_name_ent *__get_name_ent(twzobj *ns, const char *path, size_t plen)
 {
 	/* note that the dlen field includes the null terminator */
@@ -27,6 +29,52 @@ static struct twz_name_ent *__get_name_ent(twzobj *ns, const char *path, size_t 
 	return NULL;
 }
 
+ssize_t twz_hier_get_entry(twzobj *ns, size_t pos, struct twz_name_ent **ent)
+{
+	struct twz_namespace_hdr *hdr = twz_object_base(ns);
+	if(hdr->magic != NAMESPACE_MAGIC)
+		return -EINVAL;
+
+	struct metainfo *mi = twz_object_meta(ns);
+	if(pos >= mi->sz) {
+		return 0;
+	}
+
+	struct twz_name_ent *pt = (void *)((char *)hdr->ents + pos);
+	if(pt->dlen == 0)
+		return 0;
+	size_t reclen = sizeof(*pt) + pt->dlen;
+	reclen = (reclen + 15) & ~15;
+
+	*ent = pt;
+	return reclen;
+}
+
+int twz_hier_namespace_new(twzobj *ns, twzobj *parent, const char *name)
+{
+	int r;
+	if((r =
+	       twz_object_new(ns, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_TIED_NONE))) {
+		return r;
+	}
+	struct twz_namespace_hdr *hdr = twz_object_base(ns);
+
+	hdr->magic = NAMESPACE_MAGIC;
+	bool ok = true;
+	ok = ok && twz_hier_assign_name(ns, ".", NAME_ENT_NAMESPACE, twz_object_guid(ns));
+	ok = ok && twz_hier_assign_name(ns, "..", NAME_ENT_NAMESPACE, twz_object_guid(parent));
+
+	ok = ok && twz_hier_assign_name(parent, name, NAME_ENT_NAMESPACE, twz_object_guid(ns));
+
+	if(!ok) {
+		if(twz_object_delete(ns, 0)) {
+			libtwz_panic("failed to delete namespace object during cleanup");
+		}
+	}
+
+	return ok ? 0 : -EINVAL;
+}
+
 int twz_hier_assign_name(twzobj *ns, const char *name, int type, objid_t id)
 {
 	struct twz_namespace_hdr *hdr = twz_object_base(ns);
@@ -44,6 +92,7 @@ int twz_hier_assign_name(twzobj *ns, const char *name, int type, objid_t id)
 			ent->resv1 = 0;
 			ent->id = id;
 			strcpy(ent->name, name);
+			return 0;
 		}
 		size_t reclen = sizeof(*ent) + ent->dlen;
 		reclen = (reclen + 15) & ~15;
@@ -56,6 +105,7 @@ int twz_hier_assign_name(twzobj *ns, const char *name, int type, objid_t id)
 	ent->resv1 = 0;
 	ent->id = id;
 	strcpy(ent->name, name);
+	twz_object_setsz(ns, TWZ_OSSM_RELATIVE, ent->dlen);
 	return 0;
 }
 

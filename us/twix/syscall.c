@@ -43,6 +43,7 @@
 
 #define LINUX_SYS_set_thread_area 205
 
+#define LINUX_SYS_getdents64 217
 #define LINUX_SYS_set_tid_address 218
 
 #define LINUX_SYS_clock_gettime 228
@@ -105,6 +106,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_getegid] = linux_sys_getegid,
 	[LINUX_SYS_uname] = linux_sys_uname,
 	[LINUX_SYS_lseek] = linux_sys_lseek,
+	[LINUX_SYS_getdents64] = linux_sys_getdents64,
 };
 
 __attribute__((unused)) static const char *syscall_names[] = {
@@ -447,7 +449,7 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 {
 	__linux_init();
 	if((size_t)num >= stlen || num < 0 || syscall_table[num] == NULL) {
-#if 0
+#if 1
 		if(num != 12 && num != 13 && num != 14)
 			twix_log("Unimplemented Linux system call: %ld (%s)\n", num, syscall_names[num]);
 #endif

@@ -93,6 +93,8 @@ long linux_sys_lseek(int fd, off_t off, int whence);
 long linux_sys_access(const char *pathname, int mode);
 long linux_sys_faccessat(int dirfd, const char *pathname, int mode, int flags);
 long linux_sys_stat(const char *path, struct stat *sb);
+struct linux_dirent64;
+long linux_sys_getdents64(unsigned fd, struct linux_dirent64 *dirp, unsigned int count);
 
 long linux_sys_execve(const char *path, const char *const *argv, char *const *env);
 

@@ -86,6 +86,10 @@ static int twz_handle_fault(void *addr, int cause, void *source, objid_t id)
 		return -ENOENT;
 	}
 
+	if(cause & FAULT_OBJECT_UNSIZED) {
+		FPR("Tried to perform sized operation on unsized object");
+	}
+
 	uint32_t obj0flags;
 	objid_t obj0id;
 	twz_view_get(NULL, 0, &obj0id, &obj0flags);

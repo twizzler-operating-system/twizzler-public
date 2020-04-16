@@ -1,4 +1,4 @@
-TWIX_SRC=$(addprefix us/twix/,syscall.c rw.c fd.c linux.c file.c thread.c access.c process.c time.c)
+TWIX_SRC=$(addprefix us/twix/,syscall.c rw.c fd.c linux.c file.c thread.c access.c process.c time.c dir.c)
 TWIX_OBJ=$(addprefix $(BUILDDIR)/,$(TWIX_SRC:.c=.o))
 
 TWIXCFLAGS=-fsanitize=undefined -g
