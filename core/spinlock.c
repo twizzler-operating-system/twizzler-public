@@ -14,7 +14,7 @@ bool __spinlock_acquire(struct spinlock *lock, const char *f __unused, int l __u
 		while(atomic_load_explicit(&lock->data, memory_order_acquire)) {
 			arch_processor_relax();
 #if CONFIG_DEBUG_LOCKS
-			if(count++ == 1000000 && f) {
+			if(count++ == 100000000ul && f) {
 				panic("POTENTIAL DEADLOCK trying to acquire %s:%d (held from %s:%d)\n",
 				  f,
 				  l,

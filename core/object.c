@@ -655,14 +655,14 @@ void obj_free_kaddr(struct object *obj)
 	obj->kaddr = NULL;
 
 	vm_kernel_unmap_object(obj);
-	spinlock_release_restore(&obj->lock);
+	// spinlock_release_restore(&obj->lock);
 	struct object *o = slot->obj;
 	assert(o == obj);
 	slot->obj = NULL;
-	obj_put(o);
 	object_space_release_slot(slot);
 	slot_release(slot);
 	spinlock_release_restore(&obj->lock);
+	obj_put(o);
 }
 
 void obj_release_kaddr(struct object *obj)

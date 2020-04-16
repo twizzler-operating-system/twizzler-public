@@ -188,7 +188,12 @@ struct page *page_alloc(int type, int flags, int level)
 			}
 			p = __do_page_alloc(stack, !zero);
 			if(!p) {
-				panic("out of pages; level=%d", level);
+				panic("out of pages; level=%d; avail=%ld, nzero=%ld, adding=%d; flags=%x",
+				  level,
+				  stack->avail,
+				  stack->nzero,
+				  stack->adding,
+				  flags);
 			}
 			if(zero) {
 				spinlock_release_restore(&stack->lock);
@@ -208,7 +213,7 @@ struct page *page_alloc(int type, int flags, int level)
 		stack->adding = true;
 		spinlock_release_restore(&stack->lock);
 		struct page *lp = page_alloc(type, 0, level + 1);
-		//	printk("splitting page %lx (level %d)\n", lp->addr, level + 1);
+		printk("splitting page %lx (level %d)\n", lp->addr, level + 1);
 		for(size_t i = 0; i < mm_page_size(level + 1) / mm_page_size(level); i++) {
 			struct page *np = arena_allocate(&page_arena, sizeof(struct page));
 			//*np = *lp;
@@ -253,7 +258,7 @@ static void __page_idle_zero(int level)
 	struct page_stack *stack = &_stacks[level];
 	while(((stack->nzero < stack->avail && stack->nzero < 1024) || stack->avail < 1024)
 	      && !stack->adding) {
-#if 0
+#if 1
 		printk("ACTIVATE: idle zero: %d: %ld %ld %d\n",
 		  level,
 		  stack->avail,
@@ -287,7 +292,7 @@ void page_idle_zero(void)
 	if(atomic_fetch_or(&trying, 1))
 		return;
 	// if(!processor_has_threads(current_processor)) {
-	__page_idle_zero(0);
+	//__page_idle_zero(0);
 	//}
 	// if(!processor_has_threads(current_processor)) {
 	//	__page_idle_zero(1);
