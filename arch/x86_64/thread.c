@@ -112,7 +112,7 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 
 	/* TODO: validate that stack is in a reasonable object */
 	if(((unsigned long)stack & 0xFFFFFFFFFFFFFFF0) != (unsigned long)stack) {
-		panic("NI");
+		//	panic("NI");
 		/* set up stack alignment correctly
 		 * (mis-aligned going into a function call) */
 		stack--;

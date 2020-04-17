@@ -149,7 +149,7 @@ void page_print_stats(void)
 	  (mm_page_count * mm_page_size(0)) / 1024,
 	  (mm_page_count * mm_page_size(0)) / (1024 * 1024));
 
-	for(int i = 0; i < array_len(all_pgs); i++) {
+	for(unsigned i = 0; i < array_len(all_pgs); i++) {
 		printk("page stack %-20s: %ld avail (%ld KB); flags = %x\n",
 		  all_pgs[i]->name,
 		  all_pgs[i]->avail,
@@ -296,9 +296,7 @@ void page_dealloc(struct page *p, int flags)
 	__do_page_dealloc(pg, p);
 }
 
-#define __PAGE_NONZERO 0x4000
-
-static void __do_page_split(struct page_group *group)
+static bool __do_page_split(struct page_group *group, bool simple)
 {
 	if(!group->split_fallback) {
 		page_print_stats();
@@ -307,6 +305,8 @@ static void __do_page_split(struct page_group *group)
 	struct page *lp = __do_page_alloc(group->split_fallback);
 	// printk("$$ %p %d %s\n", lp, group->level, group->name);
 	if(!lp) {
+		if(simple)
+			return false;
 		lp = page_alloc(PM_TYPE_DRAM /* TODO */, group->flags & PAGE_ZERO, group->level + 1);
 	}
 	if(!lp) {
@@ -331,6 +331,7 @@ static void __do_page_split(struct page_group *group)
 
 		__do_page_dealloc(group, np);
 	}
+	return true;
 }
 
 /* allocation strategy:
@@ -367,6 +368,7 @@ struct page *page_alloc(int type, int flags, int level)
 		goto done;
 	}
 
+	assert(level <= MAX_PGLEVEL);
 	struct page_group *pg = default_pg[level];
 
 	// printk("PAGE_ALLOC %x %d: 1\n", flags, level);
@@ -394,7 +396,7 @@ struct page *page_alloc(int type, int flags, int level)
 			} else {
 				//			printk("choosing to split page\n");
 				//		page_print_stats();
-				__do_page_split(pg);
+				__do_page_split(pg, false);
 			}
 		}
 	}
@@ -409,95 +411,11 @@ done:
 	}
 	if((flags & PAGE_ZERO) && !(p->flags & PAGE_ZERO)) {
 		page_zero(p);
-		//	panic("failed to allocate a zero page");
 	}
 	if(current_thread)
 		current_thread->page_alloc = false;
 	return p;
 }
-
-#if 0
-struct page *page_alloc(int type, int flags, int level)
-{
-	if(!mm_ready)
-		level = 0;
-	struct page_stack *stack = &_stacks[level];
-	spinlock_acquire_save(&stack->lock);
-	bool zero = (flags & PAGE_ZERO);
-	struct page *p = __do_page_alloc(stack, zero);
-	if(!p) {
-		if(mm_ready) {
-			if(flags & __PAGE_NONZERO) {
-				if(stack->adding) {
-					spinlock_release_restore(&stack->lock);
-					return NULL;
-				}
-				goto add;
-			} else {
-				if(flags & PAGE_ZERO) {
-					//	printk("MANUALLY ZEROING\n");
-				}
-			}
-			p = __do_page_alloc(stack, !zero);
-			if(!p) {
-				panic("out of pages; level=%d; avail=%ld, nzero=%ld, adding=%d; flags=%x",
-				  level,
-				  stack->avail,
-				  stack->nzero,
-				  stack->adding,
-				  flags);
-			}
-			if(zero) {
-				spinlock_release_restore(&stack->lock);
-				page_zero(p);
-				spinlock_acquire_save(&stack->lock);
-			}
-		} else {
-			page_init_bootstrap();
-			spinlock_release_restore(&stack->lock);
-			return page_alloc(type, flags, level);
-		}
-	}
-
-	if(stack->avail < 128 && level < MAX_PGLEVEL && mm_ready && !stack->adding
-	   && !(flags & PAGE_CRITICAL)) {
-	add:
-		stack->adding = true;
-		spinlock_release_restore(&stack->lock);
-		struct page *lp = page_alloc(type, 0, level + 1);
-		printk("splitting page %lx (level %d)\n", lp->addr, level + 1);
-		for(size_t i = 0; i < mm_page_size(level + 1) / mm_page_size(level); i++) {
-			struct page *np = arena_allocate(&page_arena, sizeof(struct page));
-			//*np = *lp;
-			np->type = lp->type;
-			np->flags = lp->flags & ~PAGE_ALLOCED;
-			np->lock = SPINLOCK_INIT;
-			np->root = RBINIT;
-			np->addr = i * mm_page_size(level) + lp->addr;
-			// np->addr += i * mm_page_size(level);
-			np->parent = lp;
-			np->next = NULL;
-			np->level = level;
-			// printk("  %p -> %lx (%d)\n", np, np->addr, np->level);
-			spinlock_acquire_save(&stack->lock);
-			__do_page_dealloc(stack, np);
-			spinlock_release_restore(&stack->lock);
-		}
-		stack->adding = false;
-		return page_alloc(type, flags, level);
-	} else {
-		spinlock_release_restore(&stack->lock);
-	}
-
-	// printk(":: ALL %lx\n", p->addr);
-	assert(!(p->flags & PAGE_ALLOCED));
-	p->flags &= ~PAGE_ZERO; // TODO: track this using VM system
-	p->flags |= PAGE_ALLOCED;
-	p->cowcount = 0;
-	mm_page_alloced++;
-	return p;
-}
-#endif
 
 struct page *page_alloc_nophys(void)
 {
@@ -506,50 +424,65 @@ struct page *page_alloc_nophys(void)
 }
 
 #include <processor.h>
-#if 0
-static void __page_idle_zero(int level)
-{
-	struct page_stack *stack = &_stacks[level];
-	while(((stack->nzero < stack->avail && stack->nzero < 1024) || stack->avail < 1024)
-	      && !stack->adding) {
-#if 1
-		printk("ACTIVATE: idle zero: %d: %ld %ld %d\n",
-		  level,
-		  stack->avail,
-		  stack->nzero,
-		  processor_has_threads(current_processor));
-#endif
-		struct page *p = page_alloc(PAGE_TYPE_VOLATILE, __PAGE_NONZERO, level);
-		if(p) {
-			// page_zero(p);
-			page_dealloc(p, PAGE_ZERO);
-		}
-		spinlock_acquire_save(&current_processor->sched_lock);
-		bool br = processor_has_threads(current_processor);
-		spinlock_release_restore(&current_processor->sched_lock);
-		if(br)
-			break;
-		for(volatile int i = 0; i < 100; i++)
-			arch_processor_relax();
 
-		spinlock_acquire_save(&current_processor->sched_lock);
-		br = processor_has_threads(current_processor);
-		spinlock_release_restore(&current_processor->sched_lock);
-		if(br)
-			break;
-	}
-}
-#endif
+size_t PG_ZERO_THRESH[] = {
+	[0] = 4096, // 16MB
+	[1] = 8,    // 16MB
+	[2] = 0,
+};
+
 void page_idle_zero(void)
 {
-	static _Atomic int trying = 0;
-	if(atomic_fetch_or(&trying, 1))
-		return;
-	// if(!processor_has_threads(current_processor)) {
-	//__page_idle_zero(0);
-	//}
-	// if(!processor_has_threads(current_processor)) {
-	//	__page_idle_zero(1);
-	//}
-	trying = 0;
+	return;
+	struct page_group *crit = &_pg_level0_critical;
+	while(crit->avail < PG_CRITICAL_THRESH) {
+		if(processor_has_threads(current_processor))
+			break;
+		struct page *p = page_alloc(PM_TYPE_DRAM, PAGE_ZERO, 0);
+		__do_page_dealloc(crit, p);
+	}
+	for(unsigned i = 0; i < array_len(all_pgs); i++) {
+		if(processor_has_threads(current_processor))
+			break;
+		struct page_group *group = all_pgs[i];
+		struct page_group *fb = group->fallback;
+		struct page_group *sp = group->split_fallback;
+		if((group->flags & PAGE_ZERO) && (sp || fb)) {
+			while(group->avail < PG_ZERO_THRESH[group->level]) {
+				if(processor_has_threads(current_processor))
+					break;
+				for(int x = 0; x < 100; x++) {
+					arch_processor_relax();
+				}
+				struct page *page;
+				if(fb && fb->avail) {
+					if((page = __do_page_alloc(fb))) {
+						assert(page->level == group->level);
+						if(!(page->flags & PAGE_ZERO)) {
+							page_zero(page);
+						}
+						__do_page_dealloc(group, page);
+					} else {
+						break;
+					}
+				} else if(sp) {
+					if(!__do_page_split(group, true)) {
+						break;
+					}
+				} else {
+					break;
+				}
+			}
+		} else if(!(group->flags & PAGE_ZERO) && sp) {
+			while(group->avail < PG_ZERO_THRESH[group->level]) {
+				if(processor_has_threads(current_processor))
+					break;
+				for(int x = 0; x < 100; x++) {
+					arch_processor_relax();
+				}
+				if(!__do_page_split(group, true))
+					break;
+			}
+		}
+	}
 }

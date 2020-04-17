@@ -2,6 +2,7 @@
 #include <debug.h>
 #include <lib/iter.h>
 #include <object.h>
+#include <page.h>
 #include <processor.h>
 #include <thread.h>
 
@@ -347,7 +348,7 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 		obj_put(to);
 		panic("NI - different view :: %d", fault);
 	}
-	//__print_fault_info(t, fault, info);
+	__print_fault_info(t, fault, info);
 	if(fi.addr) {
 		obj_put(to);
 		if(__failed_addr(fault, info) == fi.addr) {
