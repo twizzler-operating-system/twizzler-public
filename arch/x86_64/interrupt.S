@@ -135,9 +135,17 @@ isr_common:
 
 kernel_exception:
 	movq $0, %rsi
+	movq %gs:16, %rax
+	addq $0x2000, %rax
+	cmpq %rsp, %rax
+	jg _stack_too_small
 	call x86_64_exception_entry
 	RESTORE_CONTEXT
 	iretq
+
+.extern __panic
+_stack_too_small:
+	jmp .
 
 
 .global x86_64_resume_userspace_interrupt

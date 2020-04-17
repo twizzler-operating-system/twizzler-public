@@ -93,6 +93,15 @@ uintptr_t mm_vtop(void *addr)
 	return paddr;
 }
 
+void *mm_ptov_try(uintptr_t addr)
+{
+	uintptr_t p = (uintptr_t)addr;
+	if(p >= SLOT_TO_OADDR(0) && p <= SLOT_TO_OADDR(0) + (OBJ_MAXSIZE - 1)) {
+		return (void *)((uintptr_t)addr + PHYSICAL_MAP_START);
+	}
+	return NULL;
+}
+
 void *mm_ptov(uintptr_t addr)
 {
 	uintptr_t p = (uintptr_t)addr;
@@ -203,7 +212,7 @@ void mm_init_phase_2(void)
 	slots_init();
 
 	mm_ready = true;
-	// mm_print_stats();
+	mm_print_stats();
 }
 
 uintptr_t mm_physical_early_alloc(void)

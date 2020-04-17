@@ -57,16 +57,6 @@ static void _foo_bar(struct test *test)
 	{
 	}
 	twztry_end;
-	/*
-	    jmp_buf jmp;
-	    jmp_buf *pj = _try_buf;
-	    _try_buf = &jmp;
-	    if(!setjmp(jmp)) {
-	    } else {
-	        printf("Caught exception\n");
-	    }
-
-	    _try_buf = pj;*/
 }
 
 struct test tests[] = {

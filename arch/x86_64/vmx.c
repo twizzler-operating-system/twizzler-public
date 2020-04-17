@@ -237,6 +237,7 @@ __attribute__((used)) static void x86_64_vmexit_handler(struct processor *proc)
 	unsigned long reason = vmcs_readl(VMCS_EXIT_REASON);
 	unsigned long qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
 	unsigned long grip = vmcs_readl(VMCS_GUEST_RIP);
+	unsigned long grsp = vmcs_readl(VMCS_GUEST_RSP);
 	unsigned long iinfo = vmcs_readl(VMCS_VM_INSTRUCTION_INFO);
 	/*
 	    if(reason != VMEXIT_REASON_CPUID
@@ -245,7 +246,12 @@ __attribute__((used)) static void x86_64_vmexit_handler(struct processor *proc)
 	            && reason != VMEXIT_REASON_INVEPT)
 	            */
 #if 0
-	printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx\n", grip, reason, qual, iinfo);
+	printk("VMEXIT occurred at %lx: reason=%ld, qual=%lx, iinfo=%lx, grsp=%lx\n",
+	  grip,
+	  reason,
+	  qual,
+	  iinfo,
+	  grsp);
 #endif
 	// printk(":: %lx\n", clksrc_get_interrupt_countdown());
 

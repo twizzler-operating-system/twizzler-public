@@ -105,11 +105,11 @@ export BUILDDIR
 $(BUILDDIR)/kernel: $(BUILDDIR)/link.ld $(OBJECTS) $(BUILDDIR)/symbols.o $(KLIBS)
 	@mkdir -p $(BUILDDIR)
 	@echo "[LD]      $@"
-	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(KLIBS) $(BUILDDIR)/symbols.o $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
+	@$(TOOLCHAIN_PREFIX)gcc -g -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(KLIBS) $(BUILDDIR)/symbols.o $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
 
 $(BUILDDIR)/symbols.o: $(BUILDDIR)/symbols.c
 	@echo "[CC]      $@"
-	@$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) -c -o $@ $<
+	@$(TOOLCHAIN_PREFIX)gcc -g $(CFLAGS) -c -o $@ $<
 
 $(BUILDDIR)/symbols.c: $(BUILDDIR)/kernel.sym.c
 	@echo "[GEN]     $@"
@@ -127,17 +127,19 @@ $(BUILDDIR)/kernel.sym.c: $(BUILDDIR)/kernel.stage1
 $(BUILDDIR)/kernel.stage1: $(BUILDDIR)/link.ld $(OBJECTS) $(KLIBS)
 	@echo "[LD]      $@"
 	@mkdir -p $(BUILDDIR)
-	@$(TOOLCHAIN_PREFIX)gcc -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(KLIBS) $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel.stage1 -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
+	@$(TOOLCHAIN_PREFIX)gcc -g -ffreestanding -nostdlib $(CRTI) $(CRTBEGIN) $(OBJECTS) $(KLIBS) $(CRTEND) $(CRTN) -o $(BUILDDIR)/kernel.stage1 -T $(BUILDDIR)/link.ld -lgcc -Wl,--export-dynamic $(LDFLAGS)
 
 $(BUILDDIR)/%.o : %.S $(CONFIGFILE)
 	@echo "[AS]      $@"
 	@mkdir -p $(@D)
-	@$(TOOLCHAIN_PREFIX)gcc $(ASFLAGS) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
+	@$(TOOLCHAIN_PREFIX)gcc -g $(ASFLAGS) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
+
+CFLAGS_core_panic.c=-fno-stack-protector -fno-stack-check
 
 $(BUILDDIR)/%.o : %.c $(CONFIGFILE) $(BUILDDIR)/third-party/libtomcrypt/include/tomcrypt.h
 	@echo "[CC]      $@"
 	@mkdir -p $(@D)
-	@$(TOOLCHAIN_PREFIX)gcc $(CFLAGS) $($(addprefix CFLAGS_,$(subst /,_,$<))) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
+	$(TOOLCHAIN_PREFIX)gcc -g $(CFLAGS) $($(addprefix CFLAGS_,$(subst /,_,$<))) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
 
 clean:
 	-rm -rf $(BUILDDIR)

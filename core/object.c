@@ -467,6 +467,7 @@ static struct objpage *__obj_get_page(struct object *obj, size_t addr, bool allo
 	  rb_search(&obj->pagecache_level1_root, idx, struct objpage, node, __objpage_compar_key);
 	if(node)
 		lpage = rb_entry(node, struct objpage, node);
+	// printk("OGP0\n");
 	if(lpage && lpage->page->level == 1) {
 		/* found a large page */
 		krc_get(&lpage->refs);
@@ -477,16 +478,20 @@ static struct objpage *__obj_get_page(struct object *obj, size_t addr, bool allo
 	node = rb_search(&obj->pagecache_root, idx, struct objpage, node, __objpage_compar_key);
 	if(node)
 		page = rb_entry(node, struct objpage, node);
+	// printk("OGP1\n");
 	if(page == NULL) {
 		if(!alloc) {
 			return NULL;
 		}
+		//	printk("OGPa0\n");
 		int level = ((addr >= mm_page_size(1))) ? 0 : 0; /* TODO */
 		struct page *pp = page_alloc(
 		  (obj->flags & OF_PERSIST) ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, level);
+		//	printk("OGPa0.0\n");
 		pp->cowcount = 1;
 		page = objpage_alloc();
 		page->page = pp;
+		//	printk("OGPa0.1\n");
 		// page->page =
 		//  page_alloc(obj->persist ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, level);
 		page->idx = addr / mm_page_size(page->page->level);
@@ -494,6 +499,7 @@ static struct objpage *__obj_get_page(struct object *obj, size_t addr, bool allo
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WB, PAGE_CACHE_WB);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WT, PAGE_CACHE_WT);
 		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WC, PAGE_CACHE_WC);
+		//	printk("OGPa1\n");
 #if 0
 		printk("adding page %ld: %d %d :: " IDFMT "\n",
 		  page->idx,
@@ -507,6 +513,7 @@ static struct objpage *__obj_get_page(struct object *obj, size_t addr, bool allo
 		  struct objpage,
 		  node,
 		  __objpage_compar);
+		//	printk("OGPa2\n");
 	}
 	krc_get(&page->refs);
 	return page;
@@ -659,9 +666,9 @@ void obj_free_kaddr(struct object *obj)
 	struct object *o = slot->obj;
 	assert(o == obj);
 	slot->obj = NULL;
+	spinlock_release_restore(&obj->lock);
 	object_space_release_slot(slot);
 	slot_release(slot);
-	spinlock_release_restore(&obj->lock);
 	obj_put(o);
 }
 
@@ -970,6 +977,9 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		  loaddr / OBJ_MAXSIZE);
 	}
 #if 0
+	uint64_t rsp;
+	asm volatile("mov %%rsp, %0" : "=r"(rsp));
+	printk("---> %lx\n", rsp);
 	if(o->id || 1)
 		printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT
 		       " %lx\n",
@@ -991,6 +1001,8 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 
 	// printk("A\n");
 
+	// asm volatile("mov %%rsp, %0" : "=r"(rsp));
+	// printk("---> %lx\n", rsp);
 	if(do_map) {
 		if(!VADDR_IS_KERNEL(vaddr) && !(o->flags & OF_KERNEL)) {
 			if(!__objspace_fault_calculate_perms(o, flags, loaddr, vaddr, ip, &perms)) {
@@ -1020,16 +1032,19 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 
 	if(o->flags & OF_ALLOC) {
 		struct objpage p = { 0 };
-		// printk("X\n");
+		//	printk("X\n");
 		p.page = page_alloc(PAGE_TYPE_VOLATILE, PAGE_CRITICAL, 0); /* TODO: refcount, largepage */
 		p.idx = (loaddr % OBJ_MAXSIZE) / mm_page_size(p.page->level);
 		p.page->flags = PAGE_CACHE_WB;
-		// printk("Y\n");
+		//	printk("Y\n");
 		arch_object_map_page(o, &p);
 	} else {
+		//	printk("P\n");
 		struct objpage *p = obj_get_page(o, loaddr % OBJ_MAXSIZE, true);
+		//	printk("P0\n");
 		if(!(o->flags & OF_KERNEL))
 			spinlock_acquire_save(&o->lock);
+		//	printk("P1\n");
 		if(!(o->flags & OF_KERNEL))
 			spinlock_acquire_save(&p->page->lock);
 
@@ -1098,6 +1113,9 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	/* TODO: put page? */
 
 done:
+
+	// asm volatile("mov %%rsp, %0" : "=r"(rsp));
+	// printk("---> %lx\n", rsp);
 	obj_put(o);
 	slot_release(slot);
 }

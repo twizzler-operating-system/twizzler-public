@@ -82,6 +82,7 @@ uintptr_t mm_physical_early_alloc(void);
 void *mm_ptov(uintptr_t addr);
 uintptr_t mm_vtop(void *addr);
 uintptr_t mm_vtoo(void *addr);
+void *mm_ptov_try(uintptr_t addr);
 uintptr_t mm_otop(uintptr_t oaddr);
 
 void mm_update_stats(void);

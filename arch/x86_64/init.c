@@ -481,6 +481,10 @@ void x86_64_processor_post_vm_init(struct processor *proc)
 	if(proc->flags & PROCESSOR_BSP)
 		kernel_init();
 	proc->arch.kernel_stack = mm_memory_alloc(KERNEL_STACK_SIZE, PM_TYPE_DRAM, true);
+	// memset(proc->arch.kernel_stack, 0, KERNEL_STACK_SIZE);
+	printk("SETTING KERNEL STACK to %p -> %p\n",
+	  proc->arch.kernel_stack,
+	  (char *)proc->arch.kernel_stack + KERNEL_STACK_SIZE);
 	asm volatile("mov %%rax, %%rsp; call processor_perproc_init;" ::"a"(
 	               proc->arch.kernel_stack + KERNEL_STACK_SIZE),
 	             "D"(proc)
