@@ -2,12 +2,14 @@
 #include <guard.h>
 #include <stdatomic.h>
 
+struct thread;
 struct spinlock {
 	_Atomic int data;
 	bool fl;
 #if CONFIG_DEBUG_LOCKS
 	const char *holder_file;
 	int holder_line;
+	struct thread *holder_thread;
 #endif
 };
 

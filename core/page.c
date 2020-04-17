@@ -1,6 +1,7 @@
 #include <arena.h>
 #include <memory.h>
 #include <page.h>
+#include <processor.h>
 #include <slab.h>
 
 #define PG_CRITICAL_THRESH 1024
@@ -91,7 +92,7 @@ static struct page_group
 
 size_t mm_page_count = 0;
 size_t mm_page_alloc_count = 0;
-_Atomic size_t mm_page_alloced = 0;
+_Atomic size_t mm_page_free = 0;
 size_t mm_page_bootstrap_count = 0;
 
 static struct arena page_arena;
@@ -112,6 +113,7 @@ static struct page *__do_page_alloc(struct page_group *group)
 	group->avail--;
 	spinlock_release_restore(&group->lock);
 	page->flags |= PAGE_ALLOCED;
+	mm_page_free -= mm_page_size(page->level) / mm_page_size(0);
 	// printk("  alloc %p (%lx) %x from group %s\n", page, page->addr, page->flags, group->name);
 	return page;
 }
@@ -128,6 +130,7 @@ static void __do_page_dealloc(struct page_group *group, struct page *page)
 	group->stack = page;
 	group->avail++;
 	spinlock_release_restore(&group->lock);
+	mm_page_free += mm_page_size(page->level) / mm_page_size(0);
 }
 
 void page_print_stats(void)
@@ -136,10 +139,10 @@ void page_print_stats(void)
 	  mm_page_bootstrap_count,
 	  (mm_page_bootstrap_count * mm_page_size(0)) / 1024,
 	  (mm_page_bootstrap_count * mm_page_size(0)) / (1024 * 1024));
-	printk("page alloced: %ld (%ld KB; %ld MB)\n",
-	  mm_page_alloced,
-	  (mm_page_alloced * mm_page_size(0)) / 1024,
-	  (mm_page_alloced * mm_page_size(0)) / (1024 * 1024));
+	printk("pages free: %ld (%ld KB; %ld MB)\n",
+	  mm_page_free,
+	  (mm_page_free * mm_page_size(0)) / 1024,
+	  (mm_page_free * mm_page_size(0)) / (1024 * 1024));
 
 	printk("page count: %ld (%ld KB; %ld MB)\n",
 	  mm_page_count,
@@ -350,6 +353,8 @@ struct page *page_alloc(int type, int flags, int level)
 	if(!mm_ready)
 		level = 0;
 
+	if(current_thread)
+		current_thread->page_alloc = true;
 	// printk("PAGE_ALLOC %x %d: 0\n", flags, level);
 	struct page *p = NULL;
 	if(flags & PAGE_CRITICAL) {
@@ -406,6 +411,8 @@ done:
 		page_zero(p);
 		//	panic("failed to allocate a zero page");
 	}
+	if(current_thread)
+		current_thread->page_alloc = false;
 	return p;
 }
 

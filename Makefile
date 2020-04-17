@@ -47,9 +47,10 @@ C_SOURCES=
 ASM_SOURCES=
 
 ifeq ($(CONFIG_UBSAN),y)
-CFLAGS+=-fsanitize=undefined -fstack-check -fstack-protector-all -fsanitize=kernel-address --param asan-instrument-allocas=1 --param asan-globals=1 -fsanitize-address-use-after-scope
+CFLAGS+=-fsanitize=undefined -fstack-check -fstack-protector-all
+#-fsanitize=kernel-address --param asan-instrument-allocas=1 --param asan-globals=1 -fsanitize-address-use-after-scope
 # TODO: support asan-stack
-C_SOURCES+=core/ubsan.c core/asan/asan.c
+C_SOURCES+=core/ubsan.c #core/asan/asan.c
 endif
 
 CFLAGS+=-O$(CONFIG_OPTIMIZE) -g
@@ -134,12 +135,10 @@ $(BUILDDIR)/%.o : %.S $(CONFIGFILE)
 	@mkdir -p $(@D)
 	@$(TOOLCHAIN_PREFIX)gcc -g $(ASFLAGS) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
 
-CFLAGS_core_panic.c=-fno-stack-protector -fno-stack-check
-
 $(BUILDDIR)/%.o : %.c $(CONFIGFILE) $(BUILDDIR)/third-party/libtomcrypt/include/tomcrypt.h
 	@echo "[CC]      $@"
 	@mkdir -p $(@D)
-	$(TOOLCHAIN_PREFIX)gcc -g $(CFLAGS) $($(addprefix CFLAGS_,$(subst /,_,$<))) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
+	@$(TOOLCHAIN_PREFIX)gcc -g $(CFLAGS) $($(addprefix CFLAGS_,$(subst /,_,$<))) -c $< -o $@ -MD -MF $(BUILDDIR)/$*.d
 
 clean:
 	-rm -rf $(BUILDDIR)

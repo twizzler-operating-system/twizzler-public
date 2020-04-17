@@ -319,16 +319,19 @@ struct object *obj_lookup(uint128_t id, int flags)
 
 	struct object *obj = node ? rb_entry(node, struct object, node) : NULL;
 	if(node) {
+		krc_get(&obj->refs);
+		spinlock_release_restore(&objlock);
+
 		spinlock_acquire_save(&obj->lock);
 		if((obj->flags & OF_HIDDEN) && !(flags & OBJ_LOOKUP_HIDDEN)) {
 			spinlock_release_restore(&obj->lock);
-			spinlock_release_restore(&objlock);
+			obj_put(obj);
 			return NULL;
 		}
-		krc_get(&obj->refs);
 		spinlock_release_restore(&obj->lock);
+	} else {
+		spinlock_release_restore(&objlock);
 	}
-	spinlock_release_restore(&objlock);
 	return obj;
 }
 
@@ -662,11 +665,10 @@ void obj_free_kaddr(struct object *obj)
 	obj->kaddr = NULL;
 
 	vm_kernel_unmap_object(obj);
-	// spinlock_release_restore(&obj->lock);
+	spinlock_release_restore(&obj->lock);
 	struct object *o = slot->obj;
 	assert(o == obj);
 	slot->obj = NULL;
-	spinlock_release_restore(&obj->lock);
 	object_space_release_slot(slot);
 	slot_release(slot);
 	obj_put(o);
@@ -1033,7 +1035,9 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	if(o->flags & OF_ALLOC) {
 		struct objpage p = { 0 };
 		//	printk("X\n");
-		p.page = page_alloc(PAGE_TYPE_VOLATILE, PAGE_CRITICAL, 0); /* TODO: refcount, largepage */
+		p.page = page_alloc(PAGE_TYPE_VOLATILE,
+		  (!current_thread || current_thread->page_alloc) ? PAGE_CRITICAL : 0,
+		  0); /* TODO: refcount, largepage */
 		p.idx = (loaddr % OBJ_MAXSIZE) / mm_page_size(p.page->level);
 		p.page->flags = PAGE_CACHE_WB;
 		//	printk("Y\n");

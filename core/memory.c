@@ -212,7 +212,7 @@ void mm_init_phase_2(void)
 	slots_init();
 
 	mm_ready = true;
-	mm_print_stats();
+	// mm_print_stats();
 }
 
 uintptr_t mm_physical_early_alloc(void)

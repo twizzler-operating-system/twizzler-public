@@ -35,6 +35,7 @@ struct thread {
 	enum thread_state state;
 	uint64_t timeslice_expire;
 	int priority;
+	bool page_alloc;
 	// struct krc refs;
 	objid_t thrid;
 

@@ -15,11 +15,14 @@ bool __spinlock_acquire(struct spinlock *lock, const char *f __unused, int l __u
 			arch_processor_relax();
 #if CONFIG_DEBUG_LOCKS
 			if(count++ == 100000000ul && f) {
-				panic("POTENTIAL DEADLOCK trying to acquire %s:%d (held from %s:%d)\n",
+				panic("POTENTIAL DEADLOCK in cpu %d trying to acquire %s:%d (held from %s:%d by "
+				      "cpu %d)\n",
+				  current_thread->processor->id,
 				  f,
 				  l,
 				  lock->holder_file,
-				  lock->holder_line);
+				  lock->holder_line,
+				  lock->holder_thread ? lock->holder_thread->processor->id : -1);
 				//	debug_print_backtrace();
 			}
 #endif
@@ -28,6 +31,7 @@ bool __spinlock_acquire(struct spinlock *lock, const char *f __unused, int l __u
 #if CONFIG_DEBUG_LOCKS
 	lock->holder_file = f;
 	lock->holder_line = l;
+	lock->holder_thread = current_thread;
 #endif
 	return set;
 }
@@ -39,6 +43,11 @@ void __spinlock_release(struct spinlock *lock, bool flags, const char *f, int l)
 	/* TODO: when not debugging locks, dont have these arguments */
 	// if(f)
 	//	printk("SLR: %s:%d\n", f, l);
+#if CONFIG_DEBUG_LOCKS
+	lock->holder_file = NULL;
+	lock->holder_line = 0;
+	lock->holder_thread = NULL;
+#endif
 	atomic_store_explicit(&lock->data, 0, memory_order_release);
 	arch_interrupt_set(flags);
 }
