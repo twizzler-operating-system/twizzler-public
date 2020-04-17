@@ -433,7 +433,6 @@ size_t PG_ZERO_THRESH[] = {
 
 void page_idle_zero(void)
 {
-	return;
 	struct page_group *crit = &_pg_level0_critical;
 	while(crit->avail < PG_CRITICAL_THRESH) {
 		if(processor_has_threads(current_processor))

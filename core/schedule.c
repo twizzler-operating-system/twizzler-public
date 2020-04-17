@@ -2,7 +2,6 @@
 #include <debug.h>
 #include <lib/iter.h>
 #include <object.h>
-#include <page.h>
 #include <processor.h>
 #include <thread.h>
 
