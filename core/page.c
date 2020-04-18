@@ -237,6 +237,7 @@ static void page_zero(struct page *p)
 	void *va = mm_ptov_try(p->addr);
 	if(va) {
 		memset(va, 0, mm_page_size(p->level));
+		p->flags |= PAGE_ZERO;
 		return;
 	}
 	// printk("!!\n");
