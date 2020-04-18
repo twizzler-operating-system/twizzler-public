@@ -136,11 +136,11 @@ void objstat(char *path)
 		printf("      kuid " IDFMT "\n", IDPR(mi->kuid));
 
 		if(mi->fotentries) {
-			struct fotentry *fe =
-			  (struct fotentry *)(m + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE + mi->milen);
+			struct fotentry *fe = (struct fotentry *)(m + OBJ_MAXSIZE - OBJ_METAPAGE_SIZE);
+			fe--;
 			printf("FOT ENTRIES\n");
 			printf("    # FLAGS ID/NAME\n");
-			for(unsigned i = 0; i < mi->fotentries; i++, fe++) {
+			for(unsigned i = 0; i < mi->fotentries; i++, fe--) {
 				char fl[6];
 				char *f = fl;
 				if(fe->flags & FE_READ)
