@@ -252,8 +252,9 @@ bool arch_object_map_page(struct object *obj, struct objpage *op)
 
 	/* map with ALL permissions; we'll restrict permissions at a higher level */
 	flags |= EPT_READ | EPT_WRITE | EPT_EXEC | EPT_IGNORE_PAT;
-	if(op->flags & OBJPAGE_COW)
+	if((op->flags & OBJPAGE_COW) && !(obj->flags & OF_KERNEL)) {
 		flags &= ~EPT_WRITE;
+	}
 
 	if(op->page->level == 1) {
 		obj->arch.pd[pd_idx] = op->page->addr | flags | PAGE_LARGE;

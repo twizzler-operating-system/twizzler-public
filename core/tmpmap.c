@@ -32,6 +32,7 @@ __initializer static void tmpmap_init(void)
 	l1bitmap = mm_memory_alloc((OBJ_MAXSIZE / mm_page_size(1)) / 8, PM_TYPE_DRAM, true);
 }
 
+//#include <processor.h>
 void tmpmap_unmap_page(void *addr)
 {
 	uintptr_t virt = (uintptr_t)addr - (uintptr_t)SLOT_TO_VADDR(KVSLOT_TMP_MAP);
@@ -53,6 +54,9 @@ void tmpmap_unmap_page(void *addr)
 	spinlock_release_restore(&tmpmap_object.lock);
 
 	asm volatile("invlpg %0" ::"m"(addr) : "memory");
+	// if(current_thread)
+	//	processor_send_ipi(
+	//	  PROCESSOR_IPI_DEST_OTHERS, PROCESSOR_IPI_SHOOTDOWN, NULL, PROCESSOR_IPI_NOWAIT);
 
 	spinlock_release_restore(&lock);
 }
@@ -80,9 +84,17 @@ void *tmpmap_map_page(struct page *page)
 	if(page->level)
 		virt += OBJ_MAXSIZE / 2;
 
-	// struct objpage *op = obj_get_page(&tmpmap_object, virt, false);
 	// assert(!op || !(op->flags & OBJPAGE_MAPPED));
 	obj_cache_page(&tmpmap_object, virt, page);
+	struct objpage *op = obj_get_page(&tmpmap_object, virt, false);
+	spinlock_acquire_save(&tmpmap_object.lock);
+	op->flags &= ~OBJPAGE_COW;
+	arch_object_map_page(&tmpmap_object, op);
+	spinlock_release_restore(&tmpmap_object.lock);
+	int x;
+	asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
+	asm volatile("invlpg (%0)" ::"r"(virt + (uintptr_t)SLOT_TO_VADDR(KVSLOT_TMP_MAP)) : "memory");
+	/* TODO: better invalidation */
 	// printk("tmpmap: %lx %lx\n", virt, SLOT_TO_VADDR(KVSLOT_TMP_MAP));
 	return (void *)(virt + (uintptr_t)SLOT_TO_VADDR(KVSLOT_TMP_MAP));
 }

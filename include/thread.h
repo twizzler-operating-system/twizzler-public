@@ -55,6 +55,9 @@ struct thread {
 	struct sleep_entry *sleep_entries;
 	size_t sleep_count;
 	struct task free_task;
+	uintptr_t _last_oaddr; // TODO: remove
+	uint32_t _last_flags;
+	uint32_t _last_count;
 };
 
 struct arch_syscall_become_args;

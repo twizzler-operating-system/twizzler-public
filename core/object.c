@@ -985,11 +985,23 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		  ip,
 		  loaddr / OBJ_MAXSIZE);
 	}
+
+	if(current_thread) {
+		if(current_thread->_last_oaddr != loaddr || current_thread->_last_flags != flags) {
+			current_thread->_last_oaddr = loaddr;
+			current_thread->_last_flags = flags;
+			current_thread->_last_count = 0;
+		} else {
+			current_thread->_last_count++;
+			if(current_thread->_last_count > 50)
+				panic("DOUBLE OADDR FAULT\n");
+		}
+	}
 #if 0
 	// uint64_t rsp;
 	// asm volatile("mov %%rsp, %0" : "=r"(rsp));
 	// printk("---> %lx\n", rsp);
-	if(!o->id)
+	if(current_thread)
 		printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT
 		       " %lx\n",
 		  current_thread ? current_thread->id : -1,
