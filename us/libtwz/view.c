@@ -174,6 +174,7 @@ ssize_t __alloc_slot(struct twzview_repr *v)
 	return -ENOSPC;
 }
 
+#include <stdio.h>
 int twz_view_clone(twzobj *old,
   twzobj *nobj,
   int flags,
@@ -185,7 +186,9 @@ int twz_view_clone(twzobj *old,
 
 	mutex_acquire(&oldv->lock);
 
-	memcpy(newv->bitmap, oldv->bitmap, sizeof(newv->bitmap));
+	if(VIEW_CLONE_BITMAP) {
+		memcpy(newv->bitmap, oldv->bitmap, sizeof(newv->bitmap));
+	}
 
 	for(size_t i = 0; i < TWZSLOT_MAX_SLOT + 1; i++) {
 		if(flags & VIEW_CLONE_ENTRIES) {
@@ -214,21 +217,22 @@ int twz_view_clone(twzobj *old,
 		}
 	}
 
+	/*
 	for(size_t i = 0; i < TWZSLOT_MAX_SLOT + 1; i++) {
-		struct __viewrepr_bucket *nb = &newv->buckets[i];
-		struct __viewrepr_bucket *ob = &oldv->buckets[i];
-		if(ob->id == 0)
-			continue;
-		*nb = *ob;
-		if(!fn(nobj, ob->slot, ob->id, ob->flags, &nb->id, &nb->flags)) {
-			nb->refs = 0;
-			nb->id = 0;
-			nb->flags = 0;
-		} else {
-			newv->ves[ob->slot].id = nb->id;
-			newv->ves[ob->slot].flags = nb->flags | VE_VALID;
-		}
-	}
+	    struct __viewrepr_bucket *nb = &newv->buckets[i];
+	    struct __viewrepr_bucket *ob = &oldv->buckets[i];
+	    if(ob->id == 0)
+	        continue;
+	    *nb = *ob;
+	    if(!fn(nobj, ob->slot, ob->id, ob->flags, &nb->id, &nb->flags)) {
+	        nb->refs = 0;
+	        nb->id = 0;
+	        nb->flags = 0;
+	    } else {
+	        newv->ves[ob->slot].id = nb->id;
+	        newv->ves[ob->slot].flags = nb->flags | VE_VALID;
+	    }
+	}*/
 
 	mutex_release(&oldv->lock);
 

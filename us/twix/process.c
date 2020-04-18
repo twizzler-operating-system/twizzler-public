@@ -193,34 +193,10 @@ static bool __fork_view_clone(twzobj *nobj,
   objid_t *nid,
   uint32_t *nflags)
 {
-	// debug_printf("VC %lx\n", i);
-	if(i == 0) {
+	if(i == 0 || (i >= TWZSLOT_ALLOC_START && i <= TWZSLOT_ALLOC_MAX)) {
 		*nid = oid;
 		*nflags = oflags;
 		return true;
-	}
-
-	if(i >= TWZSLOT_ALLOC_START && i <= TWZSLOT_ALLOC_MAX) {
-		*nid = oid;
-		*nflags = oflags;
-		return true;
-	}
-	if(i == TWZSLOT_UNIX || i == 1 || i == 0x10006) {
-		// twix_log(":: copy-derive vc: %lx\n", i);
-		int r;
-		if((r = twz_object_create(
-		      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_DFL_EXEC | TWZ_OC_TIED_NONE /* TODO */,
-		      0,
-		      oid,
-		      nid))) {
-			/* TODO: cleanup */
-			return false;
-		}
-		*nflags = oflags;
-		r = twz_object_wire_guid(nobj, *nid);
-		if(r || (r = twz_object_delete_guid(*nid, 0))) {
-			twix_panic("failed to copy object");
-		}
 	}
 
 	return false;
@@ -274,62 +250,31 @@ long linux_sys_fork(struct twix_register_frame *frame)
 	twz_view_fixedset(&pds[pid].thrd.obj, TWZSLOT_STACK, sid, VE_READ | VE_WRITE | VE_FIXED);
 	// twz_object_wire_guid(&view, sid);
 
-#if 1
-	for(size_t i = 0; i <= TWZSLOT_MAX_SLOT; i++) {
-		if(i == 1 || i >= TWZSLOT_THRD) {
-			objid_t id;
-			uint32_t flags;
-			twz_view_get(NULL, i, &id, &flags);
-			if(!(flags & VE_VALID)) {
-				continue;
-			}
-			if(i == TWZSLOT_THRD) {
-				//		if(flags & VE_FIXED)
-				//			twz_view_fixedset(&pds[pid].thrd.obj, i, pds[pid].thrd.tid, flags);
-				//		else
-				//			twz_view_set(&view, i, pds[pid].thrd.tid, flags);
-				//		twz_object_wire_guid(&view, pds[pid].thrd.tid);
-			} else if(i == TWZSLOT_CVIEW) {
-				//	twz_view_set(&view, i, vid, VE_READ | VE_WRITE);
-			} else if((i >= TWZSLOT_FILES_BASE
-			            || !(flags & VE_WRITE) /* TODO: this probably isn't safe */)) {
-				/* Copy directly */
-				//		twz_view_set(&view, i, id, flags);
-			} else if(i == TWZSLOT_STACK) {
-			} else {
-				//			twix_log("copy-derive: %lx :: " IDFMT "\n", i, IDPR(id));
-
-				if(i == TWZSLOT_UNIX || i == 0x10006 || i == 1) {
-					// twz_view_set(&view, i, id, flags);
-#if 1
-					/* Copy-derive */
-					objid_t nid;
-					if((r = twz_object_create(
-					      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_DFL_EXEC /* TODO */,
-					      0,
-					      id,
-					      &nid))) {
-						/* TODO: cleanup */
-						return r;
-					}
-					if(flags & VE_FIXED)
-						twz_view_fixedset(&pds[pid].thrd.obj, i, nid, flags);
-					else
-						twz_view_set(&view, i, nid, flags);
-					twz_object_wire_guid(&view, nid);
-					twz_object_delete_guid(nid, 0);
-					if(i == TWZSLOT_STACK)
-						sid = nid;
-#endif
-				}
-			}
+	size_t slots_to_copy[] = {
+		1, TWZSLOT_UNIX, 0x10006 /* mmap */
+	};
+	for(size_t j = 0; j < sizeof(slots_to_copy) / sizeof(slots_to_copy[0]); j++) {
+		size_t i = slots_to_copy[j];
+		objid_t id;
+		uint32_t flags;
+		twz_view_get(NULL, i, &id, &flags);
+		if(!(flags & VE_VALID)) {
+			continue;
 		}
+		/* Copy-derive */
+		objid_t nid;
+		if((r = twz_object_create(
+		      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_DFL_EXEC /* TODO */, 0, id, &nid))) {
+			/* TODO: cleanup */
+			return r;
+		}
+		if(flags & VE_FIXED)
+			twz_view_fixedset(&pds[pid].thrd.obj, i, nid, flags);
+		else
+			twz_view_set(&view, i, nid, flags);
+		twz_object_wire_guid(&view, nid);
+		twz_object_delete_guid(nid, 0);
 	}
-#endif
-	// if(!sid) /* TODO */
-	//	return -EIO;
-
-	// twz_object_init_guid(&stack, sid, FE_READ | FE_WRITE);
 
 	twz_object_wire(NULL, &stack);
 	twz_object_delete(&stack, 0);

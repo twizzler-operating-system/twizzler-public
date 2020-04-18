@@ -38,6 +38,7 @@ __must_check ssize_t twz_view_allocate_slot(twzobj *obj, objid_t id, uint32_t fl
 void twz_view_release_slot(twzobj *obj, objid_t id, uint32_t flags, size_t slot);
 
 #define VIEW_CLONE_ENTRIES 1
+#define VIEW_CLONE_BITMAP 2
 
 __must_check int twz_view_clone(twzobj *old,
   twzobj *nobj,

@@ -437,7 +437,6 @@ size_t PG_ZERO_THRESH[] = {
 
 void page_idle_zero(void)
 {
-	return;
 	struct page_group *crit = &_pg_level0_critical;
 	while(crit->avail < PG_CRITICAL_THRESH) {
 		if(processor_has_threads(current_processor))
@@ -465,6 +464,7 @@ void page_idle_zero(void)
 						if(!(page->flags & PAGE_ZERO)) {
 							page_zero(page);
 						}
+						// printk("piz: %s: moving page from fallback\n", group->name);
 						__do_page_dealloc(group, page);
 					} else {
 						break;
@@ -473,6 +473,7 @@ void page_idle_zero(void)
 					if(!__do_page_split(group, true)) {
 						break;
 					}
+					// printk("piz: %s: splitting page\n", group->name);
 				} else {
 					break;
 				}
