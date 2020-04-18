@@ -9,6 +9,8 @@
 #include <twz/_obj.h>
 #include <workqueue.h>
 
+void obj_print_stats(void);
+
 struct kso_view {
 };
 

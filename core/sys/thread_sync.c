@@ -73,7 +73,7 @@ static void _sp_release(void *_sp)
 	struct object *obj = sp->obj;
 	sp->obj = NULL;
 	obj_put(obj);
-	slabcache_free(sp);
+	slabcache_free(&sc_syncpoint, sp);
 }
 
 static int sp_sleep_prep(struct syncpoint *sp, long *addr, long val, struct timespec *spec, int idx)

@@ -6,6 +6,8 @@
 
 #define PG_CRITICAL_THRESH 1024
 
+static DECLARE_PER_CPU(_Atomic bool, page_recur_crit_flag);
+
 struct page_stack {
 	struct spinlock lock, lock2;
 	struct page *top;
@@ -352,14 +354,21 @@ static bool __do_page_split(struct page_group *group, bool simple)
 
 struct page *page_alloc(int type, int flags, int level)
 {
-	if(!mm_ready)
+	if(!mm_ready) {
 		level = 0;
-
+		flags |= PAGE_CRITICAL;
+	}
+	_Atomic bool *recur_flag = per_cpu_get(page_recur_crit_flag);
 	if(current_thread) {
 		if(current_thread->page_alloc && !(flags & PAGE_CRITICAL)) {
 			panic("PAGE_CRITICAL must be set when faulting during page_alloc");
 		}
 		current_thread->page_alloc = true;
+	} else {
+		if(*recur_flag) {
+			flags |= PAGE_CRITICAL;
+		}
+		*recur_flag = true;
 	}
 	// printk("PAGE_ALLOC %x %d: 0\n", flags, level);
 	struct page *p = NULL;
@@ -419,6 +428,8 @@ done:
 	}
 	if(current_thread)
 		current_thread->page_alloc = false;
+	else
+		*recur_flag = false;
 	return p;
 }
 

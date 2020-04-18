@@ -315,6 +315,7 @@ __noinstrument static void _serial_interrupt(int i, struct interrupt_handler *h 
 				if(c == '`') {
 					processor_print_all_stats();
 					mm_print_stats();
+					obj_print_stats();
 				}
 				long tmp = c;
 				device_signal_sync(ser_obj, 0, tmp);

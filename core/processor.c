@@ -20,7 +20,7 @@ extern int initial_boot_stack;
 extern int kernel_data_percpu_load;
 extern int kernel_data_percpu_length;
 
-static void *bsp_percpu_region = NULL;
+void *bsp_percpu_region = NULL;
 
 void processor_early_init(void)
 {
@@ -212,6 +212,8 @@ void processor_percpu_regions_init(void)
 		panic("TODO: large percpu");
 	bsp_percpu_region = (void *)mm_virtual_early_alloc();
 	memcpy(bsp_percpu_region, &kernel_data_percpu_load, percpu_length);
+	// printk(":: %p\n", current_processor);
+	// current_processor->percpu = bsp_percpu_region;
 }
 
 #include <device.h>

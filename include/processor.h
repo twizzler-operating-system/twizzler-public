@@ -80,6 +80,8 @@ void processor_update_stats(void);
 	})
 
 #define __per_cpu_var_lea(name, proc)                                                              \
-	PTR_ADVANCE(&__per_cpu_var_##name, (uintptr_t)((proc)->percpu))
+	PTR_ADVANCE(                                                                                   \
+	  &__per_cpu_var_##name, (uintptr_t)((proc)->percpu ? proc->percpu : bsp_percpu_region))
 
 #define per_cpu_get(name) __per_cpu_var_lea(name, current_processor)
+extern void *bsp_percpu_region;

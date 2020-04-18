@@ -208,16 +208,17 @@ long linux_sys_fork(struct twix_register_frame *frame)
 	twzobj view, cur_view;
 	twz_view_object_init(&cur_view);
 
+	// debug_printf("== creating view\n");
 	if((r = twz_object_new(&view, &cur_view, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE))) {
 		return r;
 	}
 
 	objid_t vid = twz_object_guid(&view);
 
-	if((r = twz_object_wire(NULL, &view)))
-		return r;
+	/*if((r = twz_object_wire(NULL, &view)))
+	    return r;
 	if((r = twz_object_delete(&view, 0)))
-		return r;
+	    return r;*/
 
 	int pid = 0;
 	for(int i = 1; i < MAX_PID; i++) {
@@ -231,6 +232,7 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		return -1;
 	}
 	pds[pid].pid = pid;
+	// debug_printf("== creating thread\n");
 	twz_thread_create(&pds[pid].thrd);
 
 	twz_view_clone(NULL, &view, 0, __fork_view_clone);
@@ -244,6 +246,7 @@ long linux_sys_fork(struct twix_register_frame *frame)
 
 	twz_view_set(&view, TWZSLOT_CVIEW, vid, VE_READ | VE_WRITE);
 
+	//	debug_printf("== creating stack\n");
 	twz_object_new(&stack, twz_stdstack, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
 	twz_object_tie(&pds[pid].thrd.obj, &stack, 0);
 	sid = twz_object_guid(&stack);
@@ -264,7 +267,10 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		/* Copy-derive */
 		objid_t nid;
 		if((r = twz_object_create(
-		      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_DFL_EXEC /* TODO */, 0, id, &nid))) {
+		      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_DFL_EXEC /* TODO */ | TWZ_OC_TIED_NONE,
+		      0,
+		      id,
+		      &nid))) {
 			/* TODO: cleanup */
 			return r;
 		}
@@ -276,8 +282,8 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		twz_object_delete_guid(nid, 0);
 	}
 
-	twz_object_wire(NULL, &stack);
-	twz_object_delete(&stack, 0);
+	// twz_object_wire(NULL, &stack);
+	// twz_object_delete(&stack, 0);
 
 	size_t soff = (uint64_t)twz_ptr_local(frame) - 1024;
 	void *childstack = twz_object_lea(&stack, (void *)soff);
@@ -297,12 +303,15 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		.thrd_ctrl = TWZSLOT_THRD,
 	};
 
+	//	debug_printf("== spawning\n");
 	if((r = sys_thrd_spawn(pds[pid].thrd.tid, &sa, 0))) {
 		return r;
 	}
 
-	twz_object_unwire(NULL, &view);
-	twz_object_unwire(NULL, &stack);
+	twz_object_tie(twz_stdthread, &view, TIE_UNTIE);
+	twz_object_tie(twz_stdthread, &stack, TIE_UNTIE);
+	// twz_object_unwire(NULL, &view);
+	// twz_object_unwire(NULL, &stack);
 	twz_object_release(&view);
 	twz_object_release(&stack);
 

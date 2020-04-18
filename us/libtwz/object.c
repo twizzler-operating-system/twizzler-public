@@ -172,12 +172,14 @@ int twz_object_delete(twzobj *obj, int flags)
 EXTERNAL
 int twz_object_tie_guid(objid_t pid, objid_t cid, int flags)
 {
+	_Static_assert(TIE_UNTIE == OTIE_UNTIE, "");
 	return sys_otie(pid, cid, flags);
 }
 
 EXTERNAL
 int twz_object_tie(twzobj *p, twzobj *c, int flags)
 {
+	_Static_assert(TIE_UNTIE == OTIE_UNTIE, "");
 	return sys_otie(twz_object_guid(p), twz_object_guid(c), flags);
 }
 

@@ -19,8 +19,10 @@ struct thrd_spawn_args {
 };
 
 __attribute__((non_null, const)) struct twzthread_repr *twz_thread_repr_base(void);
-twzobj *__twz_get_stdstack_obj(void);
+__attribute__((non_null, const)) twzobj *__twz_get_stdstack_obj(void);
+__attribute__((non_null, const)) twzobj *__twz_get_stdthread_obj(void);
 #define twz_stdstack ({ __twz_get_stdstack_obj(); })
+#define twz_stdthread ({ __twz_get_stdthread_obj(); })
 
 __must_check int twz_thread_create(struct thread *thrd);
 

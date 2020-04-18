@@ -256,6 +256,10 @@ bool arch_object_map_page(struct object *obj, struct objpage *op)
 		flags &= ~EPT_WRITE;
 	}
 
+	if(flags & EPT_WRITE) {
+		op->page->flags &= ~PAGE_ZERO;
+	}
+
 	if(op->page->level == 1) {
 		obj->arch.pd[pd_idx] = op->page->addr | flags | PAGE_LARGE;
 	} else {

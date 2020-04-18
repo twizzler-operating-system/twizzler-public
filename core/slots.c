@@ -161,7 +161,7 @@ void object_space_release_slot(struct slot *slot)
 		n = list_iter_next(e);
 		list_remove(e);
 		/* TODO: put object space */
-		slabcache_free(se);
+		slabcache_free(&_sc_slot_entry, se);
 	}
 	arch_object_unmap_slot(NULL, slot);
 	spinlock_release_restore(&slot->lock);

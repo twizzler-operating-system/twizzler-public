@@ -34,7 +34,7 @@ struct sctx *secctx_alloc(objid_t repr)
 
 void secctx_free(struct sctx *s)
 {
-	return slabcache_free(s);
+	return slabcache_free(&sc_sc, s);
 }
 
 static void __secctx_krc_put(void *_sc)

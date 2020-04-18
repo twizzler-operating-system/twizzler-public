@@ -9,6 +9,7 @@
 #include <slots.h>
 #include <tmpmap.h>
 
+static _Atomic size_t obj_count = 0;
 static struct rbroot obj_tree = RBINIT;
 
 static struct slabcache sc_objs, sc_objpage;
@@ -16,6 +17,11 @@ static struct slabcache sc_objs, sc_objpage;
 static DECLARE_SLABCACHE(sc_objtie, sizeof(struct object_tie), NULL, NULL, NULL);
 
 static struct spinlock objlock = SPINLOCK_INIT;
+
+void obj_print_stats(void)
+{
+	printk("KNOWN OBJECTS: %ld\n", obj_count);
+}
 
 static int __objtie_compar_key(struct object_tie *a, objid_t n)
 {
@@ -102,8 +108,8 @@ static struct objpage *objpage_alloc(void)
 
 void obj_system_init(void)
 {
-	slabcache_init(&sc_objs, sizeof(struct object), _obj_ctor, _obj_dtor, NULL);
-	slabcache_init(&sc_objpage, sizeof(struct objpage), NULL, NULL, NULL);
+	slabcache_init(&sc_objs, "sc_objs", sizeof(struct object), _obj_ctor, _obj_dtor, NULL);
+	slabcache_init(&sc_objpage, "sc_objpage", sizeof(struct objpage), NULL, NULL, NULL);
 }
 
 static struct kso_calls *_kso_calls[KSO_MAX];
@@ -143,6 +149,8 @@ static inline struct object *__obj_alloc(enum kso_type ksot, objid_t id)
 	obj_init(obj);
 	obj->id = id;
 	obj_kso_init(obj, ksot);
+
+	obj_count++;
 
 	return obj;
 }
@@ -283,7 +291,7 @@ int obj_untie(struct object *parent, struct object *child)
 	if(--tie->count == 0) {
 		rb_delete(&tie->node, &parent->ties_root);
 		rel = tie->child;
-		slabcache_free(tie);
+		slabcache_free(&sc_objtie, tie);
 	}
 
 	spinlock_release_restore(&parent->lock);
@@ -563,7 +571,7 @@ static void _obj_release(void *_obj)
 #endif
 			rb_delete(&tie->node, &obj->ties_root);
 			obj_put(tie->child);
-			slabcache_free(tie);
+			slabcache_free(&sc_objtie, tie);
 		}
 
 		// printk("FREEING OBJECT PAGES: %d, " IDFMT "\n", obj->kso_type, IDPR(obj->id));
@@ -576,7 +584,7 @@ static void _obj_release(void *_obj)
 		// spinlock_acquire_save(&obj->lock);
 		for(struct rbnode *node = rb_first(&obj->pagecache_root); node; node = next) {
 			struct objpage *pg = rb_entry(node, struct objpage, node);
-			if(pg->page && 0) {
+			if(pg->page) {
 				if(pg->flags & OBJPAGE_COW) {
 					spinlock_acquire_save(&pg->page->lock);
 					if(pg->page->cowcount-- <= 1) {
@@ -590,12 +598,11 @@ static void _obj_release(void *_obj)
 			}
 			next = rb_next(node);
 			rb_delete(&pg->node, &obj->pagecache_root);
-			//		printk(".");
-			slabcache_free(pg);
+			slabcache_free(&sc_objpage, pg);
 		}
 		for(struct rbnode *node = rb_first(&obj->pagecache_level1_root); node; node = next) {
 			struct objpage *pg = rb_entry(node, struct objpage, node);
-			if(pg->page && 0) {
+			if(pg->page) {
 				if(pg->flags & OBJPAGE_COW) {
 					spinlock_acquire_save(&pg->page->lock);
 					if(pg->page->cowcount-- <= 1) {
@@ -609,16 +616,17 @@ static void _obj_release(void *_obj)
 			}
 			next = rb_next(node);
 			rb_delete(&pg->node, &obj->pagecache_level1_root);
-			slabcache_free(pg);
+			slabcache_free(&sc_objpage, pg);
 		}
 
 		arch_object_destroy(obj);
+		obj_count--;
 		// spinlock_release_restore(&obj->lock);
 		//	printk("OK\n");
 #endif
 
 		/* TODO: clean up... */
-		//	slabcache_free(obj);
+		slabcache_free(&sc_objs, obj);
 	}
 }
 
@@ -1055,7 +1063,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		struct objpage p = { 0 };
 		//	printk("X\n");
 		p.page = page_alloc(PAGE_TYPE_VOLATILE,
-		  (!current_thread || current_thread->page_alloc) ? PAGE_CRITICAL : 0,
+		  (current_thread && current_thread->page_alloc) ? PAGE_CRITICAL : 0,
 		  0); /* TODO: refcount, largepage */
 		p.idx = (loaddr % OBJ_MAXSIZE) / mm_page_size(p.page->level);
 		p.page->flags = PAGE_CACHE_WB;

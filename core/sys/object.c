@@ -67,7 +67,10 @@ long syscall_otie(uint64_t pidlo, uint64_t pidhi, uint64_t cidlo, uint64_t cidhi
 		ret = obj_untie(parent, child);
 	} else {
 #if CONFIG_DEBUG_OBJECT_LIFE
-		printk("TIE: " IDFMT " -> " IDFMT "\n", IDPR(cid), IDPR(pid));
+		if(parent->kso_type != KSO_NONE)
+			printk("TIE: " IDFMT " -> " IDFMT " (%d)\n", IDPR(cid), IDPR(pid), parent->kso_type);
+		else
+			printk("TIE: " IDFMT " -> " IDFMT "\n", IDPR(cid), IDPR(pid));
 #endif
 		obj_tie(parent, child);
 	}
@@ -289,7 +292,10 @@ long syscall_ocreate(uint64_t kulo,
 		o->flags |= OF_PERSIST;
 	}
 #if CONFIG_DEBUG_OBJECT_LIFE
-	printk("CREATE OBJECT: " IDFMT "\n", IDPR(id));
+	if(srcid)
+		printk("CREATE OBJECT: " IDFMT " from srcobj " IDFMT "\n", IDPR(id), IDPR(srcid));
+	else
+		printk("CREATE OBJECT: " IDFMT "\n", IDPR(id));
 #endif
 	obj_put(o);
 

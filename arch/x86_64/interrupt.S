@@ -145,6 +145,7 @@ kernel_exception:
 
 .extern __panic
 _stack_too_small:
+call __panic
 	jmp .
 
 

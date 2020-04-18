@@ -35,8 +35,9 @@ static void _vmctx_dtor(void *_p, void *obj)
 
 __initializer static void _init_vmctx(void)
 {
-	slabcache_init(&sc_vmap, sizeof(struct vmap), NULL, NULL, NULL);
-	slabcache_init(&sc_vmctx, sizeof(struct vm_context), _vmctx_ctor, _vmctx_dtor, NULL);
+	slabcache_init(&sc_vmap, "sc_vmap", sizeof(struct vmap), NULL, NULL, NULL);
+	slabcache_init(
+	  &sc_vmctx, "sc_vmctx", sizeof(struct vm_context), _vmctx_ctor, _vmctx_dtor, NULL);
 }
 
 struct vm_context *vm_context_create(void)
@@ -56,14 +57,14 @@ static void vm_map_disestablish(struct vm_context *ctx, struct vmap *map)
 	obj_release_slot(obj);
 	obj_put(obj);
 
-	slabcache_free(map);
+	slabcache_free(&sc_vmap, map);
 }
 
 static void __vm_context_finish_destroy(void *_v)
 {
 	struct vm_context *v = _v;
 	arch_mm_context_destroy(v);
-	slabcache_free(v);
+	slabcache_free(&sc_vmctx, v);
 }
 
 void vm_context_destroy(struct vm_context *v)

@@ -67,7 +67,7 @@ static void _pf_dtor(void *_u, void *ptr)
 
 __initializer static void _init_objs(void)
 {
-	slabcache_init(&sc_pcief, sizeof(struct pcie_function), _pf_ctor, _pf_dtor, NULL);
+	slabcache_init(&sc_pcief, "sc_pcief", sizeof(struct pcie_function), _pf_ctor, _pf_dtor, NULL);
 }
 
 #include <lib/iter.h>

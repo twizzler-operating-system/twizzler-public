@@ -79,6 +79,8 @@ __must_check int twz_object_init_name(twzobj *obj, const char *name, int flags);
 
 void twz_object_release(twzobj *obj);
 
+#define TIE_UNTIE 1
+
 __must_check int twz_object_tie(twzobj *p, twzobj *c, int flags);
 __must_check int twz_object_wire_guid(twzobj *view, objid_t id);
 __must_check int twz_object_tie_guid(objid_t pid, objid_t cid, int flags);
