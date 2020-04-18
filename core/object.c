@@ -1094,24 +1094,28 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 					struct page *np = page_alloc(p->page->type, 0, p->page->level);
 					assert(np->level == p->page->level);
 					np->cowcount = 1;
-					void *cfs = mm_ptov_try(p->page->addr);
-					void *cfd = mm_ptov_try(np->addr);
-					if(cfs && cfd && 0) {
-						//				printk("::::: COPY fast %lx %lx\n", p->page->addr,
-						// np->addr);
-						memcpy(cfd, cfs, mm_page_size(p->page->level));
-					} else {
-						//					static struct spinlock LO = SPINLOCK_INIT;
-						//					spinlock_acquire_save(&LO);
-						//				printk("::::: COPY slow %lx %lx\n", p->page->addr,
-						// np->addr);
-						void *csrc = tmpmap_map_page(p->page);
-						void *cdest = tmpmap_map_page(np);
-						memcpy(cdest, csrc, mm_page_size(p->page->level));
-						tmpmap_unmap_page(cdest);
-						tmpmap_unmap_page(csrc);
-						//					spinlock_release_restore(&LO);
+					void *cs = mm_ptov_try(p->page->addr);
+					void *cd = mm_ptov_try(np->addr);
+
+					bool src_fast = !!cs;
+					bool dest_fast = !!cd;
+
+					if(!cs) {
+						cs = tmpmap_map_page(p->page);
 					}
+					if(!cd) {
+						cd = tmpmap_map_page(np);
+					}
+
+					memcpy(cd, cs, mm_page_size(p->page->level));
+
+					if(!dest_fast) {
+						tmpmap_unmap_page(cd);
+					}
+					if(!src_fast) {
+						tmpmap_unmap_page(cs);
+					}
+
 					assert(np->cowcount == 1);
 
 					if(!(o->flags & OF_KERNEL))
