@@ -44,8 +44,13 @@ void tmpmap_unmap_page(void *addr)
 	uint8_t *bitmap = level ? l1bitmap : l0bitmap;
 	size_t i = virt / mm_page_size(level);
 	bitmap[i / 8] &= ~(1 << (i % 8));
+	// struct objpage *op = obj_get_page(&tmpmap_object, virt, false);
+	// assert(op);
+	// op->flags &= ~OBJPAGE_MAPPED;
 	/* TODO: un-cache page from object */
+	spinlock_acquire_save(&tmpmap_object.lock);
 	arch_object_unmap_page(&tmpmap_object, virt / mm_page_size(0));
+	spinlock_release_restore(&tmpmap_object.lock);
 
 	asm volatile("invlpg %0" ::"m"(addr) : "memory");
 
@@ -75,6 +80,8 @@ void *tmpmap_map_page(struct page *page)
 	if(page->level)
 		virt += OBJ_MAXSIZE / 2;
 
+	// struct objpage *op = obj_get_page(&tmpmap_object, virt, false);
+	// assert(!op || !(op->flags & OBJPAGE_MAPPED));
 	obj_cache_page(&tmpmap_object, virt, page);
 	// printk("tmpmap: %lx %lx\n", virt, SLOT_TO_VADDR(KVSLOT_TMP_MAP));
 	return (void *)(virt + (uintptr_t)SLOT_TO_VADDR(KVSLOT_TMP_MAP));

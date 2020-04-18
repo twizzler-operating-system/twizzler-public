@@ -11,7 +11,12 @@ void x86_64_signal_eoi(void);
 void x86_64_ipi_tlb_shootdown(void)
 {
 	asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3; mfence;" ::: "memory", "rax");
-	current_thread->processor->stats.shootdowns++;
+	int x;
+	/* TODO: better invalidation scheme */
+	/* TODO: separate IPI for this? */
+	asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
+	if(current_thread)
+		current_thread->processor->stats.shootdowns++;
 	processor_ipi_finish();
 }
 

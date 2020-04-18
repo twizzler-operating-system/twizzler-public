@@ -110,6 +110,18 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 		return;
 	}
 
+	if(!VADDR_IS_USER((uintptr_t)stack)) {
+		printk("thread %ld has corrupted stack pointer (%p)\n", t->id, stack);
+		thread_exit();
+		return;
+	}
+
+	if(!VADDR_IS_USER((uintptr_t)addr)) {
+		printk("thread %ld tried to jump into kernel (addr %p)\n", t->id, addr);
+		thread_exit();
+		return;
+	}
+
 	/* TODO: validate that stack is in a reasonable object */
 	if(((unsigned long)stack & 0xFFFFFFFFFFFFFFF0) != (unsigned long)stack) {
 		//	panic("NI");

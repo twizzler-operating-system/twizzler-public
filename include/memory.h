@@ -16,6 +16,8 @@
 #define PM_TYPE_ANY (~0)
 
 #define VADDR_IS_KERNEL(x) ({ (x) >= 0xFFFF000000000000ul; })
+#define VADDR_IS_USER(x) ({ (x) < 0xFFFFFFFFFFFFul; })
+#define VADDR_IS_CANON(x) ({ VADDR_IS_KERNEL(x) || VADDR_IS_USER(x) })
 
 enum memory_type {
 	MEMORY_UNKNOWN,

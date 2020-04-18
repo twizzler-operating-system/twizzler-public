@@ -354,8 +354,12 @@ struct page *page_alloc(int type, int flags, int level)
 	if(!mm_ready)
 		level = 0;
 
-	if(current_thread)
+	if(current_thread) {
+		if(current_thread->page_alloc && !(flags & PAGE_CRITICAL)) {
+			panic("PAGE_CRITICAL must be set when faulting during page_alloc");
+		}
 		current_thread->page_alloc = true;
+	}
 	// printk("PAGE_ALLOC %x %d: 0\n", flags, level);
 	struct page *p = NULL;
 	if(flags & PAGE_CRITICAL) {
@@ -433,6 +437,7 @@ size_t PG_ZERO_THRESH[] = {
 
 void page_idle_zero(void)
 {
+	return;
 	struct page_group *crit = &_pg_level0_critical;
 	while(crit->avail < PG_CRITICAL_THRESH) {
 		if(processor_has_threads(current_processor))

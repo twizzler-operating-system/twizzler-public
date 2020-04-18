@@ -77,6 +77,11 @@ void arch_object_remap_cow(struct object *obj)
 	}
 	int x;
 	asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
+	asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3" ::: "memory", "rax");
+	/* TODO */
+	if(current_thread)
+		processor_send_ipi(
+		  PROCESSOR_IPI_DEST_OTHERS, PROCESSOR_IPI_SHOOTDOWN, NULL, PROCESSOR_IPI_NOWAIT);
 }
 
 void arch_object_unmap_slot(struct object_space *space, struct slot *slot)
@@ -152,6 +157,9 @@ void arch_object_unmap_page(struct object *obj, size_t idx)
 	int x;
 	/* TODO: better invalidation scheme */
 	asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
+	if(current_thread)
+		processor_send_ipi(
+		  PROCESSOR_IPI_DEST_OTHERS, PROCESSOR_IPI_SHOOTDOWN, NULL, PROCESSOR_IPI_NOWAIT);
 }
 
 bool arch_object_map_flush(struct object *obj, size_t virt)

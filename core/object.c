@@ -178,6 +178,7 @@ static void obj_clone_cow(struct object *src, struct object *nobj)
 	for(struct rbnode *node = rb_first(&src->pagecache_root); node; node = rb_next(node)) {
 		struct objpage *pg = rb_entry(node, struct objpage, node);
 		if(pg->page) {
+			assert(pg->page->cowcount >= 1);
 			pg->page->cowcount++;
 			// pg->flags &= ~OBJPAGE_MAPPED;
 			pg->flags |= OBJPAGE_COW;
@@ -450,8 +451,14 @@ void obj_cache_page(struct object *obj, size_t addr, struct page *p)
 		page = rb_entry(node, struct objpage, node);
 	}
 	page->page = p;
-	p->cowcount = 1;
+	if(p->cowcount == 0) {
+		p->cowcount = 1;
+	}
+	// p->cowcount = 1;
 	page->flags &= ~OBJPAGE_MAPPED;
+	if(p->cowcount > 1) {
+		page->flags |= OBJPAGE_COW;
+	}
 	if(node == NULL)
 		rb_insert(root, page, struct objpage, node, __objpage_compar);
 	// arch_object_map_page(obj, page->page, page->idx);
@@ -979,10 +986,10 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		  loaddr / OBJ_MAXSIZE);
 	}
 #if 0
-	uint64_t rsp;
-	asm volatile("mov %%rsp, %0" : "=r"(rsp));
-	printk("---> %lx\n", rsp);
-	if(o->id || 1)
+	// uint64_t rsp;
+	// asm volatile("mov %%rsp, %0" : "=r"(rsp));
+	// printk("---> %lx\n", rsp);
+	if(!o->id)
 		printk("OSPACE FAULT %ld: ip=%lx loaddr=%lx (idx=%lx) vaddr=%lx flags=%x :: " IDFMT
 		       " %lx\n",
 		  current_thread ? current_thread->id : -1,
@@ -1060,44 +1067,73 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		  o->refs.count,
 		  o->mapcount.count);
 #endif
-		if(p->page->cowcount <= 1 && (p->flags & OBJPAGE_COW)) {
-			p->flags &= ~(OBJPAGE_COW | OBJPAGE_MAPPED);
-			p->page->cowcount = 1;
-			//	printk("COW: reset %ld\n", p->idx);
-		}
-
-		if((p->flags & OBJPAGE_COW) && (flags & OBJSPACE_FAULT_WRITE)) {
-			uint32_t old_count = atomic_fetch_sub(&p->page->cowcount, 1);
-			//	printk("COW: copy %ld: %d\n", p->idx, old_count);
-
-			if(old_count > 1) {
-				struct page *np = page_alloc(p->page->type, 0, p->page->level);
-				void *csrc = tmpmap_map_page(p->page);
-				void *cdest = tmpmap_map_page(np);
-				memcpy(cdest, csrc, mm_page_size(p->page->level));
-				tmpmap_unmap_page(cdest);
-				tmpmap_unmap_page(csrc);
-
-				if(!(o->flags & OF_KERNEL))
-					spinlock_release_restore(&p->page->lock);
-				p->page = np;
-				if(!(o->flags & OF_KERNEL))
-					spinlock_acquire_save(&p->page->lock);
-			} else {
+		if(!(o->flags & OF_KERNEL)) {
+			if(p->page->cowcount <= 1 && (p->flags & OBJPAGE_COW)) {
+				p->flags &= ~(OBJPAGE_COW | OBJPAGE_MAPPED);
 				p->page->cowcount = 1;
+				//	printk("COW: reset %ld\n", p->idx);
 			}
 
-			p->flags &= ~OBJPAGE_COW;
-			arch_object_map_page(o, p);
-			p->flags |= OBJPAGE_MAPPED;
-			// int x;
-			/* TODO: better invalidation scheme */
-			// asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
+			if((p->flags & OBJPAGE_COW) && (flags & OBJSPACE_FAULT_WRITE)) {
+				uint32_t old_count = atomic_fetch_sub(&p->page->cowcount, 1);
+				//	printk("COW: copy %ld: %d\n", p->idx, old_count);
 
-			// for(;;)
-			//	;
+				if(old_count > 1) {
+					struct page *np = page_alloc(p->page->type, 0, p->page->level);
+					assert(np->level == p->page->level);
+					np->cowcount = 1;
+					void *cfs = mm_ptov_try(p->page->addr);
+					void *cfd = mm_ptov_try(np->addr);
+					if(cfs && cfd && 0) {
+						//				printk("::::: COPY fast %lx %lx\n", p->page->addr,
+						// np->addr);
+						memcpy(cfd, cfs, mm_page_size(p->page->level));
+					} else {
+						//					static struct spinlock LO = SPINLOCK_INIT;
+						//					spinlock_acquire_save(&LO);
+						//				printk("::::: COPY slow %lx %lx\n", p->page->addr,
+						// np->addr);
+						void *csrc = tmpmap_map_page(p->page);
+						void *cdest = tmpmap_map_page(np);
+						memcpy(cdest, csrc, mm_page_size(p->page->level));
+						tmpmap_unmap_page(cdest);
+						tmpmap_unmap_page(csrc);
+						//					spinlock_release_restore(&LO);
+					}
+					assert(np->cowcount == 1);
+
+					if(!(o->flags & OF_KERNEL))
+						spinlock_release_restore(&p->page->lock);
+					p->page = np;
+					if(!(o->flags & OF_KERNEL))
+						spinlock_acquire_save(&p->page->lock);
+				} else {
+					p->page->cowcount = 1;
+				}
+
+				p->flags &= ~OBJPAGE_COW;
+				arch_object_map_page(o, p);
+				p->flags |= OBJPAGE_MAPPED;
+				// int x;
+				/* TODO: better invalidation scheme */
+				// asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
+
+				// for(;;)
+				//	;
+			} else {
+				// printk("P: %p %lx %lx\n", p->page, p->page->addr, p->flags);
+				if(!(p->flags & OBJPAGE_MAPPED)) {
+					arch_object_map_page(o, p);
+					p->flags |= OBJPAGE_MAPPED;
+					// int x;
+					/* TODO: better invalidation scheme */
+					// asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
+				}
+			}
 		} else {
-			// printk("P: %p %lx %lx\n", p->page, p->page->addr, p->flags);
+			// bool m = arch_object_getmap_slot_flags(NULL, slot, &existing_flags);
+
+			spinlock_acquire_save(&o->lock);
 			if(!(p->flags & OBJPAGE_MAPPED)) {
 				arch_object_map_page(o, p);
 				p->flags |= OBJPAGE_MAPPED;
@@ -1105,6 +1141,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 				/* TODO: better invalidation scheme */
 				// asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
 			}
+			spinlock_release_restore(&o->lock);
 		}
 		if(!(o->flags & OF_KERNEL))
 			spinlock_release_restore(&p->page->lock);
