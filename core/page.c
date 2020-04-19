@@ -370,7 +370,6 @@ struct page *page_alloc(int type, int flags, int level)
 		}
 		*recur_flag = true;
 	}
-	// printk("PAGE_ALLOC %x %d: 0\n", flags, level);
 	struct page *p = NULL;
 	if(flags & PAGE_CRITICAL) {
 		p = __do_page_alloc(&_pg_level0_critical);

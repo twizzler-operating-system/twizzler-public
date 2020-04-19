@@ -69,6 +69,7 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t);
 struct timespec;
 long thread_sync_single(int operation, long *addr, long arg, struct timespec *spec);
 long thread_wake_object(struct object *obj, size_t offset, long arg);
+void thread_sync_uninit_thread(struct thread *thr);
 void thread_print_all_threads(void);
 void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *, size_t);
 
@@ -81,6 +82,7 @@ void arch_thread_init(struct thread *thread,
   size_t stacksz,
   void *tls,
   size_t);
+void arch_thread_destroy(struct thread *thread);
 
 void thread_initialize_processor(struct processor *proc);
 

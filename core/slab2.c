@@ -10,6 +10,8 @@
 
 //#define slab_size(sz) align_down((sizeof(struct slab) + 64 * sz), mm_page_size(0))
 
+static DECLARE_LIST(all_slabs);
+
 static inline size_t __slab_size(size_t sz, size_t nr_obj)
 {
 	size_t x = __round_up_pow2((sizeof(struct slab) + nr_obj * sz));
@@ -108,6 +110,7 @@ static struct slab *new_slab(struct slabcache *c)
 			c->ctor(c->ptr, obj);
 		}
 	}
+	c->stats.total_slabs++;
 	return s;
 }
 
@@ -124,11 +127,15 @@ static void *alloc_slab(struct slab *s, int new)
 	if(num_set(s->alloc) == 0) {
 		del_from_list(s);
 		add_to_list(&s->slabcache->full, s);
+		s->slabcache->stats.partial--;
+		s->slabcache->stats.full++;
 	} else if(num_set(s->alloc) == obj_per_slab(s->slabcache, s->slabcache->sz) - 1) {
 		if(!new) {
 			del_from_list(s);
+			s->slabcache->stats.empty--;
 		}
 		add_to_list(&s->slabcache->partial, s);
+		s->slabcache->stats.partial++;
 	}
 
 	size_t raw_sz = s->slabcache->sz - sizeof(struct slabmarker);
@@ -139,10 +146,18 @@ static void *alloc_slab(struct slab *s, int new)
 	return ret;
 }
 
+static void __slab_second_init(struct slabcache *c)
+{
+	if(!atomic_exchange(&c->__init, true)) {
+		list_insert(&all_slabs, &c->entry);
+	}
+}
+
 void *slabcache_alloc(struct slabcache *c)
 {
 	struct slab *s;
 	assert(c->canary == SLAB_CANARY);
+	__slab_second_init(c);
 	int new = 0;
 	bool fl = spinlock_acquire(&c->lock);
 	if(!is_empty(c->partial)) {
@@ -159,17 +174,18 @@ void *slabcache_alloc(struct slabcache *c)
 	void *ret = alloc_slab(s, new);
 	assert(s->slabcache);
 	spinlock_release(&c->lock, fl);
+	c->stats.current_alloced++;
+	c->stats.total_alloced++;
 	return ret;
 }
 
 void slabcache_free(struct slabcache *sc, void *obj)
 {
-	size_t ssz = slab_size(sc, sc->sz);
 	size_t raw_sz = sc->sz - sizeof(struct slabmarker);
 	struct slabmarker *mk = (void *)((char *)obj + raw_sz);
 	assert(mk->marker_magic == SLAB_MARKER_MAGIC);
 
-	struct slab *s = (char *)obj - (sc->sz * mk->slot + sizeof(struct slab));
+	struct slab *s = (struct slab *)((char *)obj - (sc->sz * mk->slot + sizeof(struct slab)));
 	mk->marker_magic = 0;
 
 	// struct slab *s = (struct slab *)((uintptr_t)obj & (~(PAGE_SIZE - 1)));
@@ -186,15 +202,22 @@ void slabcache_free(struct slabcache *sc, void *obj)
 	if(num_set(s->alloc) == obj_per_slab(s->slabcache, s->slabcache->sz)) {
 		del_from_list(s);
 		add_to_list(&s->slabcache->empty, s);
+		sc->stats.partial--;
+		sc->stats.empty++;
 	} else if(num_set(s->alloc) == 1) {
 		del_from_list(s);
 		add_to_list(&s->slabcache->partial, s);
+		sc->stats.partial++;
+		sc->stats.full--;
 	}
 	spinlock_release(&s->slabcache->lock, fl);
+	sc->stats.current_alloced--;
+	sc->stats.total_freed++;
 }
 
 static void destroy_slab(struct slab *s)
 {
+	panic("NI");
 	assert(num_set(s->alloc) == obj_per_slab(s->slabcache, s->slabcache->sz));
 	for(unsigned int i = 0; i < obj_per_slab(s->slabcache, s->slabcache->sz); i++) {
 		if(s->slabcache->dtor) {
@@ -215,6 +238,32 @@ static void init_list(struct slab *s)
 {
 	s->next = s;
 	s->prev = s;
+}
+
+void slabcache_print_stats(struct slabcache *sc)
+{
+	printk("slabcache %s: size=%lx, slabsz=%lx, nrobj=%d\n",
+	  sc->name,
+	  sc->sz,
+	  slab_size(sc, sc->sz),
+	  sc->__cached_nr_obj);
+	printk("  total_slabs: %ld (%ld empty, %ld partial, %ld full)\n",
+	  sc->stats.total_slabs,
+	  sc->stats.empty,
+	  sc->stats.partial,
+	  sc->stats.full);
+	printk(
+	  "  total_alloced: %ld, total_freed: %ld\n", sc->stats.total_alloced, sc->stats.total_freed);
+	printk("  current_alloced: %ld\n", sc->stats.current_alloced);
+}
+
+#include <lib/iter.h>
+void slabcache_all_print_stats(void)
+{
+	foreach(e, list, &all_slabs) {
+		struct slabcache *sc = list_entry(e, struct slabcache, entry);
+		slabcache_print_stats(sc);
+	}
 }
 
 void slabcache_init(struct slabcache *c,
@@ -239,6 +288,8 @@ void slabcache_init(struct slabcache *c,
 	init_list(&c->empty);
 	init_list(&c->full);
 	init_list(&c->partial);
+
+	memset(&c->stats, 0, sizeof(c->stats));
 
 	c->name = name;
 }

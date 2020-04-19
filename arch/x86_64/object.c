@@ -320,7 +320,6 @@ void arch_object_space_destroy(struct object_space *space)
 
 void arch_object_destroy(struct object *obj)
 {
-	(void)obj;
 	for(int i = 0; i < 512; i++) {
 		if(obj->arch.pts[i]) {
 			mm_memory_dealloc(obj->arch.pts[i]);

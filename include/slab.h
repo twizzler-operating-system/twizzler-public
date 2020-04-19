@@ -1,5 +1,6 @@
 #pragma once
 
+#include <lib/list.h>
 #include <spinlock.h>
 
 #define SLAB_CANARY 0x12345678abcdef55
@@ -23,6 +24,11 @@ struct slabcache {
 	void *ptr;
 	struct spinlock lock;
 	int __cached_nr_obj;
+	bool __init;
+	struct list entry;
+	struct {
+		size_t empty, partial, full, total_slabs, total_alloced, total_freed, current_alloced;
+	} stats;
 };
 
 #define SLAB_MARKER_MAGIC 0x885522aa
@@ -57,3 +63,5 @@ void slabcache_init(struct slabcache *c,
 void slabcache_reap(struct slabcache *c);
 void slabcache_free(struct slabcache *, void *obj);
 void *slabcache_alloc(struct slabcache *c);
+void slabcache_all_print_stats(void);
+void slabcache_print_stats(struct slabcache *sc);

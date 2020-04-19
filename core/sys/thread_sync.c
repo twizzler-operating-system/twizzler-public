@@ -162,6 +162,25 @@ static int sp_wake(struct syncpoint *sp, long arg)
 	return count;
 }
 
+void thread_sync_uninit_thread(struct thread *thr)
+{
+	spinlock_acquire_save(&thr->lock);
+	for(size_t i = 0; i < thr->sleep_count; i++) {
+		if(thr->sleep_entries[i].active) {
+			struct syncpoint *op = thr->sleep_entries[i].sp;
+			spinlock_acquire_save(&op->lock);
+			list_remove(&thr->sleep_entries[i].entry);
+			thr->sleep_entries[i].active = false;
+			spinlock_release_restore(&op->lock);
+			krc_put_call(op, refs, _sp_release);
+		}
+	}
+	if(thr->sleep_entries) {
+		kfree(thr->sleep_entries);
+	}
+	spinlock_release_restore(&thr->lock);
+}
+
 static long thread_sync_single_norestore(int operation,
   long *addr,
   long arg,

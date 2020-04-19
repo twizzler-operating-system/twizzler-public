@@ -197,8 +197,11 @@ static struct spinlock allthreads_lock = SPINLOCK_INIT;
 static void __thread_finish_cleanup2(void *_t)
 {
 	struct thread *t = _t;
-	// printk("THREAD DESTROY2 %ld: %p\n", t->id, t);
-	// slabcache_free(t);
+	arch_thread_destroy(t);
+	thread_sync_uninit_thread(t);
+	memset(t, 0, sizeof(*t));
+	_thread_ctor(NULL, t);
+	slabcache_free(&_sc_thread, t);
 }
 
 static void __thread_finish_cleanup(void *_t)

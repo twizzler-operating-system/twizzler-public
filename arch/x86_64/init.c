@@ -527,6 +527,11 @@ void arch_thread_init(struct thread *thread,
 	thread->arch.gs = (long)thrd_ctrl_slot * mm_page_size(MAX_PGLEVEL);
 	if(xsave_region_size > 0x1000)
 		panic("NI - HUGE xsave region");
-	/* TODO: make sure to free this */
 	thread->arch.xsave_region = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+}
+
+void arch_thread_destroy(struct thread *thread)
+{
+	/* TODO: maybe save this for the next thread? */
+	mm_memory_dealloc(thread->arch.xsave_region);
 }

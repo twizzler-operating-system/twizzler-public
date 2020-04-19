@@ -132,6 +132,8 @@ void mm_init(void)
 
 size_t mm_early_count = 0;
 size_t mm_late_count = 0;
+_Atomic size_t mm_kernel_alloced_total = 0;
+_Atomic size_t mm_kernel_alloced_current = 0;
 extern size_t mm_page_count;
 extern size_t mm_page_alloc_count;
 extern size_t mm_page_bootstrap_count;
@@ -148,6 +150,12 @@ void mm_print_stats(void)
 	printk("early allocation: %ld KB\n", mm_early_count / 1024);
 	printk("late  allocation: %ld KB\n", mm_late_count / 1024);
 	printk("page  allocation: %ld KB\n", mm_page_alloc_count / 1024);
+	printk("total allocation: %ld KB\n", mm_kernel_alloced_total);
+	printk("cur   allocation: %ld KB\n", mm_kernel_alloced_current);
+	foreach(e, list, &allocators) {
+		struct mem_allocator *alloc = list_entry(e, struct mem_allocator, entry);
+		printk("allocator: avail = %lx; free = %lx\n", alloc->available_memory, alloc->free_memory);
+	}
 	page_print_stats();
 }
 
@@ -239,9 +247,13 @@ uintptr_t mm_physical_early_alloc(void)
 	panic("out of early-alloc memory");
 }
 
+#include <processor.h>
 void *__mm_memory_alloc(size_t length, int type, bool clear, const char *file, int linenr)
 {
 	length = align_up(length, mm_page_size(0));
+	mm_kernel_alloced_total += length;
+	mm_kernel_alloced_current += length;
+	// printk("ALLOC %lx: %s %d\n", length, file, linenr);
 	static struct spinlock nvs = SPINLOCK_INIT;
 	if(type == PM_TYPE_NV) {
 		/* TODO: BETTER PM MANAGEMENT */
@@ -343,6 +355,7 @@ void *__mm_memory_alloc(size_t length, int type, bool clear, const char *file, i
 void mm_memory_dealloc(void *_addr)
 {
 	uintptr_t addr = (uintptr_t)_addr;
+	mm_kernel_alloced_current -= mm_page_size(0); // TODO: this isn't accurate
 	spinlock_acquire_save(&allocator_lock);
 	foreach(e, list, &allocators) {
 		struct mem_allocator *alloc = list_entry(e, struct mem_allocator, entry);
