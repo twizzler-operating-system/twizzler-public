@@ -36,6 +36,11 @@ for line in sys.stdin.readlines():
     name = _s[0]
     oid = _s[1]
     elems = name.split('/')
+    sym = False
+    sym_target = ""
+    if oid == "SYM":
+        sym = True
+        sym_target = _s[2]
     #print(str(elems) + " => " + str(oid))
     #if not elems[0] in tlns:
     #    tlns.append(elems[0])
@@ -62,7 +67,10 @@ for line in sys.stdin.readlines():
         n = n[e][2]
 
     outf=srcdir + '/__ns_' + tn + '.dat'
-    print("%s r %s %s" % (outf, oid, elems[-1]))
+    if sym:
+        print("%s s %s %s" % (outf, sym_target, elems[-1]))
+    else:
+        print("%s r %s %s" % (outf, oid, elems[-1]))
 
 
 #print_namespaces(ns)

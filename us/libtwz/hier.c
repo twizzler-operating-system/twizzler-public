@@ -1,9 +1,14 @@
 #include <errno.h>
+#include <stdio.h>
 #include <string.h>
-#include <twz/debug.h>
 #include <twz/hier.h>
 #include <twz/obj.h>
 
+static int _recur_twz_hier_resolve_name(twzobj *ns,
+  const char *path,
+  int flags,
+  struct twz_name_ent *ent,
+  size_t count);
 /* TODO: thread-safe */
 
 static struct twz_name_ent *__get_name_ent(twzobj *ns, const char *path, size_t plen)
@@ -16,6 +21,7 @@ static struct twz_name_ent *__get_name_ent(twzobj *ns, const char *path, size_t 
 	struct twz_name_ent *ent = hdr->ents;
 
 	while(ent->dlen) {
+		//	fprintf(stderr, "trying out %s (for %s : %ld)\n", ent->name, path, plen);
 		if((ent->flags & NAME_ENT_VALID) && ent->dlen >= plen + 1) {
 			if(!memcmp(ent->name, path, plen) && ent->name[plen] == 0) {
 				/* found! */
@@ -118,13 +124,15 @@ int twz_hier_assign_name(twzobj *ns, const char *name, int type, objid_t id)
 static int __twz_hier_resolve_name(twzobj *ns,
   const char *path,
   int flags,
-  struct twz_name_ent *ent)
+  struct twz_name_ent *ent,
+  size_t count)
 {
 	while(*path == '/')
 		path++;
 	if(!*path) {
 		/* no path to traverse; return 0, with an ID of 0, and the caller can figure it out */
 		ent->id = 0;
+		ent->type = NAME_ENT_REGULAR;
 		return 0;
 	}
 
@@ -135,6 +143,18 @@ static int __twz_hier_resolve_name(twzobj *ns,
 	if(!ne) {
 		return -ENOENT;
 	}
+	struct twz_name_ent target;
+	// fprintf(stderr, "found: %s %d\n", ne->name, ne->type);
+	if(ne->type == NAME_ENT_SYMLINK && (!(flags & TWZ_HIER_SYM) || ndl)) {
+		int r;
+		const char *symtarget = ne->name + strlen(ne->name) + 1;
+		//	fprintf(stderr, "  lookup sym %s\n", symtarget);
+		//		fprintf(stderr, "looking up symlink from %s -> %s\n", ne->name, symtarget);
+		if((r = _recur_twz_hier_resolve_name(ns, symtarget, flags, &target, count + 1))) {
+			return r;
+		}
+		ne = &target;
+	}
 	if(ndl) {
 		/* not the last element of the path. Note: if the path has the form '/usr/bin/' then
 		 * we actually _are_ the last element, but have no way of knowing yet. That's okay, though,
@@ -144,9 +164,9 @@ static int __twz_hier_resolve_name(twzobj *ns,
 			return -ENOTDIR;
 		}
 		twzobj next;
-		twz_object_init_guid(&next, ne->id, FE_READ);
-		int r = twz_hier_resolve_name(&next, ndl + 1, flags, ent);
-		if(ent->id || r) {
+		twz_object_init_guid(&next, ne->id, FE_READ); /* TODO: release? */
+		int r = _recur_twz_hier_resolve_name(&next, ndl + 1, flags, ent, count);
+		if(ent->id || r || ent->type == NAME_ENT_SYMLINK) {
 			return r;
 		}
 	}
@@ -155,11 +175,26 @@ static int __twz_hier_resolve_name(twzobj *ns,
 	return 0;
 }
 
-int twz_hier_resolve_name(twzobj *ns, const char *path, int flags, struct twz_name_ent *ent)
+static int _recur_twz_hier_resolve_name(twzobj *ns,
+  const char *path,
+  int flags,
+  struct twz_name_ent *ent,
+  size_t count)
 {
-	int r = __twz_hier_resolve_name(ns, path, flags, ent);
-	if(r == 0 && ent->id == 0) {
-		return __twz_hier_resolve_name(ns, "/.", flags, ent);
+	if(count >= 32) {
+		return -ELOOP;
+	}
+	int r = __twz_hier_resolve_name(ns, path, flags, ent, count);
+	// fprintf(stderr, ":: %d\n", ent->type);
+	if(r == 0 && ent->id == 0 && ent->type != NAME_ENT_SYMLINK) {
+		//	fprintf(stderr, "FALLBACK\n");
+		return __twz_hier_resolve_name(ns, "/.", flags, ent, count);
 	}
 	return r;
+}
+
+int twz_hier_resolve_name(twzobj *ns, const char *path, int flags, struct twz_name_ent *ent)
+{
+	// fprintf(stderr, "resolve name %s\n", path);
+	return _recur_twz_hier_resolve_name(ns, path, flags, ent, 0);
 }

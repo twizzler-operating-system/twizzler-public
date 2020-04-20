@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <err.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -44,6 +45,7 @@ int main(int argc, char **argv)
 		char *typestr = strtok(buffer, " ");
 		assert(typestr != NULL);
 
+		bool sym = false;
 		switch(typestr[0]) {
 			case 'r':
 				type = NAME_ENT_REGULAR;
@@ -52,13 +54,23 @@ int main(int argc, char **argv)
 			case 'n':
 				type = NAME_ENT_NAMESPACE;
 				break;
+			case 's':
+				sym = true;
+				type = NAME_ENT_SYMLINK;
+				break;
 			default:
 				errx(1, "unknown type %c\n", typestr[0]);
 		}
 
 		char *idstr = strtok(NULL, " ");
 		assert(idstr != NULL);
-		objid_t id = str_to_objid(idstr);
+		objid_t id = 0;
+		char *symstr = NULL;
+		if(sym) {
+			symstr = idstr;
+		} else {
+			id = str_to_objid(idstr);
+		}
 
 		char *name = strtok(NULL, " ");
 		assert(name != NULL);
@@ -66,6 +78,7 @@ int main(int argc, char **argv)
 		if(nl)
 			*nl = 0;
 
+		//	fprintf(stderr, ":: %c: %s %s :: %lx %d\n", typestr[0], name, idstr, (long)id, sym);
 		struct twz_name_ent ent = {
 			.id = id,
 			.flags = NAME_ENT_VALID,
@@ -73,11 +86,18 @@ int main(int argc, char **argv)
 			.dlen = strlen(name) + 1 /* null terminator */
 		};
 
+		if(sym) {
+			ent.dlen += strlen(symstr) + 1;
+		}
+
 		size_t rem = ((ent.dlen + 15) & ~15) - ent.dlen;
 		char null[16] = {};
 
 		fwrite(&ent, sizeof(ent), 1, f);
 		fwrite(name, 1, strlen(name) + 1, f);
+		if(sym) {
+			fwrite(symstr, 1, strlen(symstr) + 1, f);
+		}
 		fwrite(null, 1, rem, f);
 	}
 

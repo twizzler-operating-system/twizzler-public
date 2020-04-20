@@ -10,6 +10,7 @@
 enum name_ent_type {
 	NAME_ENT_REGULAR,
 	NAME_ENT_NAMESPACE,
+	NAME_ENT_SYMLINK,
 };
 
 #define NAME_ENT_VALID 1
@@ -37,6 +38,8 @@ __must_check int twz_hier_resolve_name(twzobj *ns,
   const char *path,
   int flags,
   struct twz_name_ent *ent);
+
+#define TWZ_HIER_SYM 1
 
 __must_check int twz_hier_assign_name(twzobj *ns, const char *name, int type, objid_t id);
 int twz_hier_namespace_new(twzobj *ns, twzobj *parent, const char *name);

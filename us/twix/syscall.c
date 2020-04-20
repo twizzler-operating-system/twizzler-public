@@ -13,6 +13,7 @@
 #define LINUX_SYS_close 3
 #define LINUX_SYS_stat 4
 #define LINUX_SYS_fstat 5
+#define LINUX_SYS_lstat 6
 
 #define LINUX_SYS_lseek 8
 #define LINUX_SYS_mmap 9
@@ -107,6 +108,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_uname] = linux_sys_uname,
 	[LINUX_SYS_lseek] = linux_sys_lseek,
 	[LINUX_SYS_getdents64] = linux_sys_getdents64,
+	[LINUX_SYS_lstat] = linux_sys_lstat,
 };
 
 __attribute__((unused)) static const char *syscall_names[] = {
@@ -464,6 +466,7 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 		return -ENOSYS;
 	}
 	long r = syscall_table[num](a0, a1, a2, a3, a4, a5);
+	// debug_printf("sc %ld(%s) ret %ld\n", num, syscall_names[num], r);
 	// twix_log("sc %ld ret %ld\n", num, r);
 	return r;
 }
@@ -505,7 +508,7 @@ static long twix_syscall_frame(struct twix_register_frame *frame,
 		return syscall_table[num](frame, a0, a1, a2, a3, a4, a5);
 	}
 	long r = syscall_table[num](a0, a1, a2, a3, a4, a5);
-	// twix_log("sc %ld ret %ld\n", num, r);
+	// debug_printf("sc %ld(%s) ret %ld\n", num, syscall_names[num], r);
 	return r;
 }
 

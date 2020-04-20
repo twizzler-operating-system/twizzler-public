@@ -266,6 +266,7 @@ int twz_object_new(twzobj *obj, twzobj *src, twzobj *ku, uint64_t flags)
 	if(r)
 		return r;
 	if((r = twz_object_init_guid(obj, id, FE_READ | FE_WRITE))) {
+		fprintf(stderr, "ERR FROM INIT GUID: %d\n", r);
 		if(twz_object_delete_guid(id, 0)) {
 			libtwz_panic("failed to delete object during cleanup");
 		}

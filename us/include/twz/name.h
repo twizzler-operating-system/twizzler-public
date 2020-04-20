@@ -26,3 +26,4 @@ int twz_name_reverse_lookup(objid_t id,
   ssize_t (*fn)(objid_t id, char *name, size_t *nl, int flags),
   int flags);
 ssize_t twz_name_dfl_getnames(const char *startname, struct twz_nament *ents, size_t len);
+twzobj *twz_name_get_root(void);

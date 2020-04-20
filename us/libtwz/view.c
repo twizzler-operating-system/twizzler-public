@@ -158,7 +158,7 @@ static struct __viewrepr_bucket *__insert_obj(struct twzview_repr *v,
 	return NULL;
 }
 
-ssize_t __alloc_slot(struct twzview_repr *v)
+static ssize_t __alloc_slot(struct twzview_repr *v)
 {
 	for(size_t i = TWZSLOT_ALLOC_START / 8; i <= TWZSLOT_ALLOC_MAX / 8; i++) {
 		size_t idx = i;
@@ -172,6 +172,11 @@ ssize_t __alloc_slot(struct twzview_repr *v)
 		}
 	}
 	return -ENOSPC;
+}
+
+static void __dealloc_slot(struct twzview_repr *v, size_t slot)
+{
+	v->bitmap[slot / 8] &= ~(1 << (slot % 8));
 }
 
 #include <stdio.h>
@@ -255,6 +260,7 @@ void twz_view_release_slot(twzobj *obj, objid_t id, uint32_t flags, size_t slot)
 	assert(old > 0);
 	if(old == 1) {
 		twz_view_set(obj, b->slot, 0, 0);
+		__dealloc_slot(v, b->slot);
 		b->slot = 0;
 		b->id = 0;
 		b->flags = 0;

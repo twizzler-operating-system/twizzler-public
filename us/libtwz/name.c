@@ -224,6 +224,14 @@ static int __twz_name_dfl_reverse(objid_t id, char *name, size_t *nl, int flags)
 }
 #endif
 
+twzobj *twz_name_get_root(void)
+{
+	if(!__name_init())
+		abort();
+
+	return &nameobj;
+}
+
 static int __twz_name_dfl_resolve(twzobj *obj, const char *name, int flags, objid_t *id)
 {
 	(void)obj;

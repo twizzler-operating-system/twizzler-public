@@ -33,22 +33,69 @@ int twix_openpathat(int dfd, const char *path, int flags, objid_t *id)
 long linux_sys_stat(const char *path, struct stat *sb)
 {
 	twzobj obj;
-	twix_log(":: stat %s\n", path);
+	// twix_log(":: stat %s\n", path);
 	int r = twz_object_init_name(&obj, path, FE_READ);
 	if(r < 0) {
-		twix_log("--- stat %s: no obj\n", path);
+		// twix_log("--- stat %s: no obj: %d\n", path, r);
 		return r;
+	}
+	struct twz_name_ent ent;
+	if((r = twz_hier_resolve_name(twz_name_get_root(), path, 0, &ent)) < 0) {
+		// twix_log("--- stat %s: no obj2: %d\n", path, r);
+		twz_object_release(&obj);
+		return r;
+	}
+
+	switch(ent.type) {
+		case NAME_ENT_REGULAR:
+			sb->st_mode = S_IFREG;
+			break;
+		case NAME_ENT_NAMESPACE:
+			sb->st_mode = S_IFDIR;
+			break;
+		case NAME_ENT_SYMLINK:
+			sb->st_mode = S_IFLNK;
+			break;
 	}
 
 	struct metainfo *mi = twz_object_meta(&obj);
 	sb->st_size = mi->sz;
-	sb->st_mode = S_IFREG | S_IXOTH | S_IROTH | S_IRWXU | S_IRGRP | S_IXGRP;
+	sb->st_mode |= S_IXOTH | S_IROTH | S_IRWXU | S_IRGRP | S_IXGRP;
+	twz_object_release(&obj);
 	return 0;
-	return -ENOSYS;
+}
+
+long linux_sys_lstat(const char *path, struct stat *sb)
+{
+	//	twzobj obj;
+	struct twz_name_ent ent;
+	int r;
+	if((r = twz_hier_resolve_name(twz_name_get_root(), path, TWZ_HIER_SYM, &ent)) < 0) {
+		// twix_log("--- stat %s: no obj2: %d\n", path, r);
+		return r;
+	}
+
+	// twix_log(":: lstat %s -> %d\n", path, ent.type);
+	if(ent.type != NAME_ENT_SYMLINK) {
+		return linux_sys_stat(path, sb);
+	}
+
+	/*int r = twz_object_init_guid(&obj, path, FE_READ);
+	if(r < 0) {
+	    // twix_log("--- stat %s: no obj: %d\n", path, r);
+	    return r;
+	}*/
+
+	// struct metainfo *mi = twz_object_meta(&obj);
+	sb->st_size = ent.dlen;
+	sb->st_mode = S_IFLNK | S_IWOTH | S_IXOTH | S_IROTH | S_IRWXU | S_IRGRP | S_IXGRP | S_IWGRP;
+	//	twz_object_release(&obj);
+	return 0;
 }
 
 long linux_sys_fstat(int fd, struct stat *sb)
 {
+	/* TODO: store the dirent with the fd so we can recover the file type */
 	struct file *fi = twix_get_fd(fd);
 	if(!fi)
 		return -EBADF;
