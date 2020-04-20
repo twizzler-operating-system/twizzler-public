@@ -270,7 +270,7 @@ int main()
 	}
 	unsetenv("BSNAME");
 	setenv("TERM", "linux", 1);
-	setenv("PATH", "/usr/bin", 1);
+	setenv("PATH", "/bin:/usr/bin", 1);
 
 #if 0
 	init_test_init();
