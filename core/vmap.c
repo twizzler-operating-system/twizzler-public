@@ -355,23 +355,23 @@ static int __do_map(struct vm_context *ctx,
 		objid_t id;
 		uint64_t fl;
 		if(!lookup_by_slot(slot, &id, &fl)) {
+			spinlock_release_restore(&ctx->lock);
 			if(fault) {
 				struct fault_object_info info;
 				popul_info(&info, flags, ip, addr, 0);
 				thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
 			}
-			spinlock_release_restore(&ctx->lock);
 			return -EINVAL;
 		}
 		struct object *obj = obj_lookup(id, 0);
 		if(!obj) {
+			spinlock_release_restore(&ctx->lock);
 			if(fault) {
 				struct fault_object_info info;
 				popul_info(&info, flags, ip, addr, id);
 				info.flags |= FAULT_OBJECT_EXIST;
 				thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
 			}
-			spinlock_release_restore(&ctx->lock);
 			return -ENOENT;
 		}
 		map = slabcache_alloc(&sc_vmap);
