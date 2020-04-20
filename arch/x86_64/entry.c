@@ -80,7 +80,7 @@ __noinstrument void x86_64_exception_entry(struct x86_64_exception_frame *frame,
 			if(frame->err_code & (1 << 4)) {
 				flags |= FAULT_EXEC;
 			}
-			if(!was_userspace) {
+			if(!was_userspace && !VADDR_IS_USER(cr2)) {
 			pf_bad:
 				panic("kernel-mode page fault to address %lx\n"
 				      "    from %lx: %s while in %s-mode: %s %s\n",
