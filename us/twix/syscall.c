@@ -33,6 +33,8 @@
 
 #define LINUX_SYS_uname 63
 
+#define LINUX_SYS_readlink 89
+
 #define LINUX_SYS_getuid 102
 #define LINUX_SYS_getgid 104
 #define LINUX_SYS_geteuid 107
@@ -109,6 +111,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_lseek] = linux_sys_lseek,
 	[LINUX_SYS_getdents64] = linux_sys_getdents64,
 	[LINUX_SYS_lstat] = linux_sys_lstat,
+	[LINUX_SYS_readlink] = linux_sys_readlink,
 };
 
 __attribute__((unused)) static const char *syscall_names[] = {

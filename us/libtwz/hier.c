@@ -115,6 +115,55 @@ int twz_hier_assign_name(twzobj *ns, const char *name, int type, objid_t id)
 	return 0;
 }
 
+int twz_hier_readlink(twzobj *ns, const char *path, char *buf, size_t bufsz)
+{
+	while(*path == '/')
+		path++;
+	if(!*path) {
+		/* TODO: ? */
+		return -EINVAL;
+	}
+
+	/* consume the next part of the path, and recurse if necessary. */
+	char *ndl = strchr(path, '/');
+	size_t elen = ndl ? (size_t)(ndl - path) : strlen(path);
+	struct twz_name_ent *ne = __get_name_ent(ns, path, elen);
+	if(!ne) {
+		return -ENOENT;
+	}
+	struct twz_name_ent target;
+	if(ne->type == NAME_ENT_SYMLINK && ndl) {
+		int r;
+		const char *symtarget = ne->name + strlen(ne->name) + 1;
+		if((r = _recur_twz_hier_resolve_name(ns, symtarget, 0, &target, 0))) {
+			return r;
+		}
+		ne = &target;
+	}
+	if(ndl) {
+		/* not the last element of the path. Note: if the path has the form '/usr/bin/' then
+		 * we actually _are_ the last element, but have no way of knowing yet. That's okay, though,
+		 * we'll handle that. Firstly, a path lookup of a _file_ will fail if we append a /, so we
+		 * can check that now */
+		if(ne->type != NAME_ENT_NAMESPACE) {
+			return -ENOTDIR;
+		}
+		twzobj next;
+		twz_object_init_guid(&next, ne->id, FE_READ); /* TODO: release? */
+		return twz_hier_readlink(&next, ndl + 1, buf, bufsz);
+	}
+	if(ne->type != NAME_ENT_SYMLINK) {
+		return -EINVAL;
+	}
+	const char *symtarget = ne->name + strlen(ne->name) + 1;
+	size_t len = bufsz;
+	if(strlen(symtarget) < len) {
+		len = strlen(symtarget);
+	}
+	memcpy(buf, symtarget, len);
+	return len;
+}
+
 /* resolve a path starting from namespace ns. Note that this does _not_ operate
  * like a unix path resolver in some ways:
  *   - a first element '/' character does not differ from a path without one. That is,

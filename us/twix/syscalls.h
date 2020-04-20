@@ -90,6 +90,7 @@ long linux_sys_open(const char *path, int flags, int mode);
 long linux_sys_close(int fd);
 long linux_sys_lseek(int fd, off_t off, int whence);
 
+ssize_t linux_sys_readlink(const char *path, char *buf, size_t bufsz);
 long linux_sys_access(const char *pathname, int mode);
 long linux_sys_faccessat(int dirfd, const char *pathname, int mode, int flags);
 long linux_sys_stat(const char *path, struct stat *sb);

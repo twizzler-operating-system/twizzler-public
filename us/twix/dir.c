@@ -4,6 +4,11 @@
 #include <string.h>
 #include <twz/hier.h>
 
+ssize_t linux_sys_readlink(const char *path, char *buf, size_t bufsz)
+{
+	return twz_hier_readlink(twz_name_get_root(), path, buf, bufsz);
+}
+
 struct linux_dirent64 {
 	uint64_t d_ino;          /* 64-bit inode number */
 	uint64_t d_off;          /* 64-bit offset to next structure */
