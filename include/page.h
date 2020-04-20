@@ -3,7 +3,10 @@
 #include <krc.h>
 #include <spinlock.h>
 
+#define PAGE_MAGIC 0x445566aaccddf15a
+
 struct page {
+	uint64_t page_magic;
 	uintptr_t addr;
 	struct krc rc;
 	struct spinlock lock;
@@ -32,6 +35,7 @@ struct page {
 #define PAGE_ALLOCED 0x10
 #define PAGE_ZERO 0x20
 #define PAGE_CRITICAL 0x40
+#define PAGE_NOPHYS 0x80
 
 struct page *page_alloc(int type, int flags, int level);
 struct page *page_alloc_nophys(void);

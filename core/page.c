@@ -116,6 +116,15 @@ static struct page *__do_page_alloc(struct page_group *group)
 	spinlock_release_restore(&group->lock);
 	page->flags |= PAGE_ALLOCED;
 	mm_page_free -= mm_page_size(page->level) / mm_page_size(0);
+
+	if(page->addr == 0) {
+		panic("tried to alloc page addr 0 (%p; %x, %d, %d: %lx)",
+		  page,
+		  page->flags,
+		  page->level,
+		  page->type,
+		  page->page_magic);
+	}
 	// printk("  alloc %p (%lx) %x from group %s\n", page, page->addr, page->flags, group->name);
 	return page;
 }
@@ -125,6 +134,9 @@ static void __do_page_dealloc(struct page_group *group, struct page *page)
 	// printk("dealloc %p (%lx) %x to   group %s\n", page, page->addr, page->flags, group->name);
 	if(!(page->flags & PAGE_ALLOCED)) {
 		panic("tried to dealloc a non-allocated page");
+	}
+	if(page->addr == 0) {
+		panic("tried to dealloc page addr 0");
 	}
 	page->flags &= ~PAGE_ALLOCED;
 	spinlock_acquire_save(&group->lock);
@@ -179,8 +191,10 @@ void page_init_bootstrap(void)
 
 		for(size_t i = 0; i < nrpages; i++, pages++) {
 			pages->addr = mm_physical_early_alloc();
+			assert(pages->addr != 0);
 			memset(mm_ptov(pages->addr), 0, mm_page_size(0));
 			pages->level = 0;
+			pages->page_magic = PAGE_MAGIC;
 			pages->flags = PAGE_CACHE_WB | PAGE_ZERO | PAGE_ALLOCED;
 			__do_page_dealloc(&_pg_level0_critical, pages);
 			// pages->next = _stacks[0].top;
@@ -220,7 +234,11 @@ void page_init(struct memregion *region)
 		page->addr = addr;
 		page->flags = PAGE_CACHE_WB | PAGE_ALLOCED;
 		page->parent = NULL;
-		page_dealloc(page, 0);
+		page->page_magic = PAGE_MAGIC;
+		if(page->addr) {
+			/* don't make address 0 available. */
+			page_dealloc(page, 0);
+		}
 		mm_page_count += mm_page_size(level) / mm_page_size(0);
 
 		if(++i >= nrpages) {
@@ -261,6 +279,9 @@ static void page_zero(struct page *p)
 void page_dealloc(struct page *p, int flags)
 {
 	assert(p);
+	if(p->flags & PAGE_NOPHYS) {
+		panic("tried to delloc a nophys page");
+	}
 	if((flags & PAGE_ZERO) && !(p->flags & PAGE_ZERO)) {
 		page_zero(p);
 	}
@@ -310,7 +331,10 @@ static bool __do_page_split(struct page_group *group, bool simple)
 	if(!lp) {
 		if(simple)
 			return false;
-		lp = page_alloc(PM_TYPE_DRAM /* TODO */, group->flags & PAGE_ZERO, group->level + 1);
+		lp = page_alloc(PM_TYPE_DRAM /* TODO */,
+		  (group->flags & PAGE_ZERO)
+		    | ((current_thread && current_thread->page_alloc) ? PAGE_CRITICAL : 0),
+		  group->level + 1);
 	}
 	if(!lp) {
 		page_print_stats();
@@ -319,11 +343,13 @@ static bool __do_page_split(struct page_group *group, bool simple)
 	// printk("splitting page %lx (level %ld)\n", lp->addr, group->level + 1);
 	for(size_t i = 0; i < mm_page_size(group->level + 1) / mm_page_size(group->level); i++) {
 		struct page *np = arena_allocate(&page_arena, sizeof(struct page));
+		np->page_magic = PAGE_MAGIC;
 		np->type = lp->type;
 		np->flags = lp->flags;
 		np->lock = SPINLOCK_INIT;
 		np->root = RBINIT;
 		np->addr = i * mm_page_size(group->level) + lp->addr;
+		assert(np->addr);
 		np->parent = lp;
 		np->next = NULL;
 		np->level = group->level;
@@ -361,6 +387,7 @@ struct page *page_alloc(int type, int flags, int level)
 	_Atomic bool *recur_flag = per_cpu_get(page_recur_crit_flag);
 	if(current_thread) {
 		if(current_thread->page_alloc && !(flags & PAGE_CRITICAL)) {
+			page_print_stats();
 			panic("PAGE_CRITICAL must be set when faulting during page_alloc");
 		}
 		current_thread->page_alloc = true;
@@ -435,6 +462,8 @@ done:
 struct page *page_alloc_nophys(void)
 {
 	struct page *page = arena_allocate(&page_arena, sizeof(struct page));
+	page->page_magic = PAGE_MAGIC;
+	page->flags |= PAGE_NOPHYS;
 	return page;
 }
 

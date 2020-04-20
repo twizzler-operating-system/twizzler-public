@@ -92,6 +92,9 @@ struct slot *slot_alloc(void)
 {
 	spinlock_acquire_save(&slot_lock);
 	struct slot *s = slot_stack;
+	if(!s) {
+		panic("out of slots");
+	}
 	slot_stack = s->next;
 	s->next = NULL;
 	krc_init(&s->rc);

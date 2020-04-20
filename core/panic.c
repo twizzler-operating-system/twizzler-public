@@ -23,6 +23,7 @@ void __panic(const char *file, int linenr, int flags, const char *msg, ...)
 
 	if(flags & PANIC_UNWIND)
 		debug_print_backtrace();
+	page_print_stats();
 	if(current_thread) {
 		printk("in-kernel from: %s\n", current_thread->arch.was_syscall ? "syscall" : "exception");
 		printk("  NR: %ld\n",
