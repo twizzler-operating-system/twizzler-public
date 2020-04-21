@@ -58,7 +58,12 @@ void arch_processor_init(struct processor *proc);
 void arch_processor_early_init(struct processor *proc);
 void processor_init_secondaries(void);
 void processor_barrier(_Atomic unsigned int *here);
-struct processor *processor_get_current(void);
+
+/* this attribute is only valid if we assume we do not get swapped out to different processors
+ * within a single thread of execution. This is true, currently, as the only time the scheduler can
+ * run is on return from interrupt. We can restrict this further by saying "you may not change a
+ * thread's CPU unless it's returning to userspace". */
+__attribute__((const, non_null)) struct processor *processor_get_current(void);
 unsigned int arch_processor_current_id(void);
 void processor_send_ipi(int destid, int vector, void *arg, int flags);
 void arch_processor_send_ipi(int destid, int vector, int flags);

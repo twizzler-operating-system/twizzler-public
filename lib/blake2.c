@@ -14,9 +14,9 @@
 #include <stdint.h>
 #include <string.h>
 
-#define BLAKE2_INLINE inline
+#define BLAKE2_INLINE inline __noinstrument
 
-__attribute__((unused)) static BLAKE2_INLINE uint32_t load32(const void *src)
+__noinstrument __attribute__((unused)) static BLAKE2_INLINE uint32_t load32(const void *src)
 {
 #if defined(NATIVE_LITTLE_ENDIAN)
 	uint32_t w;
@@ -29,7 +29,7 @@ __attribute__((unused)) static BLAKE2_INLINE uint32_t load32(const void *src)
 #endif
 }
 
-__attribute__((unused)) static BLAKE2_INLINE uint64_t load64(const void *src)
+__noinstrument __attribute__((unused)) static BLAKE2_INLINE uint64_t load64(const void *src)
 {
 #if defined(NATIVE_LITTLE_ENDIAN)
 	uint64_t w;
@@ -43,7 +43,7 @@ __attribute__((unused)) static BLAKE2_INLINE uint64_t load64(const void *src)
 #endif
 }
 
-__attribute__((unused)) static BLAKE2_INLINE uint16_t load16(const void *src)
+__noinstrument __attribute__((unused)) static BLAKE2_INLINE uint16_t load16(const void *src)
 {
 #if defined(NATIVE_LITTLE_ENDIAN)
 	uint16_t w;
@@ -55,7 +55,7 @@ __attribute__((unused)) static BLAKE2_INLINE uint16_t load16(const void *src)
 #endif
 }
 
-__attribute__((unused)) static BLAKE2_INLINE void store16(void *dst, uint16_t w)
+__noinstrument __attribute__((unused)) static BLAKE2_INLINE void store16(void *dst, uint16_t w)
 {
 #if defined(NATIVE_LITTLE_ENDIAN)
 	memcpy(dst, &w, sizeof w);
@@ -67,7 +67,7 @@ __attribute__((unused)) static BLAKE2_INLINE void store16(void *dst, uint16_t w)
 #endif
 }
 
-__attribute__((unused)) static BLAKE2_INLINE void store32(void *dst, uint32_t w)
+__noinstrument __attribute__((unused)) static BLAKE2_INLINE void store32(void *dst, uint32_t w)
 {
 #if defined(NATIVE_LITTLE_ENDIAN)
 	memcpy(dst, &w, sizeof w);
@@ -80,7 +80,7 @@ __attribute__((unused)) static BLAKE2_INLINE void store32(void *dst, uint32_t w)
 #endif
 }
 
-__attribute__((unused)) static BLAKE2_INLINE void store64(void *dst, uint64_t w)
+__noinstrument __attribute__((unused)) static BLAKE2_INLINE void store64(void *dst, uint64_t w)
 {
 #if defined(NATIVE_LITTLE_ENDIAN)
 	memcpy(dst, &w, sizeof w);
@@ -97,14 +97,14 @@ __attribute__((unused)) static BLAKE2_INLINE void store64(void *dst, uint64_t w)
 #endif
 }
 
-__attribute__((unused)) static BLAKE2_INLINE uint64_t load48(const void *src)
+__noinstrument __attribute__((unused)) static BLAKE2_INLINE uint64_t load48(const void *src)
 {
 	const uint8_t *p = (const uint8_t *)src;
 	return ((uint64_t)(p[0]) << 0) | ((uint64_t)(p[1]) << 8) | ((uint64_t)(p[2]) << 16)
 	       | ((uint64_t)(p[3]) << 24) | ((uint64_t)(p[4]) << 32) | ((uint64_t)(p[5]) << 40);
 }
 
-__attribute__((unused)) static BLAKE2_INLINE void store48(void *dst, uint64_t w)
+__noinstrument __attribute__((unused)) static BLAKE2_INLINE void store48(void *dst, uint64_t w)
 {
 	uint8_t *p = (uint8_t *)dst;
 	p[0] = (uint8_t)(w >> 0);
@@ -115,18 +115,20 @@ __attribute__((unused)) static BLAKE2_INLINE void store48(void *dst, uint64_t w)
 	p[5] = (uint8_t)(w >> 40);
 }
 
-__attribute__((unused)) static BLAKE2_INLINE uint32_t rotr32(const uint32_t w, const unsigned c)
+__noinstrument __attribute__((unused)) static BLAKE2_INLINE uint32_t rotr32(const uint32_t w,
+  const unsigned c)
 {
 	return (w >> c) | (w << (32 - c));
 }
 
-__attribute__((unused)) static BLAKE2_INLINE uint64_t rotr64(const uint64_t w, const unsigned c)
+__noinstrument __attribute__((unused)) static BLAKE2_INLINE uint64_t rotr64(const uint64_t w,
+  const unsigned c)
 {
 	return (w >> c) | (w << (64 - c));
 }
 
 /* prevents compiler optimizing out memset() */
-static BLAKE2_INLINE void secure_zero_memory(void *v, size_t n)
+__noinstrument static BLAKE2_INLINE void secure_zero_memory(void *v, size_t n)
 {
 	static void *(*const volatile memset_v)(void *, int, size_t) = &memset;
 	memset_v(v, 0, n);
@@ -156,18 +158,18 @@ static const uint8_t blake2b_sigma[12][16] = {
 	{ 14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3 }
 };
 
-static void blake2b_set_lastnode(blake2b_state *S)
+__noinstrument static void blake2b_set_lastnode(blake2b_state *S)
 {
 	S->f[1] = (uint64_t)-1;
 }
 
 /* Some helper functions, not necessarily useful */
-static int blake2b_is_lastblock(const blake2b_state *S)
+__noinstrument static int blake2b_is_lastblock(const blake2b_state *S)
 {
 	return S->f[0] != 0;
 }
 
-static void blake2b_set_lastblock(blake2b_state *S)
+__noinstrument static void blake2b_set_lastblock(blake2b_state *S)
 {
 	if(S->last_node)
 		blake2b_set_lastnode(S);
@@ -175,13 +177,13 @@ static void blake2b_set_lastblock(blake2b_state *S)
 	S->f[0] = (uint64_t)-1;
 }
 
-static void blake2b_increment_counter(blake2b_state *S, const uint64_t inc)
+__noinstrument static void blake2b_increment_counter(blake2b_state *S, const uint64_t inc)
 {
 	S->t[0] += inc;
 	S->t[1] += (S->t[0] < inc);
 }
 
-static void blake2b_init0(blake2b_state *S)
+__noinstrument static void blake2b_init0(blake2b_state *S)
 {
 	size_t i;
 	memset(S, 0, sizeof(blake2b_state));
@@ -288,7 +290,8 @@ int blake2b_init_key(blake2b_state *S, size_t outlen, const void *key, size_t ke
 		G(r, 7, v[3], v[4], v[9], v[14]);                                                          \
 	} while(0)
 
-static void blake2b_compress(blake2b_state *S, const uint8_t block[BLAKE2B_BLOCKBYTES])
+__noinstrument static void blake2b_compress(blake2b_state *S,
+  const uint8_t block[BLAKE2B_BLOCKBYTES])
 {
 	uint64_t m[16];
 	uint64_t v[16];

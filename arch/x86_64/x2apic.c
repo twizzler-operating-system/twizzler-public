@@ -47,21 +47,21 @@
 #define LAPIC_TCCR 0x839
 #define LAPIC_TDCR 0x83E
 
-static inline void x2apic_write(uint32_t reg, uint64_t data)
+__noinstrument static inline void x2apic_write(uint32_t reg, uint64_t data)
 {
 	uint32_t lo = (uint32_t)data;
 	uint32_t hi = (uint32_t)(data >> 32);
 	x86_64_wrmsr(reg, lo, hi);
 }
 
-static inline uint64_t x2apic_read(uint32_t reg)
+__noinstrument static inline uint64_t x2apic_read(uint32_t reg)
 {
 	uint32_t lo, hi;
 	x86_64_rdmsr(reg, &lo, &hi);
 	return ((uint64_t)hi << 32) | (uint64_t)lo;
 }
 
-void x86_64_signal_eoi(void)
+__noinstrument void x86_64_signal_eoi(void)
 {
 	x2apic_write(LAPIC_EOI, 0x0);
 }
@@ -73,13 +73,13 @@ __noinstrument unsigned int arch_processor_current_id(void)
 	return x2apic_read(LAPIC_ID);
 }
 
-static void _apic_set_counter(struct clksrc *c __unused, uint64_t val, bool per)
+__noinstrument static void _apic_set_counter(struct clksrc *c __unused, uint64_t val, bool per)
 {
 	x2apic_write(LAPIC_LVTT, 32 | (per ? (1 << 17) : 0));
 	x2apic_write(LAPIC_TICR, val);
 }
 
-static uint64_t _apic_read_counter(struct clksrc *c __unused)
+__noinstrument static uint64_t _apic_read_counter(struct clksrc *c __unused)
 {
 	return x2apic_read(LAPIC_TCCR);
 }
@@ -91,7 +91,7 @@ __noinstrument static uint64_t _tsc_read_counter(struct clksrc *c __unused)
 	return (uint64_t)eax | (uint64_t)edx << 32;
 }
 
-static inline uint64_t rdtsc(void)
+__noinstrument static inline uint64_t rdtsc(void)
 {
 	uint32_t eax, edx;
 	asm volatile("rdtscp" : "=a"(eax), "=d"(edx)::"rcx");

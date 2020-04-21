@@ -45,14 +45,14 @@ static const char *vm_errs[] = { "Success",
 	"[reserved]",
 	"invalid operand to INVEPT/INVVPID" };
 
-static inline unsigned long vmcs_readl(unsigned long field)
+__noinstrument static inline unsigned long vmcs_readl(unsigned long field)
 {
 	unsigned long val;
 	asm volatile("vmread %%rdx, %%rax" : "=a"(val) : "d"(field) : "cc");
 	return val;
 }
 
-static inline const char *vmcs_read_vminstr_err(void)
+__noinstrument static inline const char *vmcs_read_vminstr_err(void)
 {
 	uint32_t err = vmcs_readl(VMCS_VM_INSTRUCTION_ERROR);
 	if(err >= array_len(vm_errs)) {
@@ -61,7 +61,7 @@ static inline const char *vmcs_read_vminstr_err(void)
 	return vm_errs[err];
 }
 
-static inline void vmcs_writel(unsigned long field, unsigned long val)
+__noinstrument static inline void vmcs_writel(unsigned long field, unsigned long val)
 {
 	uint8_t err;
 	asm volatile("vmwrite %%rax, %%rdx; setna %0" : "=q"(err) : "a"(val), "d"(field) : "cc");
@@ -70,7 +70,9 @@ static inline void vmcs_writel(unsigned long field, unsigned long val)
 	}
 }
 
-static inline void vmcs_write32_fixed(uint32_t msr, uint32_t vmcs_field, uint32_t val)
+__noinstrument static inline void vmcs_write32_fixed(uint32_t msr,
+  uint32_t vmcs_field,
+  uint32_t val)
 {
 	uint32_t msr_high, msr_low;
 
@@ -155,7 +157,7 @@ __attribute__((used)) static void x86_64_vmentry_failed(struct processor *proc)
 	panic("vmentry failed on processor %d: %s\n", proc->id, vmcs_read_vminstr_err());
 }
 
-static void vmx_queue_exception(unsigned int nr)
+__noinstrument static void vmx_queue_exception(unsigned int nr)
 {
 	vmcs_writel(
 	  VMCS_ENTRY_INTR_INFO, (nr & 0xff) | INTR_TYPE_HARD_EXCEPTION | INTR_INFO_VALID_MASK);
@@ -165,7 +167,7 @@ static void vmx_queue_exception(unsigned int nr)
  * so we must advance by the instruction length or else that instruction
  * will just be re-executed. But we don't always want to do this (eg if we
  * exit due to ept violation) */
-static void vm_instruction_advance(void)
+__noinstrument static void vm_instruction_advance(void)
 {
 	unsigned len = vmcs_readl(VMCS_VM_INSTRUCTION_LENGTH);
 	uint64_t grip = vmcs_readl(VMCS_GUEST_RIP);
@@ -229,7 +231,7 @@ static void vmx_handle_ept_violation(struct processor *proc)
 }
 
 extern uint64_t clksrc_get_interrupt_countdown();
-__attribute__((used)) static void x86_64_vmexit_handler(struct processor *proc)
+__noinstrument __attribute__((used)) static void x86_64_vmexit_handler(struct processor *proc)
 {
 	/* so, in theory we now have a valid pointer to a vstate struct, and a stack
 	 * to work in (see assembly code for vmexit point below).  */

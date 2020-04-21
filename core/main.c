@@ -371,6 +371,9 @@ void kernel_main(struct processor *proc)
 			printk("K %d: %lld\n", proc->id, b - a);
 		}
 	}
+#if CONFIG_INSTRUMENT
+	kernel_instrument_start();
+#endif
 #if 0
 	printk("processor %d (%s) reached resume state %p\n",
 	  proc->id,
