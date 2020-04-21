@@ -134,7 +134,7 @@ $(BUILDDIR)/us/objroot/__ns: $(shell find $(BUILDDIR)/us/sysroot) $(SYSROOT_FILE
 	@rm -rf $(BUILDDIR)/us/sysroot/usr/share/terminfo
 	@mkdir -p $(BUILDDIR)/us/sysroot/usr/share/terminfo/l
 	@mv $(BUILDDIR)/us/sysroot/linux $(BUILDDIR)/us/sysroot/usr/share/terminfo/l/linux
-	@rm -r $(BUILDDIR)/us/objroot
+	@-rm -r $(BUILDDIR)/us/objroot
 	@mkdir -p $(BUILDDIR)/us/objroot
 	@export PROJECT=$(PROJECT) && ./us/gen_root.sh | ./us/gen_root.py projects/x86_64/build/us/objroot/ | ./us/append_ns.sh >/dev/null
 
