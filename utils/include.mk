@@ -58,3 +58,7 @@ $(BUILDDIR)/utils/hier: utils/hier.c
 UTILS=$(addprefix $(BUILDDIR)/utils/,objstat file2obj elfsplit bsv appendobj sctx mkcap mkdlg makekey mkuser hier)
 
 -include $(addsuffix .d,$(UTILS))
+
+allutils: $(UTILS)
+
+.PHONY: allutils
