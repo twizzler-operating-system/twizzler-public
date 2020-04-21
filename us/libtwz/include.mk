@@ -16,9 +16,12 @@ $(BUILDDIR)/us/libtwz/libtwz.a: $(LIBTWZ_OBJ)
 	@if [ -f $$($(TWZCC) -print-file-name=libubsan.a) ]; then \
 		echo "[ARx]     libubsan.a";\
 		cd $(dir $@)/tmp && ar x $$($(TWZCC) -print-file-name=libubsan.a);\
+		echo "[AR]      $@";\
+		ar rcs $(BUILDDIR)/us/libtwz/libtwz.a $(LIBTWZ_OBJ) $(BUILDDIR)/us/libtwz/tmp/*.o;\
+	else\
+		echo "[AR]      $@";\
+		ar rcs $(BUILDDIR)/us/libtwz/libtwz.a $(LIBTWZ_OBJ);\
 	fi
-	@echo "[AR]      $@"
-	@ar rcs $(BUILDDIR)/us/libtwz/libtwz.a $(LIBTWZ_OBJ) $(BUILDDIR)/us/libtwz/tmp/*.o
 
 $(BUILDDIR)/us/libtwz/libtwz.so: $(LIBTWZ_OBJ) $(BUILDDIR)/us/twix/libtwix.a
 	@mkdir -p $(dir $@)

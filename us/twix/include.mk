@@ -7,10 +7,16 @@ $(BUILDDIR)/us/twix/libtwix.a: $(TWIX_OBJ)
 	@echo "[AR]      $@"
 	#@ar rcs $(BUILDDIR)/us/twix/libtwix.a $(TWIX_OBJ)
 	@mkdir -p $(dir $@)/tmp
-	@echo "[ARx]     libubsan.a"
-	@cd $(dir $@)/tmp && ar x $$($(TWZCC) -print-file-name=libubsan.a)
-	@echo "[AR]      $@"
-	@ar rcs $(BUILDDIR)/us/twix/libtwix.a $(TWIX_OBJ) $(BUILDDIR)/us/twix/tmp/*.o
+	@if [ -f $$($(TWZCC) -print-file-name=libubsan.a) ]; then \
+		echo "[ARx]     libubsan.a";\
+		cd $(dir $@)/tmp && ar x $$($(TWZCC) -print-file-name=libubsan.a);\
+		echo "[AR]      $@";\
+		ar rcs $(BUILDDIR)/us/twix/libtwix.a $(TWIX_OBJ) $(BUILDDIR)/us/twix/tmp/*.o;\
+	else\
+		echo "[AR]      $@";\
+		ar rcs $(BUILDDIR)/us/twix/libtwix.a $(TWIX_OBJ);\
+	fi
+
 
 $(BUILDDIR)/us/twix/libtwix.so: $(TWIX_OBJ)
 	@echo "[LD]      $@"
