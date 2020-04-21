@@ -41,3 +41,6 @@ cd build-gcc-hosted
 
 make all-target-libstdc++-v3
 make install-target-libstdc++-v3
+
+make all-target-libsanitizer
+make install-target-libsanitizer
