@@ -1,4 +1,4 @@
-CONFIG_DEBUG=y
+CONFIG_DEBUG=n
 CONFIG_WERROR=n
 CONFIG_OPTIMIZE=3
 
@@ -15,11 +15,14 @@ CONFIG_SERIAL_DEBUG_STOPBITS=1
 CONFIG_SERIAL_DEBUG_WORDSZ=8
 CONFIG_SERIAL_DEBUG_ENABLE=y
 
+CONFIG_DEBUG_OBJECT_LIFE=n
+
 CONFIG_PRINT_SYSCALLS=n
 CONFIG_DEBUG_LOCKS=n
 
 # set this to your toolchain path
-TOOLCHAIN_PATH=#/home/dbittman/code/twizzler-kernel/.tc
+TOOLCHAIN_PATH=
+#/home/dbittman/code/twizzler-kernel/.tc
 
 QEMU_FLAGS+="-enable-kvm"
 

@@ -5,10 +5,14 @@ This is an operating system kernel and userspace. Thus the build system is fairl
 strap yourself in :)
 
 Requirements: Linux, with some reasonable build environment (gcc, make, curl, etc). A reasonably
-modern x86_64 Intel system.
+modern x86_64 Intel system. Installed developement versions (includes headers and libraries) for
+libtommath and libtomcrypt. Python 3 as the default 'python' on your system.
 
 Note for Ubuntu users: Ubuntu uses dash as its shell by default. I have not tested the build system
 on Ubuntu.
+
+*If you don't have a suitable machine or don't want to set one up, ask me (Daniel) and I may be able
+to give you an account on one of mine that is know to work.*
 
 A Quick Tour
 ------------
@@ -22,8 +26,7 @@ The following components will be build:
    toolchains: the unhosted toolchain (used to build the kernel) and the hosted toolchain (which is
    used to build Twizzler userspace code).
  * The kernel: the Twizzler kernel contains code found in the arch, core, include, lib, machine, and
-   third-party subdirectories. Note that code in third-party is also built for other purposes (like
-   the utilities).
+   third-party subdirectories.
  * The utilities: Found in utils/, these programs are used to bootstrap a Twizzler environment. They
    largely consist of programs designed to turn unix concepts (like a file) into Twizzler concepts
    (like objects).
@@ -65,45 +68,61 @@ installed to before the initrd is created.
 Finally, once built, the system can be tested with Qemu with the 'test' target for make. You may
 need to specify the nested option for the kvm_intel module.
 
-Building The Toolchains
------------------------
+Building Twizzer the First Time
+-------------------------------
 
-PROJECT=x86_64 make prep
+1) PROJECT=x86_64 make prep
 
 This will first ask a couple questions to get you started (largely just acking that this can take
 some time). It will then compile binutils and gcc for the unhosted toolchain. Once this is done, it
 will bootstrap musl (this means, basically, copying the header-files into the sysroot for the hosted
 C compiler to look at) and then start building the hosted toolchain. The hosted toolchain also needs
-to build additional libraries, like libsanitizer and libstdc++.
+to build additional libraries, like libsanitizer and libstdc++. For these, the system also needs the
+core libraries to be built as well (for some reason...), so this make step will also built temporary
+versions of libtwz and twix.
+
+This step will take a long time.
+
+2) PROJECT=x86_64 make allutils
+
+This step will build the utilities that are needed to build the rest of the userspace.
+
+3) PROJECT=x86_64 ./us/ports/port.sh libbacktrace
+4) PROJECT=x86_64 ./us/ports/port.sh ncurses
+5) PROJECT=x86_64 ./us/ports/port.sh bash
+6) PROJECT=x86_64 ./us/ports/port.sh busybox
+
+These steps will port the specified programs to Twizzler, compile them, and install them into the
+sysroot. The order matters (bash depends on ncurses, for example).
+
+7) PROJECT=x86_64 make all
+
+This build step will build the all target, which builds the kernel and the root.tar initrd file.
+This will also compile the software under third-party/, which is somewhat time consuming.
+
+8) PROJECT=x86_64 make bootiso
+
+That's it! It's all built! You can now try to boot that ISO image on a machine. If you want to test
+on QEMU, you can also run:
+
+9) PROJECT=x86_64 QEMU_FLAGS='-smp 4' make test
+
+This will give Twizzler 4 CPUs to play with. Don't give it more CPUs than you actually have.
 
 
+Building Twizzler Again
+-----------------------
 
+Most of the steps above can be skipped on repeat builds. For internal software, the Make system will
+track dependencies fairly well. To rebuild Twizzler, typically one would run:
 
-BUILDING
-========
-The build system is make-based, and is relatively straight-forward. You must have a copy of
-the appropriate toolchain for the target system (such as x86_64-pc-elf-, or riscv-unknown-elf-,
-etc). See below.
+PROJECT=x86_64 make all
 
-Building is based around projects. These are self-contained configurations and builds that the
-build system uses to make decisions. Existing projects are in projects/, and there are several
-pre-configured ones. If you wish, you may add your own. Each project contains, when clean, just
-a config.mk file specifying all of the configuration for that project.
+The 'test' target automatically builds the bootiso target.
 
-When you execute make to build the kernel, you must specify a project to use in the PROJECT
-variable, like so: `make PROJECT=riscv`. A project can be tested via the 'test' target like so:
-`make PROJECT=riscv test`.
+Note that external software (the stuff ported via the ports system) won't be recompiled! This is
+potentially a problem because Twizzler uses static linking (for now), so updates to the userspace
+libraries won't carry into already-compiled software. You probably don't need to re-port everything
+all the time, but if (e.g.) bash stops working after an update, give an ol' recompile and see if
+that fixes it.
 
-Toolchains
-----------
-The toolchain for the target system must be built in order to compile the kernel and userspace
-programs. Fortunately, I have provided a _totally tested_ script to build them:
-
-TARGET=x86_64-pc-elf PREFIX=/opt/toolchains/twz-x86_64 ./tools/toolchain.sh
-
-Once you have a particular toolchain extracted to say, /opt/toolchains/riscv64, you will need to
-update the project file to include that path. For the project that needs the toolchain, say
-for the above example, projects/riscv, edit projects/<projectname>/config.mk and set the TOOLCHAIN_PATH
-variable to point to where you extracted the toolchain (/opt/toolchains/riscv64 in the above example).
-These config.mk files are set to not be tracked in git, so changes you make are entirely local to
-your setup.
