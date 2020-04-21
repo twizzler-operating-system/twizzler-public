@@ -11,10 +11,12 @@ HASHES=()
 SPLITS=(usr/bin/sqlite3-static)
 
 function prepare() {
-	#git clone https://gitlab.soe.ucsc.edu/gitlab/crss/twz-sqlite
-	#cd twz-sqlite
-	#git checkout twz
-	#cd ..
+	if [ ! -d twz-sqlite ]; then
+		git clone https://gitlab.soe.ucsc.edu/gitlab/crss/twz-sqlite
+		cd twz-sqlite
+		git checkout twz
+		cd ..
+	fi
 	cp -rf ../../../../../../us/ports/twz-sqlite .
 	cd twz-sqlite
 	./configure --prefix=/usr --host=$TARGET --disable-readline --disable-tcl --enable-releasemode
