@@ -16,6 +16,7 @@ __attribute__((noreturn)) void libtwz_panic(const char *s, ...)
 	abort();
 }
 
+#if __has_include(<backtrace.h>)
 #include <backtrace-supported.h>
 #include <backtrace.h>
 
@@ -109,3 +110,17 @@ __attribute__((noinline)) void libtwz_do_backtrace(void)
 		  "-Wl,--no-whole-archive' on the linker command line.\n");
 	}
 }
+
+#else
+
+__attribute__((noinline)) void libtwz_do_backtrace(void)
+{
+	if(disable_backtrace)
+		return;
+	fprintf(stderr,
+	  "BACKTRACE NOT AVAILABLE -- this libtwz was compiled without backtrace.h in sysroot. If you "
+	  "want backtraces, please port libbacktrace (through the ports system) and then recompile "
+	  "libtwz.\n");
+}
+
+#endif

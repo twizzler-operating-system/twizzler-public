@@ -48,12 +48,35 @@ a project is found under projects/<projname>/config.mk, and the build directory 
 $BUILDDIR) is project/<projname>/build. To select a project when building, specify the PROJECT environment
 variable to make (PROJECT=x86_64 make all).
 
+One departure from the use of $BUILDDIR is the toolchain location. The default is to put the
+toolchain in .tc. This location is part of the reason that we need to have PROJECT=<projname> when
+starting the build system -- the project config will specify the location of the toolchain binaries
+that are used during building.
+
 The primary artifacts that are built are the kernel image ($BUILDDIR/kernel), the initrd
 $BUILDDIR/us/root.tar, and the boot ISO ($BUILDDIR/boot.iso). The boot ISO contains both the other
 files along with a grub bootloader that loads the kernel and the initrd.
 
+A significant artifact that is used throughout the userspace build process is the "sysroot". This is
+a directory that is supposed to be the "root filesystem" of the target OS (Twizzler). It is located
+in $BUILDDIR/us/sysroot. This will be where the ported programs, twzutils, libraries, etc are
+installed to before the initrd is created.
+
 Finally, once built, the system can be tested with Qemu with the 'test' target for make. You may
 need to specify the nested option for the kvm_intel module.
+
+Building The Toolchains
+-----------------------
+
+PROJECT=x86_64 make prep
+
+This will first ask a couple questions to get you started (largely just acking that this can take
+some time). It will then compile binutils and gcc for the unhosted toolchain. Once this is done, it
+will bootstrap musl (this means, basically, copying the header-files into the sysroot for the hosted
+C compiler to look at) and then start building the hosted toolchain. The hosted toolchain also needs
+to build additional libraries, like libsanitizer and libstdc++.
+
+
 
 
 BUILDING
