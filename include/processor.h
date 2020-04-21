@@ -63,7 +63,7 @@ void processor_barrier(_Atomic unsigned int *here);
  * within a single thread of execution. This is true, currently, as the only time the scheduler can
  * run is on return from interrupt. We can restrict this further by saying "you may not change a
  * thread's CPU unless it's returning to userspace". */
-__attribute__((const, non_null)) struct processor *processor_get_current(void);
+__attribute__((const)) struct processor *processor_get_current(void);
 unsigned int arch_processor_current_id(void);
 void processor_send_ipi(int destid, int vector, void *arg, int flags);
 void arch_processor_send_ipi(int destid, int vector, int flags);

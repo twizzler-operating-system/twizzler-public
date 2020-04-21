@@ -1,3 +1,61 @@
+So you want to build Twizzler
+=============================
+
+This is an operating system kernel and userspace. Thus the build system is fairly complicated, so
+strap yourself in :)
+
+Requirements: Linux, with some reasonable build environment (gcc, make, curl, etc). A reasonably
+modern x86_64 Intel system.
+
+Note for Ubuntu users: Ubuntu uses dash as its shell by default. I have not tested the build system
+on Ubuntu.
+
+A Quick Tour
+------------
+This repo contains code to build the Twizzler kernel and basic userspace. It also contains a porting
+system that will automatically compile some third-party software (bash, sqlite, busybox, etc).
+
+The following components will be build:
+ * The toolchain: a toolchain is a compiler and linker (and related tools) that are used to build
+   the source. Because we're compiling code for Twizzler, we need a special cross-compiler toolchain
+   to build our code. The patches needed for gcc and binutils are in tools/. We actually build two
+   toolchains: the unhosted toolchain (used to build the kernel) and the hosted toolchain (which is
+   used to build Twizzler userspace code).
+ * The kernel: the Twizzler kernel contains code found in the arch, core, include, lib, machine, and
+   third-party subdirectories. Note that code in third-party is also built for other purposes (like
+   the utilities).
+ * The utilities: Found in utils/, these programs are used to bootstrap a Twizzler environment. They
+   largely consist of programs designed to turn unix concepts (like a file) into Twizzler concepts
+   (like objects).
+ * The userspace (under us/)
+   * musl: This is a C library designed for Linux. Twizzler presents a system-call-level compatible
+     Linux interface for POSIX programs (see Twix, below).
+   * libtwz: The standard Twizzler library. Contains the libos, default fault handing logic, and
+	 functions to work with Twizzler concepts.
+   * twix: emulation for unix (presents a Linux syscall interface).
+   * twzutils: a collection of Twizzler utilities (login, init, etc). Also contains drivers and gate
+	 programs.
+   * ports (under us/ports): a set of scripts that are used to auto-port third-party software.
+
+The three "core" userspace libraries (libtwz, twix, and musl) are typically all linked into a given
+C program automatically if you use the hosted toolchain (x86_64-pc-twizzler-musl-gcc). If you _also_
+link in libbacktrace (requires -Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive), then
+libtwz will print pretty backtraces on faults.
+
+Code is built out-of-tree as part of a "project". A project is a configuration for the build system
+that specifies CONFIG_* variables and provides a location for built artifacts. The configuration of
+a project is found under projects/<projname>/config.mk, and the build directory (henceforth
+$BUILDDIR) is project/<projname>/build. To select a project when building, specify the PROJECT environment
+variable to make (PROJECT=x86_64 make all).
+
+The primary artifacts that are built are the kernel image ($BUILDDIR/kernel), the initrd
+$BUILDDIR/us/root.tar, and the boot ISO ($BUILDDIR/boot.iso). The boot ISO contains both the other
+files along with a grub bootloader that loads the kernel and the initrd.
+
+Finally, once built, the system can be tested with Qemu with the 'test' target for make. You may
+need to specify the nested option for the kvm_intel module.
+
+
 BUILDING
 ========
 The build system is make-based, and is relatively straight-forward. You must have a copy of
