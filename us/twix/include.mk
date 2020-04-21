@@ -9,7 +9,8 @@ $(BUILDDIR)/us/twix/libtwix.a: $(TWIX_OBJ)
 	@mkdir -p $(dir $@)/tmp
 	@if [ -f $$($(TWZCC) -print-file-name=libubsan.a) ]; then \
 		echo "[ARx]     libubsan.a";\
-		cd $(dir $@)/tmp && ar x $$($(TWZCC) -print-file-name=libubsan.a);\
+		(cd $(dir $@)/tmp;\
+		ar x $$($(TWZCC) -print-file-name=libubsan.a););\
 		echo "[AR]      $@";\
 		ar rcs $(BUILDDIR)/us/twix/libtwix.a $(TWIX_OBJ) $(BUILDDIR)/us/twix/tmp/*.o;\
 	else\

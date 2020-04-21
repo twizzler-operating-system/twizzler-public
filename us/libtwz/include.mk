@@ -11,11 +11,11 @@ $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_HDRS)
 
 $(BUILDDIR)/us/libtwz/libtwz.a: $(LIBTWZ_OBJ)
 	@mkdir -p $(dir $@)
-	#@ar rcs $(BUILDDIR)/us/libtwz/libtwz.a $(LIBTWZ_OBJ)
 	@mkdir -p $(dir $@)/tmp
 	@if [ -f $$($(TWZCC) -print-file-name=libubsan.a) ]; then \
 		echo "[ARx]     libubsan.a";\
-		cd $(dir $@)/tmp && ar x $$($(TWZCC) -print-file-name=libubsan.a);\
+		(cd $(dir $@)/tmp;\
+		ar x $$($(TWZCC) -print-file-name=libubsan.a););\
 		echo "[AR]      $@";\
 		ar rcs $(BUILDDIR)/us/libtwz/libtwz.a $(LIBTWZ_OBJ) $(BUILDDIR)/us/libtwz/tmp/*.o;\
 	else\
