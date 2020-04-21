@@ -2,7 +2,9 @@ LIBTWZ_SRC=$(addprefix us/libtwz/,object.c fault.c thread.c view.c name.c oa.c b
 
 LIBTWZ_OBJ=$(addprefix $(BUILDDIR)/,$(LIBTWZ_SRC:.c=.o))
 
+ifeq (,$(wildcard $(shell $(TWZCC) -print-file-name=libubsan.a)))
 LIBTWZCFLAGS=-fsanitize=undefined
+endif
 
 $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)

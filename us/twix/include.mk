@@ -1,7 +1,9 @@
 TWIX_SRC=$(addprefix us/twix/,syscall.c rw.c fd.c linux.c file.c thread.c access.c process.c time.c dir.c)
 TWIX_OBJ=$(addprefix $(BUILDDIR)/,$(TWIX_SRC:.c=.o))
 
+ifeq (,$(wildcard $(shell $(TWZCC) -print-file-name=libubsan.a)))
 TWIXCFLAGS=-fsanitize=undefined -g
+endif
 
 $(BUILDDIR)/us/twix/libtwix.a: $(TWIX_OBJ)
 	@echo "[AR]      $@"
