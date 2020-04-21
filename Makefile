@@ -68,7 +68,7 @@ TWZUTILSDIR=twizzler-utils
 .twizzlerutils:
 	@$(MAKE) -s -C $(TWZUTILSDIR)
 
-all: $(BUILDDIR)/kernel
+all: $(BUILDDIR)/kernel $(BUILDDIR)/us/root.tar
 
 include arch/$(ARCH)/include.mk
 include machine/$(MACHINE)/include.mk
