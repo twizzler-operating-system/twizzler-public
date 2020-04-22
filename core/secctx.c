@@ -23,11 +23,13 @@ static void _sc_dtor(void *_x __unused, void *ptr)
 
 DECLARE_SLABCACHE(sc_sc, sizeof(struct sctx), _sc_ctor, _sc_dtor, NULL);
 
-struct sctx *secctx_alloc(objid_t repr)
+struct sctx *secctx_alloc(struct object *obj)
 {
 	struct sctx *s = slabcache_alloc(&sc_sc);
 	krc_init(&s->refs);
-	s->repr = repr;
+	if(obj)
+		krc_get(&obj->refs);
+	s->obj = obj;
 	s->superuser = false;
 	return s;
 }
@@ -40,6 +42,10 @@ void secctx_free(struct sctx *s)
 static void __secctx_krc_put(void *_sc)
 {
 	struct sctx *sc = _sc;
+	if(sc->obj) {
+		obj_put(sc->obj);
+		sc->obj = NULL;
+	}
 	(void)sc;
 	/* TODO */
 }
@@ -157,9 +163,9 @@ static bool __verify_region(void *item,
 			/* TODO */
 			ret = true;
 
-			dsa_free(&dk);
-			goto done;
-			return true;
+			//		dsa_free(&dk);
+			//		goto done;
+			//		return true;
 
 			int stat = 0;
 			if((e = dsa_verify_hash((unsigned char *)sig, slen, hash, hashlen, &stat, &dk))
@@ -415,43 +421,33 @@ int secctx_check_permissions(struct thread *t, uintptr_t ip, struct object *to, 
 		return 0;
 	}
 
-	if(t->active_sc->repr == 0) {
+	if(t->active_sc->obj == NULL) {
 		return -EACCES;
 	}
 
-	struct object *obj;
+	struct object *obj = t->active_sc->obj;
 	uint32_t p;
-	obj = obj_lookup(t->active_sc->repr, OBJ_LOOKUP_HIDDEN);
-	if(!obj) {
-		panic("no repr " IDFMT, IDPR(t->active_sc->repr));
-	}
 	EPRINTK("  - trying active context (" IDFMT ")\n", IDPR(obj->id));
 	__lookup_perms(obj, to->id, 0, &p, NULL);
 	EPRINTK("    - p = %x (%lx): %s\n", p, flags, (p & flags) == flags ? "ok" : "FAIL");
 	if((p & flags) == flags) {
 		spinlock_release_restore(&t->sc_lock);
-		obj_put(obj);
 		return 0;
 	}
-	obj_put(obj);
 
 	for(int i = 0; i < MAX_SC; i++) {
 		if(!t->attached_scs[i] || t->attached_scs[i] == t->active_sc)
 			continue;
-		obj = obj_lookup(t->attached_scs[i]->repr, OBJ_LOOKUP_HIDDEN);
-		if(!obj) {
-			panic("no repr " IDFMT, IDPR(t->attached_scs[i]->repr));
-		}
+		obj = t->attached_scs[i]->obj;
+		assert(obj);
 		EPRINTK("  - trying " IDFMT "\n", IDPR(obj->id));
 		/* also check ip */
 		objid_t id;
 		if(!vm_vaddr_lookup((void *)ip, &id, NULL)) {
-			obj_put(obj);
 			continue;
 		}
 		struct object *eo = obj_lookup(id, OBJ_LOOKUP_HIDDEN);
 		if(!eo) {
-			obj_put(obj);
 			continue;
 		}
 		uint32_t ep;
@@ -459,7 +455,6 @@ int secctx_check_permissions(struct thread *t, uintptr_t ip, struct object *to, 
 		EPRINTK("    - ep: %s\n", (ep & SCP_EXEC) ? "ok" : "FAIL");
 		obj_put(eo);
 		if(!(ep & SCP_EXEC)) {
-			obj_put(obj);
 			continue;
 		}
 
@@ -470,13 +465,26 @@ int secctx_check_permissions(struct thread *t, uintptr_t ip, struct object *to, 
 			spinlock_release_restore(&t->sc_lock);
 			if(t == current_thread)
 				secctx_switch(i);
-			obj_put(obj);
 			return 0;
 		}
-		obj_put(obj);
 	}
 	spinlock_release_restore(&t->sc_lock);
 	return -EACCES;
+}
+
+static uint64_t __conv_scp_to_objperm(uint32_t p)
+{
+	uint64_t perms = 0;
+	if(p & SCP_READ) {
+		perms |= OBJSPACE_READ;
+	}
+	if(p & SCP_WRITE) {
+		perms |= OBJSPACE_WRITE;
+	}
+	if(p & SCP_EXEC) {
+		perms |= OBJSPACE_EXEC_U;
+	}
+	return perms;
 }
 
 int secctx_fault_resolve(struct thread *t,
@@ -514,38 +522,27 @@ int secctx_fault_resolve(struct thread *t,
 	  IDPR(target),
 	  fls);
 	spinlock_acquire_save(&t->sc_lock);
+	/* check if we have "superuser" priv. This is only really the init thread before it attaches to
+	 * a real security context */
 	if(t->active_sc->superuser) {
 		spinlock_release_restore(&t->sc_lock);
 		*perms = OBJSPACE_EXEC_U | OBJSPACE_WRITE | OBJSPACE_READ;
 		return 0;
 	}
 
-	if(t->active_sc->repr == 0) {
+	/* we have a "temporary" context with no actual backing. Thus there are no permissions. */
+	if(t->active_sc->obj == NULL) {
 		goto fault_noperm;
 	}
 
-	struct object *obj;
+	struct object *obj = t->active_sc->obj;
 	uint32_t p;
-	obj = obj_lookup(t->active_sc->repr, OBJ_LOOKUP_HIDDEN);
-	if(!obj) {
-		panic("no repr " IDFMT, IDPR(t->active_sc->repr));
-	}
 	EPRINTK("  - trying active context (" IDFMT ")\n", IDPR(obj->id));
 	__lookup_perms(obj, target, 0, &p, NULL);
 	EPRINTK("    - p = %x (%x): %s\n", p, needed, (p & needed) == needed ? "ok" : "FAIL");
 	if((p & needed) == needed) {
 		spinlock_release_restore(&t->sc_lock);
-
-		if(p & SCP_READ) {
-			*perms |= OBJSPACE_READ;
-		}
-		if(p & SCP_WRITE) {
-			*perms |= OBJSPACE_WRITE;
-		}
-		if(p & SCP_EXEC) {
-			*perms |= OBJSPACE_EXEC_U;
-		}
-		obj_put(obj);
+		*perms = __conv_scp_to_objperm(p);
 		return 0;
 	}
 	obj_put(obj);
@@ -553,10 +550,8 @@ int secctx_fault_resolve(struct thread *t,
 	for(int i = 0; i < MAX_SC; i++) {
 		if(!t->attached_scs[i] || t->attached_scs[i] == t->active_sc)
 			continue;
-		obj = obj_lookup(t->attached_scs[i]->repr, OBJ_LOOKUP_HIDDEN);
-		if(!obj) {
-			panic("no repr " IDFMT, IDPR(t->attached_scs[i]->repr));
-		}
+		obj = t->attached_scs[i]->obj;
+		assert(obj);
 		EPRINTK("  - trying " IDFMT "\n", IDPR(obj->id));
 		size_t ipoff = 0;
 		bool gok;
@@ -567,12 +562,10 @@ int secctx_fault_resolve(struct thread *t,
 		/* also check ip */
 		objid_t id;
 		if(!vm_vaddr_lookup((void *)ip, &id, NULL)) {
-			obj_put(obj);
 			continue;
 		}
 		struct object *eo = obj_lookup(id, OBJ_LOOKUP_HIDDEN);
 		if(!eo) {
-			obj_put(obj);
 			continue;
 		}
 		uint32_t ep;
@@ -580,7 +573,6 @@ int secctx_fault_resolve(struct thread *t,
 		EPRINTK("    - ep: %s\n", (ep & SCP_EXEC) ? "ok" : "FAIL");
 		obj_put(eo);
 		if(!(ep & SCP_EXEC)) {
-			obj_put(obj);
 			continue;
 		}
 
@@ -592,22 +584,11 @@ int secctx_fault_resolve(struct thread *t,
 		  gok);
 		if(((p & needed) == needed) && gok) {
 			spinlock_release_restore(&t->sc_lock);
-
-			if(p & SCP_READ) {
-				*perms |= OBJSPACE_READ;
-			}
-			if(p & SCP_WRITE) {
-				*perms |= OBJSPACE_WRITE;
-			}
-			if(p & SCP_EXEC) {
-				*perms |= OBJSPACE_EXEC_U;
-			}
+			*perms = __conv_scp_to_objperm(p);
 			if(t == current_thread)
 				secctx_switch(i);
-			obj_put(obj);
 			return 0;
 		}
-		obj_put(obj);
 	}
 fault_noperm:
 	spinlock_release_restore(&t->sc_lock);
@@ -626,7 +607,7 @@ static void __secctx_update_thrdrepr(struct thread *thr, int s, bool at)
 {
 	struct object *to = kso_get_obj(thr->throbj, thr);
 	struct kso_attachment k = {
-		.id = at ? thr->attached_scs[s]->repr : 0,
+		.id = at && thr->attached_scs[s]->obj ? thr->attached_scs[s]->obj->id : 0,
 		.flags = 0,
 		.info = at ? thr->attached_scs_attrs[s] : 0,
 		.type = KSO_SECCTX,
@@ -641,7 +622,7 @@ static bool secctx_thread_attach(struct sctx *s, struct thread *t)
 	bool ok = false, found = false, force = false;
 	size_t i;
 	spinlock_acquire_save(&t->sc_lock);
-	if(t->active_sc->repr == 0) {
+	if(t->active_sc->obj == NULL) {
 		/* bootstrap context. Get rid of it, we're a real security context now! */
 		assert(t->attached_scs[0] == t->active_sc);
 		t->attached_scs[0] = NULL;
@@ -683,7 +664,7 @@ static bool secctx_thread_attach(struct sctx *s, struct thread *t)
 static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 {
 	// EPRINTK("thread %ld detach from " IDFMT "\n", thr->id, IDPR(s->repr));
-	if(s->repr == 0) {
+	if(s->obj == NULL) {
 		printk("THIS IS TOTALLY A BUG THAT NEEDS TO BE SOLVED!\n\n!!!!!!!!!!\n!!!!!!!\n!!!!!!\n");
 	}
 	bool ok = false;
@@ -702,7 +683,7 @@ static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 	if(na == -1) {
 		/* detached from the last context. Create a dummy context */
 		assert(thr->attached_scs[0] == NULL);
-		thr->active_sc = secctx_alloc(0);
+		thr->active_sc = secctx_alloc(NULL);
 		krc_get(&thr->active_sc->refs);
 		thr->attached_scs[0] = thr->active_sc;
 		secctx_switch(0);
@@ -751,7 +732,7 @@ static bool __secctx_detach_event(struct thread *thr, bool entry, int sysc)
 				thr->attached_scs[i] = thr->attached_scs_backup[i];
 				thr->attached_scs_attrs[i] = thr->attached_scs_attrs_backup[i];
 				thr->attached_scs_backup[i] = NULL;
-				if(!thr->active_sc->repr) {
+				if(!thr->active_sc->obj) {
 					/* once for attached[0] */
 					krc_put_call(thr->active_sc, refs, __secctx_krc_put);
 					/* and again for the active_sc */
@@ -817,7 +798,7 @@ static bool __secctx_attach(struct object *parent, struct object *child, int fla
 
 static void __secctx_ctor(struct object *o)
 {
-	o->sctx.sc = secctx_alloc(o->id);
+	o->sctx.sc = secctx_alloc(o);
 }
 
 static struct kso_calls __ksoc_sctx = {

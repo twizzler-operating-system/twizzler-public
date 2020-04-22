@@ -23,12 +23,13 @@ static ssize_t __do_write(twzobj *o, size_t off, void *base, size_t len, int fla
 	ssize_t r = twzio_write(o, base, len, off, (flags & DW_NONBLOCK) ? TWZIO_NONBLOCK : 0);
 	// ssize_t r = bstream_write(o, base, len, 0);
 	if(r == -ENOTSUP) {
+		//	debug_printf("__do_write %ld %ld\n", off, len);
 		/* TODO: bounds check */
-		memcpy((char *)twz_object_base(o) + off, base, len);
+		//	memcpy((char *)twz_object_base(o) + off, base, len);
 		r = len;
 		struct metainfo *mi = twz_object_meta(o);
 		/* TODO: append */
-		if(mi->flags & mi->sz) {
+		if(mi->flags & MIF_SZ) {
 			if(off + len > mi->sz) {
 				mi->sz = off + len;
 			}

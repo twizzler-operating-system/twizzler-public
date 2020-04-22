@@ -10,6 +10,8 @@ __attribute__((noreturn)) void libtwz_panic(const char *s, ...)
 	va_list va;
 	va_start(va, s);
 	vfprintf(stderr, s, va);
+	if(s[strlen(s)] != '\n')
+		fprintf(stderr, "\n");
 	va_end(va);
 	libtwz_do_backtrace();
 	disable_backtrace = true;

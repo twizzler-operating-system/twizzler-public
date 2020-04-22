@@ -25,6 +25,9 @@
 #define LINUX_SYS_writev 20
 #define LINUX_SYS_access 21
 
+#define LINUX_SYS_dup 32
+#define LINUX_SYS_dup2 33
+
 #define LINUX_SYS_clone 56
 #define LINUX_SYS_fork 57
 #define LINUX_SYS_execve 59
@@ -56,6 +59,7 @@
 #define LINUX_SYS_faccessat 269
 #define LINUX_SYS_pselect6 270
 
+#define LINUX_SYS_dup3 292
 #define LINUX_SYS_preadv 295
 #define LINUX_SYS_pwritev 296
 
@@ -112,6 +116,9 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_getdents64] = linux_sys_getdents64,
 	[LINUX_SYS_lstat] = linux_sys_lstat,
 	[LINUX_SYS_readlink] = linux_sys_readlink,
+	[LINUX_SYS_dup] = linux_sys_dup,
+	[LINUX_SYS_dup2] = linux_sys_dup2,
+	[LINUX_SYS_dup3] = linux_sys_dup3,
 };
 
 __attribute__((unused)) static const char *syscall_names[] = {

@@ -20,6 +20,7 @@ struct rusage;
 void __linux_init(void);
 void __fd_sys_init(void);
 struct file *twix_alloc_fd(void);
+struct file *twix_grab_fd(int fd);
 struct file *twix_get_fd(int fd);
 void twix_copy_fds(twzobj *view);
 struct file *twix_get_cwd(void);
@@ -86,6 +87,9 @@ long linux_sys_pselect6(int nfds,
 
 long linux_sys_arch_prctl(int code, unsigned long addr);
 
+int linux_sys_dup(int oldfd);
+int linux_sys_dup2(int oldfd, int newfd);
+int linux_sys_dup3(int oldfd, int newfd, int flags);
 long linux_sys_open(const char *path, int flags, int mode);
 long linux_sys_close(int fd);
 long linux_sys_lseek(int fd, off_t off, int whence);

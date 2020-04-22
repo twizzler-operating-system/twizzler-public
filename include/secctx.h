@@ -8,7 +8,7 @@
 
 struct sctx {
 	struct object_space space;
-	objid_t repr;
+	struct object *obj;
 	struct krc refs;
 	bool superuser;
 };
@@ -16,7 +16,7 @@ struct sctx {
 void arch_secctx_init(struct sctx *sc);
 void arch_secctx_destroy(struct sctx *sc);
 
-struct sctx *secctx_alloc(objid_t repr);
+struct sctx *secctx_alloc(struct object *);
 void secctx_free(struct sctx *s);
 void secctx_switch(int i);
 struct thread;

@@ -66,6 +66,14 @@ struct file *twix_get_fd(int fd)
 	return __check_fd_valid(fd) ? NULL : &fds[fd];
 }
 
+struct file *twix_grab_fd(int fd)
+{
+	if(fd < 0 || fd >= MAX_FD) {
+		return -EBADF;
+	}
+	struct file *f = &fds[fd];
+	return f;
+}
 struct file *twix_alloc_fd(void)
 {
 	for(int i = 0; i < MAX_FD; i++) {

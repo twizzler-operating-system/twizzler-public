@@ -270,7 +270,7 @@ struct thread *thread_create(void)
 static void __print_fault_info(struct thread *t, int fault, void *info)
 {
 	printk("unhandled fault: %ld: %d\n", t ? (long)t->id : -1, fault);
-	debug_print_backtrace();
+	// debug_print_backtrace();
 	switch(fault) {
 		struct fault_object_info *foi;
 		struct fault_null_info *fni;
@@ -350,8 +350,7 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 		obj_put(to);
 		panic("NI - different view :: %d", fault);
 	}
-	if(t->id == 13655)
-		__print_fault_info(t, fault, info);
+	//__print_fault_info(t, fault, info);
 	if(fi.addr) {
 		obj_put(to);
 		if(__failed_addr(fault, info) == fi.addr) {

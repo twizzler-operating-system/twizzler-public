@@ -123,12 +123,13 @@ int twz_name_assign(objid_t id, const char *name)
 	if(!__name_init())
 		return -ENOTSUP;
 
+	//	twix_log("Assign: %s\n", name);
 	char *ch_name = alloca(strlen(name) + 1);
 	char *par_name = alloca(strlen(name) + 1);
 	char *sl = strrchr(name, '/');
 
 	if(sl) {
-		strncpy(par_name, name, sl - par_name);
+		strncpy(par_name, name, sl - name);
 		strcpy(ch_name, sl + 1);
 	} else {
 		strcpy(ch_name, name);
@@ -138,13 +139,15 @@ int twz_name_assign(objid_t id, const char *name)
 	twzobj tmp;
 	parent = &nameobj;
 	int r;
-	if(sl) {
+	if(sl && sl != name) {
+		//	twix_log("looking up name parent %s\n", par_name);
 		r = twz_object_init_name(&tmp, par_name, FE_READ | FE_WRITE);
 		if(r)
 			return r;
 		parent = &tmp;
 	}
 
+	//	twix_log("assign nameL %s\n", ch_name);
 	r = twz_hier_assign_name(parent, ch_name, NAME_ENT_REGULAR, id);
 	if(r)
 		return r;

@@ -90,8 +90,11 @@ int twz_hier_assign_name(twzobj *ns, const char *name, int type, objid_t id)
 	struct twz_name_ent *ent = hdr->ents;
 
 	size_t len = strlen(name) + 1;
+	// fprintf(stderr, ":: !! creating name %s %d\n", name, len);
 	while(ent->dlen) {
+		//	fprintf(stderr, ":: considering entry %s, %d %x\n", ent->name, ent->dlen, ent->flags);
 		if(!(ent->flags & NAME_ENT_VALID) && ent->dlen >= len) {
+			//		fprintf(stderr, ":: ok! Adding\n");
 			ent->flags |= NAME_ENT_VALID;
 			ent->type = type;
 			ent->resv0 = 0;
@@ -104,14 +107,15 @@ int twz_hier_assign_name(twzobj *ns, const char *name, int type, objid_t id)
 		reclen = (reclen + 15) & ~15;
 		ent = (struct twz_name_ent *)((char *)ent + reclen);
 	}
-	ent->dlen = (len + 15) & ~15;
+	// fprintf(stderr, ":: creating new entry\n");
+	ent->dlen = len + 1;
 	ent->flags = NAME_ENT_VALID;
 	ent->type = type;
 	ent->resv0 = 0;
 	ent->resv1 = 0;
 	ent->id = id;
 	strcpy(ent->name, name);
-	twz_object_setsz(ns, TWZ_OSSM_RELATIVE, ent->dlen);
+	twz_object_setsz(ns, TWZ_OSSM_RELATIVE, ent->dlen + sizeof(*ent));
 	return 0;
 }
 
