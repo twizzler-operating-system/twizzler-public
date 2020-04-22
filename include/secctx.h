@@ -20,12 +20,11 @@ struct sctx *secctx_alloc(struct object *);
 void secctx_free(struct sctx *s);
 void secctx_switch(int i);
 struct thread;
-int secctx_fault_resolve(struct thread *t,
-  uintptr_t ip,
+int secctx_fault_resolve(void *ip,
   uintptr_t loaddr,
-  uintptr_t vaddr,
-  objid_t target,
+  void *vaddr,
+  struct object *target,
   uint32_t flags,
   uint64_t *perms);
 struct object;
-int secctx_check_permissions(struct thread *t, uintptr_t ip, struct object *to, uint64_t flags);
+int secctx_check_permissions(void *, struct object *, uint32_t flags);

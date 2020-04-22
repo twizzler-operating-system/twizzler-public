@@ -7,8 +7,8 @@
 #include <twz/_sctx.h>
 #include <twz/_sys.h>
 
-//#define EPRINTK(...) printk(__VA_ARGS__)
-#define EPRINTK(...)
+#define EPRINTK(...) printk(__VA_ARGS__)
+//#define EPRINTK(...)
 static void _sc_ctor(void *_x __unused, void *ptr)
 {
 	struct sctx *sc = ptr;
@@ -212,7 +212,7 @@ static bool __verify_dlg(struct scdlg *dlg, char *data)
 static uint32_t __lookup_perm_cap(struct object *obj,
   struct sccap *cap,
   struct scgates *gs,
-  objid_t target,
+  struct object *target,
   char *sig)
 {
 	EPRINTK("    - lookup perm cap sc=" IDFMT " : accessor=" IDFMT "\n",
@@ -222,7 +222,7 @@ static uint32_t __lookup_perm_cap(struct object *obj,
 		EPRINTK("wrong accessor\n");
 		return 0;
 	}
-	if(cap->target != target) {
+	if(cap->target != target->id) {
 		EPRINTK("wrong target\n");
 		return 0;
 	}
@@ -262,7 +262,7 @@ static void __limit_gates(struct scgates *gs, struct scgates *m)
 static uint32_t __lookup_perm_dlg(struct object *obj,
   struct scdlg *dlg,
   struct scgates *gs,
-  objid_t target,
+  struct object *target,
   char *data)
 {
 	if(dlg->delegatee != obj->id) {
@@ -306,7 +306,7 @@ static uint32_t __lookup_perm_dlg(struct object *obj,
 static uint32_t __lookup_perm_bucket(struct object *obj,
   struct scbucket *b,
   struct scgates *gs,
-  objid_t target)
+  struct object *target)
 {
 	uintptr_t off = (uintptr_t)b->data;
 
@@ -348,7 +348,7 @@ static bool __in_gate(struct scgates *gs, size_t off)
 }
 
 static int __lookup_perms(struct object *obj,
-  objid_t target,
+  struct object *target,
   size_t ipoff,
   uint32_t *p,
   bool *ingate)
@@ -358,12 +358,12 @@ static int __lookup_perms(struct object *obj,
 
 	uint32_t perms = 0;
 	bool gatesok = false;
-	size_t slot = target % ctx->nbuckets;
+	size_t slot = target->id % ctx->nbuckets;
 	do {
 		struct scbucket *b;
 		b = (void *)(kbase + sizeof(*ctx) + sizeof(*b) * slot);
 
-		if(b->target == target) {
+		if(b->target == target->id) {
 			EPRINTK("    - lookup_perms: found!\n");
 			struct scgates gs = { 0 };
 			perms |= __lookup_perm_bucket(obj, b, &gs, target) & b->pmask;
@@ -377,12 +377,8 @@ static int __lookup_perms(struct object *obj,
 		slot = b->chain;
 	} while(slot != 0);
 	uint32_t dfl = 0;
-	struct object *t = obj_lookup(target, OBJ_LOOKUP_HIDDEN);
-	if(t) {
-		uint32_t p_flags = 0;
-		obj_get_pflags(t, &p_flags);
-		obj_put(t);
-	}
+	uint32_t p_flags = 0;
+	obj_get_pflags(target, &p_flags);
 	if(p)
 		*p = perms | dfl;
 	if(ingate)
@@ -391,9 +387,43 @@ static int __lookup_perms(struct object *obj,
 	return 0;
 }
 
+static int check_if_valid(struct object *ctxobj,
+  void *ip,
+  struct object *target,
+  uint32_t flags,
+  size_t ipoff,
+  uint32_t *perms)
+{
+	/* grab the current executing object according to the instruction pointer */
+	objid_t eoid;
+	if(!vm_vaddr_lookup(ip, &eoid, NULL)) {
+		return -1;
+	}
+	struct object *eo = obj_lookup(eoid, OBJ_LOOKUP_HIDDEN);
+	if(!eo) {
+		return -1;
+	}
+	/* must be executable in this context */
+	uint32_t ep;
+	__lookup_perms(ctxobj, eo, 0, &ep, NULL);
+	obj_put(eo);
+	if(!(ep & SCP_EXEC)) {
+		return -1;
+	}
+
+	uint32_t p;
+	__lookup_perms(ctxobj, target, ipoff, &p, NULL);
+	if((p & flags) == flags) {
+		if(perms)
+			*perms = p;
+		return 0;
+	}
+	return -1;
+}
+
 /* TODO: we could first see if it's mapped in any security context, thereby allowing us to check a
  * "cached" value of the permissions */
-int secctx_check_permissions(struct thread *t, uintptr_t ip, struct object *to, uint64_t flags)
+int secctx_check_permissions(void *ip, struct object *to, uint32_t flags)
 {
 	char fls[8];
 	int __flt = 0;
@@ -412,63 +442,46 @@ int secctx_check_permissions(struct thread *t, uintptr_t ip, struct object *to, 
 	fls[__flt] = 0;
 
 	(void)fls;
-	EPRINTK(
-	  "[%ld] secctx_check - ip=%lx, target=" IDFMT ", flags=%s\n", t->id, ip, IDPR(to->id), fls);
+	EPRINTK("[%ld] secctx_check - ip=%p, target=" IDFMT ", flags=%s\n",
+	  current_thread->id,
+	  ip,
+	  IDPR(to->id),
+	  fls);
 
-	spinlock_acquire_save(&t->sc_lock);
-	if(t->active_sc->superuser) {
-		spinlock_release_restore(&t->sc_lock);
+	spinlock_acquire_save(&current_thread->sc_lock);
+	if(current_thread->active_sc->superuser) {
+		spinlock_release_restore(&current_thread->sc_lock);
 		return 0;
 	}
 
-	if(t->active_sc->obj == NULL) {
+	if(current_thread->active_sc->obj == NULL) {
 		return -EACCES;
 	}
 
-	struct object *obj = t->active_sc->obj;
+	struct object *obj = current_thread->active_sc->obj;
 	uint32_t p;
 	EPRINTK("  - trying active context (" IDFMT ")\n", IDPR(obj->id));
-	__lookup_perms(obj, to->id, 0, &p, NULL);
-	EPRINTK("    - p = %x (%lx): %s\n", p, flags, (p & flags) == flags ? "ok" : "FAIL");
+	__lookup_perms(obj, to, 0, &p, NULL);
+	EPRINTK("    - p = %x (%x): %s\n", p, flags, (p & flags) == flags ? "ok" : "FAIL");
 	if((p & flags) == flags) {
-		spinlock_release_restore(&t->sc_lock);
+		spinlock_release_restore(&current_thread->sc_lock);
 		return 0;
 	}
 
 	for(int i = 0; i < MAX_SC; i++) {
-		if(!t->attached_scs[i] || t->attached_scs[i] == t->active_sc)
+		if(!current_thread->attached_scs[i]
+		   || current_thread->attached_scs[i] == current_thread->active_sc)
 			continue;
-		obj = t->attached_scs[i]->obj;
+		obj = current_thread->attached_scs[i]->obj;
 		assert(obj);
 		EPRINTK("  - trying " IDFMT "\n", IDPR(obj->id));
-		/* also check ip */
-		objid_t id;
-		if(!vm_vaddr_lookup((void *)ip, &id, NULL)) {
-			continue;
-		}
-		struct object *eo = obj_lookup(id, OBJ_LOOKUP_HIDDEN);
-		if(!eo) {
-			continue;
-		}
-		uint32_t ep;
-		__lookup_perms(obj, eo->id, 0, &ep, NULL);
-		EPRINTK("    - ep: %s\n", (ep & SCP_EXEC) ? "ok" : "FAIL");
-		obj_put(eo);
-		if(!(ep & SCP_EXEC)) {
-			continue;
-		}
-
-		__lookup_perms(obj, to->id, 0, &p, NULL);
-		EPRINTK(
-		  "    - p = %x (%lx): %s\n", p, flags, (p & flags) == flags ? "ok -- SWITCH" : "FAIL");
-		if((p & flags) == flags) {
-			spinlock_release_restore(&t->sc_lock);
-			if(t == current_thread)
-				secctx_switch(i);
+		if(check_if_valid(obj, ip, to, flags, 0, NULL) == 0) {
+			secctx_switch(i);
+			spinlock_release_restore(&current_thread->sc_lock);
 			return 0;
 		}
 	}
-	spinlock_release_restore(&t->sc_lock);
+	spinlock_release_restore(&current_thread->sc_lock);
 	return -EACCES;
 }
 
@@ -487,11 +500,10 @@ static uint64_t __conv_scp_to_objperm(uint32_t p)
 	return perms;
 }
 
-int secctx_fault_resolve(struct thread *t,
-  uintptr_t ip,
+int secctx_fault_resolve(void *ip,
   uintptr_t loaddr,
-  uintptr_t vaddr,
-  objid_t target,
+  void *vaddr,
+  struct object *target,
   uint32_t flags,
   uint64_t *perms)
 {
@@ -514,88 +526,65 @@ int secctx_fault_resolve(struct thread *t,
 
 	(void)fls;
 	(void)loaddr;
-	EPRINTK("[%ld] fault_resolve - loaddr=%lx, vaddr=%lx, ip=%lx, target=" IDFMT ", flags=%s\n",
-	  t->id,
+	EPRINTK("[%ld] fault_resolve - loaddr=%lx, vaddr=%p, ip=%p, target=" IDFMT ", flags=%s\n",
+	  current_thread->id,
 	  loaddr,
 	  vaddr,
 	  ip,
-	  IDPR(target),
+	  IDPR(target->id),
 	  fls);
-	spinlock_acquire_save(&t->sc_lock);
+	spinlock_acquire_save(&current_thread->sc_lock);
 	/* check if we have "superuser" priv. This is only really the init thread before it attaches to
 	 * a real security context */
-	if(t->active_sc->superuser) {
-		spinlock_release_restore(&t->sc_lock);
+	if(current_thread->active_sc->superuser) {
+		spinlock_release_restore(&current_thread->sc_lock);
 		*perms = OBJSPACE_EXEC_U | OBJSPACE_WRITE | OBJSPACE_READ;
 		return 0;
 	}
 
 	/* we have a "temporary" context with no actual backing. Thus there are no permissions. */
-	if(t->active_sc->obj == NULL) {
+	if(current_thread->active_sc->obj == NULL) {
 		goto fault_noperm;
 	}
 
-	struct object *obj = t->active_sc->obj;
+	struct object *obj = current_thread->active_sc->obj;
 	uint32_t p;
 	EPRINTK("  - trying active context (" IDFMT ")\n", IDPR(obj->id));
 	__lookup_perms(obj, target, 0, &p, NULL);
 	EPRINTK("    - p = %x (%x): %s\n", p, needed, (p & needed) == needed ? "ok" : "FAIL");
 	if((p & needed) == needed) {
-		spinlock_release_restore(&t->sc_lock);
+		spinlock_release_restore(&current_thread->sc_lock);
 		*perms = __conv_scp_to_objperm(p);
 		return 0;
 	}
-	obj_put(obj);
 
 	for(int i = 0; i < MAX_SC; i++) {
-		if(!t->attached_scs[i] || t->attached_scs[i] == t->active_sc)
+		if(!current_thread->attached_scs[i]
+		   || current_thread->attached_scs[i] == current_thread->active_sc)
 			continue;
-		obj = t->attached_scs[i]->obj;
+		obj = current_thread->attached_scs[i]->obj;
 		assert(obj);
 		EPRINTK("  - trying " IDFMT "\n", IDPR(obj->id));
 		size_t ipoff = 0;
 		bool gok;
 		if(flags & OBJSPACE_FAULT_EXEC) {
 			assert(ip == vaddr);
-			ipoff = ip % OBJ_MAXSIZE;
-		}
-		/* also check ip */
-		objid_t id;
-		if(!vm_vaddr_lookup((void *)ip, &id, NULL)) {
-			continue;
-		}
-		struct object *eo = obj_lookup(id, OBJ_LOOKUP_HIDDEN);
-		if(!eo) {
-			continue;
-		}
-		uint32_t ep;
-		__lookup_perms(obj, eo->id, 0, &ep, NULL);
-		EPRINTK("    - ep: %s\n", (ep & SCP_EXEC) ? "ok" : "FAIL");
-		obj_put(eo);
-		if(!(ep & SCP_EXEC)) {
-			continue;
+			ipoff = (uintptr_t)ip % OBJ_MAXSIZE;
 		}
 
-		__lookup_perms(obj, target, ipoff, &p, &gok);
-		EPRINTK("    - p = %x (%x): %s (%d)\n",
-		  p,
-		  needed,
-		  (p & needed) == needed ? "ok -- SWITCH" : "FAIL",
-		  gok);
-		if(((p & needed) == needed) && gok) {
-			spinlock_release_restore(&t->sc_lock);
+		if(check_if_valid(obj, ip, target, needed, ipoff, &p) == 0) {
+			spinlock_release_restore(&current_thread->sc_lock);
 			*perms = __conv_scp_to_objperm(p);
-			if(t == current_thread)
-				secctx_switch(i);
+			secctx_switch(i);
 			return 0;
 		}
 	}
 fault_noperm:
-	spinlock_release_restore(&t->sc_lock);
+	spinlock_release_restore(&current_thread->sc_lock);
 	*perms = 0;
 	/* TODO: check if this is right */
-	struct fault_sctx_info info = twz_fault_build_sctx_info(target, (void *)ip, (void *)ip, needed);
-	thread_raise_fault(t, FAULT_SCTX, &info, sizeof(info));
+	struct fault_sctx_info info = twz_fault_build_sctx_info(target->id, ip, ip, needed);
+	thread_raise_fault(current_thread, FAULT_SCTX, &info, sizeof(info));
 
 	return -1;
 }

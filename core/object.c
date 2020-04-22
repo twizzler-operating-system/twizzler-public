@@ -896,7 +896,7 @@ int obj_check_permission(struct object *obj, uint64_t flags)
 	if((dfl & flags) == flags) {
 		return 0;
 	}
-	return secctx_check_permissions(current_thread, arch_thread_instruction_pointer(), obj, flags);
+	return secctx_check_permissions((void *)arch_thread_instruction_pointer(), obj, flags);
 }
 
 static bool __objspace_fault_calculate_perms(struct object *o,
@@ -935,7 +935,7 @@ static bool __objspace_fault_calculate_perms(struct object *o,
 		*perms |= OBJSPACE_EXEC_U;
 	if(!ok) {
 		*perms = 0;
-		if(secctx_fault_resolve(current_thread, ip, loaddr, vaddr, o->id, flags, perms) == -1) {
+		if(secctx_fault_resolve((void *)ip, loaddr, (void *)vaddr, o, flags, perms) == -1) {
 			obj_put(o);
 			return false;
 		}
