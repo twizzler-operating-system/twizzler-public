@@ -689,6 +689,14 @@ void obj_free_kaddr(struct object *obj)
 	obj_put(o);
 }
 
+bool obj_kaddr_valid(struct object *obj, void *kaddr, size_t run)
+{
+	void *ka = obj_get_kaddr(obj);
+	bool ok = (kaddr >= ka && ((char *)kaddr + run) < (char *)ka + OBJ_MAXSIZE);
+	obj_release_kaddr(obj);
+	return ok;
+}
+
 void obj_release_kaddr(struct object *obj)
 {
 	spinlock_acquire_save(&obj->lock);
@@ -899,6 +907,37 @@ int obj_check_permission(struct object *obj, uint64_t flags)
 	return secctx_check_permissions((void *)arch_thread_instruction_pointer(), obj, flags);
 }
 
+#include <twz/_sctx.h>
+static uint32_t __conv_objperm_to_scp(uint64_t p)
+{
+	uint32_t perms = 0;
+	if(p & OBJSPACE_READ) {
+		perms |= SCP_READ;
+	}
+	if(p & OBJSPACE_WRITE) {
+		perms |= SCP_WRITE;
+	}
+	if(p & OBJSPACE_EXEC_U) {
+		perms |= SCP_EXEC;
+	}
+	return perms;
+}
+
+static uint64_t __conv_scp_to_objperm(uint32_t p)
+{
+	uint64_t perms = 0;
+	if(p & SCP_READ) {
+		perms |= OBJSPACE_READ;
+	}
+	if(p & SCP_WRITE) {
+		perms |= OBJSPACE_WRITE;
+	}
+	if(p & SCP_EXEC) {
+		perms |= OBJSPACE_EXEC_U;
+	}
+	return perms;
+}
+
 static bool __objspace_fault_calculate_perms(struct object *o,
   uint32_t flags,
   uintptr_t loaddr,
@@ -935,10 +974,14 @@ static bool __objspace_fault_calculate_perms(struct object *o,
 		*perms |= OBJSPACE_EXEC_U;
 	if(!ok) {
 		*perms = 0;
-		if(secctx_fault_resolve((void *)ip, loaddr, (void *)vaddr, o, flags, perms) == -1) {
+		uint32_t res;
+		if(secctx_fault_resolve(
+		     (void *)ip, loaddr, (void *)vaddr, o, __conv_objperm_to_scp(flags), &res, true)
+		   == -1) {
 			obj_put(o);
 			return false;
 		}
+		*perms = __conv_scp_to_objperm(res);
 	}
 
 	bool w = (*perms & OBJSPACE_WRITE);

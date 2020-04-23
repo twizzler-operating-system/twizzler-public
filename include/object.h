@@ -163,6 +163,7 @@ void obj_release_slot(struct object *obj);
 void obj_tie(struct object *, struct object *);
 int obj_untie(struct object *parent, struct object *child);
 
+bool obj_kaddr_valid(struct object *obj, void *kaddr, size_t);
 void obj_release_kaddr(struct object *obj);
 void *obj_get_kaddr(struct object *obj);
 

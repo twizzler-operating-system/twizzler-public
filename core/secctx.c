@@ -1,3 +1,4 @@
+#include <kalloc.h>
 #include <object.h>
 #include <page.h>
 #include <processor.h>
@@ -55,6 +56,80 @@ static void __secctx_krc_put(void *_sc)
 #include <tomcrypt.h>
 #include <tommath.h>
 #include <twz/_key.h>
+
+static ssize_t __verify_get_hash(uint32_t htype,
+  void *item,
+  void *data,
+  size_t ilen,
+  size_t dlen,
+  unsigned char *out)
+{
+	hash_state hs;
+	switch(htype) {
+		case SCHASH_SHA1:
+			sha1_init(&hs);
+			sha1_process(&hs, (unsigned char *)item, ilen);
+			if(data)
+				sha1_process(&hs, (unsigned char *)data, dlen);
+			sha1_done(&hs, out);
+			return 20;
+		default:
+			return -1;
+	}
+}
+
+static objid_t __verify_get_object_kuid(objid_t target)
+{
+	struct metainfo mi;
+	struct object *to = obj_lookup(target, OBJ_LOOKUP_HIDDEN);
+	obj_read_data(to, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
+	if(!obj_verify_id(to, true, false)) {
+		obj_put(to);
+		return 0;
+	}
+	obj_put(to);
+	if(mi.magic != MI_MAGIC) {
+		return 0;
+	}
+	if(!mi.kuid) {
+		return 0;
+	}
+	return mi.kuid;
+}
+
+static unsigned char *__verify_load_keydata(struct object *ko, uint32_t etype, size_t *kdout)
+{
+	struct key_hdr *hdr = obj_get_kbase(ko);
+	if(hdr->type != etype) {
+		EPRINTK("hdr->type != cap->etype\n");
+		obj_release_kaddr(ko);
+		return NULL;
+	}
+
+	void *kd = (char *)hdr + sizeof(*hdr);
+	char *k = kd;
+	char *nl = strnchr(k, '\n', 4096 /* TODO */);
+	char *end = strnchr(nl, '-', 4096 /* TODO */);
+	nl++;
+	size_t sz = end - nl;
+	k = nl;
+
+	/* note - base64 means the output data will be smaller than the input, so we could save space
+	 * here. */
+	unsigned char *keydata = kalloc(sz);
+	*kdout = sz;
+	int e;
+	if((e = base64_decode(k, sz, keydata, kdout)) != CRYPT_OK) {
+		EPRINTK("base64 decode error: %s\n", error_to_string(e));
+		obj_release_kaddr(ko);
+		kfree(keydata);
+		keydata = NULL;
+	}
+
+	obj_release_kaddr(ko);
+	return keydata;
+}
+
 static bool __verify_region(void *item,
   void *data,
   char *sig,
@@ -65,76 +140,25 @@ static bool __verify_region(void *item,
   uint32_t etype,
   objid_t target)
 {
-	// return true; // TODO
-	hash_state hs;
 	unsigned char hash[64];
-	size_t hashlen;
-	switch(htype) {
-		case SCHASH_SHA1:
-			sha1_init(&hs);
-			sha1_process(&hs, (unsigned char *)item, ilen);
-			if(data)
-				sha1_process(&hs, (unsigned char *)data, dlen);
-			sha1_done(&hs, hash);
-			hashlen = 20;
-			break;
-		default:
-			return false;
-	}
-
-	struct object *to = obj_lookup(target, OBJ_LOOKUP_HIDDEN);
-	struct metainfo mi;
-	obj_read_data(to, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE), sizeof(mi), &mi);
-	obj_put(to);
-	if(mi.magic != MI_MAGIC) {
-		printk("MAGIC FAILED\n");
-	}
-
-	if(!mi.kuid) {
-		/* TODO: should we know this earlier? */
+	ssize_t hashlen = __verify_get_hash(htype, item, data, ilen, dlen, hash);
+	if(hashlen < 0) {
 		return false;
 	}
-	struct object *ko = obj_lookup(mi.kuid, OBJ_LOOKUP_HIDDEN);
-	// printk("VERIFY via " IDFMT ": %p\n", IDPR(mi.kuid), ko);
 
+	objid_t kuid = __verify_get_object_kuid(target);
+	struct object *ko = obj_lookup(kuid, OBJ_LOOKUP_HIDDEN);
 	if(!ko) {
-		EPRINTK("COULD NOT LOCATE KU OBJ " IDFMT "\n", IDPR(mi.kuid));
+		EPRINTK("COULD NOT LOCATE KU OBJ " IDFMT "\n", IDPR(kuid));
 		return false;
 	}
 
-	struct key_hdr *hdr = obj_get_kbase(ko);
-	if(hdr->type != etype) {
-		EPRINTK("hdr->type != cap->etype\n");
-		obj_release_kaddr(ko);
-		obj_put(ko);
-		return false;
-	}
-
-	/* TODO: keydata??? */
-	void *kd = (char *)hdr + sizeof(*hdr);
-	char *k = kd;
-	char *nl = strnchr(k, '\n', 4096 /* TODO */);
-	char *end = strnchr(nl, '-', 4096 /* TODO */);
-	nl++;
-	size_t sz = end - nl;
-	k = nl;
-
-	// unsigned char keydata[4096];
-	/* TODO: better alloc */
-	unsigned char *keydata = (void *)mm_memory_alloc(0x1000, PM_TYPE_DRAM, false);
-	size_t kdout = 4096;
-	bool ret = true;
-	int e;
-	if((e = base64_decode(k, sz, keydata, &kdout)) != CRYPT_OK) {
-		printk("base64 decode error: %s\n", error_to_string(e));
-		ret = false;
-		obj_release_kaddr(ko);
-		obj_put(ko);
-		goto done;
-	}
-
-	obj_release_kaddr(ko);
+	size_t kdout;
+	unsigned char *keydata = __verify_load_keydata(ko, etype, &kdout);
 	obj_put(ko);
+	if(!keydata) {
+		return false;
+	}
 
 	/*
 	printk("SIG: ");
@@ -152,40 +176,34 @@ static bool __verify_region(void *item,
 	dsa_key dk;
 	ltc_mp = ltm_desc;
 
+	int e;
+	bool ret = false;
 	switch(etype) {
 		case SCENC_DSA:
 			if((e = dsa_import(keydata, kdout, &dk)) != CRYPT_OK) {
 				printk("dsa import error: %s\n", error_to_string(e));
-				ret = false;
 				dsa_free(&dk);
 				break;
 			}
-			/* TODO */
-			ret = true;
-
-			//		dsa_free(&dk);
-			//		goto done;
-			//		return true;
-
 			int stat = 0;
 			if((e = dsa_verify_hash((unsigned char *)sig, slen, hash, hashlen, &stat, &dk))
 			   != CRYPT_OK) {
 				printk("dsa verify error: %s\n", error_to_string(e));
-				ret = false;
+				dsa_free(&dk);
 				break;
 			}
+			dsa_free(&dk);
 			if(!stat) {
 				EPRINTK("verification failed\n");
 				ret = false;
 			}
+			ret = true;
 			break;
 		default:
 			ret = false;
 			break;
 	}
-done:
-	mm_memory_dealloc(keydata);
-	// obj_put_page(p);
+	kfree(keydata);
 	return ret;
 }
 
@@ -230,8 +248,6 @@ static uint32_t __lookup_perm_cap(struct object *obj,
 		EPRINTK("CAP verify failed\n");
 		return 0;
 	}
-	/* TODO: verify CAP, rev */
-
 	if(cap->flags & SCF_GATE)
 		*gs = cap->gates;
 	return cap->perms;
@@ -275,7 +291,6 @@ static uint32_t __lookup_perm_dlg(struct object *obj,
 		return 0;
 	}
 	struct sccap *next = (struct sccap *)data;
-	//= (void *)(dlg + 1);
 	uint32_t p = 0;
 	if(next->magic == SC_CAP_MAGIC) {
 		if(next->accessor != dlg->delegator) {
@@ -315,30 +330,45 @@ static uint32_t __lookup_perm_bucket(struct object *obj,
 	char *kaddr = obj_get_kaddr(obj);
 
 	cap = (void *)(kaddr + off);
-	if(cap->magic == SC_CAP_MAGIC) {
-		if(cap->slen > 4096) {
-			EPRINTK("CAP length too long\n");
-			/* TODO */
-			return 0;
-		}
-		char *data = kaddr + off + sizeof(struct sccap);
-		return __lookup_perm_cap(obj, cap, gs, target, data);
-	} else if(cap->magic == SC_DLG_MAGIC) {
-		struct scdlg *dlg;
-		dlg = (void *)cap;
-		size_t rem = dlg->slen + dlg->dlen;
-		if(rem > 4096) {
-			EPRINTK("DLG length too long\n");
-			/* TODO */
-			return 0;
-		}
-		/* TODO: bounds checking on data + lenth of data */
-		char *data = kaddr + off + sizeof(struct scdlg);
-		return __lookup_perm_dlg(obj, (void *)cap, gs, target, data);
+	uint32_t ret = 0;
+	if(!obj_kaddr_valid(obj, cap, sizeof(*cap))) {
+		printk("[sctx]: warning - invalid offset specified for bucket\n");
 	} else {
-		EPRINTK("error - invalid perm object magic number\n");
-		return 0;
+		if(cap->magic == SC_CAP_MAGIC) {
+			char *data = kaddr + off + sizeof(struct sccap);
+			/* TODO: overflow */
+			if(!obj_kaddr_valid(obj, cap, sizeof(*cap) + cap->slen)) {
+				printk("[sctx]: warning - invalid cap length (%ld) in context " IDFMT
+				       " for target " IDFMT "\n",
+				  cap->slen + sizeof(*cap),
+				  IDPR(obj->id),
+				  IDPR(target->id));
+			} else {
+				ret = __lookup_perm_cap(obj, cap, gs, target, data);
+			}
+		} else if(cap->magic == SC_DLG_MAGIC) {
+			struct scdlg *dlg;
+			dlg = (void *)cap;
+			/* TODO: overflow */
+			size_t rem = dlg->slen + dlg->dlen;
+			/* TODO: overflow */
+			if(!obj_kaddr_valid(obj, dlg, sizeof(*dlg) + rem)) {
+				printk("[sctx]: warning - invalid dlg length (%ld) in context " IDFMT
+				       " for target " IDFMT "\n",
+				  rem + sizeof(*dlg),
+				  IDPR(obj->id),
+				  IDPR(target->id));
+			} else {
+				char *data = kaddr + off + sizeof(struct scdlg);
+				ret = __lookup_perm_dlg(obj, (void *)cap, gs, target, data);
+			}
+		} else {
+			printk("[sctx]: warning - invalid context entry magic number\n");
+		}
 	}
+
+	obj_release_kaddr(obj);
+	return ret;
 }
 
 static bool __in_gate(struct scgates *gs, size_t off)
@@ -347,6 +377,12 @@ static bool __in_gate(struct scgates *gs, size_t off)
 	       && (off & ((1 << gs->align) - 1)) == 0;
 }
 
+/* given a security context, obj, and a target object, lookup the permissions that this context has
+ * for accessing this object. This is a logical or of all the capabilities and delegations for the
+ * target in this context.
+ *
+ * If ipoff is non-zero, also check if ipoff exists within a gate of this object. If any cap
+ * provides a gate that matches ipoff, it's ok. */
 static int __lookup_perms(struct object *obj,
   struct object *target,
   size_t ipoff,
@@ -362,12 +398,19 @@ static int __lookup_perms(struct object *obj,
 	do {
 		struct scbucket *b;
 		b = (void *)(kbase + sizeof(*ctx) + sizeof(*b) * slot);
+		if(!obj_kaddr_valid(obj, b, sizeof(*b))) {
+			break;
+		}
 
 		if(b->target == target->id) {
 			EPRINTK("    - lookup_perms: found!\n");
 			struct scgates gs = { 0 };
+			/* get this entry's perm, masked with this buckets mask. Then, if we're gating, check
+			 * the gates. */
 			perms |= __lookup_perm_bucket(obj, b, &gs, target) & b->pmask;
 			if(ipoff) {
+				/* we first have to limit the gate from the cap by the "gatemask" of the bucket.
+				 * This isn't as trivial as a logical and, so see the above function */
 				__limit_gates(&gs, &b->gatemask);
 				if(__in_gate(&gs, ipoff))
 					gatesok = true;
@@ -376,13 +419,16 @@ static int __lookup_perms(struct object *obj,
 
 		slot = b->chain;
 	} while(slot != 0);
+	/* we _also_ need to get the default permissions for the object and take them into account. */
 	uint32_t dfl = 0;
 	uint32_t p_flags = 0;
 	obj_get_pflags(target, &p_flags);
-	if(p)
+	if(p) {
 		*p = perms | dfl;
-	if(ingate)
+	}
+	if(ingate) {
 		*ingate = gatesok;
+	}
 
 	return 0;
 }
@@ -411,9 +457,13 @@ static int check_if_valid(struct object *ctxobj,
 		return -1;
 	}
 
+	/* check the actual target permissions. Note that if we're gating, we need to check that too.
+	 * The functions above only check gates if ipoff is non-zero (as this would be a fault anyway if
+	 * we tried executing there!) */
+	bool gok;
 	uint32_t p;
-	__lookup_perms(ctxobj, target, ipoff, &p, NULL);
-	if((p & flags) == flags) {
+	__lookup_perms(ctxobj, target, ipoff, &p, &gok);
+	if((p & flags) == flags && gok) {
 		if(perms)
 			*perms = p;
 		return 0;
@@ -421,106 +471,24 @@ static int check_if_valid(struct object *ctxobj,
 	return -1;
 }
 
-/* TODO: we could first see if it's mapped in any security context, thereby allowing us to check a
- * "cached" value of the permissions */
-int secctx_check_permissions(void *ip, struct object *to, uint32_t flags)
-{
-	char fls[8];
-	int __flt = 0;
-	if(flags & SCP_READ) {
-		fls[__flt++] = 'r';
-	}
-	if(flags & SCP_WRITE) {
-		fls[__flt++] = 'w';
-	}
-	if(flags & SCP_EXEC) {
-		fls[__flt++] = 'x';
-	}
-	if(flags & SCP_USE) {
-		fls[__flt++] = 'u';
-	}
-	fls[__flt] = 0;
-
-	(void)fls;
-	EPRINTK("[%ld] secctx_check - ip=%p, target=" IDFMT ", flags=%s\n",
-	  current_thread->id,
-	  ip,
-	  IDPR(to->id),
-	  fls);
-
-	spinlock_acquire_save(&current_thread->sc_lock);
-	if(current_thread->active_sc->superuser) {
-		spinlock_release_restore(&current_thread->sc_lock);
-		return 0;
-	}
-
-	if(current_thread->active_sc->obj == NULL) {
-		return -EACCES;
-	}
-
-	struct object *obj = current_thread->active_sc->obj;
-	uint32_t p;
-	EPRINTK("  - trying active context (" IDFMT ")\n", IDPR(obj->id));
-	__lookup_perms(obj, to, 0, &p, NULL);
-	EPRINTK("    - p = %x (%x): %s\n", p, flags, (p & flags) == flags ? "ok" : "FAIL");
-	if((p & flags) == flags) {
-		spinlock_release_restore(&current_thread->sc_lock);
-		return 0;
-	}
-
-	for(int i = 0; i < MAX_SC; i++) {
-		if(!current_thread->attached_scs[i]
-		   || current_thread->attached_scs[i] == current_thread->active_sc)
-			continue;
-		obj = current_thread->attached_scs[i]->obj;
-		assert(obj);
-		EPRINTK("  - trying " IDFMT "\n", IDPR(obj->id));
-		if(check_if_valid(obj, ip, to, flags, 0, NULL) == 0) {
-			secctx_switch(i);
-			spinlock_release_restore(&current_thread->sc_lock);
-			return 0;
-		}
-	}
-	spinlock_release_restore(&current_thread->sc_lock);
-	return -EACCES;
-}
-
-static uint64_t __conv_scp_to_objperm(uint32_t p)
-{
-	uint64_t perms = 0;
-	if(p & SCP_READ) {
-		perms |= OBJSPACE_READ;
-	}
-	if(p & SCP_WRITE) {
-		perms |= OBJSPACE_WRITE;
-	}
-	if(p & SCP_EXEC) {
-		perms |= OBJSPACE_EXEC_U;
-	}
-	return perms;
-}
-
 int secctx_fault_resolve(void *ip,
   uintptr_t loaddr,
   void *vaddr,
   struct object *target,
-  uint32_t flags,
-  uint64_t *perms)
+  uint32_t needed,
+  uint32_t *perms,
+  bool do_fault)
 {
-	uint32_t needed = 0;
 	char fls[8];
 	int __flt = 0;
-	if(flags & OBJSPACE_FAULT_READ) {
+	if(needed & SCP_READ) {
 		fls[__flt++] = 'r';
-		needed |= SCP_READ;
 	}
-	if(flags & OBJSPACE_FAULT_WRITE) {
+	if(needed & SCP_WRITE) {
 		fls[__flt++] = 'w';
-		needed |= SCP_WRITE;
 	}
-	if(flags & OBJSPACE_FAULT_EXEC) {
+	if(needed & SCP_EXEC) {
 		fls[__flt++] = 'x';
-		needed |= SCP_EXEC;
 	}
 	fls[__flt] = 0;
 
@@ -538,7 +506,8 @@ int secctx_fault_resolve(void *ip,
 	 * a real security context */
 	if(current_thread->active_sc->superuser) {
 		spinlock_release_restore(&current_thread->sc_lock);
-		*perms = OBJSPACE_EXEC_U | OBJSPACE_WRITE | OBJSPACE_READ;
+		if(perms)
+			*perms = SCP_READ | SCP_WRITE | SCP_EXEC;
 		return 0;
 	}
 
@@ -547,6 +516,8 @@ int secctx_fault_resolve(void *ip,
 		goto fault_noperm;
 	}
 
+	/* try out the active context and see if that's enough. As an optimization, we don't have to
+	 * check gates or if the ip is executable, since it must be */
 	struct object *obj = current_thread->active_sc->obj;
 	uint32_t p;
 	EPRINTK("  - trying active context (" IDFMT ")\n", IDPR(obj->id));
@@ -554,10 +525,13 @@ int secctx_fault_resolve(void *ip,
 	EPRINTK("    - p = %x (%x): %s\n", p, needed, (p & needed) == needed ? "ok" : "FAIL");
 	if((p & needed) == needed) {
 		spinlock_release_restore(&current_thread->sc_lock);
-		*perms = __conv_scp_to_objperm(p);
+		if(perms)
+			*perms = p;
 		return 0;
 	}
 
+	/* try out the other attached contexts. If a given context is valid for this access, switch to
+	 * it. */
 	for(int i = 0; i < MAX_SC; i++) {
 		if(!current_thread->attached_scs[i]
 		   || current_thread->attached_scs[i] == current_thread->active_sc)
@@ -566,27 +540,43 @@ int secctx_fault_resolve(void *ip,
 		assert(obj);
 		EPRINTK("  - trying " IDFMT "\n", IDPR(obj->id));
 		size_t ipoff = 0;
-		bool gok;
-		if(flags & OBJSPACE_FAULT_EXEC) {
+		/* if we need executable permission, then we are jumping into an object, possibly through a
+		 * gate. If so, we need to check if the gates this objects provides match our target IP. */
+		if(needed & SCP_EXEC) {
 			assert(ip == vaddr);
 			ipoff = (uintptr_t)ip % OBJ_MAXSIZE;
 		}
 
 		if(check_if_valid(obj, ip, target, needed, ipoff, &p) == 0) {
 			spinlock_release_restore(&current_thread->sc_lock);
-			*perms = __conv_scp_to_objperm(p);
+			if(perms)
+				*perms = p;
 			secctx_switch(i);
 			return 0;
 		}
 	}
+	/* if we didn't find anything, fall through to here */
 fault_noperm:
 	spinlock_release_restore(&current_thread->sc_lock);
-	*perms = 0;
-	/* TODO: check if this is right */
-	struct fault_sctx_info info = twz_fault_build_sctx_info(target->id, ip, ip, needed);
-	thread_raise_fault(current_thread, FAULT_SCTX, &info, sizeof(info));
+	if(perms)
+		*perms = 0;
+	if(do_fault) {
+		/* TODO: check if this is right */
+		struct fault_sctx_info info = twz_fault_build_sctx_info(target->id, ip, ip, needed);
+		thread_raise_fault(current_thread, FAULT_SCTX, &info, sizeof(info));
+	}
 
 	return -1;
+}
+
+/* TODO: we could first see if it's mapped in any security context, thereby allowing us to check a
+ * "cached" value of the permissions */
+int secctx_check_permissions(void *ip, struct object *to, uint32_t flags)
+{
+	if(secctx_fault_resolve(ip, 0, NULL, to, flags, NULL, false)) {
+		return -EACCES;
+	}
+	return 0;
 }
 
 #undef EPRINTK

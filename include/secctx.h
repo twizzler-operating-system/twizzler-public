@@ -25,6 +25,7 @@ int secctx_fault_resolve(void *ip,
   void *vaddr,
   struct object *target,
   uint32_t flags,
-  uint64_t *perms);
+  uint32_t *perms,
+  bool);
 struct object;
 int secctx_check_permissions(void *, struct object *, uint32_t flags);
