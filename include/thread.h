@@ -28,6 +28,12 @@ struct sleep_entry {
 	bool active;
 };
 
+struct thread_sctx_entry {
+	struct sctx *context;
+	struct sctx *backup;
+	uint32_t attr, backup_attr;
+};
+
 struct thread {
 	struct arch_thread arch;
 	struct spinlock lock;
@@ -44,10 +50,7 @@ struct thread {
 
 	struct spinlock sc_lock;
 	struct sctx *active_sc;
-	struct sctx *attached_scs[MAX_SC];
-	uint32_t attached_scs_attrs[MAX_SC];
-	struct sctx *attached_scs_backup[MAX_SC];
-	uint32_t attached_scs_attrs_backup[MAX_SC];
+	struct thread_sctx_entry *sctx_entries;
 
 	struct kso_throbj *throbj;
 

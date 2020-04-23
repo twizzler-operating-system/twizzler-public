@@ -1,5 +1,6 @@
 #include <clksrc.h>
 #include <debug.h>
+#include <kalloc.h>
 #include <lib/iter.h>
 #include <object.h>
 #include <processor.h>
@@ -149,6 +150,11 @@ static void _thread_ctor(void *_u __unused, void *ptr)
 	thr->sc_lock = SPINLOCK_INIT;
 	thr->lock = SPINLOCK_INIT;
 	thr->state = THREADSTATE_INITING;
+	if(!thr->sctx_entries) {
+		thr->sctx_entries = kcalloc(MAX_SC, sizeof(struct thread_sctx_entry));
+	} else {
+		memset(thr->sctx_entries, 0, sizeof(struct thread_sctx_entry) * MAX_SC);
+	}
 }
 
 static DECLARE_SLABCACHE(_sc_thread, sizeof(struct thread), _thread_ctor, NULL, NULL);
@@ -199,7 +205,7 @@ static void __thread_finish_cleanup2(void *_t)
 	struct thread *t = _t;
 	arch_thread_destroy(t);
 	thread_sync_uninit_thread(t);
-	memset(t, 0, sizeof(*t));
+	memset(&t->arch, 0, sizeof(t->arch));
 	_thread_ctor(NULL, t);
 	slabcache_free(&_sc_thread, t);
 }

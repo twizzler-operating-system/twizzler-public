@@ -177,7 +177,9 @@ void thread_sync_uninit_thread(struct thread *thr)
 	}
 	if(thr->sleep_entries) {
 		kfree(thr->sleep_entries);
+		thr->sleep_entries = NULL;
 	}
+	thr->sleep_count = 0;
 	spinlock_release_restore(&thr->lock);
 }
 

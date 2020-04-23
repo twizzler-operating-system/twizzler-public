@@ -533,10 +533,10 @@ int secctx_fault_resolve(void *ip,
 	/* try out the other attached contexts. If a given context is valid for this access, switch to
 	 * it. */
 	for(int i = 0; i < MAX_SC; i++) {
-		if(!current_thread->attached_scs[i]
-		   || current_thread->attached_scs[i] == current_thread->active_sc)
+		if(!current_thread->sctx_entries[i].context
+		   || current_thread->sctx_entries[i].context == current_thread->active_sc)
 			continue;
-		obj = current_thread->attached_scs[i]->obj;
+		obj = current_thread->sctx_entries[i].context->obj;
 		assert(obj);
 		EPRINTK("  - trying " IDFMT "\n", IDPR(obj->id));
 		size_t ipoff = 0;
@@ -586,9 +586,9 @@ static void __secctx_update_thrdrepr(struct thread *thr, int s, bool at)
 {
 	struct object *to = kso_get_obj(thr->throbj, thr);
 	struct kso_attachment k = {
-		.id = at && thr->attached_scs[s]->obj ? thr->attached_scs[s]->obj->id : 0,
+		.id = at && thr->sctx_entries[s].context->obj ? thr->sctx_entries[s].context->obj->id : 0,
 		.flags = 0,
-		.info = at ? thr->attached_scs_attrs[s] : 0,
+		.info = at ? thr->sctx_entries[s].attr : 0,
 		.type = KSO_SECCTX,
 	};
 	obj_write_data(to, offsetof(struct twzthread_repr, attached) + sizeof(k) * s, sizeof(k), &k);
@@ -603,8 +603,8 @@ static bool secctx_thread_attach(struct sctx *s, struct thread *t)
 	spinlock_acquire_save(&t->sc_lock);
 	if(t->active_sc->obj == NULL) {
 		/* bootstrap context. Get rid of it, we're a real security context now! */
-		assert(t->attached_scs[0] == t->active_sc);
-		t->attached_scs[0] = NULL;
+		assert(t->sctx_entries[0].context == t->active_sc);
+		t->sctx_entries[0].context = NULL;
 		/* once for attached[0] */
 		krc_put_call(t->active_sc, refs, __secctx_krc_put);
 		/* and again for the active_sc */
@@ -612,8 +612,8 @@ static bool secctx_thread_attach(struct sctx *s, struct thread *t)
 	}
 
 	for(i = 0; i < MAX_SC; i++) {
-		if(t->attached_scs[i] == s) {
-			t->attached_scs_attrs[i] = 0;
+		if(t->sctx_entries[i].context == s) {
+			t->sctx_entries[i].attr = 0;
 			__secctx_update_thrdrepr(t, i, true);
 			found = true;
 			break;
@@ -621,10 +621,10 @@ static bool secctx_thread_attach(struct sctx *s, struct thread *t)
 	}
 	if(!found) {
 		for(i = 0; i < MAX_SC; i++) {
-			if(t->attached_scs[i] == NULL) {
+			if(t->sctx_entries[i].context == NULL) {
 				krc_get(&s->refs);
-				t->attached_scs[i] = s;
-				t->attached_scs_attrs[i] = 0;
+				t->sctx_entries[i].context = s;
+				t->sctx_entries[i].attr = 0;
 				__secctx_update_thrdrepr(t, i, true);
 				ok = true;
 				break;
@@ -649,22 +649,22 @@ static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 	bool ok = false;
 	ssize_t na = -1;
 	for(size_t i = 0; i < MAX_SC; i++) {
-		if(thr->attached_scs[i] == s) {
+		if(thr->sctx_entries[i].context == s) {
 			__secctx_update_thrdrepr(thr, i, false);
 			krc_put_call(s, refs, __secctx_krc_put);
-			thr->attached_scs[i] = NULL;
-			thr->attached_scs_attrs[i] = 0;
+			thr->sctx_entries[i].context = NULL;
+			thr->sctx_entries[i].attr = 0;
 			ok = true;
-		} else if(na == -1 && thr->attached_scs[i]) {
+		} else if(na == -1 && thr->sctx_entries[i].context) {
 			na = i;
 		}
 	}
 	if(na == -1) {
 		/* detached from the last context. Create a dummy context */
-		assert(thr->attached_scs[0] == NULL);
+		assert(thr->sctx_entries[0].context == NULL);
 		thr->active_sc = secctx_alloc(NULL);
 		krc_get(&thr->active_sc->refs);
-		thr->attached_scs[0] = thr->active_sc;
+		thr->sctx_entries[0].context = thr->active_sc;
 		secctx_switch(0);
 	} else if(thr->active_sc == s) {
 		/* TODO: maybe we could leave this? */
@@ -688,36 +688,36 @@ static bool __secctx_detach_event(struct thread *thr, bool entry, int sysc)
 {
 	spinlock_acquire_save(&thr->sc_lock);
 	for(size_t i = 0; i < MAX_SC; i++) {
-		uint16_t as = thr->attached_scs_attrs[i] >> 16;
-		uint16_t flags = thr->attached_scs_attrs[i] & 0xffff;
+		uint16_t as = thr->sctx_entries[i].attr >> 16;
+		uint16_t flags = thr->sctx_entries[i].attr & 0xffff;
 		if(!(flags & __TWZ_DETACH_DETACH)) {
 			continue;
 		}
 		bool onen = !!(flags & TWZ_DETACH_ONENTRY);
 		bool onex = !!(flags & TWZ_DETACH_ONEXIT);
-		if(thr->attached_scs[i] && as == sysc) {
+		if(thr->sctx_entries[i].context && as == sysc) {
 			if(((entry && onen) || (!entry && onex))) {
-				__secctx_thread_detach(thr->attached_scs[i], thr);
+				__secctx_thread_detach(thr->sctx_entries[i].context, thr);
 			}
 		}
 		if(!onen && !onex) {
 			assert(!onen && !onex);
-			if(entry && thr->attached_scs[i]) {
-				krc_get(&thr->attached_scs[i]->refs);
-				thr->attached_scs_backup[i] = thr->attached_scs[i];
-				thr->attached_scs_attrs_backup[i] = thr->attached_scs_attrs[i];
-				__secctx_thread_detach(thr->attached_scs[i], thr);
-			} else if(!entry && thr->attached_scs_backup[i]) {
-				thr->attached_scs[i] = thr->attached_scs_backup[i];
-				thr->attached_scs_attrs[i] = thr->attached_scs_attrs_backup[i];
-				thr->attached_scs_backup[i] = NULL;
+			if(entry && thr->sctx_entries[i].context) {
+				krc_get(&thr->sctx_entries[i].context->refs);
+				thr->sctx_entries[i].backup = thr->sctx_entries[i].context;
+				thr->sctx_entries[i].backup_attr = thr->sctx_entries[i].attr;
+				__secctx_thread_detach(thr->sctx_entries[i].context, thr);
+			} else if(!entry && thr->sctx_entries[i].backup) {
+				thr->sctx_entries[i].context = thr->sctx_entries[i].backup;
+				thr->sctx_entries[i].attr = thr->sctx_entries[i].backup_attr;
+				thr->sctx_entries[i].backup = NULL;
 				if(!thr->active_sc->obj) {
 					/* once for attached[0] */
 					krc_put_call(thr->active_sc, refs, __secctx_krc_put);
 					/* and again for the active_sc */
 					krc_put_call(thr->active_sc, refs, __secctx_krc_put);
 
-					thr->active_sc = thr->attached_scs[i];
+					thr->active_sc = thr->sctx_entries[i].context;
 					secctx_switch(i);
 				}
 			}
@@ -733,7 +733,7 @@ static bool secctx_detach_all(struct thread *thr, int sysc, int flags)
 	spinlock_acquire_save(&thr->sc_lock);
 	for(size_t i = 0; i < MAX_SC; i++) {
 		if(flags) {
-			thr->attached_scs_attrs[i] = (flags & 0xffff) | (sysc << 16) | __TWZ_DETACH_DETACH;
+			thr->sctx_entries[i].attr = (flags & 0xffff) | (sysc << 16) | __TWZ_DETACH_DETACH;
 		}
 	}
 	spinlock_release_restore(&thr->sc_lock);
@@ -753,9 +753,9 @@ static bool __secctx_detach(struct object *parent, struct object *child, int sys
 	bool ok = false;
 	spinlock_acquire_save(&thr->sc_lock);
 	for(size_t i = 0; i < MAX_SC; i++) {
-		if(thr->attached_scs[i] == s) {
-			uint16_t oldflags = thr->attached_scs_attrs[i] & 0xffff;
-			thr->attached_scs_attrs[i] =
+		if(thr->sctx_entries[i].context == s) {
+			uint16_t oldflags = thr->sctx_entries[i].attr & 0xffff;
+			thr->sctx_entries[i].attr =
 			  ((flags | oldflags) & 0xffff) | (sysc << 16) | __TWZ_DETACH_DETACH;
 			ok = true;
 			break;

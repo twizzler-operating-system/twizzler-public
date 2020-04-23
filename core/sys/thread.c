@@ -70,9 +70,11 @@ long syscall_thread_spawn(uint64_t tidlo,
 	if(current_thread) {
 		spinlock_acquire_save(&current_thread->sc_lock);
 		for(int i = 0; i < MAX_SC; i++) {
-			if(current_thread->attached_scs[i]) {
-				krc_get(&current_thread->attached_scs[i]->refs);
-				t->attached_scs[i] = current_thread->attached_scs[i];
+			if(current_thread->sctx_entries[i].context) {
+				krc_get(&current_thread->sctx_entries[i].context->refs);
+				t->sctx_entries[i].context = current_thread->sctx_entries[i].context;
+				t->sctx_entries[i].attr = 0;
+				t->sctx_entries[i].backup_attr = 0;
 			}
 		}
 		krc_get(&current_thread->active_sc->refs);
@@ -82,7 +84,7 @@ long syscall_thread_spawn(uint64_t tidlo,
 		t->active_sc = secctx_alloc(0);
 		t->active_sc->superuser = true; /* we're the init thread */
 		krc_get(&t->active_sc->refs);
-		t->attached_scs[0] = t->active_sc;
+		t->sctx_entries[0].context = t->active_sc;
 	}
 
 	arch_thread_init(t,

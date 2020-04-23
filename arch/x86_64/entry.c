@@ -182,7 +182,7 @@ __noinstrument void x86_64_syscall_entry(struct x86_64_syscall_frame *frame)
 
 void secctx_switch(int i)
 {
-	current_thread->active_sc = current_thread->attached_scs[i];
+	current_thread->active_sc = current_thread->sctx_entries[i].context;
 	if(!current_thread->active_sc) {
 		return;
 	}
