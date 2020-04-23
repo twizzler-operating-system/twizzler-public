@@ -6,10 +6,23 @@
 
 #include <twz/_objid.h>
 
+#include <lib/rb.h>
+
+#include <twz/_sctx.h>
+struct sctx_cache_entry {
+	objid_t id;
+	struct scgates *gates;
+	size_t gate_count;
+	struct rbnode node;
+	uint32_t perms;
+};
+
 struct sctx {
 	struct object_space space;
 	struct object *obj;
 	struct krc refs;
+	struct rbroot cache;
+	struct spinlock cache_lock;
 	bool superuser;
 };
 

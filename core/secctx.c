@@ -22,7 +22,8 @@ static void _sc_dtor(void *_x __unused, void *ptr)
 	object_space_destroy(&sc->space);
 }
 
-DECLARE_SLABCACHE(sc_sc, sizeof(struct sctx), _sc_ctor, _sc_dtor, NULL);
+static DECLARE_SLABCACHE(sc_sc, sizeof(struct sctx), _sc_ctor, _sc_dtor, NULL);
+static DECLARE_SLABCACHE(sc_sctx_ce, sizeof(struct sctx_cache_entry), NULL, NULL, NULL);
 
 struct sctx *secctx_alloc(struct object *obj)
 {
@@ -49,6 +50,63 @@ static void __secctx_krc_put(void *_sc)
 	}
 	(void)sc;
 	/* TODO */
+}
+
+static int __sctx_ce_compar_key(struct sctx_cache_entry *a, objid_t b)
+{
+	if(a->id > b)
+		return 1;
+	else if(a->id < b)
+		return -1;
+	return 0;
+}
+
+static int __sctx_ce_compar(struct sctx_cache_entry *a, struct sctx_cache_entry *b)
+{
+	return __sctx_ce_compar_key(a, b->id);
+}
+
+static void sctx_cache_delete(struct sctx *sc, objid_t id)
+{
+	printk("[sctx] cache try-delete " IDFMT "\n", IDPR(id));
+	struct rbnode *node =
+	  rb_search(&sc->cache, id, struct sctx_cache_entry, node, __sctx_ce_compar_key);
+	if(node) {
+		printk("[sctx] cache delete " IDFMT "\n", IDPR(id));
+		struct sctx_cache_entry *scce = rb_entry(node, struct sctx_cache_entry, node);
+		kfree(scce->gates);
+		slabcache_free(&sc_sctx_ce, scce);
+	}
+}
+
+static struct sctx_cache_entry *sctx_cache_lookup(struct sctx *sc, objid_t id)
+{
+	printk("[sctx] cache lookup " IDFMT "\n", IDPR(id));
+	struct rbnode *node =
+	  rb_search(&sc->cache, id, struct sctx_cache_entry, node, __sctx_ce_compar_key);
+	struct sctx_cache_entry *scce = node ? rb_entry(node, struct sctx_cache_entry, node) : NULL;
+	if(scce) {
+		printk("[sctx] cache found " IDFMT ": %x (%ld gates)\n",
+		  IDPR(id),
+		  scce->perms,
+		  scce->gate_count);
+	}
+	return scce;
+}
+
+static void sctx_cache_insert(struct sctx *sc,
+  objid_t id,
+  uint32_t perms,
+  struct scgates *gates,
+  size_t gc)
+{
+	printk("[sctx] cache insert " IDFMT ": %x (%ld gates)\n", IDPR(id), perms, gc);
+	struct sctx_cache_entry *ce = slabcache_alloc(&sc_sctx_ce);
+	ce->id = id;
+	ce->perms = perms;
+	ce->gates = gates;
+	ce->gate_count = gc;
+	rb_insert(&sc->cache, ce, struct sctx_cache_entry, node, __sctx_ce_compar);
 }
 
 /* TODO: cache results for faster future lookups */
@@ -377,41 +435,70 @@ static bool __in_gate(struct scgates *gs, size_t off)
 	       && (off & ((1 << gs->align) - 1)) == 0;
 }
 
-/* given a security context, obj, and a target object, lookup the permissions that this context has
- * for accessing this object. This is a logical or of all the capabilities and delegations for the
- * target in this context.
+static void __append_gatelist(struct scgates **gl, size_t *count, size_t *pos, struct scgates *gate)
+{
+	if(*pos == *count) {
+		*count = *count ? 1 : *count * 2;
+		*gl = krealloc(*gl, sizeof(**gl) * (*count));
+	}
+
+	(*gl)[*pos] = *gate;
+	(*pos)++;
+}
+/* given a security context, obj, and a target object, lookup the permissions that this context
+ * has for accessing this object. This is a logical or of all the capabilities and delegations
+ * for the target in this context.
  *
  * If ipoff is non-zero, also check if ipoff exists within a gate of this object. If any cap
  * provides a gate that matches ipoff, it's ok. */
-static int __lookup_perms(struct object *obj,
+static void __lookup_perms(struct sctx *sc,
   struct object *target,
   size_t ipoff,
   uint32_t *p,
   bool *ingate)
 {
-	char *kbase = obj_get_kbase(obj);
+	/* first try the cache */
+	spinlock_acquire_save(&sc->cache_lock);
+	struct sctx_cache_entry *scce = sctx_cache_lookup(sc, target->id);
+	if(scce) {
+		*p = scce->perms;
+		if(ingate) {
+			*ingate = false;
+			for(size_t i = 0; i < scce->gate_count; i++) {
+				*ingate = *ingate || __in_gate(&scce->gates[i], ipoff);
+			}
+		}
+		spinlock_release_restore(&sc->cache_lock);
+		return;
+	}
+	spinlock_release_restore(&sc->cache_lock);
+	char *kbase = obj_get_kbase(sc->obj);
 	struct secctx *ctx = (void *)kbase;
 
 	uint32_t perms = 0;
 	bool gatesok = false;
 	size_t slot = target->id % ctx->nbuckets;
+	struct scgates *gatelist = NULL;
+	size_t gatecount = 0, gatepos = 0;
 	do {
 		struct scbucket *b;
 		b = (void *)(kbase + sizeof(*ctx) + sizeof(*b) * slot);
-		if(!obj_kaddr_valid(obj, b, sizeof(*b))) {
+		if(!obj_kaddr_valid(sc->obj, b, sizeof(*b))) {
 			break;
 		}
 
 		if(b->target == target->id) {
 			EPRINTK("    - lookup_perms: found!\n");
 			struct scgates gs = { 0 };
-			/* get this entry's perm, masked with this buckets mask. Then, if we're gating, check
-			 * the gates. */
-			perms |= __lookup_perm_bucket(obj, b, &gs, target) & b->pmask;
+			/* get this entry's perm, masked with this buckets mask. Then, if we're gating,
+			 * check the gates. */
+			perms |= __lookup_perm_bucket(sc->obj, b, &gs, target) & b->pmask;
+			/* TODO: only do this if the gate is meaningful */
+			__limit_gates(&gs, &b->gatemask);
+			__append_gatelist(&gatelist, &gatecount, &gatepos, &gs);
 			if(ipoff) {
 				/* we first have to limit the gate from the cap by the "gatemask" of the bucket.
 				 * This isn't as trivial as a logical and, so see the above function */
-				__limit_gates(&gs, &b->gatemask);
 				if(__in_gate(&gs, ipoff))
 					gatesok = true;
 			}
@@ -419,7 +506,8 @@ static int __lookup_perms(struct object *obj,
 
 		slot = b->chain;
 	} while(slot != 0);
-	/* we _also_ need to get the default permissions for the object and take them into account. */
+	/* we _also_ need to get the default permissions for the object and take them into account.
+	 */
 	uint32_t dfl = 0;
 	uint32_t p_flags = 0;
 	obj_get_pflags(target, &p_flags);
@@ -430,10 +518,17 @@ static int __lookup_perms(struct object *obj,
 		*ingate = gatesok;
 	}
 
-	return 0;
+	spinlock_acquire_save(&sc->cache_lock);
+	if(sctx_cache_lookup(sc, target->id)) {
+		sctx_cache_delete(sc, target->id);
+	}
+	sctx_cache_insert(sc, target->id, perms | dfl, gatelist, gatepos);
+	spinlock_release_restore(&sc->cache_lock);
+
+	obj_release_kaddr(sc->obj);
 }
 
-static int check_if_valid(struct object *ctxobj,
+static int check_if_valid(struct sctx *sc,
   void *ip,
   struct object *target,
   uint32_t flags,
@@ -451,18 +546,18 @@ static int check_if_valid(struct object *ctxobj,
 	}
 	/* must be executable in this context */
 	uint32_t ep;
-	__lookup_perms(ctxobj, eo, 0, &ep, NULL);
+	__lookup_perms(sc, eo, 0, &ep, NULL);
 	obj_put(eo);
 	if(!(ep & SCP_EXEC)) {
 		return -1;
 	}
 
-	/* check the actual target permissions. Note that if we're gating, we need to check that too.
-	 * The functions above only check gates if ipoff is non-zero (as this would be a fault anyway if
-	 * we tried executing there!) */
+	/* check the actual target permissions. Note that if we're gating, we need to check that
+	 * too. The functions above only check gates if ipoff is non-zero (as this would be a fault
+	 * anyway if we tried executing there!) */
 	bool gok;
 	uint32_t p;
-	__lookup_perms(ctxobj, target, ipoff, &p, &gok);
+	__lookup_perms(sc, target, ipoff, &p, &gok);
 	if((p & flags) == flags && gok) {
 		if(perms)
 			*perms = p;
@@ -502,8 +597,8 @@ int secctx_fault_resolve(void *ip,
 	  IDPR(target->id),
 	  fls);
 	spinlock_acquire_save(&current_thread->sc_lock);
-	/* check if we have "superuser" priv. This is only really the init thread before it attaches to
-	 * a real security context */
+	/* check if we have "superuser" priv. This is only really the init thread before it attaches
+	 * to a real security context */
 	if(current_thread->active_sc->superuser) {
 		spinlock_release_restore(&current_thread->sc_lock);
 		if(perms)
@@ -518,10 +613,10 @@ int secctx_fault_resolve(void *ip,
 
 	/* try out the active context and see if that's enough. As an optimization, we don't have to
 	 * check gates or if the ip is executable, since it must be */
-	struct object *obj = current_thread->active_sc->obj;
 	uint32_t p;
-	EPRINTK("  - trying active context (" IDFMT ")\n", IDPR(obj->id));
-	__lookup_perms(obj, target, 0, &p, NULL);
+	EPRINTK("  - trying active context (" IDFMT ")\n",
+	  IDPR(current_thread->active_sc->obj ? current_thread->active_sc->obj->id : (objid_t)0));
+	__lookup_perms(current_thread->active_sc, target, 0, &p, NULL);
 	EPRINTK("    - p = %x (%x): %s\n", p, needed, (p & needed) == needed ? "ok" : "FAIL");
 	if((p & needed) == needed) {
 		spinlock_release_restore(&current_thread->sc_lock);
@@ -530,24 +625,25 @@ int secctx_fault_resolve(void *ip,
 		return 0;
 	}
 
-	/* try out the other attached contexts. If a given context is valid for this access, switch to
-	 * it. */
+	/* try out the other attached contexts. If a given context is valid for this access, switch
+	 * to it. */
 	for(int i = 0; i < MAX_SC; i++) {
-		if(!current_thread->sctx_entries[i].context
-		   || current_thread->sctx_entries[i].context == current_thread->active_sc)
+		struct sctx *sc = current_thread->sctx_entries[i].context;
+		if(!sc || sc == current_thread->active_sc)
 			continue;
-		obj = current_thread->sctx_entries[i].context->obj;
-		assert(obj);
-		EPRINTK("  - trying " IDFMT "\n", IDPR(obj->id));
+		assert(sc->obj);
+		EPRINTK("  - trying " IDFMT "\n", IDPR(sc->obj->id));
 		size_t ipoff = 0;
-		/* if we need executable permission, then we are jumping into an object, possibly through a
-		 * gate. If so, we need to check if the gates this objects provides match our target IP. */
+		/* if we need executable permission, then we are jumping into an object, possibly
+		 * through a
+		 * gate. If so, we need to check if the gates this objects provides match our target IP.
+		 */
 		if(needed & SCP_EXEC) {
 			assert(ip == vaddr);
 			ipoff = (uintptr_t)ip % OBJ_MAXSIZE;
 		}
 
-		if(check_if_valid(obj, ip, target, needed, ipoff, &p) == 0) {
+		if(check_if_valid(sc, ip, target, needed, ipoff, &p) == 0) {
 			spinlock_release_restore(&current_thread->sc_lock);
 			if(perms)
 				*perms = p;
@@ -569,8 +665,8 @@ fault_noperm:
 	return -1;
 }
 
-/* TODO: we could first see if it's mapped in any security context, thereby allowing us to check a
- * "cached" value of the permissions */
+/* TODO: we could first see if it's mapped in any security context, thereby allowing us to check
+ * a "cached" value of the permissions */
 int secctx_check_permissions(void *ip, struct object *to, uint32_t flags)
 {
 	if(secctx_fault_resolve(ip, 0, NULL, to, flags, NULL, false)) {
@@ -597,7 +693,7 @@ static void __secctx_update_thrdrepr(struct thread *thr, int s, bool at)
 
 static bool secctx_thread_attach(struct sctx *s, struct thread *t)
 {
-	// EPRINTK("thread %ld attach to " IDFMT "\n", t->id, IDPR(s->repr));
+	// EPRINTK("thread %ld attach to " IDFMT "\n", t->id, IDPR(s->obj->id));
 	bool ok = false, found = false, force = false;
 	size_t i;
 	spinlock_acquire_save(&t->sc_lock);
@@ -642,10 +738,7 @@ static bool secctx_thread_attach(struct sctx *s, struct thread *t)
 
 static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 {
-	// EPRINTK("thread %ld detach from " IDFMT "\n", thr->id, IDPR(s->repr));
-	if(s->obj == NULL) {
-		printk("THIS IS TOTALLY A BUG THAT NEEDS TO BE SOLVED!\n\n!!!!!!!!!!\n!!!!!!!\n!!!!!!\n");
-	}
+	// EPRINTK("thread %ld detach from " IDFMT "\n", thr->id, IDPR(s->obj->id));
 	bool ok = false;
 	ssize_t na = -1;
 	for(size_t i = 0; i < MAX_SC; i++) {
