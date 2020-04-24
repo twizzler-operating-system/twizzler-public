@@ -12,6 +12,8 @@ SPLITS=()
 
 function prepare() {
 	tar xf crypt-1.18.2.tar.xz
+	cd libtomcrypt-1.18.2
+	patch -p1 < ../../../../../../../us/ports/tomcrypt.patch
 }
 
 function build() {

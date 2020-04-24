@@ -1,0 +1,28 @@
+diff -uprN libtommath-1.2.0/bn_s_mp_rand_platform.c libtommath-1.2.0-twizzler/bn_s_mp_rand_platform.c
+--- libtommath-1.2.0/bn_s_mp_rand_platform.c	2019-10-22 02:44:44.000000000 -0700
++++ libtommath-1.2.0-twizzler/bn_s_mp_rand_platform.c	2020-04-24 00:07:35.681117849 -0700
+@@ -84,19 +84,21 @@ static mp_err s_read_getrandom(void *p,
+ #include <fcntl.h>
+ #include <errno.h>
+ #include <unistd.h>
++#include <sys/syscall.h>
+ 
+ static mp_err s_read_urandom(void *p, size_t n)
+ {
+    int fd;
+    char *q = (char *)p;
+ 
+-   do {
++ /*  do {
+       fd = open(MP_DEV_URANDOM, O_RDONLY);
+    } while ((fd == -1) && (errno == EINTR));
+-   if (fd == -1) return MP_ERR;
++   if (fd == -1) return MP_ERR;*/
+ 
+    while (n > 0u) {
+-      ssize_t ret = read(fd, p, n);
++      //ssize_t ret = read(fd, p, n);
++	 ssize_t ret = syscall(SYS_getrandom, q, n, 0);
+       if (ret < 0) {
+          if (errno == EINTR) {
+             continue;

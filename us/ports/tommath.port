@@ -12,6 +12,8 @@ SPLITS=()
 
 function prepare() {
 	tar xf ltm-1.2.0.tar.xz
+	cd libtommath-1.2.0
+	patch -p1 < ../../../../../../../us/ports/tommath.patch
 }
 
 function build() {

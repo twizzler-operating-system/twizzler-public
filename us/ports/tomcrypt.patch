@@ -1,0 +1,38 @@
+diff -uprN libtomcrypt-1.18.2/src/prngs/rng_get_bytes.c libtomcrypt-1.18.2-twizzler/src/prngs/rng_get_bytes.c
+--- libtomcrypt-1.18.2/src/prngs/rng_get_bytes.c	2018-07-01 13:49:01.000000000 -0700
++++ libtomcrypt-1.18.2-twizzler/src/prngs/rng_get_bytes.c	2020-04-23 23:54:51.300246696 -0700
+@@ -14,11 +14,18 @@
+    portable way to get secure random bits to feed a PRNG (Tom St Denis)
+ */
+ 
++#include <sys/syscall.h>
++
+ #if defined(LTC_DEVRANDOM) && !defined(_WIN32)
+ /* on *NIX read /dev/random */
+ static unsigned long _rng_nix(unsigned char *buf, unsigned long len,
+                              void (*callback)(void))
+ {
++	(void)callback;
++	
++	return syscall(SYS_getrandom, buf, len, 0);
++	//return getrandom(buf, len, 0);
++#if 0
+ #ifdef LTC_NO_FILE
+     LTC_UNUSED_PARAM(callback);
+     LTC_UNUSED_PARAM(buf);
+@@ -48,6 +55,7 @@ static unsigned long _rng_nix(unsigned c
+     fclose(f);
+     return x;
+ #endif /* LTC_NO_FILE */
++#endif
+ }
+ 
+ #endif /* LTC_DEVRANDOM */
+@@ -133,6 +141,7 @@ unsigned long rng_get_bytes(unsigned cha
+ 
+    LTC_ARGCHK(out != NULL);
+ 
++   
+ #ifdef LTC_PRNG_ENABLE_LTC_RNG
+    if (ltc_rng) {
+       x = ltc_rng(out, outlen, callback);
