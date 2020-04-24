@@ -87,6 +87,8 @@ long linux_sys_pselect6(int nfds,
 
 long linux_sys_arch_prctl(int code, unsigned long addr);
 
+long linux_sys_getrandom(char *, size_t, unsigned int);
+
 int linux_sys_dup(int oldfd);
 int linux_sys_dup2(int oldfd, int newfd);
 int linux_sys_dup3(int oldfd, int newfd, int flags);

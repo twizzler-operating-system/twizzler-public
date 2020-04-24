@@ -63,6 +63,8 @@
 #define LINUX_SYS_preadv 295
 #define LINUX_SYS_pwritev 296
 
+#define LINUX_SYS_getrandom 318
+
 #define LINUX_SYS_preadv2 327
 #define LINUX_SYS_pwritev2 328
 
@@ -119,6 +121,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_dup] = linux_sys_dup,
 	[LINUX_SYS_dup2] = linux_sys_dup2,
 	[LINUX_SYS_dup3] = linux_sys_dup3,
+	[LINUX_SYS_getrandom] = linux_sys_getrandom,
 };
 
 __attribute__((unused)) static const char *syscall_names[] = {

@@ -26,6 +26,7 @@ long linux_sys_clock_gettime(clockid_t clock, struct timespec *tp)
 		uint64_t ts;
 		case CLOCK_REALTIME:
 		case CLOCK_REALTIME_COARSE:
+		case CLOCK_PROCESS_CPUTIME_ID:
 		/* TODO: these should probably be different */
 		case CLOCK_MONOTONIC:
 		case CLOCK_MONOTONIC_RAW:
