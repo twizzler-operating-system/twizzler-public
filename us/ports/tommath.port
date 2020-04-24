@@ -1,0 +1,26 @@
+#!/bin/sh
+
+NAME=libtommath
+VERSION=1.2.0
+DEPS=
+desc="MP Math library written in C"
+
+DOWNLOADS=(https://github.com/libtom/libtommath/releases/download/v1.2.0/ltm-1.2.0.tar.xz)
+HASHES=(f0a9bcf805b6eb2ba3606bcb70989517eef58635)
+
+SPLITS=()
+
+function prepare() {
+	tar xf ltm-1.2.0.tar.xz
+}
+
+function build() {
+	cd libtommath-1.2.0
+	make $MAKEFLAGS CC=x86_64-pc-twizzler-musl-gcc AR=x86_64-pc-twizzler-musl-ar RANLIB=x86_64-pc-twizzler-musl-ranlib
+}
+
+function install() {
+	cd libtommath-1.2.0
+	make $MAKEFLAGS CC=x86_64-pc-twizzler-musl-gcc AR=x86_64-pc-twizzler-musl-ar RANLIB=x86_64-pc-twizzler-musl-ranlib DESTDIR=$SYSROOT LIBPATH=/usr/lib INCPATH=/usr/include install
+}
+

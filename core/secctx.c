@@ -48,8 +48,17 @@ static void __secctx_krc_put(void *_sc)
 		obj_put(sc->obj);
 		sc->obj = NULL;
 	}
-	(void)sc;
-	/* TODO */
+
+	struct rbnode *next;
+	for(struct rbnode *node = rb_first(&sc->cache); node; node = next) {
+		struct sctx_cache_entry *scce = rb_entry(node, struct sctx_cache_entry, node);
+		if(scce->gates) {
+			kfree(scce->gates);
+		}
+		next = rb_next(node);
+		rb_delete(&scce->node, &sc->cache);
+		slabcache_free(&sc_sctx_ce, scce);
+	}
 }
 
 static int __sctx_ce_compar_key(struct sctx_cache_entry *a, objid_t b)
@@ -74,7 +83,9 @@ static void sctx_cache_delete(struct sctx *sc, objid_t id)
 	if(node) {
 		printk("[sctx] cache delete " IDFMT "\n", IDPR(id));
 		struct sctx_cache_entry *scce = rb_entry(node, struct sctx_cache_entry, node);
-		kfree(scce->gates);
+		if(scce->gates) {
+			kfree(scce->gates);
+		}
 		slabcache_free(&sc_sctx_ce, scce);
 	}
 }
@@ -108,8 +119,6 @@ static void sctx_cache_insert(struct sctx *sc,
 	ce->gate_count = gc;
 	rb_insert(&sc->cache, ce, struct sctx_cache_entry, node, __sctx_ce_compar);
 }
-
-/* TODO: cache results for faster future lookups */
 
 #include <tomcrypt.h>
 #include <tommath.h>

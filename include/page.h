@@ -6,13 +6,14 @@
 #define PAGE_MAGIC 0x445566aaccddf15a
 
 struct page {
+#if DO_PAGE_MAGIC
 	uint64_t page_magic;
+#endif
 	uintptr_t addr;
-	struct krc rc;
 	struct spinlock lock;
 	struct page *parent, *next;
-	struct rbroot root;
-	struct rbnode node;
+	// struct rbroot root;
+	// struct rbnode node;
 	uint16_t flags;
 	uint8_t type;
 	uint8_t level;

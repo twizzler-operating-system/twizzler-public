@@ -22,8 +22,14 @@ int twz_dlg_create(struct scdlg **dlg,
   uint16_t etype);
 
 twzobj;
-int twz_sctx_add(twzobj *obj, objid_t target, void *item, size_t itemlen);
+int twz_sctx_init(twzobj *obj, const char *name);
+int twz_sctx_add(twzobj *obj,
+  objid_t target,
+  void *item,
+  size_t itemlen,
+  uint32_t,
+  struct scgates *);
 ssize_t twz_sctx_lookup(twzobj *obj, objid_t target);
 ssize_t twz_sctx_next(twzobj *obj, objid_t target, ssize_t bucket);
-int twz_sctx_read(twzobj *obj, objid_t target, void *data, size_t *datalen);
-int twz_sctx_del(twzobj *obj, objid_t target, ssize_t bucketnum);
+// int twz_sctx_read(twzobj *obj, objid_t target, void *data, size_t *datalen);
+// int twz_sctx_del(twzobj *obj, objid_t target, ssize_t bucketnum);

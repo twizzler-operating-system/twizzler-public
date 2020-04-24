@@ -91,21 +91,23 @@ This step will build the utilities that are needed to build the rest of the user
 4) PROJECT=x86_64 ./us/ports/port.sh ncurses
 5) PROJECT=x86_64 ./us/ports/port.sh bash
 6) PROJECT=x86_64 ./us/ports/port.sh busybox
+7) PROJECT=x86_64 ./us/ports/port.sh tommath
+8) PROJECT=x86_64 ./us/ports/port.sh tomcrypt
 
 These steps will port the specified programs to Twizzler, compile them, and install them into the
 sysroot. The order matters (bash depends on ncurses, for example).
 
-7) PROJECT=x86_64 make all
+9) PROJECT=x86_64 make all
 
 This build step will build the all target, which builds the kernel and the root.tar initrd file.
 This will also compile the software under third-party/, which is somewhat time consuming.
 
-8) PROJECT=x86_64 make bootiso
+10) PROJECT=x86_64 make bootiso
 
 That's it! It's all built! You can now try to boot that ISO image on a machine. If you want to test
 on QEMU, you can also run:
 
-9) PROJECT=x86_64 QEMU_FLAGS='-smp 4' make test
+11) PROJECT=x86_64 QEMU_FLAGS='-smp 4' make test
 
 This will give Twizzler 4 CPUs to play with. Don't give it more CPUs than you actually have.
 

@@ -8,6 +8,12 @@
 
 static DECLARE_PER_CPU(_Atomic bool, page_recur_crit_flag);
 
+#if DO_PAGE_MAGIC
+#define page_get_magic(p) ((p)->page_magic)
+#else
+#define page_get_magic(p) 0l
+#endif
+
 struct page_stack {
 	struct spinlock lock, lock2;
 	struct page *top;
@@ -123,7 +129,7 @@ static struct page *__do_page_alloc(struct page_group *group)
 		  page->flags,
 		  page->level,
 		  page->type,
-		  page->page_magic);
+		  page_get_magic(page));
 	}
 	// printk("  alloc %p (%lx) %x from group %s\n", page, page->addr, page->flags, group->name);
 	return page;
@@ -194,7 +200,9 @@ void page_init_bootstrap(void)
 			assert(pages->addr != 0);
 			memset(mm_ptov(pages->addr), 0, mm_page_size(0));
 			pages->level = 0;
+#if DO_PAGE_MAGIC
 			pages->page_magic = PAGE_MAGIC;
+#endif
 			pages->flags = PAGE_CACHE_WB | PAGE_ZERO | PAGE_ALLOCED;
 			__do_page_dealloc(&_pg_level0_critical, pages);
 			// pages->next = _stacks[0].top;
@@ -234,7 +242,10 @@ void page_init(struct memregion *region)
 		page->addr = addr;
 		page->flags = PAGE_CACHE_WB | PAGE_ALLOCED;
 		page->parent = NULL;
+#if DO_PAGE_MAGIC
 		page->page_magic = PAGE_MAGIC;
+#endif
+
 		if(page->addr) {
 			/* don't make address 0 available. */
 			page_dealloc(page, 0);
@@ -343,11 +354,13 @@ static bool __do_page_split(struct page_group *group, bool simple)
 	// printk("splitting page %lx (level %ld)\n", lp->addr, group->level + 1);
 	for(size_t i = 0; i < mm_page_size(group->level + 1) / mm_page_size(group->level); i++) {
 		struct page *np = arena_allocate(&page_arena, sizeof(struct page));
+#if DO_PAGE_MAGIC
 		np->page_magic = PAGE_MAGIC;
+#endif
 		np->type = lp->type;
 		np->flags = lp->flags;
 		np->lock = SPINLOCK_INIT;
-		np->root = RBINIT;
+		// np->root = RBINIT;
 		np->addr = i * mm_page_size(group->level) + lp->addr;
 		assert(np->addr);
 		np->parent = lp;
@@ -462,7 +475,9 @@ done:
 struct page *page_alloc_nophys(void)
 {
 	struct page *page = arena_allocate(&page_arena, sizeof(struct page));
+#if DO_PAGE_MAGIC
 	page->page_magic = PAGE_MAGIC;
+#endif
 	page->flags |= PAGE_NOPHYS;
 	return page;
 }

@@ -39,7 +39,7 @@ void add_hash(struct secctx *ctx, objid_t target, char *ptr)
 			for(size_t i = ctx->nbuckets; i < ctx->nbuckets + ctx->nchain; i++) {
 				struct scbucket *n = &ctx->buckets[slot];
 				if(n->chain == 0 && n->target == 0) {
-					slot = i;
+					b->chain = slot = i;
 					break;
 				}
 			}
