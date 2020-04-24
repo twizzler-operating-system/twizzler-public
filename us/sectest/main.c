@@ -140,6 +140,38 @@ static void sign_dsa(unsigned char *hash,
 		errx(1, "failed to test validate signature");
 	}
 }
+
+int twz_key_new(twzobj *pri, twzobj *pub)
+{
+	/* probaby shouldn't do this on every function call */
+	ltc_mp = ltm_desc;
+
+	prng_state prng;
+	int err;
+	/* register yarrow */
+	if(register_prng(&fortuna_desc) == -1) {
+		printf("Error registering Fortuna\n");
+		return -1;
+	}
+	/* setup the PRNG */
+	if((err = rng_make_prng(128, find_prng("fortuna"), &prng, NULL)) != CRYPT_OK) {
+		printf("Error setting up PRNG, %s\n", error_to_string(err));
+		return -1;
+	}
+	/* make a 192-bit ECC key */
+	// if((err = ecc_make_key(&prng, find_prng("yarrow"), 24, &mykey)) != CRYPT_OK) {
+	//	printf("Error making key: %s\n", error_to_string(err));
+	//	return -1;
+	//}
+
+	int e;
+	dsa_key key;
+	/* TODO: parameters */
+	if((e = dsa_make_key(&prng, find_prng("fortuna"), 20, 128, &key)) != CRYPT_OK) {
+		errx(1, "dsa_make_key: %s", error_to_string(e));
+	}
+}
+
 int twz_cap_create(struct sccap **cap,
   objid_t target,
   objid_t accessor,
@@ -197,7 +229,7 @@ void child(void)
 
 int main(int argc, char **argv)
 {
-	twzobj context;
+	twzobj context, pri, pub;
 
 	if(twz_object_new(&context, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_DFL_USE)) {
 		errx(1, "failed to make new object");
@@ -207,7 +239,17 @@ int main(int argc, char **argv)
 
 	struct sccap *cap;
 
-	twz_cap_create(&cap, 0, 0, 0, NULL, NULL, SCHASH_SHA1, SCENC_DSA);
+	if(twz_object_new(&pri, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_DFL_USE)) {
+		errx(1, "failed to make new object");
+	}
+
+	if(twz_object_new(&pub, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_DFL_USE)) {
+		errx(1, "failed to make new object");
+	}
+
+	twz_key_new(&pri, &pub);
+
+	//	twz_cap_create(&cap, 0, 0, 0, NULL, NULL, SCHASH_SHA1, SCENC_DSA);
 
 	if(!fork()) {
 		child();
