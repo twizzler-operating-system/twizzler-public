@@ -405,6 +405,9 @@ void obj_release_slot(struct object *obj)
 		object_space_release_slot(slot);
 		slot_release(slot);
 		bool tmp = krc_put(&obj->refs);
+		if(tmp) {
+			panic("tmp nonzero for object " IDFMT "\n", IDPR(obj->id));
+		}
 		assert(!tmp);
 #if CONFIG_DEBUG_OBJECT_SLOT
 		printk("MAPCOUNT ZERO: " IDFMT "; refs=%ld\n", IDPR(obj->id), obj->refs.count);

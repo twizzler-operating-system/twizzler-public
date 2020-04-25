@@ -1,5 +1,6 @@
 #pragma once
 
+#include <twz/_key.h>
 #include <twz/_sctx.h>
 
 int twz_cap_create(struct sccap **cap,
@@ -9,7 +10,8 @@ int twz_cap_create(struct sccap **cap,
   struct screvoc *revoc,
   struct scgates *gates,
   uint16_t htype,
-  uint16_t etype);
+  uint16_t etype,
+  twzobj *);
 
 int twz_dlg_create(struct scdlg **dlg,
   void *item,

@@ -173,6 +173,7 @@ static unsigned char *__verify_load_keydata(struct object *ko, uint32_t etype, s
 		return NULL;
 	}
 
+	/* TOD: actually look at the data pointer */
 	void *kd = (char *)hdr + sizeof(*hdr);
 	char *k = kd;
 	char *nl = strnchr(k, '\n', 4096 /* TODO */);
@@ -654,6 +655,7 @@ int secctx_fault_resolve(void *ip,
 
 		if(check_if_valid(sc, ip, target, needed, ipoff, &p) == 0) {
 			spinlock_release_restore(&current_thread->sc_lock);
+			EPRINTK("  - Success, switching\n");
 			if(perms)
 				*perms = p;
 			secctx_switch(i);

@@ -75,6 +75,7 @@ int twz_sctx_add(twzobj *obj,
 	if(!data) {
 		return -ENOMEM;
 	}
+	data = twz_object_lea(obj, data);
 	memcpy(data, item, itemlen);
 
 	int r = __sctx_add_bucket(sc, target, data, pmask, gatemask);
@@ -119,6 +120,9 @@ static void sign_dsa(unsigned char *hash,
 	size_t kdlen = b64len;
 	unsigned char *kd = malloc(b64len);
 	int e;
+	for(int i = 0; i < b64len; i++) {
+		printf("%c", b64data[i]);
+	}
 	if((e = base64_decode(b64data, b64len, kd, &kdlen)) != CRYPT_OK) {
 		errx(1, "b64_decode: %s", error_to_string(e));
 	}
@@ -170,6 +174,60 @@ int twz_key_new(twzobj *pri, twzobj *pub)
 	if((e = dsa_make_key(&prng, find_prng("fortuna"), 20, 128, &key)) != CRYPT_OK) {
 		errx(1, "dsa_make_key: %s", error_to_string(e));
 	}
+
+	struct key_hdr *kh = twz_object_base(pri);
+	kh->type = SCENC_DSA;
+	kh->flags = TWZ_KEY_PRI;
+	kh->keydatalen = 0x2000; /* TODO */
+
+	unsigned char *tmp = malloc(0x1000);
+	size_t explen = 0x1000;
+
+	if((e = dsa_export(tmp, &explen, PK_PRIVATE, &key))) {
+		errx(1, "dsa_export: %s", error_to_string(e));
+	}
+
+	const char *pri_line = "-----BEGIN PRIVATE KEY-----";
+	const char *pri_line_end = "-----END PRIVATE KEY-----";
+	const char *pub_line = "-----BEGIN PUBLIC KEY-----";
+	const char *pub_line_end = "-----END PUBLIC KEY-----";
+
+	strcpy((char *)(kh + 1), pri_line);
+	unsigned char *kdstart = ((unsigned char *)(kh + 1)) + strlen(pri_line);
+	if((e = base64_encode(tmp, explen, kdstart, &kh->keydatalen))) {
+		errx(1, "base64_encode: %s", error_to_string(e));
+	}
+	strcpy((char *)kdstart + kh->keydatalen, pri_line_end);
+	kh->keydata = twz_ptr_local(kdstart);
+
+	for(size_t i = 0; i < kh->keydatalen + 128; i++) {
+		printf("%c ", ((unsigned char *)(kh + 1))[i]);
+	}
+	kh = twz_object_base(pub);
+	kh->type = SCENC_DSA;
+	kh->flags = 0;
+	kh->keydatalen = 0x2000; /* TODO */
+
+	explen = 0x1000;
+	if((e = dsa_export(tmp, &explen, PK_PUBLIC, &key))) {
+		errx(1, "dsa_export: %s", error_to_string(e));
+	}
+
+	strcpy((char *)(kh + 1), pub_line);
+	kdstart = ((unsigned char *)(kh + 1)) + strlen(pub_line);
+	if((e = base64_encode(tmp, explen, kdstart, &kh->keydatalen))) {
+		errx(1, "base64_encode: %s", error_to_string(e));
+	}
+	strcpy((char *)kdstart + kh->keydatalen, pub_line_end);
+	kh->keydata = twz_ptr_local(kdstart);
+
+	printf("\n");
+	for(size_t i = 0; i < kh->keydatalen + 128; i++) {
+		printf("%c ", ((unsigned char *)(kh + 1))[i]);
+	}
+	printf("\n");
+
+	return 0;
 }
 
 int twz_cap_create(struct sccap **cap,
@@ -179,7 +237,8 @@ int twz_cap_create(struct sccap **cap,
   struct screvoc *revoc,
   struct scgates *gates,
   uint16_t htype,
-  uint16_t etype)
+  uint16_t etype,
+  twzobj *pri_key)
 {
 	if(htype != SCHASH_SHA1 || etype != SCENC_DSA)
 		return -ENOTSUP;
@@ -204,6 +263,11 @@ int twz_cap_create(struct sccap **cap,
 
 	size_t keylen;
 	char *keystart;
+
+	struct key_hdr *kh = twz_object_base(pri_key);
+	keystart = twz_object_lea(pri_key, kh->keydata);
+	keylen = kh->keydatalen;
+
 	while(siglen != (*cap)->slen || siglen == 0) {
 		(*cap)->slen = siglen;
 		_Alignas(16) hash_state hs;
@@ -222,14 +286,23 @@ int twz_cap_create(struct sccap **cap,
 	return 0;
 }
 
-void child(void)
+void child(twzobj *context, twzobj *data)
 {
 	printf("Hello from child!\n");
+
+	int r;
+	r = sys_attach(0, twz_object_guid(context), 0, KSO_SECCTX);
+	printf("ATTACH:  %d\n", r);
+
+	int *x = twz_object_base(data);
+	printf(":: %d\n", *x);
+	*x = 12;
+	printf(":: %d\n", *x);
 }
 
 int main(int argc, char **argv)
 {
-	twzobj context, pri, pub;
+	twzobj context, pri, pub, dataobj;
 
 	if(twz_object_new(&context, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_DFL_USE)) {
 		errx(1, "failed to make new object");
@@ -249,10 +322,29 @@ int main(int argc, char **argv)
 
 	twz_key_new(&pri, &pub);
 
-	//	twz_cap_create(&cap, 0, 0, 0, NULL, NULL, SCHASH_SHA1, SCENC_DSA);
+	if(twz_object_new(&dataobj, NULL, &pub, TWZ_OC_DFL_READ)) {
+		errx(1, "failed to make new object");
+	}
+
+	twz_cap_create(&cap,
+	  twz_object_guid(&dataobj),
+	  twz_object_guid(&context),
+	  0,
+	  NULL,
+	  NULL,
+	  SCHASH_SHA1,
+	  SCENC_DSA,
+	  &pri);
+
+	printf("\n\nAdding cap for " IDFMT " to " IDFMT "\n",
+	  IDPR(twz_object_guid(&dataobj)),
+	  IDPR(twz_object_guid(&context)));
+
+	/* probably get the length from some other function? */
+	twz_sctx_add(&context, twz_object_guid(&dataobj), cap, sizeof(*cap) + cap->slen, ~0, NULL);
 
 	if(!fork()) {
-		child();
+		child(&context, &dataobj);
 		exit(0);
 	}
 
