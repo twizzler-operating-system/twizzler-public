@@ -8,6 +8,18 @@
 
 static DECLARE_PER_CPU(_Atomic bool, page_recur_crit_flag);
 
+bool page_set_crit_flag(void)
+{
+	_Atomic bool *recur_flag = per_cpu_get(page_recur_crit_flag);
+	return atomic_exchange(recur_flag, true);
+}
+
+void page_reset_crit_flag(bool v)
+{
+	_Atomic bool *recur_flag = per_cpu_get(page_recur_crit_flag);
+	*recur_flag = v;
+}
+
 #if DO_PAGE_MAGIC
 #define page_get_magic(p) ((p)->page_magic)
 #else
@@ -404,11 +416,10 @@ struct page *page_alloc(int type, int flags, int level)
 			panic("PAGE_CRITICAL must be set when faulting during page_alloc");
 		}
 		current_thread->page_alloc = true;
-	} else {
-		if(*recur_flag) {
-			flags |= PAGE_CRITICAL;
-		}
-		*recur_flag = true;
+	}
+	bool rf = atomic_exchange(recur_flag, true);
+	if(rf) {
+		flags |= PAGE_CRITICAL;
 	}
 	struct page *p = NULL;
 	if(flags & PAGE_CRITICAL) {
@@ -467,8 +478,7 @@ done:
 	}
 	if(current_thread)
 		current_thread->page_alloc = false;
-	else
-		*recur_flag = false;
+	*recur_flag = rf;
 	return p;
 }
 

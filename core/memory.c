@@ -304,6 +304,7 @@ void *__mm_memory_alloc(size_t length, int type, bool clear, const char *file, i
 		return p;
 	}
 	spinlock_acquire_save(&allocator_lock);
+	bool old_cf = page_set_crit_flag();
 	foreach(e, list, &allocators) {
 		struct mem_allocator *alloc = list_entry(e, struct mem_allocator, entry);
 #if 0
@@ -321,6 +322,7 @@ void *__mm_memory_alloc(size_t length, int type, bool clear, const char *file, i
 			uintptr_t x = pmm_buddy_allocate(alloc, length);
 			if(x != 0) {
 				mm_late_count += length;
+				page_reset_crit_flag(old_cf);
 				spinlock_release_restore(&allocator_lock);
 				if(clear)
 					memset((void *)x, 0, length);
@@ -334,6 +336,7 @@ void *__mm_memory_alloc(size_t length, int type, bool clear, const char *file, i
 			alloc->available_memory -= length;
 			alloc->marker += length;
 			mm_late_count += length;
+			page_reset_crit_flag(old_cf);
 			spinlock_release_restore(&allocator_lock);
 			if(clear) {
 				memset(p, 0, length);

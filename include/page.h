@@ -48,3 +48,5 @@ void page_init_bootstrap(void);
 void page_print_stats(void);
 void page_dealloc(struct page *p, int flags);
 void page_idle_zero(void);
+void page_reset_crit_flag(bool v);
+bool page_set_crit_flag(void);
