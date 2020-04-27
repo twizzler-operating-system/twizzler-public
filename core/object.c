@@ -954,7 +954,6 @@ static bool __objspace_fault_calculate_perms(struct object *o,
 		struct fault_object_info info =
 		  twz_fault_build_object_info(o->id, (void *)ip, (void *)vaddr, FAULT_OBJECT_INVALID);
 		thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
-		obj_put(o);
 
 		return false;
 	}
@@ -981,7 +980,6 @@ static bool __objspace_fault_calculate_perms(struct object *o,
 		if(secctx_fault_resolve(
 		     (void *)ip, loaddr, (void *)vaddr, o, __conv_objperm_to_scp(flags), &res, true)
 		   == -1) {
-			obj_put(o);
 			return false;
 		}
 		*perms = __conv_scp_to_objperm(res);
@@ -992,7 +990,6 @@ static bool __objspace_fault_calculate_perms(struct object *o,
 		struct fault_object_info info =
 		  twz_fault_build_object_info(o->id, (void *)ip, (void *)vaddr, FAULT_OBJECT_INVALID);
 		thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
-		obj_put(o);
 		return false;
 	}
 

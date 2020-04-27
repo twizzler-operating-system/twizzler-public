@@ -187,10 +187,10 @@ int twz_key_new(twzobj *pri, twzobj *pub)
 		errx(1, "dsa_export: %s", error_to_string(e));
 	}
 
-	const char *pri_line = "-----BEGIN PRIVATE KEY-----";
-	const char *pri_line_end = "-----END PRIVATE KEY-----";
-	const char *pub_line = "-----BEGIN PUBLIC KEY-----";
-	const char *pub_line_end = "-----END PUBLIC KEY-----";
+	const char *pri_line = "-----BEGIN PRIVATE KEY-----\n";
+	const char *pri_line_end = "\n-----END PRIVATE KEY-----\n";
+	const char *pub_line = "-----BEGIN PUBLIC KEY-----\n";
+	const char *pub_line_end = "\n-----END PUBLIC KEY-----\n";
 
 	strcpy((char *)(kh + 1), pri_line);
 	unsigned char *kdstart = ((unsigned char *)(kh + 1)) + strlen(pri_line);
@@ -322,14 +322,17 @@ int main(int argc, char **argv)
 
 	twz_key_new(&pri, &pub);
 
-	if(twz_object_new(&dataobj, NULL, &pub, TWZ_OC_DFL_READ)) {
+	if(twz_object_new(&dataobj, NULL, &pub, 0)) {
 		errx(1, "failed to make new object");
 	}
+	printf("Created object " IDFMT " with KUID " IDFMT "\n",
+	  IDPR(twz_object_guid(&dataobj)),
+	  IDPR(twz_object_guid(&pub)));
 
 	twz_cap_create(&cap,
 	  twz_object_guid(&dataobj),
 	  twz_object_guid(&context),
-	  0,
+	  SCP_READ,
 	  NULL,
 	  NULL,
 	  SCHASH_SHA1,

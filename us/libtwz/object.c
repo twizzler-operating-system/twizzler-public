@@ -260,13 +260,16 @@ int twz_object_new(twzobj *obj, twzobj *src, twzobj *ku, uint64_t flags)
 		}
 		if(!objid_parse(k, strlen(k), &kuid))
 			return -EINVAL;
+	} else if(ku) {
+		kuid = twz_object_guid(ku);
+	} else {
+		kuid = 0;
 	}
 	objid_t id;
 	int r = twz_object_create(flags, kuid, src ? twz_object_guid(src) : 0, &id);
 	if(r)
 		return r;
 	if((r = twz_object_init_guid(obj, id, FE_READ | FE_WRITE))) {
-		fprintf(stderr, "ERR FROM INIT GUID: %d\n", r);
 		if(twz_object_delete_guid(id, 0)) {
 			libtwz_panic("failed to delete object during cleanup");
 		}

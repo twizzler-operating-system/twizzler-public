@@ -173,7 +173,7 @@ static unsigned char *__verify_load_keydata(struct object *ko, uint32_t etype, s
 		return NULL;
 	}
 
-	/* TOD: actually look at the data pointer */
+	/* TODO: actually look at the data pointer, because this sucks lol */
 	void *kd = (char *)hdr + sizeof(*hdr);
 	char *k = kd;
 	char *nl = strnchr(k, '\n', 4096 /* TODO */);
@@ -486,7 +486,7 @@ static void __lookup_perms(struct sctx *sc,
 	struct secctx *ctx = (void *)kbase;
 
 	uint32_t perms = 0;
-	bool gatesok = false;
+	bool gatesok = ipoff == 0;
 	size_t slot = target->id % ctx->nbuckets;
 	struct scgates *gatelist = NULL;
 	size_t gatecount = 0, gatepos = 0;
@@ -521,6 +521,9 @@ static void __lookup_perms(struct sctx *sc,
 	uint32_t dfl = 0;
 	uint32_t p_flags = 0;
 	obj_get_pflags(target, &p_flags);
+	dfl |= (p_flags & MIP_DFL_READ) ? SCP_READ : 0;
+	dfl |= (p_flags & MIP_DFL_WRITE) ? SCP_WRITE : 0;
+	dfl |= (p_flags & MIP_DFL_EXEC) ? SCP_EXEC : 0;
 	if(p) {
 		*p = perms | dfl;
 	}
@@ -568,7 +571,7 @@ static int check_if_valid(struct sctx *sc,
 	bool gok;
 	uint32_t p;
 	__lookup_perms(sc, target, ipoff, &p, &gok);
-	if((p & flags) == flags && gok) {
+	if(((p & flags) == flags) && gok) {
 		if(perms)
 			*perms = p;
 		return 0;
@@ -669,7 +672,8 @@ fault_noperm:
 		*perms = 0;
 	if(do_fault) {
 		/* TODO: check if this is right */
-		struct fault_sctx_info info = twz_fault_build_sctx_info(target->id, ip, ip, needed);
+		struct fault_sctx_info info =
+		  twz_fault_build_sctx_info(target->id, ip, loaddr % OBJ_MAXSIZE, needed);
 		thread_raise_fault(current_thread, FAULT_SCTX, &info, sizeof(info));
 	}
 
