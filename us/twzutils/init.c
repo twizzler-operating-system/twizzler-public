@@ -559,13 +559,13 @@ int main()
 		}
 	}
 
-#if 0
+#if 1
 	if(!fork()) {
 		kso_set_name(NULL, "[instance] nvme-driver");
 		r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
 		if(r) {
 			EPRINTF("failed to detach: %d\n", r);
-			twz_thread_exit();
+			twz_thread_exit(1);
 		}
 
 		execvp("nvme", (char *[]){ "nvme", "dev:controller:nvme", NULL });

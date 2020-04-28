@@ -4,6 +4,7 @@
 #include <machine/pc-pcie.h>
 #include <memory.h>
 #include <page.h>
+#include <pmap.h>
 #include <slots.h>
 #include <system.h>
 
@@ -42,8 +43,10 @@ struct iommu {
 	uint16_t pcie_seg;
 	uint16_t id;
 	uintptr_t root_table;
+	void *root_table_virt;
 	uint64_t cap;
 	bool init;
+	void **table_pages;
 };
 
 #define MAX_IOMMUS 16
@@ -168,13 +171,14 @@ static void iommu_set_context_entry(struct iommu *im,
   uintptr_t ptroot,
   uint16_t did)
 {
-	struct iommu_rte *rt = mm_ptov(im->root_table);
+	struct iommu_rte *rt = im->root_table_virt;
 	if(!(rt[bus].lo & IOMMU_RTE_PRESENT)) {
-		panic("IOMMU");
-		// rt[bus].lo = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true) | IOMMU_RTE_PRESENT;
+		im->table_pages[bus] = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+		rt[bus].lo = mm_vtop(im->table_pages[bus]) | IOMMU_RTE_PRESENT;
 		asm volatile("clflush %0" ::"m"(rt[bus]));
 	}
-	struct iommu_ctxe *ct = mm_ptov(rt[bus].lo & IOMMU_RTE_MASK);
+	struct iommu_ctxe *ct = im->table_pages[bus];
+	// struct iommu_ctxe *ct = mm_ptov(rt[bus].lo & IOMMU_RTE_MASK);
 	if(!(ct[dfn].lo & IOMMU_CTXE_PRESENT)) {
 		ct[dfn].lo = ptroot | IOMMU_CTXE_PRESENT;
 		ct[dfn].hi = IOMMU_CTXE_AW48 | (did << 8);
@@ -190,32 +194,36 @@ static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
 {
 	(void)attr;
 	if(!*loc) {
-		//*loc = (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true) | (attr &
-		// RECUR_ATTR_MASK);
-		// asm volatile("clflush %0" ::"m"(*loc));
+		*loc = (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true) | (attr & RECUR_ATTR_MASK);
+		asm volatile("clflush %0" ::"m"(*loc));
 	}
 }
 
 static uintptr_t ept_phys;
+static void *ept_virt;
+static void *pdpts[512];
 
 static void do_iommu_object_map_slot(struct object *obj, uint64_t flags)
 {
 	/* TODO: map w/ permissions */
 	(void)flags;
 	assert(obj->slot != NULL);
-	// uintptr_t virt = obj->slot->num * OBJ_MAXSIZE;
-	// int pml4_idx = PML4_IDX(virt);
-	// int pdpt_idx = PDPT_IDX(virt);
+	uintptr_t virt = obj->slot->num * OBJ_MAXSIZE;
+	int pml4_idx = PML4_IDX(virt);
+	int pdpt_idx = PDPT_IDX(virt);
 
-	panic("IOMMU");
-	/*
-	uintptr_t *pml4 = GET_VIRT_TABLE(ept_phys);
-	test_and_allocate(&pml4[pml4_idx], EPT_READ | EPT_WRITE | EPT_EXEC);
+	// panic("IOMMU");
 
-	uintptr_t *pdpt = GET_VIRT_TABLE(pml4[pml4_idx]);
+	uintptr_t *pml4 = ept_virt;
+	if(pml4[pml4_idx] == 0) {
+		pdpts[pml4_idx] = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+		pml4[pml4_idx] = mm_vtop(pdpts[pml4_idx]) | EPT_READ | EPT_WRITE | EPT_EXEC;
+		asm volatile("clflush %0" ::"m"(pml4[pml4_idx]));
+	}
+
+	uintptr_t *pdpt = pdpts[pml4_idx];
 	pdpt[pdpt_idx] = obj->arch.pt_root | 7;
 	asm volatile("clflush %0" ::"m"(pdpt[pdpt_idx]));
-	*/
 }
 
 #include <device.h>
@@ -314,8 +322,8 @@ static int iommu_init(struct iommu *im)
 	uint64_t ecap = iommu_read64(im, IOMMU_REG_EXCAP);
 	im->cap = cap;
 
-	panic("IOMMU");
-	// ept_phys = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+	ept_virt = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+	ept_phys = mm_vtop(ept_virt);
 
 	printk(":: %lx %lx %x\n", cap, ecap, vs);
 	/*	printk("nfr=%lx, sllps=%lx, fro=%lx, nd=%ld\n",
@@ -339,8 +347,8 @@ static int iommu_init(struct iommu *im)
 	iommu_status_wait(im, IOMMU_GCMD_TE, false);
 
 	/* set the root table */
-	panic("IOMMU");
-	// im->root_table = mm_physical_alloc(0x1000, PM_TYPE_DRAM, true);
+	im->root_table_virt = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+	im->root_table = mm_vtop(im->root_table_virt);
 	iommu_write64(im, IOMMU_REG_RTAR, im->root_table | IOMMU_RTAR_TTM_LEGACY);
 
 	iommu_write32(im, IOMMU_REG_GCMD, IOMMU_GCMD_SRTP);
@@ -358,6 +366,7 @@ static int iommu_init(struct iommu *im)
 	iommu_write32(im, IOMMU_REG_ICEA, x86_64_msi_addr(0, X86_64_MSI_DM_PHYSICAL));
 	iommu_write32(im, IOMMU_REG_ICEUA, 0);
 
+	im->table_pages = mm_memory_alloc(sizeof(void *) * 512, PM_TYPE_DRAM, true);
 	im->init = true;
 	uint32_t cmd = IOMMU_GCMD_TE;
 	iommu_write32(im, IOMMU_REG_GCMD, cmd);
@@ -382,7 +391,6 @@ POST_INIT(dmar_late_init);
 
 __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void dmar_init(void)
 {
-	return;
 	if(!(dmar = acpi_find_table("DMAR"))) {
 		return;
 	}
@@ -427,7 +435,9 @@ __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void dmar_in
 #endif
 
 		if(1 || remap->flags & 1 /* PCIe include all */) {
-			iommus[ie].base = (uint64_t)mm_ptov(remap->reg_base_addr);
+			iommus[ie].base =
+			  pmap_allocate(remap->reg_base_addr, 0x1000 /* TODO length */, PMAP_UC);
+			//	iommus[ie].base = (uint64_t)mm_ptov(remap->reg_base_addr);
 			iommus[ie].pcie_seg = remap->segnr;
 			ie++;
 		} else {

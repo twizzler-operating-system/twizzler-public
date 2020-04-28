@@ -117,7 +117,7 @@ static void __alloc_bar(struct object *obj,
 		pg->type = PAGE_TYPE_MMIO;
 		pg->flags |= (pref ? (wc ? PAGE_CACHE_WC : PAGE_CACHE_WT) : PAGE_CACHE_UC);
 		size_t amount = 0;
-		printk("caching page %lx (sz=%lx, start=%lx)\n", addr, sz, start);
+		// printk("caching page %lx (sz=%lx, start=%lx)\n", addr, sz, start);
 		if(sz >= mm_page_size(1) && !(addr & (mm_page_size(1) - 1))) {
 			pg->level = 1;
 			amount = mm_page_size(1);
@@ -222,7 +222,7 @@ static long pcie_function_init(struct object *pbobj,
 		hdr->bars[i] = (volatile void *)start;
 		hdr->prefetch[i] = pref;
 		hdr->barsz[i] = sz;
-#if 1
+#if 0
 		printk("init " IDFMT " bar %d for addr %lx at %lx len=%ld, type=%d (p=%d,wc=%d)\n",
 		  IDPR(fobj->id),
 		  i,

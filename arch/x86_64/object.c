@@ -261,13 +261,6 @@ bool arch_object_map_page(struct object *obj, struct objpage *op)
 		op->page->flags &= ~PAGE_ZERO;
 	}
 
-	if(pd_idx == 9)
-		printk("MAPPED " IDFMT " %d %d %lx->%lx\n",
-		  IDPR(obj->id),
-		  pd_idx,
-		  pt_idx,
-		  virt,
-		  op->page->addr | flags);
 	if(op->page->level == 1) {
 		obj->arch.pd[pd_idx] = op->page->addr | flags | PAGE_LARGE;
 	} else {
