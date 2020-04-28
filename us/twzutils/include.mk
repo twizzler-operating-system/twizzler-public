@@ -16,7 +16,7 @@ ALL_EXTRAS=$(EXTRAS_term) $(EXTRAS_init) $(EXTRAS_kvdr)
 TWZUTILSLIBS=-lubsan -Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive
 #TWZLDFLAGS=-lubsan
 
-TWZUTILSCFLAGS=-fsanitize=undefined -g
+#TWZUTILSCFLAGS=-fsanitize=undefined -g
 
 $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
 	@echo "[LD]      $@"

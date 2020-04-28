@@ -127,7 +127,7 @@ static inline uint32_t ARGB_TO_BGR(uint32_t x)
 	float rb = ab * aa;
 	float rg = ag * aa;
 
-	uint32_t r = 0xff << 24 | clamp((uint32_t)(rr * 0x100), 0xff) << 16
+	uint32_t r = 0xffu << 24 | clamp((uint32_t)(rr * 0x100), 0xff) << 16
 	             | clamp((uint32_t)(rg * 0x100), 0xff) << 8 | clamp((uint32_t)(rb * 0x100), 0xff);
 
 	return r;
@@ -213,8 +213,9 @@ static void draw_glyph(const struct fb *restrict fb,
 				uint32_t ygs = y * glyph->pitch;
 				for(x = 0; x < glyph->w; x++) {
 					assert(ys + pen_x + x < (fb->pitch * fb->fbh / 4));
-					buffer[ys + pen_x + x] = ablend((glyph->data[ygs + x] << 24) | fgcolor,
-					  fb->bg ? (fb->bg | 0xff000000) : fb->bg);
+					buffer[ys + pen_x + x] =
+					  ablend(((uint32_t)glyph->data[ygs + x] << 24) | fgcolor,
+					    fb->bg ? (fb->bg | 0xff000000) : fb->bg);
 				}
 			}
 			break;
@@ -467,6 +468,7 @@ void init_fb(struct fb *fb)
 		struct pcie_function_header *hdr = twz_device_getds(&fb->obj);
 		fb->front_buffer = twz_object_lea(&fb->obj, (void *)hdr->bars[0]);
 		volatile struct bga_regs *regs = twz_object_lea(&fb->obj, (void *)hdr->bars[2] + 0x500);
+		printf("GOT BAR 2: %p\n", regs);
 		regs->index = 0xb0c5;
 		regs->enable = 0;
 		regs->xres = 1024;

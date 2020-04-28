@@ -251,15 +251,23 @@ bool arch_object_map_page(struct object *obj, struct objpage *op)
 	}
 
 	/* map with ALL permissions; we'll restrict permissions at a higher level */
-	flags |= EPT_READ | EPT_WRITE | EPT_EXEC | EPT_IGNORE_PAT;
+	flags |= EPT_READ | EPT_WRITE | EPT_EXEC; // | EPT_IGNORE_PAT; /* TODO: should we ignore PAT? */
 	if((op->flags & OBJPAGE_COW) && !(obj->flags & OF_KERNEL)) {
 		flags &= ~EPT_WRITE;
 	}
 
 	if(flags & EPT_WRITE) {
+		/* TODO: set this if the page is actually dirty only */
 		op->page->flags &= ~PAGE_ZERO;
 	}
 
+	if(pd_idx == 9)
+		printk("MAPPED " IDFMT " %d %d %lx->%lx\n",
+		  IDPR(obj->id),
+		  pd_idx,
+		  pt_idx,
+		  virt,
+		  op->page->addr | flags);
 	if(op->page->level == 1) {
 		obj->arch.pd[pd_idx] = op->page->addr | flags | PAGE_LARGE;
 	} else {
@@ -270,7 +278,6 @@ bool arch_object_map_page(struct object *obj, struct objpage *op)
 		}
 		uint64_t *pt = obj->arch.pts[pd_idx];
 		pt[pt_idx] = op->page->addr | flags;
-		// printk("MAPPED %d %d %lx->%lx\n", pd_idx, pt_idx, virt, op->page->addr | flags);
 	}
 	return true;
 }

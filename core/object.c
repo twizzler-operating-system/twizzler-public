@@ -461,6 +461,10 @@ void obj_cache_page(struct object *obj, size_t addr, struct page *p)
 	} else {
 		page = rb_entry(node, struct objpage, node);
 	}
+	if(p->level) {
+		printk(
+		  "CACHE LPA: %lx %lx (existing %lx)\n", addr, p->addr, page->page ? page->page->addr : 0);
+	}
 	page->page = p;
 	if(p->cowcount == 0) {
 		p->cowcount = 1;
@@ -490,6 +494,9 @@ static struct objpage *__obj_get_page(struct object *obj, size_t addr, bool allo
 		lpage = rb_entry(node, struct objpage, node);
 	// printk("OGP0\n");
 	if(lpage && lpage->page->level == 1) {
+		if(lpage->page->type) {
+			printk("FOUND LPA: %lx\n", lpage->page->addr);
+		}
 		/* found a large page */
 		krc_get(&lpage->refs);
 		return lpage;

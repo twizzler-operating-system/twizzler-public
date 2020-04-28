@@ -572,6 +572,7 @@ int main()
 		EPRINTF("failed to start nvme driver\n");
 		exit(1);
 	}
+#endif
 
 	if((r = create_pty_pair("dev:pty:pty0", "dev:pty:ptyc0"))) {
 		EPRINTF("failed to create pty pair\n");
@@ -580,19 +581,8 @@ int main()
 	if(!fork()) {
 		start_terminal("dev:input:keyboard", "dev:output:framebuffer", "dev:pty:pty0");
 	}
-#endif
-#if 0
-	if((r = twz_thread_spawn(
-	      &tthr, &(struct thrd_spawn_args){ .start_func = tmain, .arg = &term_info }))) {
-		EPRINTF("failed to spawn terminal");
-		abort();
-	}
-	twz_thread_wait(1, (struct thread *[]){ &tthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL);
-	term_ready = true;
-	EPRINTF("twzinit: terminal ready\n");
-#endif
 
-	if(0 && !fork()) {
+	if(!fork()) {
 		close(0);
 		close(1);
 		close(2);

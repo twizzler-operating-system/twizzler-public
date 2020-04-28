@@ -14,7 +14,7 @@ function prepare() {
 	tar xf bash-5.0.tar.gz
 	cd bash-5.0
 	sed -i 's/| sortix\*/| sortix\* | twizzler\*/g' support/config.sub
-	./configure --prefix=/usr --without-bash-malloc --host=$TARGET --enable-static-link --with-curses --disable-nls LIBS='-Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive'
+	./configure --prefix=/usr --without-bash-malloc --host=$TARGET --enable-static-link --with-curses --disable-nls
 }
 
 function build() {

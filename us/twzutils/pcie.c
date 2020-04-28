@@ -198,7 +198,7 @@ static void pcie_init_space(struct pcie_bus_header *space)
 	  space->end_bus);
 
 	/* XXX - HACK to get real hw working */
-	return;
+	// return;
 	if(space->end_bus < 0xff)
 		return;
 	/* brute-force scan. We _could_ detect areas to look in based on bridges and stuff, but this
@@ -212,7 +212,7 @@ static void pcie_init_space(struct pcie_bus_header *space)
 			if(config->header.vendor_id == 0xffff) {
 				continue;
 			}
-			printf(":: %d %d %lx -> %x\n", bus, device, addr, config->header.vendor_id);
+			//		printf(":: %d %d %lx -> %x\n", bus, device, addr, config->header.vendor_id);
 			if(config->header.header_type & HEADER_MULTIFUNC) {
 				/* for a multi-function device, brute-force scan all functions. We check for
 				 * this

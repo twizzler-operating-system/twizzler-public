@@ -116,17 +116,18 @@ static void __alloc_bar(struct object *obj,
 		pg->addr = addr;
 		pg->type = PAGE_TYPE_MMIO;
 		pg->flags |= (pref ? (wc ? PAGE_CACHE_WC : PAGE_CACHE_WT) : PAGE_CACHE_UC);
+		size_t amount = 0;
+		printk("caching page %lx (sz=%lx, start=%lx)\n", addr, sz, start);
 		if(sz >= mm_page_size(1) && !(addr & (mm_page_size(1) - 1))) {
 			pg->level = 1;
-			sz -= mm_page_size(1);
-			addr += mm_page_size(1);
-			start += mm_page_size(1);
+			amount = mm_page_size(1);
 		} else {
-			sz -= mm_page_size(0);
-			addr += mm_page_size(0);
-			start += mm_page_size(0);
+			amount = mm_page_size(0);
 		}
 		obj_cache_page(obj, start, pg);
+		sz -= amount;
+		addr += amount;
+		start += amount;
 	}
 }
 
@@ -144,6 +145,7 @@ void pcie_iommu_fault(uint16_t seg, uint16_t sid, uint64_t addr, bool handled)
 	device_signal_sync(pf->obj, DEVICE_SYNC_IOV_FAULT, addr);
 }
 
+#include <pmap.h>
 static long pcie_function_init(struct object *pbobj,
   uint16_t segment,
   int bus,
@@ -163,7 +165,9 @@ static long pcie_function_init(struct object *pbobj,
 	if(!ba) {
 		return -ENOENT;
 	}
-	struct pcie_config_space *space = mm_ptov(ba);
+
+	struct pcie_config_space *space = pmap_allocate(ba, sizeof(*space), PMAP_UC);
+	//	struct pcie_config_space *space = mm_ptov(ba);
 
 	/* register a new device */
 	uint32_t sid = (uint32_t)segment << 16 | bus << 8 | device << 3 | function;
@@ -218,8 +222,9 @@ static long pcie_function_init(struct object *pbobj,
 		hdr->bars[i] = (volatile void *)start;
 		hdr->prefetch[i] = pref;
 		hdr->barsz[i] = sz;
-#if 0
-		printk("init bar %d for addr %lx at %lx len=%ld, type=%d (p=%d,wc=%d)\n",
+#if 1
+		printk("init " IDFMT " bar %d for addr %lx at %lx len=%ld, type=%d (p=%d,wc=%d)\n",
+		  IDPR(fobj->id),
 		  i,
 		  addr,
 		  start,
