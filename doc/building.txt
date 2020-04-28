@@ -71,7 +71,7 @@ need to specify the nested option for the kvm_intel module.
 Building Twizzer the First Time
 -------------------------------
 
-1) PROJECT=x86_64 make prep
+1) PROJECT=x86_64 make tools-prep
 
 This will first ask a couple questions to get you started (largely just acking that this can take
 some time). It will then compile binutils and gcc for the unhosted toolchain. Once this is done, it
