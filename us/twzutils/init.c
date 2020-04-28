@@ -51,7 +51,7 @@ void tmain(void *a)
 	r = execv(buffer,
 	  (char *[]){
 	    info->name, info->arg[0] ? info->arg : NULL, info->arg2[0] ? info->arg2 : NULL, NULL });
-	EPRINTF("failed to exec '%s': %d\n", info->name, r);
+	EPRINTF("failed to 1exec '%s': %d\n", info->name, r);
 	twz_thread_exit(r);
 }
 
@@ -76,7 +76,7 @@ void start_service(struct service_info *info)
 	r = execv(info->name,
 	  (char *[]){
 	    info->name, info->arg[0] ? info->arg : NULL, info->arg2[0] ? info->arg2 : NULL, NULL });
-	EPRINTF("failed to exec '%s': %d\n", info->name, r);
+	EPRINTF("failed to 2exec '%s': %d\n", info->name, r);
 	exit(1);
 }
 
@@ -511,6 +511,8 @@ int main()
 		EPRINTF("err opening stderr");
 		abort();
 	}
+
+	term_ready = true;
 
 	/* start devices */
 	twzobj root;

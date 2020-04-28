@@ -33,6 +33,7 @@ struct elf64_header {
 };
 
 extern int *__errno_location();
+#include <twz/debug.h>
 long linux_sys_execve(const char *path, const char *const *argv, char *const *env)
 {
 	objid_t id = 0;
@@ -54,7 +55,9 @@ long linux_sys_execve(const char *path, const char *const *argv, char *const *en
 	struct elf64_header *hdr = twz_object_base(&exe);
 
 	kso_set_name(NULL, "[instance] [unix] %s", path);
-	return twz_exec_view(&view, vid, hdr->e_entry, argv, env);
+	r = twz_exec_view(&view, vid, hdr->e_entry, argv, env);
+
+	return r;
 }
 
 asm(".global __return_from_clone\n"

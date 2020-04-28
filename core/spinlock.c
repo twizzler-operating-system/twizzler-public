@@ -17,7 +17,7 @@ bool __spinlock_acquire(struct spinlock *lock, const char *f __unused, int l __u
 			if(count++ == 100000000ul && f) {
 				panic("POTENTIAL DEADLOCK in cpu %d trying to acquire %s:%d (held from %s:%d by "
 				      "cpu %d)\n",
-				  current_thread->processor->id,
+				  current_thread ? current_thread->processor->id : -1,
 				  f,
 				  l,
 				  lock->holder_file,

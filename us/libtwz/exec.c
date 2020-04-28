@@ -140,6 +140,8 @@ int twz_exec_view(twzobj *view,
 	return ret;
 }
 
+#include <stdio.h>
+#include <twz/debug.h>
 int twz_exec_create_view(twzobj *view, objid_t id, objid_t *vid)
 {
 	int r;

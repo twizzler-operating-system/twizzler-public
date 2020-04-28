@@ -286,6 +286,7 @@ int twz_cap_create(struct sccap **cap,
 	return 0;
 }
 
+#include <twz/twztry.h>
 void child(twzobj *context, twzobj *data)
 {
 	printf("Hello from child!\n");
@@ -296,7 +297,15 @@ void child(twzobj *context, twzobj *data)
 
 	int *x = twz_object_base(data);
 	printf(":: %d\n", *x);
-	*x = 12;
+	twztry
+	{
+		*x = 12;
+	}
+	twzcatch_all
+	{
+		printf("CATCH!\n");
+	}
+	twztry_end;
 	printf(":: %d\n", *x);
 }
 
