@@ -7,3 +7,10 @@ Building
 
 See doc/building.txt
 
+
+Writing some test code
+----------------------
+
+See us/playground/README.md
+
+
