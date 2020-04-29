@@ -52,14 +52,21 @@ void fb_putc(struct fb *fb, int c);
 
 /* values are rgb */
 static uint32_t color_map[8] = {
-	[0] = 0,          /* black */
-	[1] = 0x00ff0000, /* red */
-	[2] = 0x0000ff00, /* green */
-	[3] = 0x00ffff00, /* yellow */
-	[4] = 0x000000ff, /* blue */
-	[5] = 0x00ff00ff, /* magenta */
-	[6] = 0x0000ffff, /* cyan */
-	[7] = 0x00ffffff, /* white */
+	[0] = 0, /* black */
+	[1] = 0x00e74c3c,
+	/* red */ //#e74c3c
+	[2] = 0x002ecc71,
+	/* green */ //#2ecc71
+	[3] = 0x00f1c40f,
+	/* yellow */ //#f1c40f
+	[4] = 0x002980b9,
+	/* blue */ //#2980b9
+	[5] = 0x009b59b6,
+	/* magenta */ //#9b59b6
+	[6] = 0x001abc9c,
+	/* cyan */ //#1abc9c
+	[7] = 0x00bdc3c7,
+	/* white */ //#ecf0f1
 };
 
 static twzobj ptyobj, kbobj;
