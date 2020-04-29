@@ -289,7 +289,7 @@ long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args)
 		  (args[i].flags & THREAD_SYNC_TIMEOUT) ? args[i].spec : NULL,
 		  i);
 		ok = ok || r >= 0;
-		args[i].res = 1; // TODO
+		args[i].res = r >= 0 ? 1 : r; // TODO
 		if(args[i].op == THREAD_SYNC_SLEEP && r == 0)
 			wake = true;
 	}

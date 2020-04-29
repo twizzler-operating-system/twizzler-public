@@ -8,7 +8,7 @@ ARCH_KERNEL_SUPPORT=FEATURE_SUPPORTED_UNWIND
 CORE_CFLAGS+=-mno-red-zone -mno-sse -mcmodel=kernel -mno-avx
 LDFLAGS+=-mcmodel=kernel -Wl,-z,max-page-size=4096 -Wl,-z,common-page-size=4096
 
-QEMU=qemu-system-x86_64 -cpu host,migratable=false,host-cache-info=true,host-phys-bits -machine q35,kernel-irqchip=split -device intel-iommu,intremap=on  -m 1024 # -kernel #$(BUILDDIR)/kernel # -initrd $(BUILDDIR)/initrd.tar -cpu host
+QEMU=qemu-system-x86_64 -cpu host,migratable=false,host-cache-info=true,host-phys-bits -machine q35,kernel-irqchip=split -device intel-iommu,intremap=on,aw-bits=48,x-scalable-mode=true  -m 1024 # -kernel #$(BUILDDIR)/kernel # -initrd $(BUILDDIR)/initrd.tar -cpu host
 
 C_SOURCES+=$(addprefix arch/$(ARCH)/,init.c processor.c memory.c debug.c pit.c ioapic.c acpi.c madt.c idt.c entry.c vmx.c virtmem.c hpet.c thread.c rdrand.c object.c intel_iommu.c x2apic.c kconf.c)
 

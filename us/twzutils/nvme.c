@@ -24,6 +24,7 @@
 
 static size_t nvme_get_ideal_nr_queues(void)
 {
+	/* TODO */
 	return 4;
 }
 
@@ -325,7 +326,7 @@ int nvmec_init(struct nvme_controller *nc)
 	nvme_reg_write32(nc, NVME_REG_CC, cmd | NVME_CC_EN);
 
 	nc->dstride = 1 << (NVME_CAP_DSTRD(caps) + 2);
-	fprintf(stderr, "[nvme] dstride is %d\n", nc->dstride);
+	// fprintf(stderr, "[nvme] dstride is %d\n", nc->dstride);
 	if(!nc->msix) {
 		/* unmask all interrupts */
 		nvme_reg_write32(nc, NVME_REG_INTMC, 0xFFFFFFFF);
@@ -527,6 +528,7 @@ int nvmec_identify(struct nvme_controller *nc)
 		  ns->lba_size);
 	}
 
+#if 0
 	nvme_cmd_init_read(&cmd, nc->aq_pin + 0x200000 + 0x3000, 1, 0, 1, 512, 4096);
 	if(nvmec_execute_cmd(nc, &cmd, &nc->queues[1], &status, &cres))
 		return -1;
@@ -536,7 +538,7 @@ int nvmec_identify(struct nvme_controller *nc)
 	}
 	fprintf(stderr, "READ: %x %x\n", status, cres);
 	fprintf(stderr, "%s\n", (char *)r_memory);
-
+#endif
 	return 0;
 }
 
@@ -582,6 +584,7 @@ int nvme_io(struct nvme_namespace *ns, struct twzk_prq *prq)
 		}
 		uint32_t cres;
 		uint16_t status;
+		/* TODO which queue */
 		if(nvmec_execute_cmd(ns->nc, &cmd, &ns->nc->queues[0], &status, &cres) || status) {
 			v->result = -EIO;
 			continue;
@@ -636,6 +639,8 @@ void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
 		buf[i] = cmp;
 		i++;
 	}
+	if(i == 0)
+		return;
 	if(i > 0) {
 		nvmeq_cq_consume(q, i);
 	}
@@ -646,8 +651,9 @@ void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
 		q->sps[cid] = result;
 		twz_thread_sync_init(&sas[j], THREAD_SYNC_WAKE, &q->sps[cid], INT_MAX, NULL);
 	}
-	if(twz_thread_sync_multiple(i, sas) < 0) {
-		fprintf(stderr, "nvme interrupt thread_sync failed\n");
+	int r;
+	if((r = twz_thread_sync_multiple(i, sas)) < 0) {
+		fprintf(stderr, "nvme interrupt thread_sync %d failed: %d\n", i, r);
 		abort();
 	}
 	if(more)
