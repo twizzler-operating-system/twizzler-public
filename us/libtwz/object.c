@@ -491,6 +491,7 @@ int __twz_ptr_store_guid(twzobj *obj, const void **res, twzobj *tgt, const void 
 	return __twz_ptr_make(obj, tgt ? twz_object_guid(tgt) : target, p, flags, res);
 }
 
+/* TODO: if target is the same as obj, just store a local pointer */
 EXTERNAL
 void *__twz_ptr_swizzle(twzobj *obj, const void *p, uint64_t flags)
 {
