@@ -384,7 +384,7 @@ int main(int argc, char **argv)
 	struct scgates gate = {
 		.offset = 0x1200,
 		.length = 4,
-		.align = 2,
+		.align = 4,
 	};
 
 	twz_cap_create(&cap,
