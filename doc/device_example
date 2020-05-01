@@ -1,0 +1,227 @@
+/* write you a device driver */
+
+/* The general structure of the driver is going to look something like,
+ * +-------------+
+ * | device init |. . . . . [device commands] . . . . > (to the device)
+ * +-------------+
+ *       |                             +----------------+
+ *       |                             |                |
+ *       ∨                             ∨                |
+ * +--------------+          +--------------------+     |
+ * | spawn-thread |  ------> | wait-for-interrupt |<....|............+
+ * +--------------+          +--------------------+     |            .
+ *       |                             |                |            .
+ *       |                             ∨                |            . (software wakeup)
+ *       |                   +--------------------+     |            .
+ *       |                   |  handle interrupt  |     |            .
+ *       |                   +--------------------+     |            .
+ *       |                             |                |      +--------+
+ *       |     +-------------+         +----------------+      | kernel |
+ *       ∨     ∨             |                                 +--------+
+ * +-------------------+     |                                       ^
+ * | wait-for-requests |     |                                       .
+ * +-------------------+     |                                       . (hardware interrupt)
+ *       |                   |                                       .
+ *       ∨                   |                                +----------------+
+ * +----------------+        |                                |                |
+ * | handle request |--------+                                |     DEVICE     |
+ * +----------------+ . . . . . . .[device commands]. . . . .>|                |
+ *                                                            +----------------+
+
+
+ * Basically, our structure is to initialize the device and then have a thread wait for interrupts.
+ * This needs a couple overview concepts:
+ * 1) devices have a "control object" that is created by the device manager. The control object
+ *    contains,
+ *    a) a "general" header, called a device_repr, that contains general device stuff. This include
+ *       a list of interrupt words that a thread can sleep on and the kernel will be able to wake up
+ *       threads sleeping on those words when an actual hardware interrupt arrives.
+ *    b) a "device-specific" structure. In the case of PCIe, this is the PCIe config space. The rest
+ *       of the object is the PCIe BARs that map the device into memory.
+ * 2) The kernel interrupt structure is to register a number of interrupts with the kernel. This
+ *    basically requests a number of vectors from the kernel. In our control object, these are
+ *    numbered [0:n). They map to "real" hardware interrupt vectors underneath, and the kernel tells
+ *    us which these are (so we know that "our" interrupt #1 is really hardware interrupt vector 59,
+ *    for example).
+ * 3) Twizzler's threads sleep and synchronize on words of memory much like futex(2) in Linux. But
+ *    in Twizzler, threads can sleep on multiple words at once (and be woken up when one of them is
+ *    signaled).
+ */
+
+/* === PART 1 -- Device Registers === */
+
+/* it's common to get access to device registers via memory mapped IO. Here's how one might do
+ * this... */
+
+void *get_regs(twzobj *co)
+{
+	/* get the device-specific header data */
+	struct pcie_function_header *hdr = twz_device_getds(co);
+	/* for this device, we use PCI BAR 0. Load a virtual pointer to the MMIO region */
+	return twz_object_lea(co, (void *)hdr->bars[0]);
+}
+
+uint32_t reg_read32(struct nvme_controller *nc, int r)
+{
+	void *regs = get_regs(&nc->co);
+	/* volatile trickery. Probably ASM would be better, but. */
+	return *(volatile uint32_t *)((char *)regs + r);
+}
+
+void reg_write32(struct nvme_controller *nc, int r, uint32_t val)
+{
+	void *regs = get_regs(&nc->co);
+	*(volatile uint32_t *)((char *)regs + r) = val;
+}
+
+/* etc... */
+
+/* === PART 2 -- Init === */
+
+/* so, let's init a control object */
+void do_pcie_init(twzobj *ctrl_obj)
+{
+	struct pcie_function_header *hdr = twz_device_getds(ctrl_obj);
+	/* init some PCIe specific stuff */
+	volatile struct pcie_config_space *space = twz_object_lea(ctrl_obj, hdr->space);
+	/* bus-master enable, memory space enable. We can do interrupt disable too, since we'll be using
+	 * MSI */
+	space->header.command =
+	  COMMAND_MEMORYSPACE | COMMAND_BUSMASTER | COMMAND_INTDISABLE | COMMAND_SERRENABLE;
+
+	/* allocate interrupt vectors */
+	size_t nrvec = /* something; say, one per CPU */ 4;
+	/* allocate nrvec interrupts. This can fail! */
+	twz_object_kaction(ctrl_obj, KACTION_CMD_DEVICE_SETUP_INTERRUPTS, nrvec);
+
+	/* try to use MSI-X, but fall back to MSI if not available */
+	union pcie_capability_ptr cp;
+	msix = pcief_capability_get(hdr, PCIE_MSIX_CAPABILITY_ID, &cp);
+	if(!msix && !pcief_capability_get(hdr, PCIE_MSI_CAPABILITY_ID, &cp)) {
+		return -ENOTSUP;
+	}
+
+	if(nc->msix) {
+		/* this will configure the PCIe device to use msix interrupts. Now the device can just be
+		 * programmed to issue interrupt MSI-0, and it will sent it to the kernel as some known
+		 * hardware interrupt number, and the kernel will map that to an interrupt number we know
+		 * about in our control object. */
+		msix_configure(ctrl_obj, cp.msix, nrvec);
+	} else {
+		fprintf(stderr, "[nvme] TODO: not implemented: MSI (not MSI-X support)\n");
+		return -ENOTSUP;
+	}
+}
+
+void create_some_shared_object(twzobj *ctrl_obj)
+{
+	/* example - create an object that the device can safely access. This is useful to like, share
+	 * memory with the device. NVMe, for example, has a bunch of command queues in memory. */
+	twzobj queue_obj;
+
+	/* create a new object, first */
+	twz_object_new(&queue_obj, NULL, NULL, TWZ_OC_DFL_READ | TWZOC_DFL_WRITE);
+
+	uint64_t queue_pin;
+	/* "pin" the object -- that is, lock it in-place in the object space. Returns an object address
+	 * that can be used by devices to access this object's data. Devices access physical memory
+	 * through the IOMMU which has a mapping of this object space location to physical memory */
+	twz_object_pin(&queue_obj, &queue_pin, 0);
+
+	/* mark the object as uncachable for some region of it (to be used for communication to and from
+	 * the device -- a command queue, for example) */
+	twz_object_ctl(&queue_obj, OCO_CACHE_MODE, 0, queue_length, OC_CM_UC);
+
+	/* map the object for the device. This will program the IOMMU to grant this device access to the
+	 * object space and, in particular, this object */
+	twz_device_map_object(ctrl_obj, &queue_obj, 0, queue_length);
+
+	/* we can now use this object! */
+	tell_device_to_write_to_queue_data(queue_pin);
+}
+
+/* === Part 3 -- Handling Interrupts === */
+
+/* okay, we need some way to have a unique command ID per "command" that we could be handling an
+ * interrupt in response to. Each command will be associated with a control word on which the
+ * requester sleeps. Multiple commands can share control words, of course! In fact, it's likely that
+ * there's just one control word per queue and one thread whose job it is to enqueue stuff on that
+ * queue. */
+
+void handle_interrupt_number(int i)
+{
+	int command_id;
+	/* use device-specific logic to determine which command is done. Grab that control word and wake
+	 * up the thread that's sleeping on it. Note that, as an optimization, one would probably grab a
+	 * batch of control words from completed commands and wake up all of those control words in one
+	 * call to thread_sync. Note that we have to poll this multiple times because the interrupt may
+	 * only fire once even if multiple commands completed. */
+	while((command_id = figure_out_which_command_finished(i)) != -1) {
+		/* this is driver-specific */
+		uint64_t *cw = get_control_word(command_id);
+		twz_thread_cword_wake(cw, x /* some non-zero value */);
+	}
+}
+
+void wait_for_complete(twzobj *ctrl_obj)
+{
+	struct device_repr *repr = twz_device_getrepr(ctrl_obj);
+
+	/* initialize an array of thread_sync args that will be used to sleep on all the events that a
+	 * device might have (IOMMU events, interrupts, etc) */
+	struct sys_thread_sync_args sa[MAX_DEVICE_INTERRUPTS + 1];
+	/* first setup IOMMU faults */
+	twz_thread_sync_init(&sa[0], THREAD_SYNC_SLEEP, &repr->syncs[DEVICE_SYNC_IOV_FAULT], 0, NULL);
+	/* next a thread_sync arg for each interrupt we have */
+	for(int i = 1; i <= nrvec; i++) {
+		twz_thread_sync_init(&sa[i], THREAD_SYNC_SLEEP, &repr->interrupts[i - 1].sp, 0, NULL);
+	}
+
+	for(;;) {
+		/* first try to read each of these sync points and see if they have waiting events */
+		uint64_t iovf = atomic_exchange(&repr->syncs[DEVICE_SYNC_IOV_FAULT], 0);
+		if(iovf & 1) {
+			/* handled; do some device-specific retry */
+		}
+		bool worked = false;
+		for(int i = 0; i < nc->nrvec; i++) {
+			/* try all of the interrupts we have allocated. */
+			uint64_t irq = atomic_exchange(&repr->interrupts[i].sp, 0);
+			if(irq) {
+				worked = true;
+				handle_interrupt_number(i);
+			}
+		}
+
+		/* if no events were detected, sleep. Probably want to poll for a little while first. */
+		if(!iovf && !worked) {
+			twz_thread_sync_multiple(nc->nrvec + 1, sa);
+		}
+	}
+}
+uint64_t write_command(twzobj *ctrl_obj, int command_id)
+{
+	/* send the device some command through whatever means necessary to make that happen */
+	device_specific_send_command();
+
+	/* get some "control word" that is dependent on this command_id (which should be unique
+	 * per-command). This will be used to sleep the requesting thread and awaken when the request is
+	 * done */
+	uint64_t *cw = get_control_word(command_id);
+
+	/* this will wait until *cw is non-zero */
+	uint64_t res = twz_thread_cword_consume(cw, 0);
+	return res;
+}
+
+int main()
+{
+	int r = twz_object_init_name(&nc.co, "path-to-control-object", FE_READ | FE_WRITE);
+	if(r) {
+		fprintf(stderr, "nvme: failed to open controller %s: %d\n", argv[1], r);
+		return 1;
+	}
+	do_pcie_init(&ctrl_obj);
+	create_some_shared_object(&ctrl_obj);
+	wait_for_complete(&ctrl_obj);
+}

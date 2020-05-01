@@ -70,8 +70,7 @@ void example_load_a_pointer(twzobj *obj)
 
 	/* now this struct has a pointer inside it, 'some_data'. We want to load it! But this is a
 	 * 'p-ptr', a persistent pointer. We have to first translate it into a v-ptr like so: */
-	void *some_data_v = twz_object_lea(obj, hdr->some_data);
-
+	struct foo *some_data_v = twz_object_lea(obj, hdr->some_data);
 	/* and now we can do stuff with this. Note: this call either succeeds or throws */
 }
 
