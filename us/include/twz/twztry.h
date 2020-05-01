@@ -69,6 +69,7 @@ extern void _twz_try_unhandled(int, void *);
 /* end the try-catch block. Propagates faults that have not been caught */
 #define twztry_end                                                                                 \
 	}                                                                                              \
+	_twz_jmp_buf = _pjb;                                                                           \
 	if(!_hdl && _pjb)                                                                              \
 		longjmp(*_pjb, _fc);                                                                       \
 	else if(!_hdl)                                                                                 \

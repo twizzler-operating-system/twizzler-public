@@ -17,7 +17,7 @@
 #include <twz/obj.h>
 #define TWZ_GATE_CALL(_obj, g)                                                                     \
 	({                                                                                             \
-		twzobj *obj = _obj;                                                                 \
-		(void *)((obj ? (uintptr_t)twz_object_base(obj) : 0ull) + g * TWZ_GATE_SIZE                   \
-		         + TWZ_GATE_OFFSET);                                                               \
+		twzobj *obj = _obj;                                                                        \
+		(void *)((obj ? (uintptr_t)twz_object_base(obj) - OBJ_NULLPAGE_SIZE : 0ull)                \
+		         + g * TWZ_GATE_SIZE + TWZ_GATE_OFFSET);                                           \
 	})

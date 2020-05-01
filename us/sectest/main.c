@@ -40,7 +40,7 @@ static int __sctx_add_bucket(struct secctx *sc,
 		if(b->target == 0) {
 			b->target = target;
 			b->data = twz_ptr_local(ptr);
-			b->flags = 0;
+			b->flags = gatemask ? SCF_GATE : 0;
 			b->gatemask = gatemask ? *gatemask : (struct scgates){ 0 };
 			b->pmask = pmask;
 			break;
@@ -264,6 +264,8 @@ int twz_cap_create(struct sccap **cap,
 	size_t keylen;
 	char *keystart;
 
+	fprintf(stderr, "gate off = %x\n", (*cap)->gates.offset);
+
 	struct key_hdr *kh = twz_object_base(pri_key);
 	keystart = twz_object_lea(pri_key, kh->keydata);
 	keylen = kh->keydatalen;
@@ -286,8 +288,20 @@ int twz_cap_create(struct sccap **cap,
 	return 0;
 }
 
+#include <twz/fault.h>
+#include <twz/gate.h>
 #include <twz/twztry.h>
-void child(twzobj *context, twzobj *data)
+
+void call_the_gate(twzobj *lib)
+{
+	void (*gfn)() = TWZ_GATE_CALL(lib, 1);
+
+	fprintf(stderr, "calling gate fn: %p\n", gfn);
+	gfn();
+	fprintf(stderr, "returned from gate fn\n");
+}
+
+void child(twzobj *context, twzobj *data, twzobj *lib)
 {
 	printf("Hello from child!\n");
 
@@ -295,18 +309,21 @@ void child(twzobj *context, twzobj *data)
 	r = sys_attach(0, twz_object_guid(context), 0, KSO_SECCTX);
 	printf("ATTACH:  %d\n", r);
 
+#if 0
 	int *x = twz_object_base(data);
 	printf(":: %d\n", *x);
 	twztry
 	{
 		*x = 12;
 	}
-	twzcatch_all
+	twzcatch(FAULT_SCTX)
 	{
 		printf("CATCH!\n");
 	}
 	twztry_end;
 	printf(":: %d\n", *x);
+#endif
+	call_the_gate(lib);
 }
 
 int main(int argc, char **argv)
@@ -348,17 +365,51 @@ int main(int argc, char **argv)
 	  SCENC_DSA,
 	  &pri);
 
-	printf("\n\nAdding cap for " IDFMT " to " IDFMT "\n",
+	printf("\n\nAdding cap for data " IDFMT " to " IDFMT "\n",
 	  IDPR(twz_object_guid(&dataobj)),
 	  IDPR(twz_object_guid(&context)));
 
 	/* probably get the length from some other function? */
 	twz_sctx_add(&context, twz_object_guid(&dataobj), cap, sizeof(*cap) + cap->slen, ~0, NULL);
 
+	twzobj libobj_orig, libobj;
+	if(twz_object_init_name(&libobj_orig, "/usr/bin/st-lib", FE_READ | FE_EXEC)) {
+		abort();
+	}
+
+	if(twz_object_new(&libobj, &libobj_orig, &pub, 0)) {
+		errx(1, "failed to make new lib obj\n");
+	}
+
+	struct scgates gate = {
+		.offset = 0x1200,
+		.length = 4,
+		.align = 2,
+	};
+
+	twz_cap_create(&cap,
+	  twz_object_guid(&libobj),
+	  twz_object_guid(&context),
+	  SCP_EXEC | SCP_READ,
+	  NULL,
+	  &gate,
+	  SCHASH_SHA1,
+	  SCENC_DSA,
+	  &pri);
+
+	printf("\n\nAdding cap for lib  " IDFMT " to " IDFMT "\n",
+	  IDPR(twz_object_guid(&libobj)),
+	  IDPR(twz_object_guid(&context)));
+	/* probably get the length from some other function? */
+	twz_sctx_add(&context, twz_object_guid(&libobj), cap, sizeof(*cap) + cap->slen, ~0, NULL);
+
 	if(!fork()) {
-		child(&context, &dataobj);
+		child(&context, &dataobj, &libobj);
 		exit(0);
 	}
+
+	int s;
+	wait(&s);
 
 	return 0;
 }

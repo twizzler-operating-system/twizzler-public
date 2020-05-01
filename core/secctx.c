@@ -441,6 +441,11 @@ static uint32_t __lookup_perm_bucket(struct object *obj,
 
 static bool __in_gate(struct scgates *gs, size_t off)
 {
+	EPRINTK(":: off = %lx; offset = %x, length = %x, align = %x\n",
+	  off,
+	  gs->offset,
+	  gs->length,
+	  gs->align);
 	return off >= gs->offset && off < (gs->offset + gs->length)
 	       && (off & ((1 << gs->align) - 1)) == 0;
 }
@@ -473,8 +478,9 @@ static void __lookup_perms(struct sctx *sc,
 	if(scce) {
 		*p = scce->perms;
 		if(ingate) {
-			*ingate = false;
+			*ingate = ipoff == 0;
 			for(size_t i = 0; i < scce->gate_count; i++) {
+				EPRINTK("    - __in_gate: %d\n", __in_gate(&scce->gates[i], ipoff));
 				*ingate = *ingate || __in_gate(&scce->gates[i], ipoff);
 			}
 		}
@@ -499,18 +505,23 @@ static void __lookup_perms(struct sctx *sc,
 
 		if(b->target == target->id) {
 			EPRINTK("    - lookup_perms: found!\n");
-			struct scgates gs = { 0 };
+			struct scgates gs = { .offset = 0, .length = OBJ_MAXSIZE, .align = 0 };
 			/* get this entry's perm, masked with this buckets mask. Then, if we're gating,
 			 * check the gates. */
 			perms |= __lookup_perm_bucket(sc->obj, b, &gs, target) & b->pmask;
 			/* TODO: only do this if the gate is meaningful */
-			__limit_gates(&gs, &b->gatemask);
+			printk("have gate: %x %x %x\n", gs.offset, gs.length, gs.align);
+			if(b->flags & SCF_GATE) {
+				__limit_gates(&gs, &b->gatemask);
+			}
+			printk("Setting gate: %x %x %x\n", gs.offset, gs.length, gs.align);
 			__append_gatelist(&gatelist, &gatecount, &gatepos, &gs);
 			if(ipoff) {
 				/* we first have to limit the gate from the cap by the "gatemask" of the bucket.
 				 * This isn't as trivial as a logical and, so see the above function */
 				if(__in_gate(&gs, ipoff))
 					gatesok = true;
+				EPRINTK("    - checked gates: %d\n", gatesok);
 			}
 		}
 
@@ -570,7 +581,9 @@ static int check_if_valid(struct sctx *sc,
 	 * anyway if we tried executing there!) */
 	bool gok;
 	uint32_t p;
+	EPRINTK("    - __lookup " IDFMT ": %lx\n", IDPR(target->id), ipoff);
 	__lookup_perms(sc, target, ipoff, &p, &gok);
+	EPRINTK("    - __lookup: %x %x, %d\n", p, flags, gok);
 	if(((p & flags) == flags) && gok) {
 		if(perms)
 			*perms = p;
