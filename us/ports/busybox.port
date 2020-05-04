@@ -25,6 +25,7 @@ function install() {
 	cd busybox-1.31.1
 	#make $MAKEFLAGS CROSS_COMPILE=x86_64-pc-twizzler-musl- install
 	cp -a _install/* $SYSROOT/
+	cp busybox_unstripped $SYSROOT/bin/busybox
 }
 
 

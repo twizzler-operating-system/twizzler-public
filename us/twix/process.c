@@ -210,7 +210,6 @@ long linux_sys_fork(struct twix_register_frame *frame)
 	int r;
 	twzobj view, cur_view;
 	twz_view_object_init(&cur_view);
-	twix_log("FORK!\n");
 
 	// debug_printf("== creating view\n");
 	if((r = twz_object_new(&view, &cur_view, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE))) {

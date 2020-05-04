@@ -2,28 +2,32 @@ LIBTWZ_SRC=$(addprefix us/libtwz/,object.c fault.c thread.c view.c name.c oa.c b
 
 LIBTWZ_OBJ=$(addprefix $(BUILDDIR)/,$(LIBTWZ_SRC:.c=.o))
 
-ifneq (,$(wildcard $(shell $(TWZCC) -print-file-name=libubsan.a)))
-LIBTWZCFLAGS=-fsanitize=undefined
-endif
+#ifneq (,$(wildcard $(shell $(TWZCC) -print-file-name=libubsan.a)))
+#LIBTWZCFLAGS=-fsanitize=undefined
+#endif
 
 $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo "[CC]      $@"
 	@$(TWZCC) $(TWZCFLAGS) $(LIBTWZCFLAGS) -fno-omit-frame-pointer -g -Ius/libtwz/include -include us/libtwz/include/libtwz.h -c -o $@ -MD -fPIC $<
 
+#if [ -f $$($(TWZCC) -print-file-name=libubsan.a) ]; then \
+	#	echo "[ARx]     libubsan.a";\
+	#	(cd $(dir $@)/tmp;\
+	#	ar x $$($(TWZCC) -print-file-name=libubsan.a););\
+	#	echo "[AR]      $@";\
+	#	ar rcs $(BUILDDIR)/us/libtwz/libtwz.a $(LIBTWZ_OBJ) $(BUILDDIR)/us/libtwz/tmp/*.o;\
+	#else\
+	#	echo "[AR]      $@";\
+	#	ar rcs $(BUILDDIR)/us/libtwz/libtwz.a $(LIBTWZ_OBJ);\
+	#fi
+
 $(BUILDDIR)/us/libtwz/libtwz.a: $(LIBTWZ_OBJ)
 	@mkdir -p $(dir $@)
 	@mkdir -p $(dir $@)/tmp
-	@if [ -f $$($(TWZCC) -print-file-name=libubsan.a) ]; then \
-		echo "[ARx]     libubsan.a";\
-		(cd $(dir $@)/tmp;\
-		ar x $$($(TWZCC) -print-file-name=libubsan.a););\
-		echo "[AR]      $@";\
-		ar rcs $(BUILDDIR)/us/libtwz/libtwz.a $(LIBTWZ_OBJ) $(BUILDDIR)/us/libtwz/tmp/*.o;\
-	else\
-		echo "[AR]      $@";\
-		ar rcs $(BUILDDIR)/us/libtwz/libtwz.a $(LIBTWZ_OBJ);\
-	fi
+	@echo "[AR]      $@"
+	@rm $(BUILDDIR)/us/libtwz/libtwz.a
+	@ar rcs $(BUILDDIR)/us/libtwz/libtwz.a $(LIBTWZ_OBJ)
 
 $(BUILDDIR)/us/libtwz/libtwz.so: $(LIBTWZ_OBJ) $(BUILDDIR)/us/twix/libtwix.a
 	@mkdir -p $(dir $@)

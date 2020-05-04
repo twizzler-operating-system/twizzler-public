@@ -115,7 +115,10 @@ int twz_hier_assign_name(twzobj *ns, const char *name, int type, objid_t id)
 	ent->resv1 = 0;
 	ent->id = id;
 	strcpy(ent->name, name);
-	twz_object_setsz(ns, TWZ_OSSM_RELATIVE, ent->dlen + sizeof(*ent));
+
+	size_t reclen = sizeof(*ent) + ent->dlen;
+	reclen = (reclen + 15) & ~15;
+	twz_object_setsz(ns, TWZ_OSSM_RELATIVE, reclen);
 	return 0;
 }
 

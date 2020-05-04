@@ -46,6 +46,7 @@ long linux_sys_stat(const char *path, struct stat *sb)
 		return r;
 	}
 
+	memset(sb, 0, sizeof(*sb));
 	switch(ent.type) {
 		case NAME_ENT_REGULAR:
 			sb->st_mode = S_IFREG;
@@ -87,6 +88,7 @@ long linux_sys_lstat(const char *path, struct stat *sb)
 	}*/
 
 	// struct metainfo *mi = twz_object_meta(&obj);
+	memset(sb, 0, sizeof(*sb));
 	sb->st_size = ent.dlen;
 	sb->st_mode = S_IFLNK | S_IWOTH | S_IXOTH | S_IROTH | S_IRWXU | S_IRGRP | S_IXGRP | S_IWGRP;
 	//	twz_object_release(&obj);
@@ -103,6 +105,7 @@ long linux_sys_fstat(int fd, struct stat *sb)
 	if(twz_object_getext(&fi->obj, TWZIO_METAEXT_TAG))
 		io = 1;
 	struct metainfo *mi = twz_object_meta(&fi->obj);
+	memset(sb, 0, sizeof(*sb));
 	sb->st_size = mi->sz;
 	sb->st_mode = (io ? S_IFIFO : S_IFREG) | S_IXOTH | S_IROTH | S_IRWXU | S_IRGRP | S_IXGRP;
 	return 0;
@@ -111,7 +114,7 @@ long linux_sys_fstat(int fd, struct stat *sb)
 
 long linux_sys_faccessat(int dirfd, const char *pathname, int mode, int flags)
 {
-	twix_log("ACCESS: (%d) %s\n", dirfd, pathname);
+	// twix_log("ACCESS: (%d) %s\n", dirfd, pathname);
 	objid_t id;
 	int r = twix_openpathat(dirfd, pathname, flags, &id);
 

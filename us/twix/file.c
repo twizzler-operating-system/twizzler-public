@@ -55,12 +55,12 @@ long linux_sys_open(const char *path, int flags, int mode)
 
 static int internal_dup(int oldfd, int newfd, int flags, int vers)
 {
-	twix_log("internal dup %d %d %x %d\n", oldfd, newfd, flags, vers);
+	// twix_log("internal dup %d %d %x %d\n", oldfd, newfd, flags, vers);
 	if(oldfd == newfd && vers == 3) {
-		twix_log("   -> inval\n");
+		//	twix_log("   -> inval\n");
 		return -EINVAL;
 	} else if(oldfd == newfd && vers == 2) {
-		twix_log("   -> noop\n");
+		//	twix_log("   -> noop\n");
 		return newfd;
 	}
 	struct file *nf;
@@ -70,7 +70,7 @@ static int internal_dup(int oldfd, int newfd, int flags, int vers)
 		nf = twix_alloc_fd(vers == 0 ? newfd : 0);
 	struct file *of = twix_get_fd(oldfd);
 	if(!nf || !of) {
-		twix_log("   -> err %p %p\n", of, nf);
+		//	twix_log("   -> err %p %p\n", of, nf);
 		if(!nf && vers == 1)
 			return -EMFILE;
 		return -EBADF;
@@ -86,7 +86,7 @@ static int internal_dup(int oldfd, int newfd, int flags, int vers)
 	twz_view_set(NULL, TWZSLOT_FILES_BASE + nf->fd, twz_object_guid(&of->obj), nf->fl);
 	nf->obj = twz_object_from_ptr(SLOT_TO_VADDR(TWZSLOT_FILES_BASE + nf->fd));
 	nf->taken = nf->valid = true;
-	twix_log("  -> %d\n", newfd);
+	// twix_log("  -> %d\n", newfd);
 	return newfd;
 }
 
@@ -128,7 +128,7 @@ long linux_sys_lseek(int fd, off_t off, int whence)
 
 long linux_sys_fcntl(int fd, int cmd, long arg)
 {
-	twix_log("FCNTL %d %d %lx\n", fd, cmd, arg);
+	// twix_log("FCNTL %d %d %lx\n", fd, cmd, arg);
 	struct file *f = twix_get_fd(fd);
 	if(!f)
 		return -EBADF;

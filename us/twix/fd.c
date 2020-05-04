@@ -72,6 +72,8 @@ struct file *twix_grab_fd(int fd)
 		return -EBADF;
 	}
 	struct file *f = &fds[fd];
+	f->valid = false;
+	f->pos = 0;
 	return f;
 }
 struct file *twix_alloc_fd(int start)
@@ -81,6 +83,7 @@ struct file *twix_alloc_fd(int start)
 		if(test < 0) {
 			fds[i].taken = true;
 			fds[i].fd = i;
+			fds[i].pos = 0;
 			return &fds[i];
 		}
 	}
