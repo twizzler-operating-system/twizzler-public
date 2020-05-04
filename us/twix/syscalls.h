@@ -19,7 +19,7 @@ struct rusage;
 
 void __linux_init(void);
 void __fd_sys_init(void);
-struct file *twix_alloc_fd(void);
+struct file *twix_alloc_fd(int);
 struct file *twix_grab_fd(int fd);
 struct file *twix_get_fd(int fd);
 void twix_copy_fds(twzobj *view);

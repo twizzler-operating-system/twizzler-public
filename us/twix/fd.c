@@ -74,9 +74,9 @@ struct file *twix_grab_fd(int fd)
 	struct file *f = &fds[fd];
 	return f;
 }
-struct file *twix_alloc_fd(void)
+struct file *twix_alloc_fd(int start)
 {
-	for(int i = 0; i < MAX_FD; i++) {
+	for(int i = start; i < MAX_FD; i++) {
 		int test = __check_fd_valid(i);
 		if(test < 0) {
 			fds[i].taken = true;

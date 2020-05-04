@@ -294,7 +294,7 @@ int twz_cap_create(struct sccap **cap,
 
 void call_the_gate(twzobj *lib)
 {
-	void (*gfn)() = TWZ_GATE_CALL(lib, 1);
+	void (*gfn)() = TWZ_GATE_CALL(lib, 0);
 
 	fprintf(stderr, "calling gate fn: %p\n", gfn);
 	gfn();
