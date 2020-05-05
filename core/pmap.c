@@ -4,6 +4,7 @@
 #include <pmap.h>
 #include <slots.h>
 #include <spinlock.h>
+#include <twz/driver/memory.h>
 
 /* TODO: put this in header */
 extern struct vm_context kernel_ctx;
@@ -25,6 +26,11 @@ static struct vmap pmap_vmap;
 static struct arena pmap_arena;
 
 static struct rbroot root = RBINIT;
+
+void pmap_collect_stats(struct memory_stats *stats)
+{
+	stats->pmap_used = start;
+}
 
 static int __pmap_compar_key(struct pmap *a, uintptr_t n)
 {

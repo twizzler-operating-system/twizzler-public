@@ -65,7 +65,7 @@ long syscall_thread_spawn(uint64_t tidlo,
 
 	obj_put(view);
 
-	kso_root_attach(repr, 0, KSO_THREAD);
+	t->kso_attachment_num = kso_root_attach(repr, 0, KSO_THREAD);
 
 	if(current_thread) {
 		spinlock_acquire_save(&current_thread->sc_lock);

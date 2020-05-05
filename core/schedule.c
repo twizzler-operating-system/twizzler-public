@@ -14,6 +14,7 @@
 __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 {
 	uint64_t ji = clksrc_get_nanoseconds();
+	mm_update_stats();
 
 	if(0 && ++proc->ctr % 1000 == 0) {
 		uint32_t lom, him, loa, hia;
@@ -234,6 +235,9 @@ void thread_exit(void)
 	vm_context_put(current_thread->ctx);
 
 	current_thread->ctx = NULL;
+
+	kso_root_detach(current_thread->kso_attachment_num);
+
 	struct object *obj = kso_get_obj(current_thread->throbj, thr);
 	obj_free_kaddr(obj);
 	obj_put(obj); /* one for kso, one for this ref. TODO: clean this up */

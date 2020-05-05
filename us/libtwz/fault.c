@@ -19,8 +19,11 @@ static struct {
 	void *userdata;
 } _fault_table[NUM_FAULTS];
 
-#define FPR(s)                                                                                     \
-	fprintf(stderr, "  -- FAULT: " s " (ip=%p, addr=%p, id=" IDFMT ")\n", source, addr, IDPR(id))
+//#define FPR(s)                                                                                     \
+//	fprintf(stderr, "  -- FAULT: " s " (ip=%p, addr=%p, id=" IDFMT ")\n", source, addr, IDPR(id))
+
+#define FPR(...)
+
 static int twz_map_fot_entry(twzobj *obj,
   size_t slot,
   struct fotentry *fe,
@@ -236,6 +239,7 @@ __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info, struct fa
 	 * fatal. */
 	if(fault == FAULT_OBJECT) {
 		if(__fault_obj_default(fault, _info) < 0) {
+			_twz_default_exception_handler(fault, _info);
 			twz_thread_exit(EXIT_CODE_FAULT(fault));
 		}
 	} else if(fault == FAULT_FAULT) {

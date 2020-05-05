@@ -117,6 +117,47 @@ size_t mm_page_bootstrap_count = 0;
 
 static struct arena page_arena;
 
+#include <twz/driver/memory.h>
+
+static __do_page_build_stats(struct page_stats *stats, struct page_group *pg)
+{
+	stats->page_size = mm_page_size(pg->level);
+	stats->avail = pg->avail;
+	uint64_t info = 0;
+	if(pg->flags & PAGE_CRITICAL)
+		info |= PAGE_STATS_INFO_CRITICAL;
+	if(pg->flags & PAGE_ZERO)
+		info |= PAGE_STATS_INFO_ZERO;
+	stats->info = info;
+}
+
+int page_build_stats(struct page_stats *stats, int idx)
+{
+	switch(idx) {
+		case 0:
+			__do_page_build_stats(stats, &_pg_level0_critical);
+			break;
+		case 1:
+			__do_page_build_stats(stats, &_pg_level0_zero);
+			break;
+		case 2:
+			__do_page_build_stats(stats, &_pg_level0);
+			break;
+		case 3:
+			__do_page_build_stats(stats, &_pg_level1_zero);
+			break;
+		case 4:
+			__do_page_build_stats(stats, &_pg_level1);
+			break;
+		case 5:
+			__do_page_build_stats(stats, &_pg_level2);
+			break;
+		default:
+			return -1;
+	}
+	return 0;
+}
+
 static struct page *__do_page_alloc(struct page_group *group)
 {
 	spinlock_acquire_save(&group->lock);

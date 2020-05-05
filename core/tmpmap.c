@@ -5,6 +5,7 @@
 #include <slots.h>
 #include <spinlock.h>
 #include <tmpmap.h>
+#include <twz/driver/memory.h>
 
 /* TODO: put this in header */
 extern struct vm_context kernel_ctx;
@@ -17,6 +18,13 @@ static struct vmap tmpmap_vmap;
 static uint8_t *l0bitmap;
 /* TODO: this is a waste of memory */
 static uint8_t *l1bitmap;
+
+static size_t alloced = 0;
+
+void tmpmap_collect_stats(struct memory_stats *stats)
+{
+	stats->tmpmap_used = alloced;
+}
 
 __initializer static void tmpmap_init(void)
 {
@@ -53,6 +61,8 @@ void tmpmap_unmap_page(void *addr)
 	arch_object_unmap_page(&tmpmap_object, virt / mm_page_size(0));
 	spinlock_release_restore(&tmpmap_object.lock);
 
+	alloced -= mm_page_size(level);
+
 	asm volatile("invlpg %0" ::"m"(addr) : "memory");
 	// if(current_thread)
 	//	processor_send_ipi(
@@ -75,6 +85,7 @@ void *tmpmap_map_page(struct page *page)
 			break;
 		}
 	}
+	alloced += mm_page_size(page->level);
 	spinlock_release_restore(&lock);
 	if(i == max) {
 		/* TODO: do something smarter */

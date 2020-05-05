@@ -53,6 +53,7 @@ struct thread {
 	struct thread_sctx_entry *sctx_entries;
 
 	struct kso_throbj *throbj;
+	int kso_attachment_num;
 
 	struct list rq_entry, all_entry;
 	struct sleep_entry *sleep_entries;

@@ -3,8 +3,10 @@
 #include <memory.h>
 #include <object.h>
 #include <page.h>
+#include <pmap.h>
 #include <slots.h>
 #include <thread.h>
+#include <tmpmap.h>
 static DECLARE_LIST(physical_regions);
 
 static DECLARE_LIST(allocators);
@@ -168,7 +170,6 @@ static struct memory_stats_header *msh = NULL;
 static void __init_mem_object(void *_a __unused)
 {
 	struct object *so = get_system_object();
-	size_t count = 0;
 	struct object *d = device_register(DEVICE_BT_SYSTEM, 1ul << 24);
 	char name[128];
 	snprintf(name, 128, "MEMORY STATS");
@@ -185,12 +186,39 @@ POST_INIT(__init_mem_object, NULL);
 void mm_update_stats(void)
 {
 	if(msh) {
-		msh->stats = mm_stats;
-		for(int i = 0; i <= MAX_PGLEVEL; i++) {
-			msh->page_stats[i] = mm_page_stats[i];
+		pmap_collect_stats(&mm_stats);
+		tmpmap_collect_stats(&mm_stats);
+		mm_stats.pages_early_used = mm_early_count;
+
+		size_t ma_free = 0, ma_total = 0, ma_unfreed = 0, ma_used = 0;
+		size_t count = 0;
+		spinlock_acquire_save(&allocator_lock);
+		foreach(e, list, &allocators) {
+			struct mem_allocator *alloc = list_entry(e, struct mem_allocator, entry);
+
+			ma_total += alloc->length;
+			ma_used += alloc->length - (alloc->free_memory + alloc->available_memory);
+			ma_unfreed += alloc->available_memory;
+			ma_free += alloc->free_memory;
+			count++;
 		}
-		msh->nr_page_levels = MAX_PGLEVEL + 1;
-		device_release_headers(mem_object);
+		spinlock_release_restore(&allocator_lock);
+
+		mm_stats.memalloc_nr_objects = count;
+		mm_stats.memalloc_total = ma_total;
+		mm_stats.memalloc_used = ma_used;
+		mm_stats.memalloc_unfreed = ma_unfreed;
+		mm_stats.memalloc_free = ma_free;
+
+		msh->stats = mm_stats;
+		//		for(int i = 0; i <= MAX_PGLEVEL; i++) {
+		//			msh->page_stats[i] = mm_page_stats[i];
+		//		}
+		int i = 0;
+		while(page_build_stats(&msh->page_stats[i], i) != -1)
+			i++;
+		msh->nr_page_groups = i;
+		//	device_release_headers(mem_object);
 	}
 }
 

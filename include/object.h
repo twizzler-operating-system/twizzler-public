@@ -50,7 +50,8 @@ struct kso_calls {
 void kso_register(int t, struct kso_calls *);
 struct kso_calls *kso_lookup_calls(int t);
 void kso_detach_event(struct thread *thr, bool entry, int sysc);
-void kso_root_attach(struct object *obj, uint64_t flags, int type);
+int kso_root_attach(struct object *obj, uint64_t flags, int type);
+void kso_root_detach(int idx);
 void kso_attach(struct object *parent, struct object *child, size_t);
 void kso_setname(struct object *obj, const char *name);
 struct object *get_system_object(void);

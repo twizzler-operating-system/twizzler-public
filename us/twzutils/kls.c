@@ -68,6 +68,7 @@ void kls_thread(struct kso_attachment *p, int indent)
 	}
 }
 
+#include <twz/twztry.h>
 void kls(void)
 {
 	twzobj root;
@@ -78,14 +79,21 @@ void kls(void)
 		struct kso_attachment *k = &r->attached[i];
 		if(!k->id || !k->type)
 			continue;
-		print_kat(k, 0);
-		switch(k->type) {
-			case KSO_THREAD:
-				kls_thread(k, 4);
-				break;
-			case KSO_DEVBUS:
-				kls_devbus(k, 4);
+		twztry
+		{
+			print_kat(k, 0);
+			switch(k->type) {
+				case KSO_THREAD:
+					kls_thread(k, 4);
+					break;
+				case KSO_DEVBUS:
+					kls_devbus(k, 4);
+			}
 		}
+		twzcatch_all
+		{
+		}
+		twztry_end;
 	}
 }
 
