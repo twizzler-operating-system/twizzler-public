@@ -104,7 +104,7 @@ Returns a pointer to the base of the current thread control object. This functio
 
 ## twz_stdstack
 
-The `twz/thread.h` header provides an object, `twz_stdstack`, which is a `struct object` that refers
+The `twz/thread.h` header provides an object, `twz_stdstack`, which is a `twzobj *` that refers
 to the standard stack object.
 
 

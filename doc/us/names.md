@@ -3,6 +3,8 @@ Naming in Twizzler (us/names.md)
 
 _"But Taborlin knew the names of all things, and so all things were his to command."_ - The Name of the Wind
 
+WARNING - this API is unstable.
+
 Naming in Twizzler is fundamentally a flexible concept. The idea of a name is not actually known by
 the _kernel_, nor most of the userspace APIs. They usually operate on pointers and IDs. Names must
 be first resolved into an ID to be _really_ useful. The primary location names show up are in FOT
@@ -14,9 +16,9 @@ error). A name is an unspecified C string.
 ## twz_name_resolve
 ``` {.c}
 #include <twz/name.h>
-int twz_name_resolve(struct object *obj,
+int twz_name_resolve(twzobj *obj,
   const char *name,
-  int (*fn)(struct object *, const char *, int, objid_t *),
+  int (*fn)(twzobj *, const char *, int, objid_t *),
   int flags,
   objid_t *id);
 ```
@@ -56,42 +58,5 @@ Returns 0 on success, error code on error.
 ### Errors
 * `-ENOENT`: Could not find a name object.
 * `-ENOMEM`: Not enough memory to assign name.
-
-## twz_name_reverse_lookup
-
-``` {.c}
-#include <twz/name.h>
-int twz_name_reverse_lookup(objid_t id,
-  char *name,
-  size_t *nl,
-  ssize_t (*fn)(objid_t id, char *name, size_t *nl, int flags),
-  int flags);
-```
-
-Reverse-lookup a name that refers to `id`,
-using the provided function `fn`. If `fn` is NULL, use the Twizzler Default
-Name Resolver. The `flags` argument is passed through to the `fn`. The `nl` argument points to a
-`size_t` that contains the number of bytes available to write to in `name`. The function will not
-write more than this many bytes in `name`, including the NULL terminator. After returning, `nl` is
-updated to indicate the length of the name. If multiple names refer to `id`, there is no requirement
-that any particular one is returned. If `nl` does not specify enough bytes to hold the name, `nl` is
-updated to indicate how much memory is needed, and `-ENOMEM` is returned.
-
-The `fn` argument takes the object ID, a buffer for the name, the length (via `nl`), and flags.
-It returns the actual length of the name on success, and error code on error.
-
-The Default resolver ignores the `flags` argument.
-
-### Return Value
-
-Returns 0 on success, error code on error.
-
-### Errors
-Can return any error that `fn` returns, along with:
-
-* `-EINVAL`: Invalid argument.
-* `-ENOMEM`: Not enough space to hold the name.
-* `-ENOENT`: No name found.
-
 
 

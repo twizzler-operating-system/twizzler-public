@@ -20,7 +20,8 @@ ready) and then wakes up waiting threads.
 
 ## event_obj_init
 ``` {.c}
-void event_obj_init(struct object *obj, struct evhdr *hdr);
+#include <twz/event.h>
+void event_obj_init(twzobj *obj, struct evhdr *hdr);
 ```
 
 Initialize a `struct evhdr` within object `obj`. Must be called before any function that operates on
@@ -28,6 +29,7 @@ the `hdr`.
 
 ## event_init
 ``` {.c}
+#include <twz/event.h>
 int event_init(struct event *ev, struct evhdr *hdr, uint64_t events, struct timespec *timeout);
 ```
 
@@ -43,6 +45,7 @@ Returns 0 on success, error code on error.
 
 ## event_wait
 ``` {.c}
+#include <twz/event.h>
 int event_wait(size_t count, struct event *ev);
 ```
 Wait on a set of events. The `count` argument describes the length of the array `ev`, which must
@@ -62,6 +65,7 @@ This function can return any error specified by the `sys_thrd_sync` system call.
 
 ## event_wake
 ``` {.c}
+#include <twz/event.h>
 int event_wake(struct evhdr *ev, uint64_t events, long wcount);
 ```
 
@@ -78,6 +82,7 @@ This function may return any error returned by `sys_thrd_sync`.
 
 ## event_clear
 ``` {.c}
+#include <twz/event.h>
 uint64_t event_clear(struct evhdr *hdr, uint64_t events);
 ```
 
@@ -87,4 +92,25 @@ This function does not attempt to wake any threads, nor does it wait.
 ### Return Value
 Returns a bitwise-and of the pre-cleared events and the `events` argument, effectively returning
 which events were cleared. This function does not fail.
+
+## event_poll
+``` {.c}
+#include <twz/event.h>
+uint64_t event_poll(const struct evhdr *hdr, uint64_t events);
+```
+
+Return any active events specified by `events`. This function does not attempt to wake and threads,
+nor does it wait.
+
+### Return Value
+
+Returns a bitwise-and of the triggered events in `hdr` and `events`. This function does not fail.
+
+## event_add_timeout
+```{.c}
+#include <twz/event.h>
+void event_add_timeout(struct event *ev, const struct timespec *timeout);
+```
+
+Adds a timeout to the event specifier `ev`. The `timeout` argument must be non-NULL.
 

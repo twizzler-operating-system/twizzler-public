@@ -6,7 +6,7 @@ usually located at the base of the data region of the object. An API over an obj
 assumes that the object has such a given layout, in which case the API might look like:
 
 ``` {.c}
-foo_action(struct object *obj, ...);
+foo_action(twzobj *obj, ...);
 ```
 
 However, this is inflexible. An object might contain
@@ -17,7 +17,7 @@ its own header structure). Many APIs also provide variants of functions that do 
 header struct is at the base. Such an API might provide a variant of the above function:
 
 ``` {.c}
-foo_action_hdr(struct object *obj, struct foo_hdr *hdr, ...);
+foo_action_hdr(twzobj *obj, struct foo_hdr *hdr, ...);
 ```
 
 This allows an object to implement multiple APIs. The programmer must locate the appropriate header
@@ -42,7 +42,7 @@ way with a _tag_. Each API that can be located this way provides a unique tag.
 
 ``` {.c}
 #include <twz/obj.h>
-void *twz_object_getext(struct object *obj, uint64_t tag);
+void *twz_object_getext(twzobj *obj, uint64_t tag);
 ```
 
 Locate a structured object header within an object `obj` using `tag`, returning a d-ptr to the
@@ -56,7 +56,7 @@ errors, only returning NULL if the header struct was not found.
 
 ``` {.c}
 #include <twz/obj.h>
-int twz_object_addext(struct object *obj, uint64_t tag, void *ptr);
+int twz_object_addext(twzobj *obj, uint64_t tag, void *ptr);
 ```
 
 Add a pointer to a structured header to the list of headers that can be located with
@@ -74,7 +74,7 @@ Returns 0 on success, error code on error.
 
 ``` {.c}
 #include <twz/obj.h>
-int twz_object_delext(struct object *obj, uint64_t tag);
+int twz_object_delext(twzobj *obj, uint64_t tag);
 ```
 
 Remove a tag from the object's tag list.

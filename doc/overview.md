@@ -10,7 +10,8 @@ single-level store, exokernel-like system that:
   * Allows hardware to act autonomously (if capable).
   * Provides persistent object support as the primary data abstraction.
 
-Twizzler does away with a number of traditional abstractions that a Unix has:
+Twizzler does away with a number of traditional abstractions that a Unix has (note we provide enough
+Unix emulation to have a useable C runtime and standard library, and many POSIX functions do work):
 
   * Files are not a thing in Twizzler. Instead, Twizzler is based around _objects_. Threads can
 	access objects through load and store instructions (they are memory objects). Persistence is
@@ -26,6 +27,16 @@ Twizzler does away with a number of traditional abstractions that a Unix has:
   * Traditional Unix users, groups, etc., are not used in Twizzler. Instead, we provide a more
 	robust and fine-grained security mechanism based on cryptographically signed capabilities,
 	security contexts, and content-derived names.
+
+Twizzler programs must be _statically linked_ at the moment. This limitation will soon be removed. A
+Twizzler program typically has the following core components:
+
+  * The program itself, the executable.
+  * The program is linked to musl, a C library, to provide a C standard library.
+  * The program is also linked to Twix (libtwix), a library that emulates the Linux system call
+	interface (needed for musl to be happy).
+  * Finally, we link to libtwz, the Twizzler standard library, which provides a runtime for Twizzler
+	(eg. fault handling, userspace-level object management, etc).
 
 Twizzler's primary abstractions, of which there are few, build the base of the system. Further
 structure can be imposed on objects in userspace, but the core system provides only the following:

@@ -86,6 +86,9 @@ __must_check int twz_object_wire_guid(twzobj *view, objid_t id);
 __must_check int twz_object_tie_guid(objid_t pid, objid_t cid, int flags);
 __must_check int twz_object_wire(twzobj *, twzobj *);
 __must_check int twz_object_unwire(twzobj *view, twzobj *obj);
+
+#define TWZ_OD_IMMEDIATE 1
+
 __must_check int twz_object_delete(twzobj *obj, int flags);
 __must_check int twz_object_delete_guid(objid_t id, int flags);
 objid_t twz_object_guid(twzobj *o);

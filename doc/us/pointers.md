@@ -3,17 +3,19 @@ Pointer Manipulation (us/pointers.md)
 
 Pointers have two forms, referred to as _persistent_ and _dereferencable_. A persistent pointer
 (p-ptr) is a
-pointer of the form `(fot-entry, offset)`. A dereferncable pointer (d-ptr) is a pointer in a form that the
+pointer of the form `(fot-entry, offset)`. A dereferencable pointer (d-ptr) is a pointer in a form that the
 CPU can directly use to access data behind it. In terms of C, a d-ptr can have a * applied to it,
 whereas a p-ptr must first be converted into a d-ptr.
 
+Note that some internal code may still refer to d-ptr as v-ptr.
+
 Pointer manipulation routines take d-ptr's by default for pointer arguments.
 
-## twz_ptr_lea
+## twz_object_lea
 
 ``` {.c}
 #include <twz/obj.h>
-T *twz_ptr_lea(struct object *obj, T *ptr [p-ptr]);
+T *twz_object_lea(twzobj *obj, T *ptr [p-ptr]);
 ```
 Computes a d-ptr from a p-ptr. The `obj` argument must not be NULL, and refers to the object whose
 FOT will be used for the computation. The method of computation is platform-specific, and could be a
@@ -29,15 +31,12 @@ d-ptr is valid for the same lifetime as `obj`.
 This function does not return errors, and will either succeed or raise a fault. The possible faults
 can be:
 
-  * `FAULT_FOT`: An error occurred attempting to resolve the specified FOT entry in the pointer.
+  * `FAULT_PPTR`: An error occurred attempting to resolve the specified FOT entry in the pointer.
 	Possible info codes:
-	  * `FOT_EXCEEDED`: The entry exceeded the number of FOT entries in this object.
-	  * `FOT_INVALID`: The FOT entry specified is invalid.
-	  * `FOT_NAMEFAIL`: The FOT entry had a name which failed to resolve.
-  * `FAULT_ERR`: An error occurred. Possible info codes:
-      * `ENOSPC`: Resources for d-ptrs exhausted.
-
-
+	  * `FAULT_PPTR_RESOURCES`: The entry exceeded the number of FOT entries in this object.
+	  * `FAULT_PPTR_RESOURCES`: Resources exhausted for d-ptrs.
+	  * `FAULT_PPTR_INVALID`: The FOT entry specified is invalid.
+	  * `FAULT_PPTR_RESOLVE`: The FOT entry had a name which failed to resolve.
 
 ## twz_ptr_local
 
@@ -57,45 +56,72 @@ Returns a local p-ptr (fot-entry = 0) for the specified pointer.
 
 None.
 
-## twz_ptr_store
+
+## twz_ptr_store_guid
 
 ``` {.c}
 #include <twz/obj.h>
-T *twz_ptr_store(struct object *obj, T *ptr, uint32_t flags);
+int twz_ptr_store_guid(twzobj *obj, const T **loc, twzobj *target,
+                      const T *p, uint64_t flags);
 ```
 
-Convert an existing d-ptr to a p-ptr from the perspective of object `obj`. This will (potentially)
-insert a new FOT entry with flags `flags`.
+Create a p-ptr from `p`, store it in the location pointed to by `loc` (which must be a d-ptr, and
+must refer to a location within the object specified by `obj`). If `target` is NULL, `p` is
+interpreted as a d-ptr, otherwise `p` is interpreted as a p-ptr within object `target`. The `flags`
+argument specifies the flags to store in the FOT entry for this pointer (see twz_object_init_guid).
 
 ### Return Value
-Returns a p-ptr on success. This function always succeeds or throws an exception.
 
-## twz_ptr_rebase
-
-``` {.c}
-#include <twz/obj.h>
-T *twz_ptr_rebase(size_t fe, T *ptr [p-ptr]);
-```
-
-Computes a new pointer with FOT entry `fe` and offset specified by `ptr`.
-
-### Return Value
-Returns the new pointer.
+Returns 0 on success, error code on error.
 
 ### Errors
-None.
 
-## twz_ptr_make
+  * `-ENOENT`: `p` was a d-ptr, but could not be matched to an existing object.
+  * `-EINVAL`: Invalid argument.
+  * `-ENOSPC`: No more FOT entries are available in `obj`.
+
+## twz_ptr_store_name
 
 ``` {.c}
 #include <twz/obj.h>
-T *twz_ptr_make(struct object *obj, objid_t id, T *ptr, uint32_t flags);
+int twz_ptr_store_name(twzobj *obj, const T **loc, const char *name,
+                      const T *p, uint64_t flags);
 ```
 
-Similar to `twz_ptr_store`, except take a local pointer `ptr` and an object ID `id` for creating the
-p-ptr.
+WARNING - this API is unstable.
+
+Create a p-ptr from `p`, store it in the location pointed to by `loc` (which must be a d-ptr, and
+must refer to a location within the object specified by `obj`). The FOT entry for this p-ptr will
+refer to an object by name `name`. `p` must be a p-ptr. See `twz_ptr_store_guid` for flags.
 
 ### Return Value
-Returns a p-ptr on success. This function always succeeds or throws an exception.
+
+Returns 0 on success, error code on error.
+
+### Errors
+
+  * `-EINVAL`: Invalid argument.
+  * `-ENOSPC`: No more FOT entries are available in `obj`.
+
+## twz_ptr_swizzle
+
+``` {.c}
+#include <twz/obj.h>
+[p-ptr] T *twz_ptr_swizzle(twzobj *obj, T *p, uint64_t flags);
+```
+
+Create and return a p-ptr that can be stored into object `obj`. This manipulates the FOT. `p` must
+be a d-ptr. See `twz_ptr_store_guid` for flags.
+
+### Return Value
+
+Returns a p-ptr from that refers to the data pointed to by `p`. Throws on error.
+
+### Errors
+
+  * `FAULT_PPTR`: An error occurred attempting to resolve the specified FOT entry in the pointer.
+	Possible info codes:
+	  * `FAULT_PPTR_RESOURCES`: Out of FOT entries.
+	  * `FAULT_PPTR_INVALID`: `p` was not a valid d-ptr.
 
 
