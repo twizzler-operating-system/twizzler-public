@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 /* access to the twizzler object API */
+#include <twz/name.h>
 #include <twz/obj.h>
 
 struct example_hdr {
@@ -118,6 +119,42 @@ void example_create_temporary_object(void)
 	/* a common pattern is to tie a bunch of objects to some anchor while creating data structures
 	 * and then untie them. That makes cleanup automatic until the objects are done being created.
 	 * */
+}
+
+void example_allocate_from_object(void)
+{
+	/* it's often the case that we'll want to allocate some amount of memory from within an object.
+	 * Unix-file-like objects and other already structured objects (like PTYs) maybe not, but with
+	 * data structures, definitely.
+	 *
+	 * Twizzler provides an API for allocating data within objects in two ways:
+	 * 1) The twz/alloc.h header, which allows the programmer to embed a 'twzoa_header' struct
+	 *    within their object whereever they like, and initialize that to allocate from within some
+	 *    range of the object.
+	 * 2) (AND PROBABLY EASIEST), Twizzler provides default allocation functions for objects _as
+	 *    long as_ that object was initialized to support them. This example will focus on this,
+	 *    because it's probably the easiest to do. */
+
+	twzobj obj;
+	twz_object_new(&obj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
+
+	/* init the object to respond to the default allocation API */
+	twz_object_build_alloc(&obj, 0);
+
+	/* that second argument is an offset within the object starting from the base (as returned by
+	 * twz_object_base). This is to enable the user to have some data at the start of the object
+	 * (like some common header) */
+
+	/* now we can allocate from the object. Here's some size-8 data. */
+	void *p = twz_object_alloc(&obj, 8);
+
+	/* note that the returned pointer is a persistent pointer! So it must be LEA'd to be used: */
+	void *v = twz_object_lea(&obj, p);
+
+	/* to free, you can pass either the p-ptr or the v-ptr to free. This is because Twizzler will
+	 * assume you're referring to some data within the object you pass to it, so don't screw that
+	 * up! :) */
+	twz_object_free(&obj, p); // or v
 }
 
 int main(int argc, char **argv)

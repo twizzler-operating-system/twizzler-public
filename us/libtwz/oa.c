@@ -253,6 +253,7 @@ void oa_hdr_init(twzobj *obj, struct twzoa_header *h, size_t start, size_t end)
 {
 	(void)obj;
 	// start += 16;
+	start = (start + (PAGE_SIZE - 1)) & ~(PAGE_SIZE + 1);
 	h->start = start;
 	h->end = end;
 	mutex_init(&h->m);

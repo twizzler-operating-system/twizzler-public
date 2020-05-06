@@ -90,6 +90,11 @@ __must_check int twz_object_delete(twzobj *obj, int flags);
 __must_check int twz_object_delete_guid(objid_t id, int flags);
 objid_t twz_object_guid(twzobj *o);
 
+int twz_object_build_alloc(twzobj *obj, size_t offset);
+
+void twz_object_free(twzobj *obj, void *p);
+__must_check __attribute__((malloc)) void *twz_object_alloc(twzobj *obj, size_t sz);
+
 void *twz_object_getext(twzobj *obj, uint64_t tag);
 __must_check int twz_object_addext(twzobj *obj, uint64_t tag, void *ptr);
 int twz_object_delext(twzobj *obj, uint64_t tag, void *ptr);

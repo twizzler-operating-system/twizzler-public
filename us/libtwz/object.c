@@ -309,6 +309,42 @@ void twz_object_release(twzobj *obj)
 	obj->_int_id = 0;
 }
 
+#include <twz/alloc.h>
+EXTERNAL
+int twz_object_build_alloc(twzobj *obj, size_t offset)
+{
+	/* align offset by 16 */
+	offset = (offset + 15) & ~15;
+	offset += OBJ_NULLPAGE_SIZE;
+
+	struct twzoa_header *hdr = twz_object_lea(obj, (void *)offset);
+	oa_hdr_init(obj, hdr, offset + sizeof(*hdr), OBJ_TOPDATA);
+
+	return twz_object_addext(obj, ALLOC_METAINFO_TAG, (void *)offset);
+}
+
+EXTERNAL
+void *twz_object_alloc(twzobj *obj, size_t sz)
+{
+	struct twzoa_header *hdr = twz_object_getext(obj, ALLOC_METAINFO_TAG);
+	if(!hdr) {
+		libtwz_panic("tried to allocate data in an object that does not respond to ALLOC API.");
+	}
+
+	return oa_hdr_alloc(obj, hdr, sz);
+}
+
+EXTERNAL
+void twz_object_free(twzobj *obj, void *p)
+{
+	struct twzoa_header *hdr = twz_object_getext(obj, ALLOC_METAINFO_TAG);
+	if(!hdr) {
+		libtwz_panic("tried to free data in an object that does not respond to ALLOC API.");
+	}
+
+	return oa_hdr_free(obj, hdr, twz_ptr_local(p));
+}
+
 EXTERNAL
 int twz_object_kaction(twzobj *obj, long cmd, ...)
 {
