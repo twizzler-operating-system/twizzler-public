@@ -129,7 +129,7 @@ long linux_sys_lseek(int fd, off_t off, int whence)
 
 long linux_sys_fcntl(int fd, int cmd, long arg)
 {
-	twix_log("FCNTL %d %d %lx\n", fd, cmd, arg);
+	// twix_log("FCNTL %d %d %lx\n", fd, cmd, arg);
 	struct file *f = twix_get_fd(fd);
 	if(!f)
 		return -EBADF;
