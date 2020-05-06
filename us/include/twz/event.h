@@ -26,5 +26,15 @@ int event_wait(size_t count, struct event *ev);
 int event_wake(struct evhdr *ev, uint64_t events, long wcount);
 uint64_t event_clear(struct evhdr *hdr, uint64_t events);
 void event_obj_init(twzobj *obj, struct evhdr *hdr);
+static inline void event_add_timeout(struct event *ev, const struct timespec *timeout)
+{
+	ev->timeout = *timeout;
+	ev->flags |= EV_TIMEOUT;
+}
+
+static inline uint64_t event_poll(struct evhdr *hdr, uint64_t events)
+{
+	return hdr->point & events;
+}
 
 #define EVENT_METAEXT_TAG 0x000000001122ee00eeee

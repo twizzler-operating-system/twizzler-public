@@ -45,3 +45,17 @@ ssize_t twzio_ioctl(twzobj *obj, int req, ...)
 	ssize_t (*fn)(twzobj *, int, long) = _fn;
 	return fn(obj, req, arg);
 }
+
+struct event;
+int twzio_poll(twzobj *obj, uint64_t type, struct event *event)
+{
+	struct twzio_hdr *hdr = twz_object_getext(obj, TWZIO_METAEXT_TAG);
+	if(!hdr || !hdr->poll)
+		return -ENOTSUP;
+
+	void *_fn = twz_object_lea(obj, hdr->poll);
+	if(!_fn)
+		return -EGENERIC;
+	ssize_t (*fn)(twzobj *, uint64_t, struct event *) = _fn;
+	return fn(obj, type, event);
+}

@@ -25,6 +25,8 @@
 #define LINUX_SYS_writev 20
 #define LINUX_SYS_access 21
 
+#define LINUX_SYS_select 23
+
 #define LINUX_SYS_dup 32
 #define LINUX_SYS_dup2 33
 
@@ -101,6 +103,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_execve] = linux_sys_execve,
 	[LINUX_SYS_clone] = linux_sys_clone,
 	[LINUX_SYS_pselect6] = linux_sys_pselect6,
+	[LINUX_SYS_select] = linux_sys_select,
 	[LINUX_SYS_fork] = linux_sys_fork,
 	[LINUX_SYS_wait4] = linux_sys_wait4,
 	[LINUX_SYS_stat] = linux_sys_stat,

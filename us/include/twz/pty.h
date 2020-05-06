@@ -35,11 +35,17 @@ struct pty_client_hdr {
 #define PTY_GATE_WRITE_CLIENT 4
 #define PTY_GATE_IOCTL_SERVER 5
 #define PTY_GATE_IOCTL_CLIENT 6
+#define PTY_GATE_POLL_SERVER 7
+#define PTY_GATE_POLL_CLIENT 8
 
 ssize_t pty_write_server(twzobj *obj, const void *ptr, size_t len, unsigned flags);
 ssize_t pty_read_server(twzobj *obj, void *ptr, size_t len, unsigned flags);
 ssize_t pty_write_client(twzobj *obj, const void *ptr, size_t len, unsigned flags);
 ssize_t pty_read_client(twzobj *obj, void *ptr, size_t len, unsigned flags);
+int pty_poll_server(twzobj *obj, uint64_t type, struct event *event);
+int pty_poll_client(twzobj *obj, uint64_t type, struct event *event);
+int pty_ioctl_server(twzobj *obj, int request, long arg);
+int pty_ioctl_client(twzobj *obj, int request, long arg);
 
 __must_check int pty_obj_init_server(twzobj *obj, struct pty_hdr *hdr);
 

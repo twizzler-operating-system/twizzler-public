@@ -8,7 +8,8 @@
 #include <twz/mutex.h>
 
 struct bstream_hdr {
-	struct mutex rlock, wlock;
+	// struct mutex rlock, wlock;
+	struct mutex lock;
 	uint32_t flags;
 	_Atomic uint32_t head;
 	_Atomic uint32_t tail;
@@ -29,6 +30,7 @@ static inline size_t bstream_hdr_size(uint32_t nbits)
 
 #define BSTREAM_GATE_READ 1
 #define BSTREAM_GATE_WRITE 2
+#define BSTREAM_GATE_POLL 3
 
 ssize_t bstream_write(twzobj *obj, const void *ptr, size_t len, unsigned flags);
 ssize_t bstream_read(twzobj *obj, void *ptr, size_t len, unsigned flags);
@@ -38,5 +40,7 @@ ssize_t bstream_hdr_write(twzobj *obj,
   size_t len,
   unsigned flags);
 ssize_t bstream_hdr_read(twzobj *obj, struct bstream_hdr *, void *ptr, size_t len, unsigned flags);
+int bstream_poll(twzobj *obj, uint64_t type, struct event *event);
+int bstream_hdr_poll(twzobj *obj, struct bstream_hdr *hdr, uint64_t type, struct event *event);
 
 __must_check int bstream_obj_init(twzobj *obj, struct bstream_hdr *hdr, uint32_t nbits);

@@ -194,6 +194,7 @@ static long thread_sync_single_norestore(int operation,
 	if(!vm_vaddr_lookup(addr, &id, &off)) {
 		return -1; /* TODO (major): err codes in all syscalls */
 	}
+	// printk("tsync: " IDFMT ": %lx: %d\n", IDPR(id), off, operation);
 	struct object *obj = obj_lookup(id, 0);
 	if(!obj) {
 		return -1;

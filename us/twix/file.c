@@ -12,6 +12,7 @@ long linux_sys_open(const char *path, int flags, int mode)
 	objid_t id;
 	int r;
 
+	//	twix_log("open: %s: %x\n", path, flags);
 	/* HACK to make libbacktrace work */
 	if(!strcmp(path, "/proc/self/exe")) {
 		twzobj o0 = twz_object_from_ptr(NULL);
@@ -128,7 +129,7 @@ long linux_sys_lseek(int fd, off_t off, int whence)
 
 long linux_sys_fcntl(int fd, int cmd, long arg)
 {
-	// twix_log("FCNTL %d %d %lx\n", fd, cmd, arg);
+	twix_log("FCNTL %d %d %lx\n", fd, cmd, arg);
 	struct file *f = twix_get_fd(fd);
 	if(!f)
 		return -EBADF;

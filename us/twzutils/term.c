@@ -599,6 +599,9 @@ void process_csi(struct fb *fb, int c)
 			case '@':
 				fb_ins_chars(fb, fb->esc_args[0]);
 				break;
+			case 'r':
+				fprintf(stderr, "CSI r: %d %d\n", fb->esc_args[0], fb->esc_args[1]);
+				break;
 			case 'C':
 				if(fb->esc_args[0] == 0)
 					fb->esc_args[0]++;
@@ -712,6 +715,9 @@ void process_incoming(struct fb *fb, int c)
 				process_esc(fb, c);
 			break;
 		case ES_CSI:
+			if(c == '?') {
+				return;
+			}
 			process_csi(fb, c);
 			break;
 	}

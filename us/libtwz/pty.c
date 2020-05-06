@@ -127,6 +127,7 @@ static void process_input(twzobj *obj, struct pty_hdr *hdr, int c)
 ssize_t pty_write_server(twzobj *obj, const void *ptr, size_t len, unsigned flags)
 {
 	struct pty_hdr *hdr = twz_object_base(obj);
+	// debug_printf("ptysw: " IDFMT "\n", IDPR(twz_object_guid(obj)));
 	if(hdr->termios.c_lflag & ICANON) {
 		size_t count = 0;
 		mutex_acquire(&hdr->buffer_lock);
@@ -169,6 +170,44 @@ ssize_t pty_write_client(twzobj *obj, const void *ptr, size_t len, unsigned flag
 	}
 }
 
+int pty_poll_client(twzobj *obj, uint64_t type, struct event *event)
+{
+	struct pty_client_hdr *hdr = twz_object_base(obj);
+	struct pty_hdr *sh = twz_object_lea(obj, hdr->server);
+
+	struct bstream_hdr *bh;
+	twzobj to = twz_object_from_ptr(sh);
+	// debug_printf("pty poll client " IDFMT " :: " IDFMT "\n",
+	// IDPR(twz_object_guid(obj)),
+	// IDPR(twz_object_guid(&to)));
+	if(type == TWZIO_EVENT_READ) {
+		bh = twz_object_lea(&to, sh->stoc);
+	} else if(type == TWZIO_EVENT_WRITE) {
+		bh = twz_object_lea(&to, sh->ctos);
+	} else {
+		return -ENOTSUP;
+	}
+
+	return bstream_hdr_poll(&to, bh, type, event);
+}
+
+int pty_poll_server(twzobj *obj, uint64_t type, struct event *event)
+{
+	struct pty_hdr *hdr = twz_object_base(obj);
+
+	struct bstream_hdr *bh;
+	twzobj *to = obj;
+	if(type & TWZIO_EVENT_READ) {
+		bh = twz_object_lea(obj, hdr->ctos);
+	} else if(type & TWZIO_EVENT_WRITE) {
+		bh = twz_object_lea(obj, hdr->stoc);
+	} else {
+		return -ENOTSUP;
+	}
+
+	return bstream_hdr_poll(obj, bh, type, event);
+}
+
 int pty_obj_init_server(twzobj *obj, struct pty_hdr *hdr)
 {
 	hdr->stoc = (struct bstream_hdr *)((char *)twz_ptr_local(hdr) + sizeof(struct pty_hdr));
@@ -206,6 +245,11 @@ int pty_obj_init_server(twzobj *obj, struct pty_hdr *hdr)
 	}
 	r = twz_ptr_store_guid(
 	  obj, &hdr->io.ioctl, &co, TWZ_GATE_CALL(NULL, PTY_GATE_IOCTL_SERVER), FE_READ | FE_EXEC);
+	if(r) {
+		goto cleanup2;
+	}
+	r = twz_ptr_store_guid(
+	  obj, &hdr->io.poll, &co, TWZ_GATE_CALL(NULL, PTY_GATE_POLL_SERVER), FE_READ | FE_EXEC);
 	if(r) {
 		goto cleanup2;
 	}
@@ -249,6 +293,11 @@ int pty_obj_init_client(twzobj *obj, struct pty_client_hdr *hdr, struct pty_hdr 
 	}
 	r = twz_ptr_store_guid(
 	  obj, &hdr->io.ioctl, &co, TWZ_GATE_CALL(NULL, PTY_GATE_IOCTL_CLIENT), FE_READ | FE_EXEC);
+	if(r) {
+		goto cleanup2;
+	}
+	r = twz_ptr_store_guid(
+	  obj, &hdr->io.poll, &co, TWZ_GATE_CALL(NULL, PTY_GATE_POLL_CLIENT), FE_READ | FE_EXEC);
 	if(r) {
 		goto cleanup2;
 	}

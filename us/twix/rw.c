@@ -188,6 +188,17 @@ long linux_sys_ioctl(int fd, unsigned long request, unsigned long arg)
 	return twzio_ioctl(&file->obj, request, arg);
 }
 
+#include <stdlib.h>
+#include <twz/event.h>
+
+static int __select_poll_fd(int fd, uint64_t ev, struct event *event)
+{
+	struct file *file = twix_get_fd(fd);
+	if(!file)
+		return -EBADF;
+	return twzio_poll(&file->obj, ev, event);
+}
+
 long linux_sys_pselect6(int nfds,
   fd_set *readfds,
   fd_set *writefds,
@@ -195,11 +206,92 @@ long linux_sys_pselect6(int nfds,
   const struct timespec *timeout,
   const sigset_t *sigmask)
 {
-	(void)nfds;
-	(void)readfds;
-	(void)writefds;
-	(void)exceptfds;
-	(void)timeout;
+	// twix_log("ENTER SELECT\n");
+	long result = 0;
 	(void)sigmask;
-	return 0;
+	bool poll = false;
+	if(timeout) {
+		if(timeout->tv_sec == 0 && timeout->tv_nsec == 0) {
+			poll = true;
+		}
+		//	twix_log("select timeout: %ld %ld\n", timeout->tv_sec, timeout->tv_nsec);
+	}
+	struct event *evs = calloc(nfds * 3, sizeof(struct event));
+	size_t count = 0, ready = 0;
+	while(true) {
+		count = 0;
+		ready = 0;
+		for(int i = 0; i < nfds; i++) {
+			//		twix_log("select: %d: %d %d %d\n",
+			//		  i,
+			//		  readfds ? FD_ISSET(i, readfds) : 0,
+			//		  writefds ? FD_ISSET(i, writefds) : 0,
+			//		  exceptfds ? FD_ISSET(i, exceptfds) : 0);
+			if(exceptfds) {
+				FD_CLR(i, exceptfds);
+			}
+			int ret;
+			if(readfds && FD_ISSET(i, readfds)) {
+				ret = __select_poll_fd(i, TWZIO_EVENT_READ, &evs[count]);
+				//			twix_log("  fdpolling r: %d\n", ret);
+				if(ret < 0) {
+					result = ret;
+					goto done;
+				}
+				if(timeout) {
+					event_add_timeout(&evs[count], timeout);
+				}
+				count++;
+				if(ret > 0) {
+					ready += 1;
+				}
+			}
+			if(writefds && FD_ISSET(i, writefds)) {
+				ret = __select_poll_fd(i, TWZIO_EVENT_WRITE, &evs[count]);
+				//			twix_log("  fdpolling w: %d\n", ret);
+				if(ret < 0) {
+					result = ret;
+					goto done;
+				}
+				if(timeout) {
+					event_add_timeout(&evs[count], timeout);
+				}
+				count++;
+				if(ret > 0) {
+					ready += 1;
+				}
+			}
+		}
+
+		if(ready || poll) {
+			break;
+		}
+
+		//	twix_log("SLEEP SELECT: %ld\n", count);
+		//	for(int i = 0; i < count; i++) {
+		//		twzobj o = twz_object_from_ptr(evs[i].hdr);
+		//		twix_log("  wait on %p %lx: " IDFMT "\n",
+		//		  evs[i].hdr,
+		//		  evs[i].events,
+		//		  IDPR(twz_object_guid(&o)));
+		//	}
+		event_wait(count, evs);
+		//	twix_log("WAKE SELECT\n");
+	}
+
+	result = ready;
+done:
+	free(evs);
+	// twix_log("LEAVE SELECT: %ld\n", result);
+	return result;
+}
+
+long linux_sys_select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds, struct timeval *timeout)
+{
+	struct timespec ts;
+	if(timeout) {
+		ts.tv_sec = timeout->tv_sec;
+		ts.tv_nsec = timeout->tv_usec * 1000;
+	}
+	return linux_sys_pselect6(nfds, rfds, wfds, efds, timeout ? &ts : NULL, NULL);
 }

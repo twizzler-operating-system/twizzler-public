@@ -211,14 +211,10 @@ void mm_update_stats(void)
 		mm_stats.memalloc_free = ma_free;
 
 		msh->stats = mm_stats;
-		//		for(int i = 0; i <= MAX_PGLEVEL; i++) {
-		//			msh->page_stats[i] = mm_page_stats[i];
-		//		}
 		int i = 0;
 		while(page_build_stats(&msh->page_stats[i], i) != -1)
 			i++;
 		msh->nr_page_groups = i;
-		//	device_release_headers(mem_object);
 	}
 }
 

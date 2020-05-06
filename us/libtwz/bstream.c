@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <string.h>
 #include <twz/bstream.h>
 #include <twz/event.h>
@@ -21,7 +22,7 @@ ssize_t bstream_hdr_read(twzobj *obj,
 {
 	(void)obj;
 	(void)flags;
-	mutex_acquire(&hdr->rlock);
+	mutex_acquire(&hdr->lock);
 
 	size_t count = 0;
 	unsigned char *data = ptr;
@@ -31,11 +32,11 @@ ssize_t bstream_hdr_read(twzobj *obj,
 				if(event_clear(&hdr->ev, TWZIO_EVENT_READ)) {
 					continue;
 				}
-				mutex_release(&hdr->rlock);
+				mutex_release(&hdr->lock);
 				struct event e;
 				event_init(&e, &hdr->ev, TWZIO_EVENT_READ, NULL);
 				event_wait(1, &e);
-				mutex_acquire(&hdr->rlock);
+				mutex_acquire(&hdr->lock);
 				continue;
 			}
 			break;
@@ -45,8 +46,12 @@ ssize_t bstream_hdr_read(twzobj *obj,
 		count++;
 	}
 
+	if(hdr->head == hdr->tail) {
+		event_clear(&hdr->ev, TWZIO_EVENT_READ);
+	}
+
 	event_wake(&hdr->ev, TWZIO_EVENT_WRITE, -1);
-	mutex_release(&hdr->rlock);
+	mutex_release(&hdr->lock);
 	return count;
 }
 
@@ -58,7 +63,7 @@ ssize_t bstream_hdr_write(twzobj *obj,
 {
 	(void)flags;
 	(void)obj;
-	mutex_acquire(&hdr->wlock);
+	mutex_acquire(&hdr->lock);
 
 	size_t count = 0;
 	const unsigned char *data = ptr;
@@ -68,11 +73,11 @@ ssize_t bstream_hdr_write(twzobj *obj,
 				if(event_clear(&hdr->ev, TWZIO_EVENT_WRITE)) {
 					continue;
 				}
-				mutex_release(&hdr->wlock);
+				mutex_release(&hdr->lock);
 				struct event e;
 				event_init(&e, &hdr->ev, TWZIO_EVENT_WRITE, NULL);
 				event_wait(1, &e);
-				mutex_acquire(&hdr->wlock);
+				mutex_acquire(&hdr->lock);
 				continue;
 			}
 			break;
@@ -81,10 +86,39 @@ ssize_t bstream_hdr_write(twzobj *obj,
 		hdr->head = (hdr->head + 1) & ((1 << hdr->nbits) - 1);
 		count++;
 	}
+	if(free_space(hdr->head, hdr->tail, 1 << hdr->nbits) <= 1) {
+		event_clear(&hdr->ev, TWZIO_EVENT_WRITE);
+	}
 
 	event_wake(&hdr->ev, TWZIO_EVENT_READ, -1);
-	mutex_release(&hdr->wlock);
+	mutex_release(&hdr->lock);
 	return count;
+}
+
+int bstream_hdr_poll(twzobj *obj, struct bstream_hdr *hdr, uint64_t type, struct event *event)
+{
+	if(event) {
+		event_init(event, &hdr->ev, type, NULL);
+	}
+	// debug_printf(
+	//"bstream_hdr_poll %p:  %p %p:  %p: %lx\n", hdr, event, &hdr->ev, event->hdr, hdr->ev.point);
+	if(type == TWZIO_EVENT_READ)
+		mutex_acquire(&hdr->lock);
+	else if(type == TWZIO_EVENT_WRITE)
+		mutex_acquire(&hdr->lock);
+	else
+		return -ENOTSUP;
+	int r = !!event_poll(&hdr->ev, type);
+	if(type == TWZIO_EVENT_READ)
+		mutex_release(&hdr->lock);
+	else if(type == TWZIO_EVENT_WRITE)
+		mutex_release(&hdr->lock);
+	return r;
+}
+
+int bstream_poll(twzobj *obj, uint64_t type, struct event *event)
+{
+	return bstream_hdr_poll(obj, twz_object_base(obj), type, event);
 }
 
 ssize_t bstream_read(twzobj *obj, void *ptr, size_t len, unsigned flags)
@@ -105,8 +139,8 @@ int bstream_obj_init(twzobj *obj, struct bstream_hdr *hdr, uint32_t nbits)
 	if((r = twz_object_addext(obj, EVENT_METAEXT_TAG, &hdr->ev)))
 		goto cleanup;
 	memset(hdr, 0, sizeof(*hdr));
-	mutex_init(&hdr->rlock);
-	mutex_init(&hdr->wlock);
+	// mutex_init(&hdr->lock);
+	mutex_init(&hdr->lock);
 	hdr->nbits = nbits;
 	event_obj_init(obj, &hdr->ev);
 
@@ -122,6 +156,11 @@ int bstream_obj_init(twzobj *obj, struct bstream_hdr *hdr, uint32_t nbits)
 	}
 	r = twz_ptr_store_guid(
 	  obj, &hdr->io.write, &co, TWZ_GATE_CALL(NULL, BSTREAM_GATE_WRITE), FE_READ | FE_EXEC);
+	if(r) {
+		goto cleanup2;
+	}
+	r = twz_ptr_store_guid(
+	  obj, &hdr->io.poll, &co, TWZ_GATE_CALL(NULL, BSTREAM_GATE_POLL), FE_READ | FE_EXEC);
 	if(r) {
 		goto cleanup2;
 	}

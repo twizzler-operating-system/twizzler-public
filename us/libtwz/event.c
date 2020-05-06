@@ -74,7 +74,7 @@ int event_wait(size_t count, struct event *ev)
 int event_wake(struct evhdr *ev, uint64_t events, long wcount)
 {
 	uint64_t old = atomic_fetch_or(&ev->point, events);
-	if((old & events) != events) {
+	if(((old & events) != events)) {
 		struct sys_thread_sync_args args = {
 			.op = THREAD_SYNC_WAKE,
 			.addr = (uint64_t *)&ev->point,
