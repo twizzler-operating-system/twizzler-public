@@ -1,6 +1,8 @@
 Twizzler Thread API
 ===================
 
+WARNING - this API is unstable. If you really want threads, consider pthreads, fork, etc.
+
 ...threads have thread control objects... TODO
 
 ## twz_thread_spawn

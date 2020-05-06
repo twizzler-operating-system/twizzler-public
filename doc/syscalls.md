@@ -1,6 +1,8 @@
 Twizzler System Calls (us/syscalls.md)
 =====================
 
+WARNING - these have recently changed; this documentation is pending an update.
+
 All pointers passed to Twizzler system calls are d-ptrs (see Pointer Manipulation).
 
 ## sys_ocreate
