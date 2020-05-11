@@ -47,3 +47,9 @@ long syscall_opin(uint64_t lo, uint64_t hi, uint64_t *addr, int flags);
 long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg, long arg2, long arg3);
 long syscall_kconf(int cmd, long arg);
 long arch_syscall_kconf(int cmd, long arg);
+long syscall_ocopy(objid_t *destid,
+  objid_t *srcid,
+  size_t doff,
+  size_t soff,
+  size_t len,
+  int flags);

@@ -207,11 +207,15 @@ static void __twz_fault_unhandled_print(int fault_nr, void *data)
 #endif
 }
 
+#include <twz/debug.h>
 #include <twz/twztry.h>
+_Atomic int _twz_try_okay = 0;
 _Thread_local jmp_buf *_Atomic _twz_jmp_buf = NULL;
 _Thread_local void *_Atomic _twz_excep_data = NULL;
 static void _twz_default_exception_handler(int fault, void *data)
 {
+	if(!_twz_try_okay)
+		return;
 	if(_twz_jmp_buf) {
 		_twz_excep_data = data;
 		longjmp(*_twz_jmp_buf, fault + 1);

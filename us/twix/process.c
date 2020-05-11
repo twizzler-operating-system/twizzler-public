@@ -15,6 +15,8 @@ struct process {
 #define MAX_PID 1024
 static struct process pds[MAX_PID];
 
+#include <elf.h>
+
 struct elf64_header {
 	uint8_t e_ident[16];
 	uint16_t e_type;
@@ -34,6 +36,339 @@ struct elf64_header {
 
 extern int *__errno_location();
 #include <twz/debug.h>
+__attribute__((used)) static int __do_exec(uint64_t entry,
+  uint64_t _flags,
+  uint64_t vidlo,
+  uint64_t vidhi,
+  void *vector)
+{
+	(void)_flags;
+	objid_t vid = MKID(vidhi, vidlo);
+
+	struct sys_become_args ba = {
+		.target_view = vid,
+		.target_rip = entry,
+		.rdi = (long)vector,
+		.rsp = (long)SLOT_TO_VADDR(TWZSLOT_STACK) + 0x200000,
+	};
+	int r = sys_become(&ba);
+	twz_thread_exit(r);
+	return 0;
+}
+
+extern char **environ;
+static int __internal_do_exec(twzobj *view,
+  size_t entry,
+  char const *const *argv,
+  char *const *env,
+  void *auxbase,
+  void *phdr,
+  size_t phnum,
+  size_t phentsz,
+  void *auxentry)
+{
+	if(env == NULL)
+		env = environ;
+
+	twzobj stack;
+	objid_t sid;
+	int r;
+	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &sid))) {
+		return r;
+	}
+	if((r = twz_object_init_guid(&stack, sid, FE_READ | FE_WRITE))) {
+		return r;
+	}
+	if((r = twz_object_tie(view, &stack, 0))) {
+		return r;
+	}
+	if((r = twz_object_delete_guid(sid, 0))) {
+		return r;
+	}
+
+	uint64_t sp;
+
+	/* calculate space */
+	size_t str_space = 0;
+	size_t argc = 0;
+	size_t envc = 0;
+	for(const char *const *s = &argv[0]; *s; s++) {
+		str_space += strlen(*s) + 1;
+		argc++;
+	}
+
+	for(char *const *s = &env[0]; *s; s++) {
+		str_space += strlen(*s) + 1;
+		envc++;
+	}
+
+	sp = OBJ_TOPDATA;
+	str_space = ((str_space - 1) & ~15) + 16;
+
+	/* TODO: check if we have enough space... */
+
+	/* 4 for: 1 NULL each for argv and env, argc, and final null after env */
+	long *vector_off = (void *)(sp
+	                            - (str_space + (argc + envc + 4) * sizeof(char *)
+	                               + sizeof(long) * 2 * 32 /* TODO: number of aux vectors */));
+	long *vector = twz_object_lea(&stack, vector_off);
+
+	size_t v = 0;
+	vector[v++] = argc;
+	char *str = (char *)twz_object_lea(&stack, (char *)sp);
+	for(size_t i = 0; i < argc; i++) {
+		const char *s = argv[i];
+		str -= strlen(s) + 1;
+		strcpy(str, s);
+		vector[v++] = (long)twz_ptr_rebase(TWZSLOT_STACK, str);
+	}
+	vector[v++] = 0;
+
+	for(size_t i = 0; i < envc; i++) {
+		const char *s = env[i];
+		str -= strlen(s) + 1;
+		strcpy(str, s);
+		vector[v++] = (long)twz_ptr_rebase(TWZSLOT_STACK, str);
+	}
+	vector[v++] = 0;
+
+	vector[v++] = AT_BASE;
+	vector[v++] = (long)auxbase;
+
+	vector[v++] = AT_PAGESZ;
+	vector[v++] = 0x1000;
+
+	vector[v++] = AT_ENTRY;
+	vector[v++] = (long)auxentry;
+
+	vector[v++] = AT_PHNUM;
+	vector[v++] = (long)phnum;
+
+	vector[v++] = AT_PHENT;
+	vector[v++] = (long)phentsz;
+
+	vector[v++] = AT_PHDR;
+	vector[v++] = (long)phdr;
+
+	vector[v++] = AT_NULL;
+	vector[v++] = AT_NULL;
+
+	/* TODO: we should really do this in assembly */
+	struct twzthread_repr *repr = twz_thread_repr_base();
+	repr->fixed_points[TWZSLOT_STACK] = (struct viewentry){
+		.id = sid,
+		.flags = VE_READ | VE_WRITE | VE_VALID,
+	};
+
+	memset(repr->faults, 0, sizeof(repr->faults));
+	objid_t vid = twz_object_guid(view);
+
+	/* TODO: copy-in everything for the vector */
+	int ret;
+	uint64_t p = (uint64_t)SLOT_TO_VADDR(TWZSLOT_STACK) + (OBJ_NULLPAGE_SIZE + 0x200000);
+	register long r8 asm("r8") = (long)vector_off + (long)SLOT_TO_VADDR(TWZSLOT_STACK);
+	__asm__ __volatile__("movq %%rax, %%rsp\n"
+	                     "call __do_exec\n"
+	                     : "=a"(ret)
+	                     : "a"(p),
+	                     "D"((uint64_t)entry),
+	                     "S"((uint64_t)(0)),
+	                     "d"((uint64_t)vid),
+	                     "c"((uint64_t)(vid >> 64)),
+	                     "r"(r8));
+	twz_thread_exit(ret);
+	return ret;
+}
+
+static int __internal_load_elf_interp(twzobj *view, twzobj *elfobj, void **base, void **entry)
+{
+	Elf64_Ehdr *hdr = twz_object_base(elfobj);
+
+	twzobj new_text, new_data;
+	int r;
+	if((r = twz_object_new(&new_text,
+	      NULL,
+	      NULL,
+	      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_DFL_EXEC | TWZ_OC_VOLATILE))) {
+		return r;
+	}
+	if((r = twz_object_new(
+	      &new_data, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_VOLATILE))) {
+		return r;
+	}
+
+	char *phdr_start = (char *)hdr + hdr->e_phoff;
+	for(unsigned i = 0; i < hdr->e_phnum; i++) {
+		Elf64_Phdr *phdr = (void *)(phdr_start + i * hdr->e_phentsize);
+		if(phdr->p_type == PT_LOAD) {
+			twix_log("load: off=%lx, vaddr=%lx, paddr=%lx, fsz=%lx, msz=%lx\n",
+			  phdr->p_offset,
+			  phdr->p_vaddr,
+			  phdr->p_paddr,
+			  phdr->p_filesz,
+			  phdr->p_memsz);
+			//	twix_log("  -> %lx %lx\n",
+			//	  phdr->p_vaddr & ~(phdr->p_align - 1),
+			//	  phdr->p_offset & ~(phdr->p_align - 1));
+#if 0
+			char *memstart = twz_object_base(&newobj);
+			char *filestart = twz_object_base(elfobj);
+			memstart += phdr->p_vaddr & ~(phdr->p_align - 1);
+			filestart += phdr->p_offset & ~(phdr->p_align - 1);
+			size_t len = phdr->p_filesz;
+			len += (phdr->p_offset & (phdr->p_align - 1));
+			twix_log(":: %p %p %lx\n", memstart, filestart, len);
+			memcpy(memstart, filestart, len);
+#endif
+			twzobj *to;
+			if(phdr->p_flags & PF_X) {
+				to = &new_text;
+			} else {
+				to = &new_data;
+			}
+
+			char *memstart = twz_object_base(to);
+			char *filestart = twz_object_base(elfobj);
+			memstart +=
+			  ((phdr->p_vaddr & ~(phdr->p_align - 1)) % OBJ_MAXSIZE); // - OBJ_NULLPAGE_SIZE;
+			filestart += phdr->p_offset & ~(phdr->p_align - 1);
+			size_t len = phdr->p_filesz;
+			len += (phdr->p_offset & (phdr->p_align - 1));
+			twix_log("  ==> %p %p %lx\n", filestart, memstart, len);
+			if((r = sys_ocopy(twz_object_guid(to),
+			      twz_object_guid(elfobj),
+			      (long)memstart % OBJ_MAXSIZE,
+			      (long)filestart % OBJ_MAXSIZE,
+			      (len + 0xfff) & ~0xfff,
+			      0))) {
+				twix_log("oc: %d\n", r);
+				return r;
+			}
+
+			//		memcpy(memstart, filestart, len);
+		}
+	}
+
+	twz_object_tie(view, &new_text, 0);
+	twz_object_tie(view, &new_data, 0);
+
+	size_t base_slot = 0x10003;
+	twz_view_set(view, base_slot, twz_object_guid(&new_text), VE_READ | VE_EXEC);
+	twz_view_set(view, base_slot + 1, twz_object_guid(&new_data), VE_READ | VE_WRITE);
+
+	/* TODO: actually do tying */
+	// twz_object_tie(view, &newobj, 0);
+
+	// twz_view_set(view, base_slot, twz_object_guid(&newobj), VE_READ | VE_WRITE | VE_EXEC);
+
+	*base = (void *)(SLOT_TO_VADDR(base_slot) + OBJ_NULLPAGE_SIZE);
+	*entry = (char *)*base + hdr->e_entry;
+
+	return 0;
+}
+
+static int __internal_load_elf_exec(twzobj *view, twzobj *elfobj, void **phdr, void **entry)
+{
+	Elf64_Ehdr *hdr = twz_object_base(elfobj);
+
+	twzobj new_text, new_data;
+	int r;
+	if((r = twz_object_new(&new_text,
+	      NULL,
+	      NULL,
+	      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_DFL_EXEC | TWZ_OC_VOLATILE))) {
+		return r;
+	}
+	if((r = twz_object_new(
+	      &new_data, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_VOLATILE))) {
+		return r;
+	}
+
+	char *phdr_start = (char *)hdr + hdr->e_phoff;
+	for(unsigned i = 0; i < hdr->e_phnum; i++) {
+		Elf64_Phdr *phdr = (void *)(phdr_start + i * hdr->e_phentsize);
+		if(phdr->p_type == PT_LOAD) {
+			twix_log("load: off=%lx, vaddr=%lx, paddr=%lx, fsz=%lx, msz=%lx\n",
+			  phdr->p_offset,
+			  phdr->p_vaddr,
+			  phdr->p_paddr,
+			  phdr->p_filesz,
+			  phdr->p_memsz);
+			twix_log("  -> %lx %lx\n",
+			  phdr->p_vaddr & ~(phdr->p_align - 1),
+			  phdr->p_offset & ~(phdr->p_align - 1));
+
+			twzobj *to;
+			if(phdr->p_flags & PF_X) {
+				to = &new_text;
+			} else {
+				to = &new_data;
+			}
+
+			char *memstart = twz_object_base(to);
+			char *filestart = twz_object_base(elfobj);
+			memstart += ((phdr->p_vaddr & ~(phdr->p_align - 1)) % OBJ_MAXSIZE) - OBJ_NULLPAGE_SIZE;
+			filestart += phdr->p_offset & ~(phdr->p_align - 1);
+			size_t len = phdr->p_filesz;
+			len += (phdr->p_offset & (phdr->p_align - 1));
+			//	twix_log("  ==> %p %p %lx\n", filestart, memstart, len);
+			if((r = sys_ocopy(twz_object_guid(to),
+			      twz_object_guid(elfobj),
+			      (long)memstart % OBJ_MAXSIZE,
+			      (long)filestart % OBJ_MAXSIZE,
+			      (len + 0xfff) & ~0xfff,
+			      0))) {
+				twix_log("oc: %d\n", r);
+				return r;
+			}
+			//			memcpy(memstart, filestart, len);
+		}
+	}
+
+	/* TODO: actually do tying */
+	twz_object_tie(view, &new_text, 0);
+	twz_object_tie(view, &new_data, 0);
+
+	twz_view_set(view, 0, twz_object_guid(&new_text), VE_READ | VE_EXEC);
+	twz_view_set(view, 1, twz_object_guid(&new_data), VE_READ | VE_WRITE);
+
+	*phdr = (void *)(OBJ_NULLPAGE_SIZE + hdr->e_phoff);
+	*entry = (char *)hdr->e_entry;
+
+	return 0;
+}
+
+static long __internal_execve_view_interp(twzobj *view,
+  twzobj *exe,
+  const char *interp_path,
+  const char *const *argv,
+  char *const *env)
+{
+	twzobj interp;
+	Elf64_Ehdr *hdr = twz_object_base(exe);
+	int r;
+	if((r = twz_object_init_name(&interp, interp_path, FE_READ))) {
+		return r;
+	}
+
+	void *interp_base, *interp_entry;
+	if((r = __internal_load_elf_interp(view, &interp, &interp_base, &interp_entry))) {
+		return r;
+	}
+
+	void *exe_entry, *phdr;
+	if((r = __internal_load_elf_exec(view, exe, &phdr, &exe_entry))) {
+		return r;
+	}
+
+	// twix_log("GOT interp base=%p, entry=%p\n", interp_base, interp_entry);
+	// twix_log("GOT phdr=%p, entry=%p\n", phdr, exe_entry);
+
+	__internal_do_exec(
+	  view, interp_entry, argv, env, interp_base, phdr, hdr->e_phnum, hdr->e_phentsize, exe_entry);
+	return -1;
+}
+
 long linux_sys_execve(const char *path, const char *const *argv, char *const *env)
 {
 	objid_t id = 0;
@@ -55,6 +390,19 @@ long linux_sys_execve(const char *path, const char *const *argv, char *const *en
 	struct elf64_header *hdr = twz_object_base(&exe);
 
 	kso_set_name(NULL, "[instance] [unix] %s", path);
+
+	char *phdr_start = (char *)hdr + hdr->e_phoff;
+	for(unsigned i = 0; i < hdr->e_phnum; i++) {
+		Elf64_Phdr *phdr = (void *)(phdr_start + i * hdr->e_phentsize);
+		if(phdr->p_type == PT_INTERP) {
+			char *interp = (char *)hdr + phdr->p_offset;
+			//	twix_log("INTERPRETER: %s\n", interp);
+			return __internal_execve_view_interp(
+			  &view, &exe, /* TODO */ "/usr/lib/libc.so", argv, env);
+			return -1;
+		}
+	}
+
 	r = twz_exec_view(&view, vid, hdr->e_entry, argv, env);
 
 	return r;
@@ -135,14 +483,117 @@ long linux_sys_clone(struct twix_register_frame *frame,
 }
 
 #include <sys/mman.h>
+
+struct mmap_slot {
+	twzobj obj;
+	int prot;
+	int flags;
+	size_t slot;
+	struct mmap_slot *next;
+};
+
+#include <twz/mutex.h>
+static struct mutex mmap_mutex;
+static uint8_t mmap_bitmap[TWZSLOT_MMAP_NUM / 8];
+
+static ssize_t __twix_mmap_get_slot(void)
+{
+	for(size_t i = 0; i < TWZSLOT_MMAP_NUM; i++) {
+		if(!(mmap_bitmap[i / 8] & (1 << (i % 8)))) {
+			mmap_bitmap[i / 8] |= (1 << (i % 8));
+			return i;
+		}
+	}
+	return -1;
+}
+
+static int __twix_mmap_take_slot(size_t slot)
+{
+	if(mmap_bitmap[slot / 8] & (1 << (slot % 8))) {
+		return -1;
+	}
+	mmap_bitmap[slot / 8] |= (1 << (slot % 8));
+	return 0;
+}
+
+static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, int fd, size_t off)
+{
+	struct file *file = twix_get_fd(fd);
+	if(!file)
+		return -EBADF;
+	int r;
+	twzobj newobj;
+	twzobj *obj;
+	/* TODO: verify perms */
+	uint64_t fe = 0;
+	if(prot & PROT_READ)
+		fe |= FE_READ;
+	if(prot & PROT_WRITE)
+		fe |= FE_WRITE;
+	if(prot & PROT_EXEC)
+		fe |= FE_EXEC;
+
+	if(len > OBJ_TOPDATA) {
+		len = OBJ_TOPDATA;
+	}
+	size_t adj = 0;
+	if(flags & MAP_PRIVATE) {
+		ssize_t slot = addr ? __twix_mmap_take_slot(VADDR_TO_SLOT(addr)) : __twix_mmap_get_slot();
+		if(slot < 0) {
+			return -ENOMEM;
+		}
+
+		if(addr) {
+			if((long)addr % OBJ_MAXSIZE < OBJ_NULLPAGE_SIZE) {
+				return -EINVAL;
+			}
+			adj = ((long)addr % OBJ_MAXSIZE) - OBJ_NULLPAGE_SIZE;
+		}
+
+		if((r = twz_object_new(&newobj,
+		      NULL,
+		      NULL,
+		      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_DFL_EXEC /* TODO */ | TWZ_OC_VOLATILE
+		        | TWZ_OC_TIED_VIEW))) {
+			return r;
+		}
+
+		if((r = sys_ocopy(twz_object_guid(&newobj),
+		      twz_object_guid(&file->obj),
+		      OBJ_NULLPAGE_SIZE,
+		      off + OBJ_NULLPAGE_SIZE,
+		      (len + 0xfff) & ~0xfff,
+		      0))) {
+			twix_log("ocopy failed: %d\n", r);
+			return r;
+		}
+
+		obj = &newobj;
+		/*	if(off) {
+		        char *src = twz_object_base(&file->obj);
+		        char *dst = twz_object_base(obj);
+
+		        memcpy(dst, src + off, len);
+		    }*/
+
+	} else {
+		obj = &file->obj;
+		adj = off;
+	}
+	return (long)twz_object_base(obj) + adj;
+}
+
 long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t off)
 {
 	(void)prot;
 	(void)off;
-	if(addr != NULL && (flags & MAP_FIXED)) {
-		return -ENOTSUP;
-	}
+	// twix_log("sys_mmap: %p %lx %x %x %d %lx\n", addr, len, prot, flags, fd, off);
 	if(fd >= 0) {
+		long ret = __internal_mmap_object(addr, len, prot, flags, fd, off);
+		//	twix_log("      ==>> %lx\n", ret);
+		return ret;
+	}
+	if(addr != NULL && (flags & MAP_FIXED)) {
 		return -ENOTSUP;
 	}
 	if(!(flags & MAP_ANON)) {

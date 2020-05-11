@@ -31,6 +31,7 @@
 /* these should not be accessed directly by user code, use the macros below. */
 extern _Thread_local jmp_buf *_Atomic _twz_jmp_buf;
 extern _Thread_local void *_Atomic _twz_excep_data;
+extern _Atomic int _twz_try_okay;
 
 /* DO NOT call this directly; it's used in the try-catch macros below and should not be called by
  * user code */
@@ -42,6 +43,7 @@ extern void _twz_try_unhandled(int, void *);
 		jmp_buf _jb;                                                                               \
 		jmp_buf *_pjb = _twz_jmp_buf;                                                              \
 		_twz_jmp_buf = &_jb;                                                                       \
+		_twz_try_okay = 1;                                                                         \
 		int _fc, _hdl = 0;                                                                         \
 		switch((_fc = setjmp(_jb))) {                                                              \
 			case 0:

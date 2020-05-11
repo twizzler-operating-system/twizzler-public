@@ -94,7 +94,14 @@ $(BUILDDIR)/us/sysroot/usr/lib/libtwix.so: $(BUILDDIR)/us/twix/libtwix.so
 	@mkdir -p $(BUILDDIR)/us/sysroot/usr/lib
 	@cp $< $@
 
-SYSLIBS=$(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/libtwz.so $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a $(BUILDDIR)/us/sysroot/usr/lib/libc.a
+$(BUILDDIR)/us/sysroot/usr/lib/libc.so: $(BUILDDIR)/us/twix/libtwix.a $(BUILDDIR)/us/libtwz/libtwz.a
+	@echo "[INSTL]   libc.so"
+	@mkdir -p $(BUILDDIR)/us/sysroot
+	@TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) $(shell pwd)/$(BUILDDIR)/us/sysroot/usr/lib/libc.so DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
+	@touch $(BUILDDIR)/us/sysroot/usr/lib/libc.so
+
+
+SYSLIBS=$(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/libtwz.so $(BUILDDIR)/us/sysroot/usr/lib/libtwix.a $(BUILDDIR)/us/sysroot/usr/lib/libc.a $(BUILDDIR)/us/sysroot/usr/lib/libc.so
 
 -include $(BUILDDIR)/us/*/*.d
 

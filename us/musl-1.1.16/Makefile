@@ -172,9 +172,10 @@ obj/%.lo: $(srcdir)/%.S
 obj/%.lo: $(srcdir)/%.c $(GENH) $(IMPH)
 	$(CC_CMD)
 
-lib/libc.so: $(LOBJS) $(LDSO_OBJS)
-	$(CC) $(CFLAGS_ALL) $(LDFLAGS_ALL) -nostdlib -shared \
-	-Wl,-e,_dlstart -Wl,-z,max-page-size=0x1000 -o $@ $(LOBJS) $(LDSO_OBJS) $(LIBCC)
+lib/libc.so: $(LOBJS) $(LDSO_OBJS) ../twix/libtwix.a ../libtwz/libtwz.a
+	@echo "[LDSO]     $@"
+	@$(CC) $(CFLAGS_ALL) $(LDFLAGS_ALL) -nostdlib -shared \
+	-Wl,-e,_dlstart -Wl,-z,max-page-size=0x1000 -o $@ $(LOBJS) $(LDSO_OBJS) ../twix/libtwix.a ../libtwz/libtwz.a $(LIBCC)
 
 lib/libc.a: $(AOBJS)
 	rm -f $@

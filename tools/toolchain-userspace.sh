@@ -58,7 +58,7 @@ cd ..
 
 
 [ -d build-binutils-hosted ] && rm -r build-binutils-hosted
-[ -d build-gcc-hosted ] && rm -r build-gcc-hosted
+#[ -d build-gcc-hosted ] && rm -r build-gcc-hosted
 
 mkdir -p build-binutils-hosted build-gcc-hosted
 cd build-binutils-hosted
@@ -67,6 +67,7 @@ cd build-binutils-hosted
 make -j6
 make install
 
+exit
 cd ../build-gcc-hosted
 
 ../gcc-${GCCVER}/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --with-sysroot="$SYSROOT" --enable-shared --enable-threads=posix

@@ -21,6 +21,7 @@
 #include "libc.h"
 #include "dynlink.h"
 
+#include "../../../../../../us/include/twz/debug.h"
 static void error(const char *, ...);
 
 #define MAXP2(a,b) (-(-(a)&-(b)))
@@ -298,6 +299,15 @@ static struct symdef find_sym(struct dso *dso, const char *s, int need_def)
 __attribute__((__visibility__("hidden")))
 ptrdiff_t __tlsdesc_static(), __tlsdesc_dynamic();
 
+static int is_twix_syscall(const char *name)
+{
+	const char *t = "__twix_syscall_target";
+	for(;*name;name++, t++)
+		if(*name != *t)
+			return 0;
+	return 1;
+}
+
 static void do_relocs(struct dso *dso, size_t *rel, size_t rel_size, size_t stride)
 {
 	unsigned char *base = dso->base;
@@ -322,6 +332,10 @@ static void do_relocs(struct dso *dso, size_t *rel, size_t rel_size, size_t stri
 		skip_relative = 1;
 	}
 
+	Sym dummy;
+	struct dso dummy_dso;
+	dummy_dso.base = 0;
+	dummy.st_value = 0x123;
 	for (; rel_size; rel+=stride, rel_size-=stride*sizeof(size_t)) {
 		if (skip_relative && IS_RELATIVE(rel[1], dso->syms)) continue;
 		type = R_TYPE(rel[1]);
@@ -335,6 +349,10 @@ static void do_relocs(struct dso *dso, size_t *rel, size_t rel_size, size_t stri
 			def = (sym->st_info&0xf) == STT_SECTION
 				? (struct symdef){ .dso = dso, .sym = sym }
 				: find_sym(ctx, name, type==REL_PLT);
+			if(!def.sym && type==REL_PLT && is_twix_syscall(name)) {
+				def.sym = &dummy;
+				def.dso = &dummy_dso;
+			}
 			if (!def.sym && (sym->st_shndx != SHN_UNDEF
 			    || sym->st_info>>4 != STB_WEAK)) {
 				error("Error relocating %s: %s: symbol not found",
@@ -1635,9 +1653,11 @@ _Noreturn void __dls3(size_t *sp)
 	debug.state = 0;
 	_dl_debug_state();
 
+	//debug_printf("DOING CRT JUMP: aux[AT_ENTRY] = %p\n", (void *)aux[AT_ENTRY]);
 	errno = 0;
 
-	CRTJMP((void *)aux[AT_ENTRY], argv-1);
+	((void (*)(void *))aux[AT_ENTRY])(argv-1);
+	//CRTJMP((void *)aux[AT_ENTRY], argv-1);
 	for(;;);
 }
 

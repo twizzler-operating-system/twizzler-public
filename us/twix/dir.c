@@ -3,10 +3,13 @@
 #include <errno.h>
 #include <string.h>
 #include <twz/hier.h>
+#include <twz/name.h>
 
 ssize_t linux_sys_readlink(const char *path, char *buf, size_t bufsz)
 {
-	return twz_hier_readlink(twz_name_get_root(), path, buf, bufsz);
+	twzobj *root = twz_name_get_root();
+	twix_log("root:: %p\n", root);
+	return twz_hier_readlink(root, path, buf, bufsz);
 }
 
 struct linux_dirent64 {

@@ -45,6 +45,35 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 	return suc;
 }
 
+long syscall_ocopy(objid_t *destid, objid_t *srcid, size_t doff, size_t soff, size_t len, int flags)
+{
+	/* TODO: check permissions */
+	// printk("OCOPY: --> %lx %lx %lx\n", doff, soff, len);
+	if(doff & (mm_page_size(0) - 1))
+		return -EINVAL;
+	if(soff & (mm_page_size(0) - 1))
+		return -EINVAL;
+	if(len & (mm_page_size(0) - 1))
+		return -EINVAL;
+
+	struct object *src = obj_lookup(*srcid, 0);
+	struct object *dest = obj_lookup(*destid, 0);
+	if(!src || !dest) {
+		if(src)
+			obj_put(src);
+		if(dest)
+			obj_put(dest);
+		return -ENOENT;
+	}
+
+	obj_copy_pages(dest, src, doff, soff, len);
+
+	obj_put(dest);
+	obj_put(src);
+
+	return 0;
+}
+
 long syscall_otie(uint64_t pidlo, uint64_t pidhi, uint64_t cidlo, uint64_t cidhi, int flags)
 {
 	objid_t pid = MKID(pidhi, pidlo);

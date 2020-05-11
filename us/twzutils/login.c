@@ -56,6 +56,7 @@ void tmain(const char *username)
 	// execv("/usr/bin/ycsbc",
 	// (char *[]){ "ycsbc", "-db", "sqlite", "-P", "/usr/share/ycsbc/workloadf.spec", NULL });
 	r = execv("/usr/bin/bash", (char *[]){ "/usr/bin/bash", NULL });
+	r = execv("/usr/bin/dlt", (char *[]){ "/usr/bin/dlt", NULL });
 	fprintf(stderr, "failed to exec shell: %d", r);
 	exit(1);
 }

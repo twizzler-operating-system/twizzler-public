@@ -1,6 +1,6 @@
 diff -uprN binutils-2.32/bfd/config.bfd binutils-2.32-twizzler/bfd/config.bfd
 --- binutils-2.32/bfd/config.bfd	2019-01-19 08:01:32.000000000 -0800
-+++ binutils-2.32-twizzler/bfd/config.bfd	2019-09-06 12:10:17.276630564 -0700
++++ binutils-2.32-twizzler/bfd/config.bfd	2020-05-10 13:30:42.701008966 -0700
 @@ -697,7 +697,12 @@ case "${targ}" in
      targ_selvecs="i386_elf32_vec iamcu_elf32_vec x86_64_elf32_vec i386_pei_vec x86_64_pei_vec l1om_elf64_vec k1om_elf64_vec"
      want64=true
@@ -17,7 +17,7 @@ diff -uprN binutils-2.32/bfd/config.bfd binutils-2.32-twizzler/bfd/config.bfd
      targ_archs="$targ_archs bfd_arm_arch"
 diff -uprN binutils-2.32/config.sub binutils-2.32-twizzler/config.sub
 --- binutils-2.32/config.sub	2019-01-19 08:01:33.000000000 -0800
-+++ binutils-2.32-twizzler/config.sub	2019-09-06 12:10:17.276630564 -0700
++++ binutils-2.32-twizzler/config.sub	2020-05-10 13:30:42.701008966 -0700
 @@ -1353,7 +1353,7 @@ case $os in
  	     | chorusrdb* | cegcc* | glidix* \
  	     | cygwin* | msys* | pe* | moss* | proelf* | rtems* \
@@ -29,7 +29,7 @@ diff -uprN binutils-2.32/config.sub binutils-2.32-twizzler/config.sub
  	     | openstep* | oskit* | conix* | pw32* | nonstopux* \
 diff -uprN binutils-2.32/gas/configure.tgt binutils-2.32-twizzler/gas/configure.tgt
 --- binutils-2.32/gas/configure.tgt	2019-01-19 08:01:33.000000000 -0800
-+++ binutils-2.32-twizzler/gas/configure.tgt	2019-09-06 12:10:17.276630564 -0700
++++ binutils-2.32-twizzler/gas/configure.tgt	2020-05-10 13:30:42.701008966 -0700
 @@ -234,6 +234,7 @@ case ${generic_target} in
        x86_64*-linux-gnux32)		arch=x86_64:32 ;;
      esac ;;
@@ -40,7 +40,7 @@ diff -uprN binutils-2.32/gas/configure.tgt binutils-2.32-twizzler/gas/configure.
    i386-*-freebsd* \
 diff -uprN binutils-2.32/ld/aclocal.m4 binutils-2.32-twizzler/ld/aclocal.m4
 --- binutils-2.32/ld/aclocal.m4	2019-02-02 07:54:42.000000000 -0800
-+++ binutils-2.32-twizzler/ld/aclocal.m4	2019-09-06 12:10:17.279963898 -0700
++++ binutils-2.32-twizzler/ld/aclocal.m4	2020-05-10 13:30:42.704342243 -0700
 @@ -1,6 +1,6 @@
 -# generated automatically by aclocal 1.15.1 -*- Autoconf -*-
 +# generated automatically by aclocal 1.16.1 -*- Autoconf -*-
@@ -10104,7 +10104,7 @@ diff -uprN binutils-2.32/ld/aclocal.m4 binutils-2.32-twizzler/ld/aclocal.m4
 -m4_include([../lt~obsolete.m4])
 diff -uprN binutils-2.32/ld/autom4te.cache/output.0 binutils-2.32-twizzler/ld/autom4te.cache/output.0
 --- binutils-2.32/ld/autom4te.cache/output.0	1969-12-31 16:00:00.000000000 -0800
-+++ binutils-2.32-twizzler/ld/autom4te.cache/output.0	2019-09-06 12:10:17.283297230 -0700
++++ binutils-2.32-twizzler/ld/autom4te.cache/output.0	2020-05-10 13:30:42.707675521 -0700
 @@ -0,0 +1,21268 @@
 +@%:@! /bin/sh
 +@%:@ Guess values for system-dependent variables and create Makefiles.
@@ -31376,7 +31376,7 @@ diff -uprN binutils-2.32/ld/autom4te.cache/output.0 binutils-2.32-twizzler/ld/au
 +
 diff -uprN binutils-2.32/ld/autom4te.cache/output.1 binutils-2.32-twizzler/ld/autom4te.cache/output.1
 --- binutils-2.32/ld/autom4te.cache/output.1	1969-12-31 16:00:00.000000000 -0800
-+++ binutils-2.32-twizzler/ld/autom4te.cache/output.1	2019-09-06 12:10:17.289963898 -0700
++++ binutils-2.32-twizzler/ld/autom4te.cache/output.1	2020-05-10 13:30:42.711008799 -0700
 @@ -0,0 +1,21272 @@
 +@%:@! /bin/sh
 +@%:@ Guess values for system-dependent variables and create Makefiles.
@@ -52652,7 +52652,7 @@ diff -uprN binutils-2.32/ld/autom4te.cache/output.1 binutils-2.32-twizzler/ld/au
 +
 diff -uprN binutils-2.32/ld/autom4te.cache/requests binutils-2.32-twizzler/ld/autom4te.cache/requests
 --- binutils-2.32/ld/autom4te.cache/requests	1969-12-31 16:00:00.000000000 -0800
-+++ binutils-2.32-twizzler/ld/autom4te.cache/requests	2019-09-06 12:10:17.289963898 -0700
++++ binutils-2.32-twizzler/ld/autom4te.cache/requests	2020-05-10 13:30:42.711008799 -0700
 @@ -0,0 +1,312 @@
 +# This file was generated.
 +# It contains the lists of macros which have been traced.
@@ -52968,7 +52968,7 @@ diff -uprN binutils-2.32/ld/autom4te.cache/requests binutils-2.32-twizzler/ld/au
 +
 diff -uprN binutils-2.32/ld/autom4te.cache/traces.0 binutils-2.32-twizzler/ld/autom4te.cache/traces.0
 --- binutils-2.32/ld/autom4te.cache/traces.0	1969-12-31 16:00:00.000000000 -0800
-+++ binutils-2.32-twizzler/ld/autom4te.cache/traces.0	2019-09-06 12:10:17.289963898 -0700
++++ binutils-2.32-twizzler/ld/autom4te.cache/traces.0	2020-05-10 13:30:42.714342077 -0700
 @@ -0,0 +1,976 @@
 +m4trace:aclocal.m4:10363: -1- AC_SUBST([am__quote])
 +m4trace:aclocal.m4:10363: -1- AC_SUBST_TRACE([am__quote])
@@ -53948,7 +53948,7 @@ diff -uprN binutils-2.32/ld/autom4te.cache/traces.0 binutils-2.32-twizzler/ld/au
 +m4trace:configure.ac:537: -1- AC_REQUIRE_AUX_FILE([ltmain.sh])
 diff -uprN binutils-2.32/ld/autom4te.cache/traces.1 binutils-2.32-twizzler/ld/autom4te.cache/traces.1
 --- binutils-2.32/ld/autom4te.cache/traces.1	1969-12-31 16:00:00.000000000 -0800
-+++ binutils-2.32-twizzler/ld/autom4te.cache/traces.1	2019-09-06 12:10:17.289963898 -0700
++++ binutils-2.32-twizzler/ld/autom4te.cache/traces.1	2020-05-10 13:30:42.714342077 -0700
 @@ -0,0 +1,3362 @@
 +m4trace:/usr/share/aclocal/libtool.m4:61: -1- AC_DEFUN([LT_INIT], [AC_PREREQ([2.62])dnl We use AC_PATH_PROGS_FEATURE_CHECK
 +AC_REQUIRE([AC_CONFIG_AUX_DIR_DEFAULT])dnl
@@ -57314,7 +57314,7 @@ diff -uprN binutils-2.32/ld/autom4te.cache/traces.1 binutils-2.32-twizzler/ld/au
 +m4trace:configure.ac:537: -1- _LT_PROG_LTMAIN
 diff -uprN binutils-2.32/ld/configure.tgt binutils-2.32-twizzler/ld/configure.tgt
 --- binutils-2.32/ld/configure.tgt	2019-01-19 08:01:33.000000000 -0800
-+++ binutils-2.32-twizzler/ld/configure.tgt	2019-09-06 12:10:17.289963898 -0700
++++ binutils-2.32-twizzler/ld/configure.tgt	2020-05-10 13:30:42.714342077 -0700
 @@ -260,6 +260,10 @@ x86_64-*-linux-*)	targ_emul=elf_x86_64
  			targ_extra_emuls="elf32_x86_64 elf_i386 elf_iamcu elf_l1om elf_k1om"
  			targ_extra_libpath="elf_i386 elf32_x86_64 elf_l1om elf_k1om"
@@ -57328,15 +57328,16 @@ diff -uprN binutils-2.32/ld/configure.tgt binutils-2.32-twizzler/ld/configure.tg
  x86_64-*-redox*)	targ_emul=elf_x86_64
 diff -uprN binutils-2.32/ld/emulparams/elf_x86_64_twizzler.sh binutils-2.32-twizzler/ld/emulparams/elf_x86_64_twizzler.sh
 --- binutils-2.32/ld/emulparams/elf_x86_64_twizzler.sh	1969-12-31 16:00:00.000000000 -0800
-+++ binutils-2.32-twizzler/ld/emulparams/elf_x86_64_twizzler.sh	2019-09-09 13:11:58.104857287 -0700
-@@ -0,0 +1,4 @@
++++ binutils-2.32-twizzler/ld/emulparams/elf_x86_64_twizzler.sh	2020-05-10 13:31:01.404031491 -0700
+@@ -0,0 +1,5 @@
 +. ${srcdir}/emulparams/elf_x86_64.sh
 +TEXT_START_ADDR=0x1000
 +DATA_ADDR=0x40001000
++SHLIB_DATA_ADDR=0x40000000
 +INITIAL_READONLY_SECTIONS='. = ALIGN(0x200); .gates : {KEEP(*(.gates*))}'
 diff -uprN binutils-2.32/ld/Makefile.am binutils-2.32-twizzler/ld/Makefile.am
 --- binutils-2.32/ld/Makefile.am	2019-01-19 08:01:33.000000000 -0800
-+++ binutils-2.32-twizzler/ld/Makefile.am	2019-09-06 12:10:17.289963898 -0700
++++ binutils-2.32-twizzler/ld/Makefile.am	2020-05-10 13:30:42.714342077 -0700
 @@ -454,6 +454,7 @@ ALL_64_EMULATION_SOURCES = \
  	eelf_k1om.c \
  	eelf_k1om_fbsd.c \
@@ -57358,7 +57359,7 @@ diff -uprN binutils-2.32/ld/Makefile.am binutils-2.32-twizzler/ld/Makefile.am
    $(ELF_X86_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
 diff -uprN binutils-2.32/ld/Makefile.in binutils-2.32-twizzler/ld/Makefile.in
 --- binutils-2.32/ld/Makefile.in	2019-02-02 07:54:43.000000000 -0800
-+++ binutils-2.32-twizzler/ld/Makefile.in	2019-09-06 12:10:17.289963898 -0700
++++ binutils-2.32-twizzler/ld/Makefile.in	2020-05-10 13:30:42.714342077 -0700
 @@ -1,7 +1,7 @@
 -# Makefile.in generated by automake 1.15.1 from Makefile.am.
 +# Makefile.in generated by automake 1.16.1 from Makefile.am.

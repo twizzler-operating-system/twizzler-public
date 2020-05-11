@@ -14,7 +14,7 @@ function prepare() {
 	unzip master.zip
 	cd libbacktrace-master
 	cp $PORTDIR/config.sub .
-	./configure --prefix=/usr --host=$TARGET --datadir=/usr/share ac_cv_header_sys_mman_h=no
+	./configure --prefix=/usr --host=$TARGET --datadir=/usr/share ac_cv_header_sys_mman_h=no --enable-shared=yes
 }
 
 function build() {

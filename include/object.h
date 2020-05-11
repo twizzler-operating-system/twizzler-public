@@ -167,6 +167,7 @@ int obj_untie(struct object *parent, struct object *child);
 bool obj_kaddr_valid(struct object *obj, void *kaddr, size_t);
 void obj_release_kaddr(struct object *obj);
 void *obj_get_kaddr(struct object *obj);
+void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t soff, size_t len);
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);

@@ -4,6 +4,7 @@
 
 #include "crt_arch.h"
 
+#include "../../../../../../us/include/twz/debug.h"
 int main();
 void _init() __attribute__((weak));
 void _fini() __attribute__((weak));
@@ -16,6 +17,7 @@ void _start_c(long *p)
 {
 	int argc = p[0];
 	char **argv = (void *)(p+1);
+	debug_printf("YO _start_c\n");
 	__twz_fault_init();
 	__libc_start_main(main, argc, argv, _init, _fini, 0);
 }

@@ -1,4 +1,4 @@
-TWZUTILS=init login nls shell input pcie serial term bstream pty tst nvme kls lscpu bench kvdr lsmem
+TWZUTILS=init login nls shell input pcie serial term bstream pty tst nvme kls lscpu bench kvdr lsmem dlt
 # TWZUTILS+=sqb
 
 LIBS_tst=-lncurses
@@ -18,6 +18,19 @@ TWZUTILSLIBS=-lubsan -Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive
 
 #TWZUTILSCFLAGS=-fsanitize=undefined -g
 TWZUTILSCFLAGS= -g
+
+
+
+$(BUILDDIR)/us/sysroot/usr/bin/dlt: $(BUILDDIR)/us/twzutils/dynlink.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
+	@echo "[LD]      $@"
+	@$(TWZCC) $(TWZLDFLAGS) -g -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@)) $(TWZUTILSLIBS)
+	@echo "[SPLIT]   $@"
+	#@$(BUILDDIR)/utils/elfsplit $@.elf
+	@mv $@.elf $@
+	#@mv $@.elf.data $@.data
+	#@rm $@.elf.text
+	#@mv $@.elf $(BUILDDIR)/us/twzutils/$(notdir $@)
+
 
 $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
 	@echo "[LD]      $@"

@@ -221,6 +221,62 @@ static void obj_clone_cow(struct object *src, struct object *nobj)
 	spinlock_release_restore(&src->lock);
 }
 
+void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t soff, size_t len)
+{
+	spinlock_acquire_save(&src->lock);
+	spinlock_acquire_save(&dest->lock);
+	arch_object_remap_cow(src);
+
+	struct rbnode *fn = rb_first(&src->pagecache_root);
+	struct rbnode *ln = rb_last(&src->pagecache_root);
+	size_t first_idx = 0;
+	size_t last_idx = ~0;
+
+	if(fn) {
+		struct objpage *pg = rb_entry(fn, struct objpage, node);
+		first_idx = pg->idx;
+	}
+	if(ln) {
+		struct objpage *pg = rb_entry(ln, struct objpage, node);
+		last_idx = pg->idx;
+	}
+
+	// printk("copy: fn = %lx, ln = %lx\n", first_idx, last_idx);
+
+	for(size_t i = 0; i < len / mm_page_size(0); i++) {
+		size_t src_idx = soff / mm_page_size(0) + i;
+		size_t dst_idx = doff / mm_page_size(0) + i;
+		if(src_idx < first_idx)
+			continue;
+		if(src_idx > last_idx)
+			break;
+		/* TODO: check max src_idx and min, and optimize (don't bother lookup if we exceed these) */
+		struct rbnode *node =
+		  rb_search(&src->pagecache_root, src_idx, struct objpage, node, __objpage_compar_key);
+		//	printk("considering page %ld: %p\n", src_idx, node);
+		if(node) {
+			struct objpage *pg = rb_entry(node, struct objpage, node);
+			if(pg->page) {
+				//		printk("   cow! %ld -> %ld\n", src_idx, dst_idx);
+				assert(pg->page->cowcount >= 1);
+				pg->page->cowcount++;
+				// pg->flags &= ~OBJPAGE_MAPPED;
+				pg->flags |= OBJPAGE_COW;
+
+				struct objpage *npg = objpage_alloc();
+				npg->idx = dst_idx;
+				// npg->flags = pg->flags;
+				npg->flags = OBJPAGE_COW;
+				npg->page = pg->page;
+
+				rb_insert(&dest->pagecache_root, npg, struct objpage, node, __objpage_compar);
+			}
+		}
+	}
+	spinlock_release_restore(&dest->lock);
+	spinlock_release_restore(&src->lock);
+}
+
 struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 {
 	struct object *src = obj_lookup(srcid, 0);

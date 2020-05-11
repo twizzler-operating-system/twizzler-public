@@ -170,6 +170,9 @@ tools-build2:
 	@$(MAKE) $(SYSROOT_READY)
 	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace-libs2.sh 
 
+tools-rebuild1:
+	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace.sh 
+
 tools-libs:
 	@$(MAKE) $(SYSROOT_READY)
 	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace-libs2.sh 

@@ -13,6 +13,8 @@
 #define TWZSLOT_ALLOC_MAX 0x19fff
 
 #define TWZSLOT_FILES_BASE 0x1a000
+#define TWZSLOT_MMAP_BASE 0x1c000
+#define TWZSLOT_MMAP_NUM 0x1000
 
 #ifndef __KERNEL__
 #define SLOT_TO_VADDR(s) ({ (void *)((s)*OBJ_MAXSIZE); })

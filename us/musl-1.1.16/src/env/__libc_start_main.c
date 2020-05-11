@@ -29,6 +29,7 @@ void __init_libc(char **envp, char *pn)
 	for(i = 0; envp[i]; i++)
 		;
 	__environ = envp;
+
 	libc.auxv = auxv = (void *)(envp + i + 1);
 	for(i = 0; auxv[i]; i += 2)
 		if(auxv[i] < AUX_CNT)

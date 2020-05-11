@@ -17,7 +17,8 @@
 #define SYS_KCONF 14
 #define SYS_VMAP 15 /* TODO: remove */
 #define SYS_OTIE 16
-#define NUM_SYSCALLS 17
+#define SYS_OCOPY 17
+#define NUM_SYSCALLS 18
 
 #define KCONF_RDRESET 1
 #define KCONF_ARCH_TSC_PSPERIOD 1001

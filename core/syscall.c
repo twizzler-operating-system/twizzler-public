@@ -42,6 +42,7 @@ long (*syscall_table[NUM_SYSCALLS])() = {
 	[SYS_KCONF] = syscall_kconf,
 	[SYS_VMAP] = syscall_vmap,
 	[SYS_OTIE] = syscall_otie,
+	[SYS_OCOPY] = syscall_ocopy,
 };
 
 long syscall_prelude(int num)
