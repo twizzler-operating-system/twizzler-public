@@ -8,7 +8,6 @@
 ssize_t linux_sys_readlink(const char *path, char *buf, size_t bufsz)
 {
 	twzobj *root = twz_name_get_root();
-	twix_log("root:: %p\n", root);
 	return twz_hier_readlink(root, path, buf, bufsz);
 }
 

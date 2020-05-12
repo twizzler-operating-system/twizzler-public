@@ -49,15 +49,15 @@ $(BUILDDIR)/us/sysroot/usr/bin/bstream: $(BUILDDIR)/us/twzutils/bstream.o $(SYSR
 	@rm $@.elf.text
 	@mv $@.elf $(BUILDDIR)/us/twzutils/$(notdir $@)
 
-$(BUILDDIR)/us/sysroot/usr/bin/login: $(BUILDDIR)/us/twzutils/login.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
-	@echo "[LD]      $@"
-	@$(TWZCC) $(TWZLDFLAGS) -static -g -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@)) $(TWZUTILSLIBS)
-	@echo "[SPLIT]   $@"
-	@$(BUILDDIR)/utils/elfsplit $@.elf
-	@cp $@.elf $@
-	@mv $@.elf.data $@.data
-	@rm $@.elf.text
-	@mv $@.elf $(BUILDDIR)/us/twzutils/$(notdir $@)
+#$(BUILDDIR)/us/sysroot/usr/bin/login: $(BUILDDIR)/us/twzutils/login.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
+#	@echo "[LD]      $@"
+#	@$(TWZCC) $(TWZLDFLAGS) -static -g -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@)) $(TWZUTILSLIBS)
+#	@echo "[SPLIT]   $@"
+#	@$(BUILDDIR)/utils/elfsplit $@.elf
+#	@cp $@.elf $@
+#	@mv $@.elf.data $@.data
+#	@rm $@.elf.text
+#	@mv $@.elf $(BUILDDIR)/us/twzutils/$(notdir $@)
 
 $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/twzutils/%.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
 	@echo "[LD]      $@"

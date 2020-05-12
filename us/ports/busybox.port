@@ -8,7 +8,7 @@ desc="A collection of system utilities"
 DOWNLOADS=(https://busybox.net/downloads/busybox-1.31.1.tar.bz2)
 HASHES=(d5514f5cf8eb89a3b20ac3b965f4463f14a5709a)
 
-SPLITS=(bin/busybox)
+SPLITS=()
 
 function prepare() {
 	tar xf busybox-1.31.1.tar.bz2
