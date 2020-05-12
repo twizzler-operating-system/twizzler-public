@@ -547,6 +547,12 @@ static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, 
 	if(len > OBJ_TOPDATA) {
 		len = OBJ_TOPDATA;
 	}
+	struct metainfo *mi = twz_object_meta(&file->obj);
+	if(mi->flags & MIF_SZ) {
+		if(len > mi->sz) {
+			len = mi->sz;
+		}
+	}
 	size_t adj = 0;
 	if(flags & MAP_PRIVATE) {
 		// debug_printf(":::: %p -> %lx %lx\n", addr, VADDR_TO_SLOT(addr), TWZSLOT_MMAP_BASE);
@@ -597,6 +603,12 @@ static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, 
 	}
 	return (long)twz_object_base(obj) + adj;
 }
+static __inline__ unsigned long long rdtsc(void)
+{
+	unsigned hi, lo;
+	__asm__ __volatile__("rdtsc" : "=a"(lo), "=d"(hi));
+	return ((unsigned long long)lo) | (((unsigned long long)hi) << 32);
+}
 
 long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t off)
 {
@@ -604,7 +616,10 @@ long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t 
 	(void)off;
 	// debug_printf("sys_mmap: %p %lx %x %x %d %lx\n", addr, len, prot, flags, fd, off);
 	if(fd >= 0) {
+		//	size_t s = rdtsc();
 		long ret = __internal_mmap_object(addr, len, prot, flags, fd, off);
+		//	size_t e = rdtsc();
+		//	debug_printf("mmap time %ld\n", e - s);
 		//	debug_printf("      ==>> %lx\n", ret);
 		return ret;
 	}
