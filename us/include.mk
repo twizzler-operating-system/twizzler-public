@@ -64,6 +64,8 @@ $(BUILDDIR)/us/sysroot/usr/lib/crt1.o: $(MUSL_SRCS) $(MUSL_HDRS) $(BUILDDIR)/us/
 	@mkdir -p $(BUILDDIR)/us/sysroot
 	@TWZKROOT=$(shell pwd) TWZKBUILDDIR=$(BUILDDIR) CONFIGFILEPATH=../musl-config.mk $(MAKE) -C $(BUILDDIR)/us/$(MUSL) install DESTDIR=$(shell pwd)/$(BUILDDIR)/us/sysroot
 	@touch $(BUILDDIR)/us/sysroot/usr/lib/crt1.o
+	@rm $(BUILDDIR)/us/sysroot/lib/ld64.so.1
+	@ln -s /usr/lib/libc.so $(BUILDDIR)/us/sysroot/lib/ld64.so.1
 
 
 SYSROOT_READY=$(BUILDDIR)/us/sysroot/usr/lib/crt1.o

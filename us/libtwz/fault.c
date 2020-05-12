@@ -328,7 +328,7 @@ asm(" \
  * "nearby". */
 
 void __twz_fault_entry(void);
-void __twz_fault_init(void)
+__attribute__((used, visibility("default"))) void __twz_fault_init(void)
 {
 	struct twzthread_repr *repr = twz_thread_repr_base();
 

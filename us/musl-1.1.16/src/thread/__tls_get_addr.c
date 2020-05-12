@@ -5,6 +5,7 @@
 __attribute__((__visibility__("hidden")))
 void *__tls_get_new(size_t *);
 
+#include "../../../../../../us/include/twz/debug.h"
 void *__tls_get_addr(size_t *v)
 {
 	pthread_t self = __pthread_self();

@@ -180,7 +180,12 @@ static int __internal_do_exec(twzobj *view,
 	return ret;
 }
 
-static int __internal_load_elf_interp(twzobj *view, twzobj *elfobj, void **base, void **entry)
+static int __internal_load_elf_object(twzobj *view,
+  twzobj *elfobj,
+  void **base,
+  void **phdrs,
+  void **entry,
+  bool interp)
 {
 	Elf64_Ehdr *hdr = twz_object_base(elfobj);
 
@@ -229,11 +234,12 @@ static int __internal_load_elf_interp(twzobj *view, twzobj *elfobj, void **base,
 
 			char *memstart = twz_object_base(to);
 			char *filestart = twz_object_base(elfobj);
-			memstart +=
-			  ((phdr->p_vaddr & ~(phdr->p_align - 1)) % OBJ_MAXSIZE); // - OBJ_NULLPAGE_SIZE;
+			memstart += ((phdr->p_vaddr & ~(phdr->p_align - 1)) % OBJ_MAXSIZE)
+			            - (interp ? 0 : OBJ_NULLPAGE_SIZE);
 			filestart += phdr->p_offset & ~(phdr->p_align - 1);
 			size_t len = phdr->p_filesz;
 			len += (phdr->p_offset & (phdr->p_align - 1));
+			size_t zerolen = phdr->p_memsz - phdr->p_filesz;
 			twix_log("  ==> %p %p %lx\n", filestart, memstart, len);
 			if((r = sys_ocopy(twz_object_guid(to),
 			      twz_object_guid(elfobj),
@@ -244,6 +250,7 @@ static int __internal_load_elf_interp(twzobj *view, twzobj *elfobj, void **base,
 				twix_log("oc: %d\n", r);
 				return r;
 			}
+			memset(memstart + phdr->p_filesz, 0, zerolen);
 
 			//		memcpy(memstart, filestart, len);
 		}
@@ -252,21 +259,24 @@ static int __internal_load_elf_interp(twzobj *view, twzobj *elfobj, void **base,
 	twz_object_tie(view, &new_text, 0);
 	twz_object_tie(view, &new_data, 0);
 
-	size_t base_slot = 0x10003;
+	size_t base_slot = interp ? 0x10003 : 0;
 	twz_view_set(view, base_slot, twz_object_guid(&new_text), VE_READ | VE_EXEC);
 	twz_view_set(view, base_slot + 1, twz_object_guid(&new_data), VE_READ | VE_WRITE);
 
-	/* TODO: actually do tying */
-	// twz_object_tie(view, &newobj, 0);
-
-	// twz_view_set(view, base_slot, twz_object_guid(&newobj), VE_READ | VE_WRITE | VE_EXEC);
-
-	*base = (void *)(SLOT_TO_VADDR(base_slot) + OBJ_NULLPAGE_SIZE);
-	*entry = (char *)*base + hdr->e_entry;
+	if(base) {
+		*base = (void *)(SLOT_TO_VADDR(base_slot) + OBJ_NULLPAGE_SIZE);
+	}
+	if(phdrs) {
+		/* we don't care about the phdrs for the interpreter, so this only has to be right for the
+		 * executable. */
+		*phdrs = (void *)(OBJ_NULLPAGE_SIZE + hdr->e_phoff);
+	}
+	*entry = (base ? (char *)*base : (char *)0) + hdr->e_entry;
 
 	return 0;
 }
 
+#if 0
 static int __internal_load_elf_exec(twzobj *view, twzobj *elfobj, void **phdr, void **entry)
 {
 	Elf64_Ehdr *hdr = twz_object_base(elfobj);
@@ -311,6 +321,7 @@ static int __internal_load_elf_exec(twzobj *view, twzobj *elfobj, void **phdr, v
 			filestart += phdr->p_offset & ~(phdr->p_align - 1);
 			size_t len = phdr->p_filesz;
 			len += (phdr->p_offset & (phdr->p_align - 1));
+			size_t zerolen = phdr->p_memsz - phdr->p_filesz;
 			//	twix_log("  ==> %p %p %lx\n", filestart, memstart, len);
 			if((r = sys_ocopy(twz_object_guid(to),
 			      twz_object_guid(elfobj),
@@ -321,6 +332,8 @@ static int __internal_load_elf_exec(twzobj *view, twzobj *elfobj, void **phdr, v
 				twix_log("oc: %d\n", r);
 				return r;
 			}
+			twix_log("ZEROing %p for len = %lx\n", memstart + phdr->p_filesz, zerolen);
+			memset(memstart + phdr->p_filesz, 0, zerolen);
 			//			memcpy(memstart, filestart, len);
 		}
 	}
@@ -337,6 +350,7 @@ static int __internal_load_elf_exec(twzobj *view, twzobj *elfobj, void **phdr, v
 
 	return 0;
 }
+#endif
 
 static long __internal_execve_view_interp(twzobj *view,
   twzobj *exe,
@@ -352,12 +366,12 @@ static long __internal_execve_view_interp(twzobj *view,
 	}
 
 	void *interp_base, *interp_entry;
-	if((r = __internal_load_elf_interp(view, &interp, &interp_base, &interp_entry))) {
+	if((r = __internal_load_elf_object(view, &interp, &interp_base, NULL, &interp_entry, true))) {
 		return r;
 	}
 
 	void *exe_entry, *phdr;
-	if((r = __internal_load_elf_exec(view, exe, &phdr, &exe_entry))) {
+	if((r = __internal_load_elf_object(view, exe, NULL, &phdr, &exe_entry, false))) {
 		return r;
 	}
 
@@ -587,10 +601,10 @@ long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t 
 {
 	(void)prot;
 	(void)off;
-	// twix_log("sys_mmap: %p %lx %x %x %d %lx\n", addr, len, prot, flags, fd, off);
+	debug_printf("sys_mmap: %p %lx %x %x %d %lx\n", addr, len, prot, flags, fd, off);
 	if(fd >= 0) {
 		long ret = __internal_mmap_object(addr, len, prot, flags, fd, off);
-		//	twix_log("      ==>> %lx\n", ret);
+		debug_printf("      ==>> %lx\n", ret);
 		return ret;
 	}
 	if(addr != NULL && (flags & MAP_FIXED)) {
@@ -711,7 +725,7 @@ long linux_sys_fork(struct twix_register_frame *frame)
 	// twz_object_wire_guid(&view, sid);
 
 	size_t slots_to_copy[] = {
-		1, TWZSLOT_UNIX, 0x10006 /* mmap */
+		1, TWZSLOT_UNIX, 0x10004, 0x10006 /* mmap */
 	};
 	for(size_t j = 0; j < sizeof(slots_to_copy) / sizeof(slots_to_copy[0]); j++) {
 		size_t i = slots_to_copy[j];

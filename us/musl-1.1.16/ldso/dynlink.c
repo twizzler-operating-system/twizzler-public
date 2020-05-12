@@ -418,6 +418,7 @@ static void do_relocs(struct dso *dso, size_t *rel, size_t rel_size, size_t stri
 			reloc_addr[1] = def.sym ? (size_t)def.dso->got : 0;
 			break;
 		case REL_DTPMOD:
+			//debug_printf("DTMOD: %ld: %s\n", def.dso->tls_id, def.dso->name);
 			*reloc_addr = def.dso->tls_id;
 			break;
 		case REL_DTPOFF:
@@ -1019,7 +1020,7 @@ static struct dso *load_library(const char *name, struct dso *needed_by)
 		return 0;
 	}
 	for (p=head->next; p; p=p->next) {
-		if (p->dev == st.st_dev && p->ino == st.st_ino) {
+		if (p->dev == st.st_dev && p->ino == st.st_ino && 0 /* TODO (dbittman): Twizzler doesn't do inodes, so this check will always fail. */) {
 			/* If this library was previously loaded with a
 			 * pathname but a search found the same inode,
 			 * setup its shortname so it can be found by name. */
@@ -1365,6 +1366,11 @@ void __dls2(unsigned char *base, size_t *sp)
 	Ehdr *ehdr = (void *)ldso.base;
 	ldso.name = ldso.shortname = "libc.so";
 	ldso.global = 1;
+	/* NOTE (dbittman): This is not in the original musl code; The libc ldso DSO struct does not get
+	 * a TLS ID, which (afaik) means libc cannot use thread-local storage itself. That may be by
+	 * design. However, Twizzler's Twix does use it, and is, at the moment, linked into libc.so
+	 * directly. We may need to revisit this later. */
+	ldso.tls_id = 1;
 	ldso.phnum = ehdr->e_phnum;
 	ldso.phdr = laddr(&ldso, ehdr->e_phoff);
 	ldso.phentsize = ehdr->e_phentsize;
@@ -1435,6 +1441,11 @@ _Noreturn void __dls3(size_t *sp)
 	 * thread pointer at runtime. */
 	libc.tls_size = sizeof builtin_tls;
 	libc.tls_align = tls_align;
+	//uint64_t w;
+	//__asm__ volatile("lea 0(%%rip), %%rax" : "=a"(w) :: "memory");
+	//debug_printf("############# %p; w = %lx\n", (void *)builtin_tls, w);
+	//void *tp = __copy_tls((void *)builtin_tls);
+	//debug_printf("==========>>>>>> %p %p\n", tp);
 	if (__init_tp(__copy_tls((void *)builtin_tls)) < 0) {
 		a_crash();
 	}
@@ -1539,7 +1550,7 @@ _Noreturn void __dls3(size_t *sp)
 	}
 	if (app.tls.size) {
 		libc.tls_head = tls_tail = &app.tls;
-		app.tls_id = tls_cnt = 1;
+		app.tls_id = tls_cnt = 2;
 #ifdef TLS_ABOVE_TP
 		app.tls.offset = 0;
 		tls_offset = app.tls.size
@@ -1656,6 +1667,8 @@ _Noreturn void __dls3(size_t *sp)
 	//debug_printf("DOING CRT JUMP: aux[AT_ENTRY] = %p\n", (void *)aux[AT_ENTRY]);
 	errno = 0;
 
+	/* NOTE (dbittman): Twizzler uses a slightly different calling convention for program entry
+	 * (vector pointer is rdi, not stack) */
 	((void (*)(void *))aux[AT_ENTRY])(argv-1);
 	//CRTJMP((void *)aux[AT_ENTRY], argv-1);
 	for(;;);

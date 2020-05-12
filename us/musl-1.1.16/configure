@@ -579,7 +579,7 @@ tryldflag LDFLAGS_AUTO -Wl,--hash-style=both
 # Avoid exporting symbols from compiler runtime libraries. They
 # should be hidden anyway, but some toolchains including old gcc
 # versions built without shared library support and pcc are broken.
-tryldflag LDFLAGS_AUTO -Wl,--exclude-libs=ALL
+# tryldflag LDFLAGS_AUTO -Wl,--exclude-libs=ALL
 
 # Linking with -Bsymbolic-functions is no longer mandatory for
 # the dynamic linker to work, but enable it if it works as

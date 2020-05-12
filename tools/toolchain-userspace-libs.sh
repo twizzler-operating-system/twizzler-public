@@ -41,3 +41,6 @@ cd build-gcc-hosted
 
 make all-target-libgcc -j6
 make install-target-libgcc
+
+mkdir -p $SYSROOT/usr/lib
+cp -a "$PREFIX/x86_64-pc-twizzler-musl/lib/libgcc_s*" $SYSROOT/usr/lib/
