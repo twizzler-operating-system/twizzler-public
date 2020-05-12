@@ -12,10 +12,6 @@ _Noreturn int __libc_start_main(int (*)(), int, char **, void (*)(), void (*)(),
 
 void __twz_fault_init(void);
 
-__attribute__((weak)) void __twz_fault_init(void)
-{
-}
-
 void _start_c(long *p)
 {
 	int argc = p[0];
