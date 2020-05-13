@@ -17,6 +17,19 @@ $(BUILDDIR)/us/sysroot/usr/bin/st: $(SECTEST_OBJS) $(SYSROOT_READY) $(SYSLIBS) $
 	#@rm $@.elf.text
 	#@mv $@.elf $(BUILDDIR)/us/sectest/$(notdir $@)
 
+$(BUILDDIR)/us/sysroot/usr/lib/stdl.so: $(SECTEST2_OBJS) $(SYSROOT_READY) $(SYSLIBS) $(UTILS)
+	@echo "[LDSO]      $@"
+	@$(TWZCC) $(TWZLDFLAGS) -g -o $@ -MD $< $(SECTEST_LIBS)
+	#@echo "[SPLIT]   $@"
+	#@$(BUILDDIR)/utils/elfsplit $@.elf
+	#@cp $@.elf $@
+	#@mv $@.elf.data $@.data
+	#@rm $@.elf.text
+	#@mv $@.elf $(BUILDDIR)/us/sectest/$(notdir $@)
+
+
+
+
 $(BUILDDIR)/us/sysroot/usr/bin/st-lib: $(SECTEST2_OBJS) $(SYSROOT_READY) $(SYSLIBS) $(UTILS)
 	@echo "[LD]      $@"
 	@$(TWZCC) $(TWZLDFLAGS) -fPIC -fpie -fPIE -g -o $@ -MD $< $(SECTEST_LIBS)
@@ -31,7 +44,7 @@ $(BUILDDIR)/us/sysroot/usr/bin/st-lib: $(SECTEST2_OBJS) $(SYSROOT_READY) $(SYSLI
 $(BUILDDIR)/us/sectest/%.o: us/sectest/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo "[CC]      $@"
-	@$(TWZCC) $(TWZCFLAGS) $(SECTEST_CFLAGS) -o $@ -c -MD $<
+	@$(TWZCC) $(TWZCFLAGS) $(SECTEST_CFLAGS) -o $@ -c -MD $< -fPIC
 
-SYSROOT_FILES+=$(BUILDDIR)/us/sysroot/usr/bin/st $(BUILDDIR)/us/sysroot/usr/bin/st-lib
+SYSROOT_FILES+=$(BUILDDIR)/us/sysroot/usr/bin/st $(BUILDDIR)/us/sysroot/usr/bin/st-lib $(BUILDDIR)/us/sysroot/usr/lib/stdl.so
 #

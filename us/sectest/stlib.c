@@ -16,7 +16,7 @@ void bad_gate_fn()
 }
 
 TWZ_GATE(gate_fn, 0);
-TWZ_GATE(bad_gate_fn, 1);
+// TWZ_GATE(bad_gate_fn, 1);
 
 int main()
 {

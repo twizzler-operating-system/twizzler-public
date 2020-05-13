@@ -326,8 +326,24 @@ void child(twzobj *context, twzobj *data, twzobj *lib)
 	call_the_gate(lib);
 }
 
+#include <dlfcn.h>
 int main(int argc, char **argv)
 {
+	void *dl = dlopen("/usr/lib/stdl.so", RTLD_LAZY | RTLD_GLOBAL);
+
+	if(!dl) {
+		errx(1, "dlopen");
+	}
+
+	void *sym = dlsym(dl, "gate_fn");
+	if(!sym) {
+		errx(1, "dlsym");
+	}
+
+	void (*fn)(void) = sym;
+	fn();
+
+	return 0;
 	twzobj context, pri, pub, dataobj;
 
 	if(twz_object_new(&context, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_DFL_USE)) {
