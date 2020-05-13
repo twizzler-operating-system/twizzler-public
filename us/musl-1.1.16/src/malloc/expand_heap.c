@@ -1,9 +1,9 @@
-#include <limits.h>
-#include <stdint.h>
-#include <errno.h>
-#include <sys/mman.h>
 #include "libc.h"
 #include "syscall.h"
+#include <errno.h>
+#include <limits.h>
+#include <stdint.h>
+#include <sys/mman.h>
 
 /* This function returns true if the interval [old,new]
  * intersects the 'len'-sized interval below &libc.auxv
@@ -13,16 +13,18 @@
 
 static int traverses_stack_p(uintptr_t old, uintptr_t new)
 {
-	const uintptr_t len = 8<<20;
+	const uintptr_t len = 8 << 20;
 	uintptr_t a, b;
 
 	b = (uintptr_t)libc.auxv;
-	a = b > len ? b-len : 0;
-	if (new>a && old<b) return 1;
+	a = b > len ? b - len : 0;
+	if(new > a && old < b)
+		return 1;
 
 	b = (uintptr_t)&b;
-	a = b > len ? b-len : 0;
-	if (new>a && old<b) return 1;
+	a = b > len ? b - len : 0;
+	if(new > a && old < b)
+		return 1;
 
 	return 0;
 }
@@ -43,12 +45,14 @@ void *__expand_heap(size_t *pn)
 	static unsigned mmap_step;
 	size_t n = *pn;
 
-	if (n > SIZE_MAX/2 - PAGE_SIZE) {
+	if(n > SIZE_MAX / 2 - PAGE_SIZE) {
 		errno = ENOMEM;
 		return 0;
 	}
-	n += -n & PAGE_SIZE-1;
+	n += -n & PAGE_SIZE - 1;
 
+	/* NOTE (dbittman): twizzler does not support a brk style heap, so don't bother */
+#if 0
 	if (!brk) {
 		brk = __syscall(SYS_brk, 0);
 		brk += -brk & PAGE_SIZE-1;
@@ -60,12 +64,14 @@ void *__expand_heap(size_t *pn)
 		brk += n;
 		return (void *)(brk-n);
 	}
+#endif
 
-	size_t min = (size_t)PAGE_SIZE << mmap_step/2;
-	if (n < min) n = min;
-	void *area = __mmap(0, n, PROT_READ|PROT_WRITE,
-		MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-	if (area == MAP_FAILED) return 0;
+	size_t min = (size_t)PAGE_SIZE << mmap_step / 2;
+	if(n < min)
+		n = min;
+	void *area = __mmap(0, n, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if(area == MAP_FAILED)
+		return 0;
 	*pn = n;
 	mmap_step++;
 	return area;

@@ -105,8 +105,15 @@ void run_test(struct test *test)
 	}
 }
 
+void foo()
+{
+	asm volatile("int $3");
+	// abort();
+}
+
 int main(int argc, char **argv)
 {
+	foo();
 	int c;
 	bool all = false;
 	struct lnode *list_of_tests = NULL;

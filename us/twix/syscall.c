@@ -483,7 +483,8 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 	}
 	long r = syscall_table[num](a0, a1, a2, a3, a4, a5);
 	// debug_printf("sc %ld(%s) ret %ld\n", num, syscall_names[num], r);
-	// twix_log("sc %ld ret %ld\n", num, r);
+	// if(num != LINUX_SYS_write && num != LINUX_SYS_writev)
+	//	twix_log("sc %ld(%s) ret %ld\n", num, syscall_names[num], r);
 	return r;
 }
 
@@ -524,6 +525,8 @@ static long twix_syscall_frame(struct twix_register_frame *frame,
 		return syscall_table[num](frame, a0, a1, a2, a3, a4, a5);
 	}
 	long r = syscall_table[num](a0, a1, a2, a3, a4, a5);
+	// if(num != LINUX_SYS_write && num != LINUX_SYS_writev)
+	//	twix_log("sc %ld(%s) ret %ld\n", num, syscall_names[num], r);
 	// debug_printf("sc %ld(%s) ret %ld\n", num, syscall_names[num], r);
 	return r;
 }

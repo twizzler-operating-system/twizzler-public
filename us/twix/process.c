@@ -150,8 +150,17 @@ static int __internal_do_exec(twzobj *view,
 	vector[v++] = AT_PHDR;
 	vector[v++] = (long)phdr;
 
+	vector[v++] = AT_UID;
+	vector[v++] = 0;
+	vector[v++] = AT_GID;
+	vector[v++] = 0;
+	vector[v++] = AT_EUID;
+	vector[v++] = 0;
+	vector[v++] = AT_EGID;
+	vector[v++] = 0;
+
 	vector[v++] = AT_NULL;
-	vector[v++] = AT_NULL;
+	vector[v++] = 0;
 
 	/* TODO: we should really do this in assembly */
 	struct twzthread_repr *repr = twz_thread_repr_base();
@@ -241,6 +250,10 @@ static int __internal_load_elf_object(twzobj *view,
 				return r;
 			}
 			memset(memstart + phdr->p_filesz, 0, zerolen);
+
+			struct metainfo *mi = twz_object_meta(to);
+			mi->flags |= MIF_SZ;
+			mi->sz = len + zerolen;
 
 			//		memcpy(memstart, filestart, len);
 		}
@@ -586,8 +599,14 @@ static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, 
 			return r;
 		}
 
+		struct metainfo *mi = twz_object_meta(&newobj);
+		mi->flags |= MIF_SZ;
+		mi->sz = len;
+
 		obj = &newobj;
 		twz_view_set(NULL, slot, twz_object_guid(&newobj), ve);
+
+		twz_object_release(&newobj);
 
 		return SLOT_TO_VADDR(slot) + OBJ_NULLPAGE_SIZE;
 		/*	if(off) {
@@ -612,15 +631,13 @@ static __inline__ unsigned long long rdtsc(void)
 
 long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t off)
 {
-	(void)prot;
-	(void)off;
-	// debug_printf("sys_mmap: %p %lx %x %x %d %lx\n", addr, len, prot, flags, fd, off);
+	//twix_log("sys_mmap: %p %lx %x %x %d %lx\n", addr, len, prot, flags, fd, off);
 	if(fd >= 0) {
 		//	size_t s = rdtsc();
 		long ret = __internal_mmap_object(addr, len, prot, flags, fd, off);
 		//	size_t e = rdtsc();
 		//	debug_printf("mmap time %ld\n", e - s);
-		//	debug_printf("      ==>> %lx\n", ret);
+	//	twix_log("      ==>> %lx\n", ret);
 		return ret;
 	}
 	if(addr != NULL && (flags & MAP_FIXED)) {
@@ -652,6 +669,7 @@ long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t 
 
 	long ret = (long)(base + *next);
 	*next += len;
+	//twix_log("      ==>> %lx\n", ret);
 	return ret;
 }
 

@@ -9,7 +9,7 @@ MUSL=musl-1.1.16
 SYSROOT_FILES=
 
 $(BUILDDIR)/us/musl-config.mk: $(BUILDDIR)/us/$(MUSL)/configure
-	cd $(BUILDDIR)/us/$(MUSL) && ./configure --host=x86_64-pc-twizzler-musl CROSS_COMPILER=x86_64-pc-twizzler-musl- --prefix=/usr --syslibdir=/lib
+	cd $(BUILDDIR)/us/$(MUSL) && ./configure --host=x86_64-pc-twizzler-musl CROSS_COMPILER=x86_64-pc-twizzler-musl- --prefix=/usr --syslibdir=/lib --enable-debug --enable-optimize LIBCC='-lgcc_eh -lgcc'
 	mv $(BUILDDIR)/us/$(MUSL)/config.mak $@
 
 $(BUILDDIR)/us/musl-config-bootstrap.mk: $(BUILDDIR)/us/$(MUSL)/configure

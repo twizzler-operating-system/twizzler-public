@@ -14,7 +14,11 @@ function prepare() {
 	unzip master.zip
 	cd libbacktrace-master
 	cp $PORTDIR/config.sub .
-	./configure --prefix=/usr --host=$TARGET --datadir=/usr/share ac_cv_header_sys_mman_h=no --enable-shared=yes
+	patch -p2 < ../../../../../../../us/ports/libtool.m4.patch
+	cp libtool.m4 config/libtool.m4
+	autoconf
+	./configure --prefix=/usr --host=$TARGET --datadir=/usr/share ac_cv_header_sys_mman_h=no \
+	--enable-shared=yes
 }
 
 function build() {

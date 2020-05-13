@@ -466,8 +466,8 @@ fi
 # unstrippable. These options force them back to debug sections (and
 # cause them not to get generated at all if debugging is off).
 #
-tryflag CFLAGS_AUTO -fno-unwind-tables
-tryflag CFLAGS_AUTO -fno-asynchronous-unwind-tables
+#tryflag CFLAGS_AUTO -fno-unwind-tables
+#tryflag CFLAGS_AUTO -fno-asynchronous-unwind-tables
 
 #
 # Attempt to put each function and each data object in its own

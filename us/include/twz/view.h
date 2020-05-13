@@ -18,6 +18,7 @@ struct __viewrepr_bucket {
 struct twzview_repr {
 	struct kso_hdr hdr;
 	struct viewentry ves[TWZSLOT_MAX_SLOT + 1];
+	objid_t exec_id;
 	struct mutex lock;
 	uint8_t bitmap[(TWZSLOT_MAX_SLOT + 1) / 8];
 	struct __viewrepr_bucket buckets[TWZSLOT_MAX_SLOT + 1];

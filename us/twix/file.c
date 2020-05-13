@@ -12,11 +12,18 @@ long linux_sys_open(const char *path, int flags, int mode)
 	objid_t id;
 	int r;
 
-	//	twix_log("open: %s: %x\n", path, flags);
+	// twix_log("open: %s: %x\n", path, flags);
 	/* HACK to make libbacktrace work */
 	if(!strcmp(path, "/proc/self/exe")) {
-		twzobj o0 = twz_object_from_ptr(NULL);
-		id = twz_object_guid(&o0);
+		twzobj view;
+		twz_view_object_init(&view);
+		struct twzview_repr *vr = twz_object_base(&view);
+		if(vr->exec_id) {
+			id = vr->exec_id;
+		} else {
+			twzobj o0 = twz_object_from_ptr(NULL);
+			id = twz_object_guid(&o0);
+		}
 	} else {
 		if((r = twz_name_resolve(NULL, path, NULL, 0, &id))) {
 			if(!(flags & O_CREAT)) {

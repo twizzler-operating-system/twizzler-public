@@ -418,7 +418,6 @@ static void do_relocs(struct dso *dso, size_t *rel, size_t rel_size, size_t stri
 			reloc_addr[1] = def.sym ? (size_t)def.dso->got : 0;
 			break;
 		case REL_DTPMOD:
-			//debug_printf("DTMOD: %ld: %s\n", def.dso->tls_id, def.dso->name);
 			*reloc_addr = def.dso->tls_id;
 			break;
 		case REL_DTPOFF:

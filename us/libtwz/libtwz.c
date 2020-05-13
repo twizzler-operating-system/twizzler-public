@@ -104,6 +104,7 @@ __attribute__((noinline)) void libtwz_do_backtrace(void)
 		struct backtrace_state *state =
 		  backtrace_create_state(NULL, BACKTRACE_SUPPORTS_THREADS, error_callback, NULL);
 		struct bt_ctx ctx = { state, 0, 0 };
+		fprintf(stderr, "-- libtwz backtrace --\n");
 		backtrace_full(state, 1, full_callback, error_callback, &ctx);
 	} else {
 		fprintf(stderr,
