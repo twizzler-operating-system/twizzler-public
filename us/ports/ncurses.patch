@@ -1,0 +1,13 @@
+diff -uprN ncurses-6.1/configure ncurses-6.1-twizzler/configure
+--- ncurses-6.1/configure	2018-01-19 16:27:18.000000000 -0800
++++ ncurses-6.1-twizzler/configure	2020-05-11 11:03:44.758699287 -0700
+@@ -6317,6 +6317,9 @@ echo "${ECHO_T}$cf_cv_ldflags_search_pat
+ 		fi
+ 		cf_cv_rm_so_locs=yes
+ 		;;
++	(twizzler*)
++		MK_SHARED_LIB='${CC} ${LDFLAGS} ${CFLAGS} -shared -o $@'
++		;;
+ 	(linux*|gnu*|k*bsd*-gnu)
+ 		if test "$DFT_LWR_MODEL" = "shared" ; then
+ 			LOCAL_LDFLAGS="${LD_RPATH_OPT}\$(LOCAL_LIBDIR)"
