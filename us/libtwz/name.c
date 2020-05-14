@@ -418,7 +418,15 @@ static int __twz_fot_indirect_resolve_sofn(twzobj *obj,
 	}
 
 	struct twzthread_repr *repr = twz_thread_repr_base();
-	debug_printf("---> %s :: libname=%s, symname=%s\n", repr->hdr.name, name, symname);
+#if 0
+	debug_printf("---> " IDFMT " %s %p %p :: libname=%s, symname=%s\n",
+	  IDPR(repr->reprid),
+	  repr->hdr.name,
+	  obj,
+	  p,
+	  name,
+	  symname);
+#endif
 
 	void *dl = dlopen(name, RTLD_NOW);
 	if(!dl) {
@@ -426,7 +434,7 @@ static int __twz_fot_indirect_resolve_sofn(twzobj *obj,
 		return -errno;
 	}
 
-	debug_printf(":: open: %p\n", dl);
+	//debug_printf(":: open: %p\n", dl);
 	void *sym;
 	if(symname) {
 		sym = dlsym(dl, symname);
@@ -440,7 +448,7 @@ static int __twz_fot_indirect_resolve_sofn(twzobj *obj,
 		return -ENOTSUP;
 	}
 
-	debug_printf(":: sym=%p\n", sym);
+	//debug_printf(":: sym=%p\n", sym);
 	*vptr = sym;
 	obj->_int_sofn_cache[slot] = sym;
 

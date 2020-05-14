@@ -183,8 +183,10 @@ void try_test(void)
 
 #include <pthread.h>
 
+#include <twz/debug.h>
 void *_tf(void *a)
 {
+	debug_printf("ADQWDWDAWD\n");
 	fprintf(stderr, "HELLO FROM THREAD\n");
 }
 
@@ -197,7 +199,7 @@ int main(int argc, char **argv)
 	//	bar();
 
 	pthread_t th;
-	// pthread_create(&th, NULL, _tf, NULL);
+	pthread_create(&th, NULL, _tf, NULL);
 
 	for(;;) {
 		char buffer[1024];

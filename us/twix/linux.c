@@ -30,6 +30,7 @@ void __linux_init(void)
 		}
 
 		uh = twz_object_base(&unix_obj);
+		//linux_sys_write(2, "", 0);
 	}
 }
 

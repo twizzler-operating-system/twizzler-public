@@ -123,7 +123,7 @@ void start_stream_device(objid_t id)
 			kso_set_name(NULL, "[instance] serial");
 			twz_name_assign(id, "dev:raw:serial");
 			execv("/usr/bin/serial",
-			  (char *[]){ "/usr/bin/serial", "dev:raw:serial", "dev:pty:ptyS0" });
+			  (char *[]){ "/usr/bin/serial", "dev:raw:serial", "dev:pty:ptyS0", NULL });
 			exit(1);
 		}
 	}
@@ -247,6 +247,14 @@ void timespec_diff(struct timespec *start, struct timespec *stop, struct timespe
 }
 
 void slab_test();
+#include <pthread.h>
+
+void *_th_test(void *a)
+{
+	int x;
+	fprintf(stderr, "!!!! INIT THREAD: %p\n", &x);
+}
+
 int main()
 {
 #if 0
@@ -514,6 +522,8 @@ int main()
 
 	term_ready = true;
 
+	pthread_t th;
+	 pthread_create(&th, NULL, _th_test, NULL);
 	/* start devices */
 	twzobj root;
 	twz_object_init_guid(&root, 1, FE_READ);
