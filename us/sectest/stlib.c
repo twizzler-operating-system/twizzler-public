@@ -15,7 +15,7 @@ void bad_gate_fn()
 	debug_printf("SHOULD NOT GET HERE\n");
 }
 
-TWZ_GATE(gate_fn, 0);
+TWZ_GATE_SHARED(gate_fn, 0);
 // TWZ_GATE(bad_gate_fn, 1);
 
 int main()

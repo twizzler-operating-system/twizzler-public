@@ -352,6 +352,120 @@ int twz_name_resolve(twzobj *obj,
 	return __twz_name_dfl_resolve(obj, name, flags, id);
 }
 
+#include <twz/fault.h>
+#include <twz/view.h>
+static int __twz_fot_indirect_resolve_dfl(twzobj *obj,
+  struct fotentry *fe,
+  const void *p,
+  void **vptr,
+  uint64_t *info)
+{
+	int r;
+	objid_t id;
+	r = twz_name_resolve(obj, fe->name.data, fe->name.nresolver, 0, &id);
+	if(r) {
+		*info = FAULT_PPTR_RESOLVE;
+		return r;
+	}
+
+	ssize_t ns = twz_view_allocate_slot(NULL, id, fe->flags & (FE_READ | FE_WRITE | FE_EXEC));
+	if(ns < 0) {
+		*info = FAULT_PPTR_RESOURCES;
+		return ns;
+	}
+
+	void *_r = twz_ptr_rebase(ns, (void *)p);
+	size_t slot = VADDR_TO_SLOT(p);
+	if(slot < TWZ_OBJ_CACHE_SIZE) {
+		obj->_int_cache[slot] = ns;
+	}
+	*vptr = _r;
+	return 0;
+}
+
+#include <dlfcn.h>
+
+#include <twz/thread.h>
+static int __twz_fot_indirect_resolve_sofn(twzobj *obj,
+  struct fotentry *fe,
+  const void *p,
+  void **vptr,
+  uint64_t *info)
+{
+	size_t slot = VADDR_TO_SLOT(p);
+	if(obj->_int_sofn_cache[slot]) {
+		*vptr = obj->_int_sofn_cache[slot];
+		return 0;
+	}
+
+	char *name = twz_object_lea(obj, fe->name.data);
+
+	size_t sl = strlen(name);
+	if(sl > 128) {
+		*info = FAULT_PPTR_RESOURCES;
+		return -EINVAL;
+	}
+
+	char *dc = strstr(name, "::");
+	char tmpname[sl + 1];
+	char *symname = NULL;
+	if(dc) {
+		strcpy(tmpname, name);
+		name = tmpname;
+		char *dc2 = strstr(tmpname, "::");
+		*dc2 = 0;
+		symname = dc + 2;
+	}
+
+	struct twzthread_repr *repr = twz_thread_repr_base();
+	debug_printf("---> %s :: libname=%s, symname=%s\n", repr->hdr.name, name, symname);
+
+	void *dl = dlopen(name, RTLD_NOW);
+	if(!dl) {
+		*info = FAULT_PPTR_RESOLVE;
+		return -errno;
+	}
+
+	debug_printf(":: open: %p\n", dl);
+	void *sym;
+	if(symname) {
+		sym = dlsym(dl, symname);
+		if(!sym) {
+			*info = FAULT_PPTR_RESOLVE;
+			return -errno;
+		}
+	} else {
+		/* TODO: get base address of the DL */
+		*info = FAULT_PPTR_RESOLVE;
+		return -ENOTSUP;
+	}
+
+	debug_printf(":: sym=%p\n", sym);
+	*vptr = sym;
+	obj->_int_sofn_cache[slot] = sym;
+
+	return 0;
+}
+
+int twz_fot_indirect_resolve(twzobj *obj,
+  struct fotentry *fe,
+  const void *p,
+  void **vptr,
+  uint64_t *info)
+{
+	switch((long)fe->name.nresolver) {
+		case TWZ_NAME_RESOLVER_SOFN:
+			return __twz_fot_indirect_resolve_sofn(obj, fe, p, vptr, info);
+			break;
+	}
+	if(fe->name.nresolver) {
+		int (*fn)(twzobj *, struct fotentry * fe, const void *, void **, uint64_t *) =
+		  twz_object_lea(obj, fe->name.nresolver);
+		return fn(obj, fe, p, vptr, info);
+	}
+	return __twz_fot_indirect_resolve_dfl(obj, fe, p, vptr, info);
+}
+
 int twz_name_reverse_lookup(objid_t id,
   char *name,
   size_t *nl,

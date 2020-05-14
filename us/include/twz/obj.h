@@ -16,6 +16,7 @@ typedef struct _twz_object {
 	uint32_t pad;
 	uint64_t pad1;
 	uint32_t _int_cache[TWZ_OBJ_CACHE_SIZE];
+	void *_int_sofn_cache[TWZ_OBJ_CACHE_SIZE]; // TODO: need a MUCH better way of doing this.
 } twzobj;
 
 void *twz_object_base(twzobj *);
@@ -123,6 +124,11 @@ __must_check int __twz_ptr_store_name(twzobj *o,
   const void *p,
   uint64_t flags);
 
+__must_check int __twz_ptr_store_fote(twzobj *o,
+  const void **loc,
+  struct fotentry *,
+  const void *p);
+
 void *__twz_ptr_swizzle(twzobj *o, const void *p, uint64_t flags);
 
 #define twz_ptr_store_guid(o, l, t, p, f)                                                          \
@@ -137,8 +143,24 @@ void *__twz_ptr_swizzle(twzobj *o, const void *p, uint64_t flags);
 		__twz_ptr_store_name(o, (const void **)(l), (n), (p), (f));                                \
 	})
 
+#define twz_ptr_store_fote(o, l, fe, p)                                                            \
+	({                                                                                             \
+		typeof(*l) _lt = p;                                                                        \
+		__twz_ptr_store_fote(o, (const void **)(l), (fe), (p));                                    \
+	})
+
 #define twz_ptr_swizzle(o, p, f) ({ (typeof(p)) __twz_ptr_swizzle((o), (p), (f)); })
 
 #include <sys/types.h>
 /* TODO: make internal */
 __must_check ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags);
+
+static inline void twz_fote_init_name(struct fotentry *fe,
+  char *name,
+  void *resolver,
+  uint64_t flags)
+{
+	fe->flags = flags | FE_NAME;
+	fe->name.data = name;
+	fe->name.nresolver = resolver;
+}

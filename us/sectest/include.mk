@@ -19,7 +19,7 @@ $(BUILDDIR)/us/sysroot/usr/bin/st: $(SECTEST_OBJS) $(SYSROOT_READY) $(SYSLIBS) $
 
 $(BUILDDIR)/us/sysroot/usr/lib/stdl.so: $(SECTEST2_OBJS) $(SYSROOT_READY) $(SYSLIBS) $(UTILS)
 	@echo "[LDSO]      $@"
-	@$(TWZCC) $(TWZLDFLAGS) -g -o $@ -MD $< $(SECTEST_LIBS)
+	@$(TWZCC) -shared $(TWZLDFLAGS) -g -o $@ -MD $< $(SECTEST_LIBS)
 	#@echo "[SPLIT]   $@"
 	#@$(BUILDDIR)/utils/elfsplit $@.elf
 	#@cp $@.elf $@

@@ -181,6 +181,13 @@ void try_test(void)
 #endif
 }
 
+#include <pthread.h>
+
+void *_tf(void *a)
+{
+	fprintf(stderr, "HELLO FROM THREAD\n");
+}
+
 int main(int argc, char **argv)
 {
 	// try_test();
@@ -188,6 +195,10 @@ int main(int argc, char **argv)
 	//	k += argc;
 	printf("Setting SCE to AUX.\n\n");
 	//	bar();
+
+	pthread_t th;
+	// pthread_create(&th, NULL, _tf, NULL);
+
 	for(;;) {
 		char buffer[1024];
 		printf("Twizzler Login: ");

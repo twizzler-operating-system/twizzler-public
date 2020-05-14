@@ -27,3 +27,16 @@ int twz_name_reverse_lookup(objid_t id,
   int flags);
 ssize_t twz_name_dfl_getnames(const char *startname, struct twz_nament *ents, size_t len);
 twzobj *twz_name_get_root(void);
+
+struct fotentry;
+int twz_fot_indirect_resolve(twzobj *obj,
+  struct fotentry *fe,
+  const void *p,
+  void **vptr,
+  uint64_t *info);
+
+enum twz_default_resolvers {
+	TWZ_NAME_RESOLVER_DFL = 0,
+	TWZ_NAME_RESOLVER_HIER = 0,
+	TWZ_NAME_RESOLVER_SOFN = 1,
+};

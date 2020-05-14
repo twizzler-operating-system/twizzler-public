@@ -8,13 +8,13 @@ desc="vim - the best text editor"
 DOWNLOADS=(ftp://ftp.vim.org/pub/vim/unix/vim-8.1.tar.bz2)
 HASHES=(cbca219d11990d866976da309d7ce5b76be48b96)
 
-SPLITS=(usr/bin/vim)
+SPLITS=()
 
 function prepare() {
 	tar xf vim-8.1.tar.bz2
 	cd vim81
 	#sed -i 's/| sortix\*/| sortix\* | twizzler\*/g' support/config.sub
-	./configure --prefix=/usr --disable-nls --host=x86_64-pc-twizzler-musl vim_cv_toupper_broken=no --with-tlib=ncurses vim_cv_terminfo=yes vim_cv_tgetent=zero vim_cv_tty_group=0 vim_cv_tty_mode=0 vim_cv_getcwd_broken=no vim_cv_stat_ignores_slash=no vim_cv_memmove_handles_overlap=yes --disable-xsmp --disable-gui  --enable-xim ac_cv_lib_ICE_IceConnectionNumber=no LDFLAGS='-static'
+	./configure --prefix=/usr --disable-nls --host=x86_64-pc-twizzler-musl vim_cv_toupper_broken=no --with-tlib=ncurses vim_cv_terminfo=yes vim_cv_tgetent=zero vim_cv_tty_group=0 vim_cv_tty_mode=0 vim_cv_getcwd_broken=no vim_cv_stat_ignores_slash=no vim_cv_memmove_handles_overlap=yes --disable-xsmp --disable-gui  --enable-xim ac_cv_lib_ICE_IceConnectionNumber=no
 }
 
 function build() {

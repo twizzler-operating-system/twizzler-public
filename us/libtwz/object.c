@@ -32,6 +32,7 @@ static void obj_init(twzobj *obj, void *base, uint32_t vf, objid_t id, uint64_t 
 	obj->_int_id = id;
 	obj->_int_vf = vf;
 	obj->_int_flags = TWZ_OBJ_VALID | flags;
+	memset(obj->_int_sofn_cache, 0, sizeof(obj->_int_sofn_cache));
 }
 
 EXTERNAL void twz_object_setsz(twzobj *obj, enum twz_object_setsz_mode mode, ssize_t amount)
@@ -50,7 +51,7 @@ EXTERNAL void twz_object_setsz(twzobj *obj, enum twz_object_setsz_mode mode, ssi
 
 	switch(mode) {
 		case TWZ_OSSM_RELATIVE:
-			if(mi->sz + amount < 0 || mi->sz + amount > OBJ_TOPDATA) {
+			if((ssize_t)mi->sz + amount < 0 || mi->sz + amount > OBJ_TOPDATA) {
 				_twz_lea_fault(obj,
 				  (void *)(mi->sz + amount),
 				  __builtin_extract_return_addr(__builtin_return_address(0)),
@@ -61,7 +62,7 @@ EXTERNAL void twz_object_setsz(twzobj *obj, enum twz_object_setsz_mode mode, ssi
 			mi->sz += amount;
 			break;
 		case TWZ_OSSM_ABSOLUTE:
-			if(amount < 0 || amount > OBJ_TOPDATA) {
+			if(amount < 0 || (size_t)amount > OBJ_TOPDATA) {
 				_twz_lea_fault(obj,
 				  (void *)amount,
 				  __builtin_extract_return_addr(__builtin_return_address(0)),
@@ -527,6 +528,25 @@ int __twz_ptr_store_guid(twzobj *obj, const void **res, twzobj *tgt, const void 
 	return __twz_ptr_make(obj, tgt ? twz_object_guid(tgt) : target, p, flags, res);
 }
 
+EXTERNAL
+int __twz_ptr_store_fote(twzobj *obj, const void **res, struct fotentry *f, const void *p)
+{
+	ssize_t fe = twz_object_addfot(obj, 0, 0);
+	if(fe < 0)
+		return fe;
+
+	struct fotentry *pf = _twz_object_get_fote(obj, fe);
+	f->flags |= _FE_VALID | _FE_ALLOC;
+	*pf = *f;
+	_clwb_len(pf, sizeof(*pf));
+	_pfence();
+	*res = twz_ptr_rebase(fe, p);
+	_clwb(res);
+	_pfence();
+
+	return 0;
+}
+
 /* TODO: if target is the same as obj, just store a local pointer */
 EXTERNAL
 void *__twz_ptr_swizzle(twzobj *obj, const void *p, uint64_t flags)
@@ -586,15 +606,14 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 
 	objid_t id;
 	if(__builtin_expect(fe->flags & FE_NAME, 0)) {
-		r = twz_name_resolve(o, fe->name.data, fe->name.nresolver, 0, &id);
-		if(r) {
-			info = FAULT_PPTR_RESOLVE;
+		void *vptr;
+		if((r = twz_fot_indirect_resolve(o, fe, p, &vptr, &info))) {
 			goto fault;
 		}
-	} else {
-		id = fe->id;
+		return vptr;
 	}
 
+	id = fe->id;
 	if(__builtin_expect(fe->flags & FE_DERIVE, 0)) {
 		/* Currently, the derive bit can only be used for executables in slot 0. This may change
 		 * in the future. */

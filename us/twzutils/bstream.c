@@ -1,6 +1,7 @@
 #include <twz/bstream.h>
 #include <twz/gate.h>
 
+#if 0
 __asm__(".section .gates, \"ax\", @progbits\n"
         ".global __twz_gate_bstream_read \n"
         ".type __twz_gate_bstream_read STT_FUNC\n"
@@ -24,9 +25,9 @@ __asm__(".section .gates, \"ax\", @progbits\n"
         "jmp *%rax\n"
         ".balign 32, 0x90\n"
         ".previous");
-
-// TWZ_GATE(bstream_read, BSTREAM_GATE_READ);
-// TWZ_GATE(bstream_write, BSTREAM_GATE_WRITE);
+#endif
+TWZ_GATE(bstream_read, BSTREAM_GATE_READ);
+TWZ_GATE(bstream_write, BSTREAM_GATE_WRITE);
 TWZ_GATE(bstream_poll, BSTREAM_GATE_POLL);
 
 int main()

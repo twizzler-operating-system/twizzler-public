@@ -19,12 +19,20 @@ struct pty_hdr {
 	struct winsize wsz;
 	struct mutex buffer_lock;
 	size_t bufpos;
+	char coname1[64];
+	char coname2[64];
+	char coname3[64];
+	char coname4[64];
 	char buffer[PTY_BUFFER_SZ];
 };
 
 struct pty_client_hdr {
 	struct pty_hdr *server;
 	struct twzio_hdr io;
+	char coname1[64];
+	char coname2[64];
+	char coname3[64];
+	char coname4[64];
 };
 
 #define PTY_CTRL_OBJ "/usr/bin/pty"

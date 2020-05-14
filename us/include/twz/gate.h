@@ -25,6 +25,18 @@ __asm__(".section .gates, \"ax\", @progbits\n"
         ".previous");
 */
 
+#define __TWZ_GATE_SHARED(fn, g)                                                                   \
+	__asm__(".section .gates, \"ax\", @progbits\n"                                                 \
+	        ".global __twz_gate_" #fn "\n"                                                         \
+	        ".type __twz_gate_" #fn " STT_FUNC\n"                                                  \
+	        ".org " #g "*32, 0x90\n"                                                               \
+	        "__twz_gate_" #fn ":\n"                                                                \
+	        "movabs $" #fn ", %rax\n"                                                              \
+	        "jmp *%rax\n"                                                                          \
+	        "retq\n"                                                                               \
+	        ".balign 32, 0x90\n"                                                                   \
+	        ".previous");
+
 #define __TWZ_GATE(fn, g)                                                                          \
 	__asm__(".section .gates, \"ax\", @progbits\n"                                                 \
 	        ".global __twz_gate_" #fn "\n"                                                         \
@@ -40,6 +52,7 @@ __asm__(".section .gates, \"ax\", @progbits\n"
 	        ".previous");
 
 #define TWZ_GATE(fn, g) __TWZ_GATE(fn, g)
+#define TWZ_GATE_SHARED(fn, g) __TWZ_GATE_SHARED(fn, g)
 #define TWZ_GATE_OFFSET (OBJ_NULLPAGE_SIZE + 0x200)
 
 #include <twz/obj.h>

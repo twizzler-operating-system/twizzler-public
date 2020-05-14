@@ -335,10 +335,13 @@ int main(int argc, char **argv)
 		errx(1, "dlopen");
 	}
 
-	void *sym = dlsym(dl, "gate_fn");
+	void *sym = dlsym(dl, "__twz_gate_gate_fn");
+	void *sym2 = dlsym(dl, "gate_fn");
 	if(!sym) {
 		errx(1, "dlsym");
 	}
+
+	fprintf(stderr, "::::: %p %p\n", sym2, sym);
 
 	void (*fn)(void) = sym;
 	fn();
