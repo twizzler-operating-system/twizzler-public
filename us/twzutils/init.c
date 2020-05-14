@@ -1,6 +1,6 @@
 #include <errno.h>
-#include <pthread.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <twz/bstream.h>
@@ -175,7 +175,7 @@ pthread_mutex_t logging_ready_lock = PTHREAD_MUTEX_INITIALIZER;
 void *logmain(void *arg)
 {
 	kso_set_name(NULL, "[instance] init-logger");
-	//objid_t *lid = twz_object_lea(twz_stdstack, arg);
+	// objid_t *lid = twz_object_lea(twz_stdstack, arg);
 	objid_t *lid = arg;
 
 	twzobj sobj;
@@ -185,7 +185,7 @@ void *logmain(void *arg)
 	pthread_cond_signal(&logging_ready);
 	pthread_mutex_unlock(&logging_ready_lock);
 
-	//twz_thread_ready(NULL, THRD_SYNC_READY, 1);
+	// twz_thread_ready(NULL, THRD_SYNC_READY, 1);
 	for(;;) {
 		char buf[128];
 		memset(buf, 0, sizeof(buf));
@@ -276,14 +276,14 @@ int main()
 	for(;;)
 		;
 #endif
-	EPRINTF("Bootstrapping naming system\n");
+	/*EPRINTF("Bootstrapping naming system\n");
 	if(__name_bootstrap() == -1) {
-		EPRINTF("Failed to bootstrap namer\n");
-		abort();
+	    EPRINTF("Failed to bootstrap namer\n");
+	    abort();
 	}
 	unsetenv("BSNAME");
 	setenv("TERM", "linux", 1);
-	setenv("PATH", "/bin:/usr/bin", 1);
+	setenv("PATH", "/bin:/usr/bin", 1);*/
 
 #if 0
 	init_test_init();
@@ -512,26 +512,29 @@ int main()
 	objid_t si;
 	r = twz_name_resolve(NULL, "usr_bin_init.sctx", NULL, 0, &si);
 	if(r) {
-		EPRINTF("failed to resolve 'init.sctx'");
+		EPRINTF("failed to resolve 'init.sctx'\n");
 		twz_thread_exit(r);
 	}
 	r = sys_attach(0, si, 0, KSO_SECCTX);
 	if(r) {
-		EPRINTF("failed to attach: %d", r);
+		EPRINTF("failed to attach: %d\n", r);
 		twz_thread_exit(r);
 	}
 
 	int fd;
+	close(0);
+	close(1);
+	close(2);
 	if((fd = open("dev:null", O_RDONLY)) != 0) {
-		EPRINTF("err opening stdin");
+		EPRINTF("err opening stdin\n");
 		abort();
 	}
 	if((fd = open("dev:dfl:log", O_RDWR)) != 1) {
-		EPRINTF("err opening stdout");
+		EPRINTF("err opening stdout\n");
 		abort();
 	}
 	if((fd = open("dev:dfl:log", O_RDWR)) != 2) {
-		EPRINTF("err opening stderr");
+		EPRINTF("err opening stderr\n");
 		abort();
 	}
 

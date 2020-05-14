@@ -144,6 +144,35 @@ int bstream_obj_init(twzobj *obj, struct bstream_hdr *hdr, uint32_t nbits)
 	hdr->nbits = nbits;
 	event_obj_init(obj, &hdr->ev);
 
+	struct fotentry fe;
+	strcpy(hdr->coname1, "/usr/lib/libtwz.so::bstream_read");
+	twz_fote_init_name(&fe,
+	  twz_ptr_local((void *)hdr->coname1),
+	  TWZ_NAME_RESOLVER_SOFN,
+	  FE_NAME | FE_READ | FE_EXEC);
+	if((r = twz_ptr_store_fote(obj, &hdr->io.read, &fe, 0))) {
+		goto cleanup;
+	}
+
+	strcpy(hdr->coname2, "/usr/lib/libtwz.so::bstream_write");
+	twz_fote_init_name(&fe,
+	  twz_ptr_local((void *)hdr->coname2),
+	  TWZ_NAME_RESOLVER_SOFN,
+	  FE_NAME | FE_READ | FE_EXEC);
+	if((r = twz_ptr_store_fote(obj, &hdr->io.write, &fe, 0))) {
+		goto cleanup;
+	}
+
+	strcpy(hdr->coname4, "/usr/lib/libtwz.so::bstream_poll");
+	twz_fote_init_name(&fe,
+	  twz_ptr_local((void *)hdr->coname4),
+	  TWZ_NAME_RESOLVER_SOFN,
+	  FE_NAME | FE_READ | FE_EXEC);
+	if((r = twz_ptr_store_fote(obj, &hdr->io.poll, &fe, 0))) {
+		goto cleanup;
+	}
+
+#if 0
 	twzobj co;
 	r = twz_object_init_name(&co, BSTREAM_CTRL_OBJ, FE_READ | FE_EXEC);
 	if(r) {
@@ -166,10 +195,10 @@ int bstream_obj_init(twzobj *obj, struct bstream_hdr *hdr, uint32_t nbits)
 	}
 
 	twz_object_release(&co);
+#endif
 	return 0;
-
 cleanup2:
-	twz_object_release(&co);
+	// twz_object_release(&co);
 cleanup:
 	twz_object_delext(obj, TWZIO_METAEXT_TAG, &hdr->io);
 	twz_object_delext(obj, EVENT_METAEXT_TAG, &hdr->ev);

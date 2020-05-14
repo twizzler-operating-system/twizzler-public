@@ -227,7 +227,7 @@ int pty_obj_init_server(twzobj *obj, struct pty_hdr *hdr)
 	mutex_init(&hdr->buffer_lock);
 	hdr->bufpos = 0;
 
-#if 0
+#if 1
 	struct fotentry fe;
 	strcpy(hdr->coname1, "/usr/lib/libtwz.so::pty_read_server");
 	twz_fote_init_name(&fe,
@@ -265,7 +265,7 @@ int pty_obj_init_server(twzobj *obj, struct pty_hdr *hdr)
 		goto cleanup;
 	}
 #endif
-#if 1
+#if 0
 
 	twzobj co;
 	r = twz_object_init_name(&co, PTY_CTRL_OBJ, FE_READ | FE_EXEC);

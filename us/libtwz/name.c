@@ -417,15 +417,16 @@ static int __twz_fot_indirect_resolve_sofn(twzobj *obj,
 		symname = dc + 2;
 	}
 
-	struct twzthread_repr *repr = twz_thread_repr_base();
 #if 0
-	debug_printf("---> " IDFMT " %s %p %p :: libname=%s, symname=%s\n",
+	struct twzthread_repr *repr = twz_thread_repr_base();
+	debug_printf("---> " IDFMT " %s %p %p :: libname=%s, symname=%s :::: %p\n",
 	  IDPR(repr->reprid),
 	  repr->hdr.name,
 	  obj,
 	  p,
 	  name,
-	  symname);
+	  symname,
+	  __builtin_return_address(3));
 #endif
 
 	void *dl = dlopen(name, RTLD_NOW);
@@ -434,10 +435,11 @@ static int __twz_fot_indirect_resolve_sofn(twzobj *obj,
 		return -errno;
 	}
 
-	//debug_printf(":: open: %p\n", dl);
+	// debug_printf(":: open: %p\n", dl);
 	void *sym;
 	if(symname) {
 		sym = dlsym(dl, symname);
+		//	debug_printf("--> %p\n", sym);
 		if(!sym) {
 			*info = FAULT_PPTR_RESOLVE;
 			return -errno;
@@ -448,7 +450,7 @@ static int __twz_fot_indirect_resolve_sofn(twzobj *obj,
 		return -ENOTSUP;
 	}
 
-	//debug_printf(":: sym=%p\n", sym);
+	// debug_printf(":: sym=%p\n", sym);
 	*vptr = sym;
 	obj->_int_sofn_cache[slot] = sym;
 

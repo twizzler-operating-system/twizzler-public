@@ -117,7 +117,7 @@ include us/playground/include.mk
 #TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),twzutils/$(x))))
 
 $(BUILDDIR)/us/kc: $(BUILDDIR)/us/root-tmp.tar
-	@echo "init=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/objroot/usr_bin_init.obj)" >> $(BUILDDIR)/us/kc
+	@echo "init=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/objroot/usr_bin_init_bootstrap.obj)" >> $(BUILDDIR)/us/kc
 	@echo "name=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/objroot/__ns)" >> $(BUILDDIR)/us/kc
 
 #TWZOBJS+=$(BUILDDIR)/us/bsv.obj

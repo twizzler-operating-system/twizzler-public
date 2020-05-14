@@ -1,4 +1,4 @@
-TWZUTILS=init login nls shell input pcie serial term bstream pty tst nvme kls lscpu bench kvdr lsmem dlt
+TWZUTILS=init login nls shell input pcie serial term bstream pty tst nvme kls lscpu bench kvdr lsmem dlt init_bootstrap
 # TWZUTILS+=sqb
 
 LIBS_tst=-lncurses
@@ -19,7 +19,7 @@ TWZUTILSLIBS=-lubsan -Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive
 #TWZUTILSCFLAGS=-fsanitize=undefined -g
 TWZUTILSCFLAGS= -g
 
-$(BUILDDIR)/us/sysroot/usr/bin/init: $(BUILDDIR)/us/twzutils/init.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
+$(BUILDDIR)/us/sysroot/usr/bin/init_bootstrap: $(BUILDDIR)/us/twzutils/init_bootstrap.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
 	@echo "[LD]      $@"
 	@$(TWZCC) $(TWZLDFLAGS) -static -g -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@)) $(TWZUTILSLIBS)
 	@echo "[SPLIT]   $@"
@@ -28,6 +28,16 @@ $(BUILDDIR)/us/sysroot/usr/bin/init: $(BUILDDIR)/us/twzutils/init.o $(SYSROOT_RE
 	@mv $@.elf.data $@.data
 	@rm $@.elf.text
 	@mv $@.elf $(BUILDDIR)/us/twzutils/$(notdir $@)
+
+#$(BUILDDIR)/us/sysroot/usr/bin/init: $(BUILDDIR)/us/twzutils/init.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
+#	@echo "[LD]      $@"
+#	@$(TWZCC) $(TWZLDFLAGS) -static -g -o $@.elf -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@)) $(TWZUTILSLIBS)
+#	@echo "[SPLIT]   $@"
+#	@$(BUILDDIR)/utils/elfsplit $@.elf
+#	@cp $@.elf $@
+#	@mv $@.elf.data $@.data
+#	@rm $@.elf.text
+#	@mv $@.elf $(BUILDDIR)/us/twzutils/$(notdir $@)
 
 $(BUILDDIR)/us/sysroot/usr/bin/pty: $(BUILDDIR)/us/twzutils/pty.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
 	@echo "[LD]      $@"

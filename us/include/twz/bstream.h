@@ -16,6 +16,10 @@ struct bstream_hdr {
 	uint32_t nbits;
 	struct evhdr ev;
 	struct twzio_hdr io;
+	char coname1[64];
+	char coname2[64];
+	char coname3[64];
+	char coname4[64];
 	unsigned char data[];
 };
 

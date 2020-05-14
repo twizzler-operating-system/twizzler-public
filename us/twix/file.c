@@ -63,29 +63,31 @@ long linux_sys_open(const char *path, int flags, int mode)
 
 static int internal_dup(int oldfd, int newfd, int flags, int vers)
 {
-	// twix_log("internal dup %d %d %x %d\n", oldfd, newfd, flags, vers);
+	// debug_printf("internal dup %d %d %x %d\n", oldfd, newfd, flags, vers);
 	if(oldfd == newfd && vers == 3) {
-		//	twix_log("   -> inval\n");
+		//	debug_printf("   -> inval\n");
 		return -EINVAL;
 	} else if(oldfd == newfd && vers == 2) {
-		//	twix_log("   -> noop\n");
+		//	debug_printf("   -> noop\n");
 		return newfd;
 	}
 	struct file *nf;
 	if(vers >= 2)
 		nf = twix_grab_fd(newfd);
-	else
+	else {
 		nf = twix_alloc_fd(vers == 0 ? newfd : 0);
+		newfd = nf->fd;
+	}
 	struct file *of = twix_get_fd(oldfd);
 	if(!nf || !of) {
-		//	twix_log("   -> err %p %p\n", of, nf);
+		//	debug_printf("   -> err %p %p\n", of, nf);
 		if(!nf && vers == 1)
 			return -EMFILE;
 		return -EBADF;
 	}
 
 	if(nf->taken) {
-		//	twz_object_release(&nf->obj);
+		// twz_object_release(&nf->obj);
 	}
 	nf->fl = of->fl;
 	nf->fcntl_fl = of->fcntl_fl;
@@ -94,7 +96,7 @@ static int internal_dup(int oldfd, int newfd, int flags, int vers)
 	twz_view_set(NULL, TWZSLOT_FILES_BASE + nf->fd, twz_object_guid(&of->obj), nf->fl);
 	nf->obj = twz_object_from_ptr(SLOT_TO_VADDR(TWZSLOT_FILES_BASE + nf->fd));
 	nf->taken = nf->valid = true;
-	// twix_log("  -> %d\n", newfd);
+	// debug_printf("  -> %d\n", newfd);
 	return newfd;
 }
 

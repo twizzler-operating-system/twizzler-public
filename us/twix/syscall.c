@@ -490,18 +490,24 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <twz/sys.h>
 void twix_log(char *str, ...)
 {
-	static int twix_log_fd = 0;
-	if(!twix_log_fd) {
-		twix_log_fd = linux_sys_dup(2);
-	}
+	// static int twix_log_fd = 0;
+	// if(twix_log_fd <= 0) {
+	// twix_log_fd = linux_sys_dup(2);
+	//}
+	// int fd = twix_log_fd > 0 ? twix_log_fd : 2;
 	char buf[2048];
 	va_list ap;
 	va_start(ap, str);
 	vsnprintf(buf, sizeof(buf), str, ap);
 	va_end(ap);
-	twix_syscall(LINUX_SYS_write, twix_log_fd, (long)buf, strlen(buf), 0, 0, 0);
+	// debug_printf("::: %d: %s\n", fd, buf);
+	__sys_debug_print(buf, strlen(buf));
+	//	debug_printf(buf);
+	// twix_syscall(LINUX_SYS_write, fd, (long)buf, strlen(buf), 0, 0, 0);
+	// twix_syscall(LINUX_SYS_write, twix_log_fd, (long)buf, strlen(buf), 0, 0, 0);
 }
 
 static long twix_syscall_frame(struct twix_register_frame *frame,
