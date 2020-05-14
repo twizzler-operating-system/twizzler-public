@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <pthread.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/wait.h>
@@ -167,20 +168,31 @@ void start_login(void)
 }
 
 #include <twz/view.h>
-void logmain(void *arg)
+
+pthread_cond_t logging_ready = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t logging_ready_lock = PTHREAD_MUTEX_INITIALIZER;
+
+void *logmain(void *arg)
 {
 	kso_set_name(NULL, "[instance] init-logger");
-	objid_t *lid = twz_object_lea(twz_stdstack, arg);
+	//objid_t *lid = twz_object_lea(twz_stdstack, arg);
+	objid_t *lid = arg;
 
 	twzobj sobj;
 	twz_object_init_guid(&sobj, *lid, FE_READ | FE_WRITE);
-	twz_thread_ready(NULL, THRD_SYNC_READY, 1);
+
+	pthread_mutex_lock(&logging_ready_lock);
+	pthread_cond_signal(&logging_ready);
+	pthread_mutex_unlock(&logging_ready_lock);
+
+	//twz_thread_ready(NULL, THRD_SYNC_READY, 1);
 	for(;;) {
 		char buf[128];
 		memset(buf, 0, sizeof(buf));
 		ssize_t r = bstream_read(&sobj, buf, 127, 0);
 		__sys_debug_print(buf, r);
 	}
+	return NULL;
 }
 
 #include <twz/pty.h>
@@ -247,13 +259,6 @@ void timespec_diff(struct timespec *start, struct timespec *stop, struct timespe
 }
 
 void slab_test();
-#include <pthread.h>
-
-void *_th_test(void *a)
-{
-	int x;
-	fprintf(stderr, "!!!! INIT THREAD: %p\n", &x);
-}
 
 int main()
 {
@@ -482,12 +487,22 @@ int main()
 		abort();
 	}
 
+	pthread_t logging_thread;
+	pthread_create(&logging_thread, NULL, logmain, &lid);
+
+	pthread_mutex_lock(&logging_ready_lock);
+	pthread_cond_wait(&logging_ready, &logging_ready_lock);
+	pthread_mutex_unlock(&logging_ready_lock);
+#if 0
 	struct thread lthr;
 	if((r = twz_thread_spawn(
 	      &lthr, &(struct thrd_spawn_args){ .start_func = logmain, .arg = &lid }))) {
 		EPRINTF("failed to spawn logger");
 		abort();
 	}
+#endif
+
+	
 
 	if(twz_thread_wait(1, (struct thread *[]){ &lthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL)
 	   < 0) {
@@ -522,8 +537,6 @@ int main()
 
 	term_ready = true;
 
-	pthread_t th;
-	 pthread_create(&th, NULL, _th_test, NULL);
 	/* start devices */
 	twzobj root;
 	twz_object_init_guid(&root, 1, FE_READ);
