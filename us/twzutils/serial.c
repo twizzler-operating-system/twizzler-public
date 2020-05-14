@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <pthread.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <twz/bstream.h>
@@ -201,7 +202,7 @@ ssize_t get_input(char *buf, size_t len)
 	return c;
 }
 
-void somain(void *a)
+void *somain(void *a)
 {
 	(void)a;
 	snprintf(twz_thread_repr_base()->hdr.name, KSO_NAME_MAXLEN, "[instance] serial.output");
@@ -231,6 +232,7 @@ void somain(void *a)
 			serial_putc(buf[i]);
 		}
 	}
+	return NULL;
 }
 
 int main(int argc, char **argv)
@@ -256,18 +258,8 @@ int main(int argc, char **argv)
 	setup_pty(80, 25);
 	dr = twz_object_base(&ks_obj);
 
-	struct thread kthr;
-	if((r = twz_thread_spawn(
-	      &kthr, &(struct thrd_spawn_args){ .start_func = somain, .arg = NULL }))) {
-		fprintf(stderr, "failed to spawn kb thread");
-		abort();
-	}
-
-	if(twz_thread_wait(1, (struct thread *[]){ &kthr }, (int[]){ THRD_SYNC_READY }, NULL, NULL)
-	   < 0) {
-		fprintf(stderr, "failed to wait for thread\n");
-		abort();
-	}
+	pthread_t thrd;
+	pthread_create(&thrd, NULL, somain, NULL);
 
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
 		fprintf(stderr, "failed to mark ready");

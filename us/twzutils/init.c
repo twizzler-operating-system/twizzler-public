@@ -500,7 +500,6 @@ int main()
 		EPRINTF("failed to spawn logger");
 		abort();
 	}
-#endif
 
 	
 
@@ -509,6 +508,7 @@ int main()
 		EPRINTF("failed to wait for logging thread\n");
 		abort();
 	}
+#endif
 	objid_t si;
 	r = twz_name_resolve(NULL, "usr_bin_init.sctx", NULL, 0, &si);
 	if(r) {

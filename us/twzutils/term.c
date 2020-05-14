@@ -1,4 +1,5 @@
 #include <libgen.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <termios.h>
@@ -74,7 +75,7 @@ static struct termios *termios;
 
 void process_keyboard(twzobj *, char *, size_t);
 
-void kbmain(void *a)
+void *kbmain(void *a)
 {
 	(void)a;
 	kso_set_name(NULL, "[instance] term.input");
@@ -794,6 +795,11 @@ int main(int argc, char **argv)
 	}
 
 	fb_putc(&fb, 0);
+
+	pthread_t thrd;
+	pthread_create(&thrd, NULL, kbmain, NULL);
+
+#if 0
 	struct thread kthr;
 	if((r = twz_thread_spawn(
 	      &kthr, &(struct thrd_spawn_args){ .start_func = kbmain, .arg = NULL }))) {
@@ -806,7 +812,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "failed to wait for thread\n");
 		abort();
 	}
-
+#endif
 	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
 		fprintf(stderr, "failed to mark ready");
 		abort();
