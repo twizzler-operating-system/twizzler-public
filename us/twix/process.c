@@ -631,13 +631,13 @@ static __inline__ unsigned long long rdtsc(void)
 
 long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t off)
 {
-	//twix_log("sys_mmap: %p %lx %x %x %d %lx\n", addr, len, prot, flags, fd, off);
+	// twix_log("sys_mmap: %p %lx %x %x %d %lx\n", addr, len, prot, flags, fd, off);
 	if(fd >= 0) {
 		//	size_t s = rdtsc();
 		long ret = __internal_mmap_object(addr, len, prot, flags, fd, off);
 		//	size_t e = rdtsc();
 		//	debug_printf("mmap time %ld\n", e - s);
-	//	twix_log("      ==>> %lx\n", ret);
+		//	twix_log("      ==>> %lx\n", ret);
 		return ret;
 	}
 	if(addr != NULL && (flags & MAP_FIXED)) {
@@ -669,7 +669,7 @@ long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t 
 
 	long ret = (long)(base + *next);
 	*next += len;
-	//twix_log("      ==>> %lx\n", ret);
+	// twix_log("      ==>> %lx\n", ret);
 	return ret;
 }
 
@@ -841,10 +841,8 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		return r;
 	}
 
-	twz_object_tie(twz_stdthread, &view, TIE_UNTIE);
-	twz_object_tie(twz_stdthread, &stack, TIE_UNTIE);
-	// twz_object_unwire(NULL, &view);
-	// twz_object_unwire(NULL, &stack);
+	twz_object_tie(NULL, &view, TIE_UNTIE);
+	twz_object_tie(NULL, &stack, TIE_UNTIE);
 	twz_object_release(&view);
 	twz_object_release(&stack);
 

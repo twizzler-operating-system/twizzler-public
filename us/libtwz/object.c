@@ -181,7 +181,14 @@ EXTERNAL
 int twz_object_tie(twzobj *p, twzobj *c, int flags)
 {
 	_Static_assert(TIE_UNTIE == OTIE_UNTIE, "");
-	return sys_otie(twz_object_guid(p), twz_object_guid(c), flags);
+	objid_t id;
+	if(p) {
+		id = twz_object_guid(p);
+	} else {
+		struct twzthread_repr *tr = twz_thread_repr_base();
+		id = tr->reprid;
+	}
+	return sys_otie(id, twz_object_guid(c), flags);
 }
 
 EXTERNAL

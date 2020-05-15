@@ -37,14 +37,6 @@ int twz_thread_release(struct thread *thrd)
 	return 0;
 }
 
-twzobj *__twz_get_stdthread_obj(void)
-{
-	static _Thread_local twzobj *_Atomic obj = NULL;
-	obj = malloc(sizeof(*obj));
-	*obj = twz_object_from_ptr(SLOT_TO_VADDR(TWZSLOT_THRD));
-	return obj;
-}
-
 twzobj *__twz_get_stdstack_obj(void)
 {
 	static twzobj *_Atomic obj = NULL;

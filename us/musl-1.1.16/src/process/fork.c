@@ -17,6 +17,7 @@ pid_t fork(void)
 	sigset_t set;
 	__fork_handler(-1);
 	__block_all_sigs(&set);
+
 #ifdef SYS_fork
 	ret = syscall(SYS_fork);
 #else
@@ -33,3 +34,4 @@ pid_t fork(void)
 	__fork_handler(!ret);
 	return ret;
 }
+

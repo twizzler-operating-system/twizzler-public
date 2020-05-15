@@ -1075,6 +1075,7 @@ static struct dso *load_library(const char *name, struct dso *needed_by)
 			& (p->tls.align-1);
 		p->tls.offset = tls_offset;
 #endif
+
 		p->new_dtv = (void *)(-sizeof(size_t) &
 			(uintptr_t)(p->name+strlen(p->name)+sizeof(size_t)));
 		p->new_tls = (void *)(p->new_dtv + n_th*(tls_cnt+1));
@@ -1365,11 +1366,13 @@ void __dls2(unsigned char *base, size_t *sp)
 	Ehdr *ehdr = (void *)ldso.base;
 	ldso.name = ldso.shortname = "libc.so";
 	ldso.global = 1;
+#if 0
 	/* NOTE (dbittman): This is not in the original musl code; The libc ldso DSO struct does not get
 	 * a TLS ID, which (afaik) means libc cannot use thread-local storage itself. That may be by
 	 * design. However, Twizzler's Twix does use it, and is, at the moment, linked into libc.so
 	 * directly. We may need to revisit this later. */
 	ldso.tls_id = 1;
+#endif
 	ldso.phnum = ehdr->e_phnum;
 	ldso.phdr = laddr(&ldso, ehdr->e_phoff);
 	ldso.phentsize = ehdr->e_phentsize;

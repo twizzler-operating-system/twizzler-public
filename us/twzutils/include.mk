@@ -1,4 +1,4 @@
-TWZUTILS=init login nls shell input pcie serial term bstream pty tst nvme kls lscpu bench kvdr lsmem dlt init_bootstrap
+TWZUTILS=init login nls input pcie serial term tst nvme kls lscpu bench kvdr lsmem init_bootstrap
 # TWZUTILS+=sqb
 
 LIBS_tst=-lncurses
