@@ -61,6 +61,8 @@ long linux_sys_stat(const char *path, struct stat *sb)
 
 	struct metainfo *mi = twz_object_meta(&obj);
 	sb->st_size = mi->sz;
+	sb->st_ino = (uint64_t)twz_object_guid(&obj);
+	sb->st_dev = (uint64_t)(twz_object_guid(&obj) >> 64);
 	sb->st_mode |= S_IXOTH | S_IROTH | S_IRWXU | S_IRGRP | S_IXGRP;
 	twz_object_release(&obj);
 	return 0;
@@ -101,12 +103,15 @@ long linux_sys_fstat(int fd, struct stat *sb)
 	struct file *fi = twix_get_fd(fd);
 	if(!fi)
 		return -EBADF;
+	//twix_log("fstat :: %d: " IDFMT "\n", fd, IDPR(twz_object_guid(&fi->obj)));
 	int io = 0;
 	if(twz_object_getext(&fi->obj, TWZIO_METAEXT_TAG))
 		io = 1;
 	struct metainfo *mi = twz_object_meta(&fi->obj);
 	memset(sb, 0, sizeof(*sb));
 	sb->st_size = mi->sz;
+	sb->st_ino = (uint64_t)twz_object_guid(&fi->obj);
+	sb->st_dev = (uint64_t)(twz_object_guid(&fi->obj) >> 64);
 	sb->st_mode = (io ? S_IFIFO : S_IFREG) | S_IXOTH | S_IROTH | S_IRWXU | S_IRGRP | S_IXGRP;
 	return 0;
 	return -ENOSYS;
@@ -114,7 +119,7 @@ long linux_sys_fstat(int fd, struct stat *sb)
 
 long linux_sys_faccessat(int dirfd, const char *pathname, int mode, int flags)
 {
-	// twix_log("ACCESS: (%d) %s\n", dirfd, pathname);
+	//twix_log("ACCESS: (%d) %s: %o\n", dirfd, pathname, mode);
 	objid_t id;
 	int r = twix_openpathat(dirfd, pathname, flags, &id);
 

@@ -108,6 +108,9 @@ bool arch_vm_unmap(struct vm_context *ctx, uintptr_t virt)
 		pdpt[pdpt_idx] = 0;
 	}
 
+	/* TODO: shootdowns */
+	asm volatile("invlpg (%0)" ::"r"(virt));
+
 	return true;
 }
 

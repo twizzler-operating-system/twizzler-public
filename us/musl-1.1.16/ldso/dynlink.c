@@ -572,20 +572,25 @@ static void *map_library(int fd, struct dso *dso)
 	ssize_t l = read(fd, buf, sizeof buf);
 	eh = buf;
 	if (l<0) return 0;
-	if (l<sizeof *eh || (eh->e_type != ET_DYN && eh->e_type != ET_EXEC))
+	if (l<sizeof *eh || (eh->e_type != ET_DYN && eh->e_type != ET_EXEC)) {
 		goto noexec;
+	}
 	phsize = eh->e_phentsize * eh->e_phnum;
 	if (phsize > sizeof buf - sizeof *eh) {
 		allocated_buf = malloc(phsize);
 		if (!allocated_buf) return 0;
 		l = pread(fd, allocated_buf, phsize, eh->e_phoff);
 		if (l < 0) goto error;
-		if (l != phsize) goto noexec;
+		if (l != phsize) {
+			goto noexec;
+		}
 		ph = ph0 = allocated_buf;
 	} else if (eh->e_phoff + phsize > l) {
 		l = pread(fd, buf+1, phsize, eh->e_phoff);
 		if (l < 0) goto error;
-		if (l != phsize) goto noexec;
+		if (l != phsize) {
+			goto noexec;
+		}
 		ph = ph0 = (void *)(buf + 1);
 	} else {
 		ph = ph0 = (void *)((char *)buf + eh->e_phoff);
@@ -1019,7 +1024,7 @@ static struct dso *load_library(const char *name, struct dso *needed_by)
 		return 0;
 	}
 	for (p=head->next; p; p=p->next) {
-		if (p->dev == st.st_dev && p->ino == st.st_ino && 0 /* TODO (dbittman): Twizzler doesn't do inodes, so this check will always fail. */) {
+		if (p->dev == st.st_dev && p->ino == st.st_ino) {// && 0 /* TODO (dbittman): Twizzler doesn't do inodes, so this check will always fail. */) {
 			/* If this library was previously loaded with a
 			 * pathname but a search found the same inode,
 			 * setup its shortname so it can be found by name. */
