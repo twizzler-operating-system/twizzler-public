@@ -108,9 +108,8 @@ SYSLIBS=$(BUILDDIR)/us/sysroot/usr/lib/libtwz.a $(BUILDDIR)/us/sysroot/usr/lib/l
 
 -include $(BUILDDIR)/us/*/*.d
 
-include us/twzutils/include.mk
-include us/testbench/include.mk
-include us/sectest/include.mk
+include us/bin/include.mk
+include us/drivers/include.mk
 include us/playground/include.mk
 
 #TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .obj,$(foreach x,$(PROGS),twzutils/$(x))))

@@ -1,7 +1,7 @@
-SECTEST_SRCS=$(addprefix us/sectest/,main.c)
+SECTEST_SRCS=$(addprefix us/bin/sectest/,main.c)
 SECTEST_OBJS=$(addprefix $(BUILDDIR)/,$(SECTEST_SRCS:.c=.o))
 
-SECTEST2_SRCS=$(addprefix us/sectest/,stlib.c)
+SECTEST2_SRCS=$(addprefix us/bin/sectest/,stlib.c)
 SECTEST2_OBJS=$(addprefix $(BUILDDIR)/,$(SECTEST2_SRCS:.c=.o))
 
 SECTEST_LIBS=-lubsan -Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive -ltomcrypt -ltommath
@@ -41,7 +41,7 @@ $(BUILDDIR)/us/sysroot/usr/bin/st-lib: $(SECTEST2_OBJS) $(SYSROOT_READY) $(SYSLI
 	#@mv $@.elf $(BUILDDIR)/us/sectest/$(notdir $@)
 
 
-$(BUILDDIR)/us/sectest/%.o: us/sectest/%.c $(MUSL_HDRS)
+$(BUILDDIR)/us/bin/sectest/%.o: us/bin/sectest/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo "[CC]      $@"
 	@$(TWZCC) $(TWZCFLAGS) $(SECTEST_CFLAGS) -o $@ -c -MD $< -fPIC
