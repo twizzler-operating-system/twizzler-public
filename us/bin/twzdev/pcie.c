@@ -16,6 +16,7 @@ objid_t pcie_cs_oid;
 static twzobj pids;
 
 static struct pcie_function *pcie_list = NULL;
+int create_pty_pair(char *server, char *client);
 
 static void pcie_print_function(struct pcie_function *pf, bool nums)
 {
@@ -241,6 +242,7 @@ static void pcie_load_driver(struct pcie_function *pf)
 {
 	struct pcie_function_header *hdr = twz_device_getds(&pf->cobj);
 	if(hdr->vendorid == 0x1234 && hdr->deviceid == 0x1111) {
+		create_pty_pair("/dev/pty/pty0", "/dev/pty/ptyc0");
 		twz_name_assign(pf->cid, "/dev/framebuffer");
 		return;
 	}
