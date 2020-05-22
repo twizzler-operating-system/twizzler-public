@@ -98,6 +98,11 @@ int main()
 {
 	printf("Hello from device manager\n");
 
+	if(mkdir("/dev", 0700) == -1) {
+		if(errno != EEXIST) {
+			fprintf(stderr, "failed to make /dev\n");
+		}
+	}
 	/* start devices */
 	twzobj root;
 	twz_object_init_guid(&root, 1, FE_READ);
