@@ -48,45 +48,46 @@ int create_pty_pair(char *server, char *client)
 	return 0;
 }
 
-void start_stream_device(objid_t id)
+static void start_stream_device(objid_t id)
 {
 	twzobj dobj;
-	twz_object_init_guid(&dobj, id, FE_READ);
-
-	int r;
-	objid_t uid;
-	if(twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_TIED_NONE, 0, 0, &uid)) {
-		fprintf(stderr, "failed to create object for stream\n");
-		return;
-	}
-
-	twzobj stream;
-	twz_object_init_guid(&stream, uid, FE_READ | FE_WRITE);
-
-	if((r = bstream_obj_init(&stream, twz_object_base(&stream), 16))) {
-		fprintf(stderr, "failed to init bstream");
-		abort();
-	}
+	twz_object_init_guid(&dobj, id, FE_READ | FE_WRITE);
 
 	struct device_repr *dr = twz_object_base(&dobj);
 	fprintf(stderr, "[init] starting device driver: %d %s\n", dr->device_id, dr->hdr.name);
-	int status;
+	int r;
 	if(dr->device_id == DEVICE_ID_KEYBOARD) {
-		twz_name_assign(uid, "/dev/keyboard");
+		twzobj stream;
+		if(twz_object_new(&stream,
+		     NULL,
+		     NULL,
+		     TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_VOLATILE | TWZ_OC_TIED_NONE)) {
+			fprintf(stderr, "failed to create stream object\n");
+			return;
+		}
+
+		if((r = bstream_obj_init(&stream, twz_object_base(&stream), 16))) {
+			fprintf(stderr, "failed to init bstream");
+			return;
+		}
+
+		twz_name_assign(twz_object_guid(&stream), "/dev/keyboard");
+		twz_name_assign(twz_object_guid(&dobj), "/dev/raw/keyboard");
+
 		if(!fork()) {
 			kso_set_name(NULL, "[instance] keyboard");
-			twz_name_assign(id, "/dev/raw/keyboard");
 			execv("/usr/bin/keyboard",
 			  (char *[]){ "/usr/bin/keyboard", "/dev/raw/keyboard", "/dev/keyboard", NULL });
 			exit(1);
 		}
-		// twz_name_assign(uid, "dev:input:keyboard");
+
+		twz_object_release(&stream);
 	}
 	if(dr->device_id == DEVICE_ID_SERIAL) {
 		create_pty_pair("/dev/pty/ptyS0", "/dev/pty/ptyS0c");
+		twz_name_assign(twz_object_guid(&dobj), "/dev/raw/serial");
 		if(!fork()) {
 			kso_set_name(NULL, "[instance] serial");
-			twz_name_assign(id, "/dev/raw/serial");
 			execv("/usr/bin/serial",
 			  (char *[]){ "/usr/bin/serial", "/dev/raw/serial", "/dev/pty/ptyS0", NULL });
 			exit(1);
@@ -107,7 +108,6 @@ int main()
 			continue;
 		switch(k->type) {
 			twzobj dobj;
-			int pid, status;
 			case KSO_DEVBUS:
 				twz_object_init_guid(&dobj, k->id, FE_READ | FE_WRITE);
 				struct bus_repr *br = twz_bus_getrepr(&dobj);
@@ -137,7 +137,6 @@ int main()
 		r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
 		if(r) {
 			fprintf(stderr, "failed to detach: %d\n", r);
-			twz_thread_exit(1);
 		}
 
 		execvp("nvme", (char *[]){ "nvme", "/dev/nvme", NULL });

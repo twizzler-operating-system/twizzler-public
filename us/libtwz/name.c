@@ -125,7 +125,6 @@ int twz_name_assign(objid_t id, const char *name)
 	if(!__name_init())
 		return -ENOTSUP;
 
-	twix_log("Assign: %s\n", name);
 	char *d1 = alloca(strlen(name) + 1);
 	char *d2 = alloca(strlen(name) + 1);
 
@@ -163,7 +162,6 @@ int twz_name_assign(objid_t id, const char *name)
 	if(r)
 		return r;
 
-	twix_log("assign nameL %s\n", ch_name);
 	r = twz_hier_assign_name(&parent, ch_name, NAME_ENT_REGULAR, id);
 	if(r)
 		return r;
