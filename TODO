@@ -1,0 +1,50 @@
+ensure that initrd load or whatever doesn't overwrite memory!!!
+
+change struct declarations to helper functions
+
+the virtualziation info not 0 thing happens on kernel stack overflow.
+
+Wake up other cores to run page_idle_zero.
+
+perf regression as memory fills?
+
+good story for running out of resources
+
+finishing audit (add EXTERNAL, etc) to libtwz
+
+fix twix basic design
+
+document, example programs
+
+add persistent memory support
+
+real hardware
+
+basic performance optimizing and profiling
+
+fix up device model, clean that up
+
+add some utilities for checking system health, devices, etc.
+
+get term working again
+
+factor out init into device manager, logging manager, etc
+
+have a clean services system
+
+finish security
+  - audit
+  - safe arithmetic
+  - no mem leaks
+  - cache results
+  - gates
+  - sanity check
+
+implement more tests in testbench
+
+improve scheduler
+  - basic topology info
+  - actually put cores to sleep
+
+optimize memory use of thread struct
+

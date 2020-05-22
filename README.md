@@ -1,6 +1,6 @@
 # README #
 
-Kernel and userspace for Twizzler. Requires a toolchain to build. Currently setting up core kernel components.
+Kernel and userspace for Twizzler. Requires a toolchain to build (see Building).
 
 Building
 --------
