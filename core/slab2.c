@@ -46,7 +46,7 @@ static inline size_t slab_size(struct slabcache *sc, size_t sz)
 			best = i;
 	}
 
-	printk("%s: selected %d\n", sc->name, best);
+	// printk("%s: selected %d\n", sc->name, best);
 	sc->__cached_nr_obj = best;
 	return __slab_size(sz, sc->__cached_nr_obj);
 
