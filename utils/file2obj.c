@@ -62,8 +62,8 @@ static void ustar_fill(struct ustar_header *h, const char *prefix, const char *n
 	strncpy(h->name, name, 99);
 	strncpy(h->prefix, prefix, 154);
 	strcpy(h->magic, "ustar");
-	strcpy(h->mode, "0644");
-	strcpy(h->vers, "00");
+	memcpy(h->mode, "0644", 4);
+	memcpy(h->vers, "00", 2);
 	h->type = '0';
 	int_to_octal(sz, h->size);
 	memset(h->checksum, ' ', 8);

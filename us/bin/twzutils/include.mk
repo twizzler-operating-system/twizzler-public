@@ -40,9 +40,10 @@ $(BUILDDIR)/us/bin/twzutils/%.opp: us/bin/twzutils/%.cpp $(MUSL_HDRS)
 	@echo "[CC]      $@"
 	@$(TWZCXX) $(TWZCFLAGS) $(TWZUTILSCFLAGS) -o $@ -c -MD $<
 
-$(BUILDDIR)/us/sysroot/usr/share/pcieids: /usr/share/hwdata/pci.ids
+$(BUILDDIR)/us/sysroot/usr/share/pcieids:
 	@mkdir -p $(dir $@)
-	@cp $< $@
+	@-cp /usr/share/misc/pci.ids $@
+	@-cp /usr/share/hwdata/pci.ids $@
 
 $(BUILDDIR)/us/sysroot/usr/share/mountains.jpeg: us/mountains.jpeg
 	@mkdir -p $(dir $@)
