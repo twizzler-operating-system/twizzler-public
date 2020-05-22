@@ -48,50 +48,80 @@ int create_pty_pair(char *server, char *client)
 	return 0;
 }
 
+int create_bstream(char *name)
+{
+	twzobj stream;
+	int r;
+	if((r = twz_object_new(&stream,
+	      NULL,
+	      NULL,
+	      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_VOLATILE | TWZ_OC_TIED_NONE))) {
+		return r;
+	}
+
+	if((r = bstream_obj_init(&stream, twz_object_base(&stream), 16))) {
+		return r;
+	}
+
+	return twz_name_assign(twz_object_guid(&stream), name);
+}
+
+struct isa_desc {
+	uint64_t id;
+	const char *drv;
+	const char *desc;
+	int pty;
+};
+struct isa_desc isa_devices[] = { { DEVICE_ID_KEYBOARD, "keyboard", "PS/2 Keyboard Driver", 0 },
+	{ DEVICE_ID_SERIAL, "serial", "Serial Port Driver", 1 } };
+
 static void start_stream_device(objid_t id)
 {
 	twzobj dobj;
 	twz_object_init_guid(&dobj, id, FE_READ | FE_WRITE);
-
 	struct device_repr *dr = twz_object_base(&dobj);
-	fprintf(stderr, "[init] starting device driver: %d %s\n", dr->device_id, dr->hdr.name);
-	int r;
-	if(dr->device_id == DEVICE_ID_KEYBOARD) {
-		twzobj stream;
-		if(twz_object_new(&stream,
-		     NULL,
-		     NULL,
-		     TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_VOLATILE | TWZ_OC_TIED_NONE)) {
-			fprintf(stderr, "failed to create stream object\n");
-			return;
+
+	struct isa_desc *desc = NULL;
+
+	for(size_t i = 0; i < sizeof(isa_devices) / sizeof(isa_devices[0]) && desc == NULL; i++) {
+		if(isa_devices[i].id == dr->device_id) {
+			desc = &isa_devices[i];
 		}
-
-		if((r = bstream_obj_init(&stream, twz_object_base(&stream), 16))) {
-			fprintf(stderr, "failed to init bstream");
-			return;
-		}
-
-		twz_name_assign(twz_object_guid(&stream), "/dev/keyboard");
-		twz_name_assign(twz_object_guid(&dobj), "/dev/raw/keyboard");
-
-		if(!fork()) {
-			kso_set_name(NULL, "[instance] keyboard");
-			execv("/usr/bin/keyboard",
-			  (char *[]){ "/usr/bin/keyboard", "/dev/raw/keyboard", "/dev/keyboard", NULL });
-			exit(1);
-		}
-
-		twz_object_release(&stream);
 	}
-	if(dr->device_id == DEVICE_ID_SERIAL) {
-		create_pty_pair("/dev/pty/ptyS0", "/dev/pty/ptyS0c");
-		twz_name_assign(twz_object_guid(&dobj), "/dev/raw/serial");
-		if(!fork()) {
-			kso_set_name(NULL, "[instance] serial");
-			execv("/usr/bin/serial",
-			  (char *[]){ "/usr/bin/serial", "/dev/raw/serial", "/dev/pty/ptyS0", NULL });
-			exit(1);
-		}
+
+	if(desc == NULL) {
+		fprintf(stderr, "[twzdev]: unknown device ID %d\n", dr->device_id);
+		return;
+	}
+
+	fprintf(stderr, "[twzdev] starting device driver: %s\n", desc->desc);
+
+	char *target_name;
+	if(desc->pty) {
+		static int pty_ctr = 0;
+		char *ps;
+		char *pc;
+		asprintf(&ps, "/dev/pty/ptyS%d", pty_ctr);
+		asprintf(&pc, "/dev/pty/ptyS%dc", pty_ctr);
+		create_pty_pair(ps, pc);
+		pty_ctr++;
+		target_name = ps;
+	} else {
+		char *s;
+		asprintf(&s, "/dev/%s", desc->drv);
+		target_name = s;
+		create_bstream(s);
+	}
+	char *raw_name;
+	asprintf(&raw_name, "/dev/raw/%s", desc->drv);
+	twz_name_assign(twz_object_guid(&dobj), raw_name);
+
+	char *exec;
+	asprintf(&exec, "/usr/bin/%s", desc->drv);
+	if(!fork()) {
+		kso_set_name(NULL, "[driver] %s", desc->drv);
+		execl(exec, exec, raw_name, target_name, NULL);
+		exit(1);
 	}
 }
 

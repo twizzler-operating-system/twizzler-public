@@ -190,15 +190,6 @@ static void iommu_set_context_entry(struct iommu *im,
 #include <object.h>
 #include <processor.h>
 
-static inline void test_and_allocate(uintptr_t *loc, uint64_t attr)
-{
-	(void)attr;
-	if(!*loc) {
-		*loc = (uintptr_t)mm_physical_alloc(0x1000, PM_TYPE_DRAM, true) | (attr & RECUR_ATTR_MASK);
-		asm volatile("clflush %0" ::"m"(*loc));
-	}
-}
-
 static uintptr_t ept_phys;
 static void *ept_virt;
 static void *pdpts[512];
@@ -317,15 +308,16 @@ static struct interrupt_alloc_req _iommu_int_iaq[2] = {
 
 static int iommu_init(struct iommu *im)
 {
-	uint32_t vs = iommu_read32(im, IOMMU_REG_VERS);
+	/* TODO: verify caps and ecaps */
+	// uint32_t vs = iommu_read32(im, IOMMU_REG_VERS);
 	uint64_t cap = iommu_read64(im, IOMMU_REG_CAP);
-	uint64_t ecap = iommu_read64(im, IOMMU_REG_EXCAP);
+	// uint64_t ecap = iommu_read64(im, IOMMU_REG_EXCAP);
 	im->cap = cap;
 
 	ept_virt = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
 	ept_phys = mm_vtop(ept_virt);
 
-	printk(":: %lx %lx %x\n", cap, ecap, vs);
+	// printk(":: %lx %lx %x\n", cap, ecap, vs);
 	/*	printk("nfr=%lx, sllps=%lx, fro=%lx, nd=%ld\n",
 	      IOMMU_CAP_NFR(cap),
 	      IOMMU_CAP_SLLPS(cap),
@@ -436,7 +428,7 @@ __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void dmar_in
 
 		if(1 || remap->flags & 1 /* PCIe include all */) {
 			iommus[ie].base =
-			  pmap_allocate(remap->reg_base_addr, 0x1000 /* TODO length */, PMAP_UC);
+			  (uint64_t)pmap_allocate(remap->reg_base_addr, 0x1000 /* TODO length */, PMAP_UC);
 			//	iommus[ie].base = (uint64_t)mm_ptov(remap->reg_base_addr);
 			iommus[ie].pcie_seg = remap->segnr;
 			ie++;

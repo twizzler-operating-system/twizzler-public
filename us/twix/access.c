@@ -153,6 +153,6 @@ long linux_sys_faccessat(int dirfd, const char *pathname, int mode, int flags)
 long linux_sys_access(const char *pathname, int mode)
 {
 	long r = linux_sys_faccessat(AT_FDCWD, pathname, mode, 0);
-	twix_log("  :: %ld\n", r);
+	// twix_log("  :: %ld\n", r);
 	return r;
 }
