@@ -1,14 +1,58 @@
 #include "syscalls.h"
 #include <dirent.h>
 #include <errno.h>
+#include <libgen.h>
+#include <limits.h>
+#include <stdlib.h>
 #include <string.h>
 #include <twz/hier.h>
 #include <twz/name.h>
+#include <unistd.h>
 
 ssize_t linux_sys_readlink(const char *path, char *buf, size_t bufsz)
 {
 	twzobj *root = twz_name_get_root();
 	return twz_hier_readlink(root, path, buf, bufsz);
+}
+
+int linux_sys_mkdir(char *path, int mode)
+{
+	// twix_log(":: mkdir :::%s\n", path);
+	/* TODO: reentrant */
+	size_t len = strlen(path);
+	if(len >= PATH_MAX) {
+		return -EINVAL;
+	}
+
+	int r;
+	if(linux_sys_access(path, F_OK) == 0) {
+		//	twix_log("EXIST\n");
+		return -EEXIST;
+	}
+
+	char *dup1[PATH_MAX + 1];
+	char *dup2[PATH_MAX + 1];
+	strcpy(dup1, path);
+	strcpy(dup2, path);
+
+	char *dir = dirname(dup1);
+	char *base = basename(dup2);
+
+	// twix_log(":: mkdir: %s :: %s\n", dir, base);
+
+	twzobj po;
+	if((r = twz_object_init_name(&po, dir, FE_READ | FE_WRITE))) {
+		return r;
+	}
+
+	twzobj ns;
+	r = twz_hier_namespace_new(&ns, &po, base);
+
+	twz_object_release(&ns);
+	twz_object_release(&po);
+
+	(void)mode;
+	return r;
 }
 
 struct linux_dirent64 {

@@ -38,6 +38,8 @@
 
 #define LINUX_SYS_uname 63
 
+#define LINUX_SYS_mkdir 83
+
 #define LINUX_SYS_readlink 89
 
 #define LINUX_SYS_getuid 102
@@ -125,6 +127,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_dup2] = linux_sys_dup2,
 	[LINUX_SYS_dup3] = linux_sys_dup3,
 	[LINUX_SYS_getrandom] = linux_sys_getrandom,
+	[LINUX_SYS_mkdir] = linux_sys_mkdir,
 };
 
 __attribute__((unused)) static const char *syscall_names[] = {

@@ -67,10 +67,10 @@ int twz_hier_namespace_new(twzobj *ns, twzobj *parent, const char *name)
 
 	hdr->magic = NAMESPACE_MAGIC;
 	bool ok = true;
-	ok = ok && twz_hier_assign_name(ns, ".", NAME_ENT_NAMESPACE, twz_object_guid(ns));
-	ok = ok && twz_hier_assign_name(ns, "..", NAME_ENT_NAMESPACE, twz_object_guid(parent));
+	ok = ok && (twz_hier_assign_name(ns, ".", NAME_ENT_NAMESPACE, twz_object_guid(ns)) == 0);
+	ok = ok && (twz_hier_assign_name(ns, "..", NAME_ENT_NAMESPACE, twz_object_guid(parent)) == 0);
 
-	ok = ok && twz_hier_assign_name(parent, name, NAME_ENT_NAMESPACE, twz_object_guid(ns));
+	ok = ok && (twz_hier_assign_name(parent, name, NAME_ENT_NAMESPACE, twz_object_guid(ns)) == 0);
 
 	if(!ok) {
 		if(twz_object_delete(ns, 0)) {

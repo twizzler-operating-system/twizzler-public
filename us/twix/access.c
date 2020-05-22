@@ -103,7 +103,7 @@ long linux_sys_fstat(int fd, struct stat *sb)
 	struct file *fi = twix_get_fd(fd);
 	if(!fi)
 		return -EBADF;
-	//twix_log("fstat :: %d: " IDFMT "\n", fd, IDPR(twz_object_guid(&fi->obj)));
+	// twix_log("fstat :: %d: " IDFMT "\n", fd, IDPR(twz_object_guid(&fi->obj)));
 	int io = 0;
 	if(twz_object_getext(&fi->obj, TWZIO_METAEXT_TAG))
 		io = 1;
@@ -119,9 +119,12 @@ long linux_sys_fstat(int fd, struct stat *sb)
 
 long linux_sys_faccessat(int dirfd, const char *pathname, int mode, int flags)
 {
-	//twix_log("ACCESS: (%d) %s: %o\n", dirfd, pathname, mode);
+	// twix_log("ACCESS: (%d) %s: %o\n", dirfd, pathname, mode);
 	objid_t id;
 	int r = twix_openpathat(dirfd, pathname, flags, &id);
+	if(r) {
+		return r;
+	}
 
 	twzobj obj;
 	r = twz_object_init_guid(&obj, id, FE_READ);

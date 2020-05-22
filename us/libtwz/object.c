@@ -39,13 +39,7 @@ EXTERNAL void twz_object_setsz(twzobj *obj, enum twz_object_setsz_mode mode, ssi
 {
 	struct metainfo *mi = twz_object_meta(obj);
 	if(!(mi->flags & MIF_SZ)) {
-		if(mode == TWZ_OSSM_RELATIVE) {
-			struct fault_object_info fi = twz_fault_build_object_info(twz_object_guid(obj),
-			  __builtin_extract_return_addr(__builtin_return_address(0)),
-			  NULL,
-			  FAULT_OBJECT_UNSIZED);
-			twz_fault_raise(FAULT_OBJECT, &fi);
-		}
+		mi->sz = 0;
 		mi->flags |= MIF_SZ;
 	}
 

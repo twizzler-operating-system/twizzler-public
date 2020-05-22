@@ -119,6 +119,7 @@ long linux_sys_set_tid_address();
 long linux_sys_fork(struct twix_register_frame *frame);
 long linux_sys_wait4(long pid, int *wstatus, int options, struct rusage *rusage);
 
+int linux_sys_mkdir(char *path, int mode);
 long linux_sys_getegid(void);
 long linux_sys_geteuid(void);
 long linux_sys_getgid(void);
