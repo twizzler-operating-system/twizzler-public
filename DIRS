@@ -1,0 +1,19 @@
+Directory Structure
+
+Each directory with a notable subdirectory structure will contain a DIRS file.
+
+arch: architecture-specific kernel code
+code: architecture-indendent kernel code
+doc: documentation
+include: headers for kernel
+lib: library code for kernel
+machine: machine-dependent kernel code
+projects: build configuration management
+third-party: third-party libraries for the kernel (libtommath, etc)
+tools: toolchain build system
+us: Twizzler userspace code
+utils: utilities for building and boostrapping
+
+Note that for architecture and machine dependent code directories, under these there are a set of
+directories, one per supported arch/machine.
+

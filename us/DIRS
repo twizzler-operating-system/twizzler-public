@@ -1,0 +1,12 @@
+bin: binaries for twizzler
+drivers: drivers (that are in userspace)
+include: include files.
+  - twz: Twizzler API headers. Files that start with an underscore must be #includable by the
+	kernel.
+
+libtwz: sources for the libOS and Twizzler standard library.
+musl-*: modified musl for Twizzler
+playground: a place to write test programs that are automatically compiled and added to sysroot.
+ports: port files and patches and scripts
+twix: linux syscall emulation library
+
