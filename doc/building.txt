@@ -1,8 +1,7 @@
 So you want to build Twizzler
 =============================
 
-This is an operating system kernel and userspace. Thus the build system is fairly complicated, so
-strap yourself in :)
+This is an operating system kernel and userspace, so the build is a little involved!
 
 Requirements: Linux, with some reasonable build environment (gcc, make, curl, etc). A reasonably
 modern x86_64 Intel system. Installed developement versions (includes headers and libraries) for
@@ -12,7 +11,7 @@ Note for Ubuntu users: Ubuntu uses dash as its shell by default. I have not test
 on Ubuntu.
 
 *If you don't have a suitable machine or don't want to set one up, ask me (Daniel) and I may be able
-to give you an account on one of mine that is know to work.*
+to give you an account on one of mine that is known to work.*
 
 A Quick Tour
 ------------
@@ -36,14 +35,12 @@ The following components will be build:
    * libtwz: The standard Twizzler library. Contains the libos, default fault handing logic, and
 	 functions to work with Twizzler concepts.
    * twix: emulation for unix (presents a Linux syscall interface).
-   * twzutils: a collection of Twizzler utilities (login, init, etc). Also contains drivers and gate
+   * bin/*, drivers/*: a collection of Twizzler utilities (login, init, etc). Also contains drivers and gate
 	 programs.
    * ports (under us/ports): a set of scripts that are used to auto-port third-party software.
 
 The three "core" userspace libraries (libtwz, twix, and musl) are typically all linked into a given
-C program automatically if you use the hosted toolchain (x86_64-pc-twizzler-musl-gcc). If you _also_
-link in libbacktrace (requires -Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive), then
-libtwz will print pretty backtraces on faults.
+C program automatically if you use the hosted toolchain (x86_64-pc-twizzler-musl-gcc).
 
 Code is built out-of-tree as part of a "project". A project is a configuration for the build system
 that specifies CONFIG_* variables and provides a location for built artifacts. The configuration of
@@ -66,7 +63,8 @@ in $BUILDDIR/us/sysroot. This will be where the ported programs, twzutils, libra
 installed to before the initrd is created.
 
 Finally, once built, the system can be tested with Qemu with the 'test' target for make. You may
-need to specify the nested option for the kvm_intel module.
+need to specify the nested option for the kvm_intel module because Twizzler makes use of the VTx
+hardware. This also means you'll need to test on an Intel system.
 
 Building Twizzer the First Time
 -------------------------------
