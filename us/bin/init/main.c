@@ -11,8 +11,6 @@
 #include <twz/thread.h>
 #include <unistd.h>
 
-#include <twz/driver/device.h>
-
 int __name_bootstrap(void);
 
 struct service_info {
@@ -79,55 +77,6 @@ void start_service(struct service_info *info)
 	    info->name, info->arg[0] ? info->arg : NULL, info->arg2[0] ? info->arg2 : NULL, NULL });
 	EPRINTF("failed to 2exec '%s': %d\n", info->name, r);
 	exit(1);
-}
-
-void start_stream_device(objid_t id)
-{
-	struct service_info drv_info = {
-		.name = "/usr/bin/pcie",
-		.sctx = 0,
-	};
-	int r;
-
-	twzobj dobj;
-	twz_object_init_guid(&dobj, id, FE_READ);
-
-	objid_t uid;
-	if(twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &uid)) {
-		EPRINTF("failed to create object for stream\n");
-		return;
-	}
-	sprintf(drv_info.arg2, IDFMT, IDPR(uid));
-
-	twzobj stream;
-	twz_object_init_guid(&stream, uid, FE_READ | FE_WRITE);
-
-	if((r = bstream_obj_init(&stream, twz_object_base(&stream), 16))) {
-		EPRINTF("failed to init bstream");
-		abort();
-	}
-
-	struct device_repr *dr = twz_object_base(&dobj);
-	EPRINTF("[init] starting device driver: %d %s\n", dr->device_id, dr->hdr.name);
-	int status;
-	if(dr->device_id == DEVICE_ID_KEYBOARD) {
-		if(!fork()) {
-			sprintf(drv_info.arg, IDFMT, IDPR(id));
-			drv_info.name = "/usr/bin/input";
-			start_service(&drv_info);
-		}
-		twz_name_assign(uid, "dev:input:keyboard");
-	}
-	if(dr->device_id == DEVICE_ID_SERIAL) {
-		create_pty_pair("dev:pty:ptyS0", "dev:pty:ptyS0c");
-		if(!fork()) {
-			kso_set_name(NULL, "[instance] serial");
-			twz_name_assign(id, "dev:raw:serial");
-			execv("/usr/bin/serial",
-			  (char *[]){ "/usr/bin/serial", "dev:raw:serial", "dev:pty:ptyS0", NULL });
-			exit(1);
-		}
-	}
 }
 
 void start_terminal(char *input, char *output, char *pty)
@@ -201,32 +150,33 @@ int create_pty_pair(char *server, char *client)
 {
 	twzobj pty_s, pty_c;
 
-	objid_t psid, pcid;
-
 	int r;
-	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &psid)))
-		return r;
-	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &pcid)))
-		return r;
-
-	if((r = twz_object_init_guid(&pty_s, psid, FE_READ | FE_WRITE))) {
+	if((r = twz_object_new(&pty_s,
+	      NULL,
+	      NULL,
+	      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_VOLATILE | TWZ_OC_TIED_NONE))) {
 		return r;
 	}
-	if((r = twz_object_init_guid(&pty_c, pcid, FE_READ | FE_WRITE))) {
+
+	if((r = twz_object_new(&pty_c,
+	      NULL,
+	      NULL,
+	      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_VOLATILE | TWZ_OC_TIED_NONE))) {
 		return r;
 	}
 
 	if((r = pty_obj_init_server(&pty_s, twz_object_base(&pty_s))))
 		return r;
+
 	struct pty_hdr *ps = twz_object_base(&pty_s);
 	if((r = pty_obj_init_client(&pty_c, twz_object_base(&pty_c), ps)))
 		return r;
 
-	if((r = twz_name_assign(psid, server))) {
+	if((r = twz_name_assign(twz_object_guid(&pty_s), server))) {
 		return r;
 	}
 
-	if((r = twz_name_assign(pcid, client))) {
+	if((r = twz_name_assign(twz_object_guid(&pty_c), client))) {
 		return r;
 	}
 
@@ -359,65 +309,11 @@ int main()
 
 	term_ready = true;
 
-	/* start devices */
-	twzobj root;
-	twz_object_init_guid(&root, 1, FE_READ);
-
-	struct kso_root_repr *rr = twz_object_base(&root);
-	struct service_info drv_info = {
-		.name = "/usr/bin/pcie",
-		.sctx = 0,
-	};
-
-	for(size_t i = 0; i < rr->count; i++) {
-		struct kso_attachment *k = &rr->attached[i];
-		if(!k->id || !k->type)
-			continue;
-		struct thread *dt = malloc(sizeof(*dt));
-		switch(k->type) {
-			twzobj dobj;
-			int pid, status;
-			case KSO_DEVBUS:
-				twz_object_init_guid(&dobj, k->id, FE_READ);
-				struct bus_repr *br = twz_bus_getrepr(&dobj);
-				if(br->bus_type == DEVICE_BT_PCIE) {
-					if(!(pid = fork())) {
-						sprintf(drv_info.arg, IDFMT, IDPR(k->id));
-						drv_info.name = "/usr/bin/pcie";
-						start_service(&drv_info);
-					}
-					wait(&status);
-				} else if(br->bus_type == DEVICE_BT_ISA) {
-					/* TODO: REALLY NEED TO GENERIC THIS KSO CHILDREN STUFF */
-					for(size_t i = 0; i < br->max_children; i++) {
-						struct kso_attachment *k = twz_object_lea(&dobj, &br->children[i]);
-						if(k->id == 0)
-							continue;
-						start_stream_device(k->id);
-					}
-
-				} else {
-					fprintf(stderr, "unknown bus_type: %d\n", br->bus_type);
-				}
-
-				break;
-		}
-	}
-
-#if 1
 	if(!fork()) {
-		kso_set_name(NULL, "[instance] nvme-driver");
-		r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
-		if(r) {
-			EPRINTF("failed to detach: %d\n", r);
-			twz_thread_exit(1);
-		}
-
-		execvp("nvme", (char *[]){ "nvme", "dev:controller:nvme", NULL });
-		EPRINTF("failed to start nvme driver\n");
-		exit(1);
+		execlp("twzdev", "twzdev", NULL);
 	}
-#endif
+	int status;
+	wait(&status);
 
 	if((r = create_pty_pair("dev:pty:pty0", "dev:pty:ptyc0"))) {
 		EPRINTF("failed to create pty pair\n");

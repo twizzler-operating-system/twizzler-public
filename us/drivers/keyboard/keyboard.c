@@ -47,21 +47,26 @@ int main(int argc, char **argv)
 	if(!kernel_side || !user_side)
 		abort();
 
-	objid_t ksid, usid;
-	objid_parse(kernel_side, strlen(kernel_side), &ksid);
-	objid_parse(user_side, strlen(user_side), &usid);
+	if((r = twz_object_init_name(&ks_obj, kernel_side, FE_READ | FE_WRITE))) {
+		fprintf(stderr, "failed to open kernel-side keyboard object\n");
+		return 1;
+	}
 
-	twz_object_init_guid(&ks_obj, ksid, FE_READ | FE_WRITE);
-	twz_object_init_guid(&us_obj, usid, FE_READ | FE_WRITE);
+	if((r = twz_object_init_name(&us_obj, user_side, FE_READ | FE_WRITE))) {
+		fprintf(stderr, "failed to open user-side keyboard object\n");
+		return 1;
+	}
+	// objid_t ksid, usid;
+	// objid_parse(kernel_side, strlen(kernel_side), &ksid);
+	// objid_parse(user_side, strlen(user_side), &usid);
+
+	// twz_object_init_guid(&ks_obj, ksid, FE_READ | FE_WRITE);
+	// twz_object_init_guid(&us_obj, usid, FE_READ | FE_WRITE);
 
 	dr = twz_object_base(&ks_obj);
 
 	if(sys_thrd_ctl(THRD_CTL_SET_IOPL, 3)) {
 		fprintf(stderr, "failed to set IOPL to 3\n");
-		abort();
-	}
-	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
-		fprintf(stderr, "failed to mark ready");
 		abort();
 	}
 

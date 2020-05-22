@@ -8,7 +8,6 @@
 #include <twz/driver/device.h>
 #include <twz/objctl.h>
 #include <twz/sys.h>
-#include <twz/thread.h>
 
 #include "pcie.h"
 
@@ -18,7 +17,7 @@ static twzobj pids;
 
 static struct pcie_function *pcie_list = NULL;
 
-void pcie_print_function(struct pcie_function *pf, bool nums)
+static void pcie_print_function(struct pcie_function *pf, bool nums)
 {
 	static bool _init = false;
 	if(!_init && !nums) {
@@ -146,7 +145,7 @@ void pcie_print_function(struct pcie_function *pf, bool nums)
 	printf(":: %s %s\n", vname, dname);
 }
 
-int pcie_init_function(struct pcie_function *pf)
+static int pcie_init_function(struct pcie_function *pf)
 {
 	uint64_t wc = 0;
 	if(pf->config->header.vendor_id == 0x1234 && pf->config->header.device_id == 0x1111) {
@@ -238,7 +237,7 @@ static void pcie_init_space(struct pcie_bus_header *space)
 }
 
 #include <twz/name.h>
-void pcie_load_driver(struct pcie_function *pf)
+static void pcie_load_driver(struct pcie_function *pf)
 {
 	struct pcie_function_header *hdr = twz_device_getds(&pf->cobj);
 	if(hdr->vendorid == 0x1234 && hdr->deviceid == 0x1111) {
@@ -251,31 +250,14 @@ void pcie_load_driver(struct pcie_function *pf)
 	}
 }
 
-int main(int argc, char **argv)
+void pcie_load_bus(twzobj *obj)
 {
-	printf("[pcie] loading PCIe bus %s\n", argv[1]);
-
-	if(!objid_parse(argv[1], strlen(argv[1]), &pcie_cs_oid) || argc == 1) {
-		printf("invalid object ID: %s\n", argv[1]);
-		exit(1);
-	}
-
-	int r = twz_object_init_guid(&pcie_cs_obj, pcie_cs_oid, FE_READ | FE_WRITE);
-	if(r) {
-		fprintf(stderr, "failed to open pcie bus: %d\n", r);
-		exit(1);
-	}
-
+	pcie_cs_obj = *obj;
 	pcie_init_space(twz_bus_getbs(&pcie_cs_obj));
 
 	for(struct pcie_function *pf = pcie_list; pf; pf = pf->next) {
 		pcie_print_function(pf, false);
 		if(pcie_init_function(pf) == 0)
 			pcie_load_driver(pf);
-	}
-
-	if((r = twz_thread_ready(NULL, THRD_SYNC_READY, 0))) {
-		printf("failed to mark ready");
-		exit(1);
 	}
 }

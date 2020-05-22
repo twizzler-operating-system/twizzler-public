@@ -8,8 +8,8 @@
 #include <twz/_sctx.h>
 #include <twz/_sys.h>
 
-#define EPRINTK(...) printk(__VA_ARGS__)
-//#define EPRINTK(...)
+//#define EPRINTK(...) printk(__VA_ARGS__)
+#define EPRINTK(...)
 static void _sc_ctor(void *_x __unused, void *ptr)
 {
 	struct sctx *sc = ptr;
@@ -92,15 +92,15 @@ static void sctx_cache_delete(struct sctx *sc, objid_t id)
 
 static struct sctx_cache_entry *sctx_cache_lookup(struct sctx *sc, objid_t id)
 {
-	printk("[sctx] cache lookup " IDFMT "\n", IDPR(id));
+	// printk("[sctx] cache lookup " IDFMT "\n", IDPR(id));
 	struct rbnode *node =
 	  rb_search(&sc->cache, id, struct sctx_cache_entry, node, __sctx_ce_compar_key);
 	struct sctx_cache_entry *scce = node ? rb_entry(node, struct sctx_cache_entry, node) : NULL;
 	if(scce) {
-		printk("[sctx] cache found " IDFMT ": %x (%ld gates)\n",
-		  IDPR(id),
-		  scce->perms,
-		  scce->gate_count);
+		// printk("[sctx] cache found " IDFMT ": %x (%ld gates)\n",
+		// IDPR(id),
+		// scce->perms,
+		// scce->gate_count);
 	}
 	return scce;
 }
@@ -111,7 +111,7 @@ static void sctx_cache_insert(struct sctx *sc,
   struct scgates *gates,
   size_t gc)
 {
-	printk("[sctx] cache insert " IDFMT ": %x (%ld gates)\n", IDPR(id), perms, gc);
+	// printk("[sctx] cache insert " IDFMT ": %x (%ld gates)\n", IDPR(id), perms, gc);
 	struct sctx_cache_entry *ce = slabcache_alloc(&sc_sctx_ce);
 	ce->id = id;
 	ce->perms = perms;
@@ -510,11 +510,11 @@ static void __lookup_perms(struct sctx *sc,
 			 * check the gates. */
 			perms |= __lookup_perm_bucket(sc->obj, b, &gs, target) & b->pmask;
 			/* TODO: only do this if the gate is meaningful */
-			printk("have gate: %x %x %x\n", gs.offset, gs.length, gs.align);
+			//		printk("have gate: %x %x %x\n", gs.offset, gs.length, gs.align);
 			if(b->flags & SCF_GATE) {
 				__limit_gates(&gs, &b->gatemask);
 			}
-			printk("Setting gate: %x %x %x\n", gs.offset, gs.length, gs.align);
+			//		printk("Setting gate: %x %x %x\n", gs.offset, gs.length, gs.align);
 			__append_gatelist(&gatelist, &gatecount, &gatepos, &gs);
 			if(ipoff) {
 				/* we first have to limit the gate from the cap by the "gatemask" of the bucket.
