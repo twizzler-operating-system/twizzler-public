@@ -26,7 +26,7 @@ $(BUILDDIR)/us/libtwz/libtwz.a: $(LIBTWZ_OBJ)
 	@mkdir -p $(dir $@)
 	@mkdir -p $(dir $@)/tmp
 	@echo "[AR]      $@"
-	@rm $(BUILDDIR)/us/libtwz/libtwz.a
+	@-rm $(BUILDDIR)/us/libtwz/libtwz.a
 	@ar rcs $(BUILDDIR)/us/libtwz/libtwz.a $(LIBTWZ_OBJ)
 
 $(BUILDDIR)/us/libtwz/libtwz.so: $(LIBTWZ_OBJ) $(BUILDDIR)/us/twix/libtwix.a
