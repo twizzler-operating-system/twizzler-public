@@ -46,5 +46,8 @@ make all-target-libsanitizer
 make install-target-libsanitizer
 
 mkdir -p $SYSROOT/usr/lib
-cp -a "$PREFIX/x86_64-pc-twizzler-musl/lib/libstdc++.so*" $SYSROOT/usr/lib/
+cp -a "$PREFIX/x86_64-pc-twizzler-musl/lib/libstdc++.so" $SYSROOT/usr/lib/
+cp -a "$PREFIX/x86_64-pc-twizzler-musl/lib/libstdc++.so.6" $SYSROOT/usr/lib/
+cp -a "$PREFIX/x86_64-pc-twizzler-musl/lib/libstdc++.so.6.0.27" $SYSROOT/usr/lib/
+#cp -a "$PREFIX/x86_64-pc-twizzler-musl/lib/libstdc++.so*" $SYSROOT/usr/lib/
 #cp "$PREFIX/x86_64-pc-twizzler-musl/lib/libsupc++*" $SYSROOT/usr/lib/
