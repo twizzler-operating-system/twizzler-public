@@ -42,13 +42,13 @@ void start_login(void)
 	r = sys_attach(0, lsi, 0, KSO_SECCTX);
 	if(r) {
 		EPRINTF("failed to attach " IDFMT ": %d\n", IDPR(lsi), r);
-		twz_thread_exit(r);
+		exit(1);
 	}
 
 	kso_set_name(NULL, "[instance] login");
 
-	r = execv("/usr/bin/login", (char *[]){ "/usr/bin/login", NULL });
-	EPRINTF("execv failed: %d\n", r);
+	execv("/usr/bin/login", (char *[]){ "/usr/bin/login", NULL });
+	exit(1);
 }
 
 pthread_cond_t logging_ready = PTHREAD_COND_INITIALIZER;
@@ -80,9 +80,12 @@ void reopen(const char *in, const char *out, const char *err)
 	close(0);
 	close(1);
 	close(2);
-	open(in, O_RDWR);
-	open(out, O_RDWR);
-	open(err, O_RDWR);
+	if(open(in, O_RDWR) != 0)
+		EPRINTF("failed to open `%s' as stdin\n", in);
+	if(open(out, O_RDWR) != 1)
+		EPRINTF("failed to open `%s' as stdout\n", out);
+	if(open(err, O_RDWR) != 2)
+		EPRINTF("failed to open `%s' as stderr\n", err);
 }
 
 int main()
@@ -110,7 +113,6 @@ int main()
 		}
 	}
 
-	objid_t lid;
 	twzobj lobj;
 	if((r = twz_object_new(&lobj,
 	      NULL,
@@ -141,6 +143,7 @@ int main()
 	}
 
 	pthread_t logging_thread;
+	objid_t lid = twz_object_guid(&lobj);
 	pthread_create(&logging_thread, NULL, logmain, &lid);
 
 	pthread_mutex_lock(&logging_ready_lock);
@@ -166,6 +169,7 @@ int main()
 	/* start the device manager */
 	if(!fork()) {
 		execlp("twzdev", "twzdev", NULL);
+		exit(0);
 	}
 
 	int status;
@@ -181,14 +185,12 @@ int main()
 		reopen("/dev/pty/ptyc0", "/dev/pty/ptyc0", "/dev/pty/ptyc0");
 
 		start_login();
-		exit(0);
 	}
 
 	if(!fork()) {
 		reopen("/dev/pty/ptyS0c", "/dev/pty/ptyS0c", "/dev/pty/ptyS0c");
 
 		start_login();
-		exit(0);
 	}
 
 	exit(0);
