@@ -45,4 +45,5 @@ make install-target-libgcc
 mkdir -p $SYSROOT/usr/lib
 ls "$PREFIX/x86_64-pc-twizzler-musl/lib"
 pwd
-cp -a "$PREFIX/x86_64-pc-twizzler-musl/lib/libgcc_s*" $SYSROOT/usr/lib/
+cp -a "$PREFIX/x86_64-pc-twizzler-musl/lib/libgcc_s.so" $SYSROOT/usr/lib/
+cp -a "$PREFIX/x86_64-pc-twizzler-musl/lib/libgcc_s.so.1" $SYSROOT/usr/lib/
