@@ -72,23 +72,23 @@ void start_stream_device(objid_t id)
 	fprintf(stderr, "[init] starting device driver: %d %s\n", dr->device_id, dr->hdr.name);
 	int status;
 	if(dr->device_id == DEVICE_ID_KEYBOARD) {
-		twz_name_assign(uid, "dev:input:keyboard");
+		twz_name_assign(uid, "/dev/keyboard");
 		if(!fork()) {
 			kso_set_name(NULL, "[instance] keyboard");
-			twz_name_assign(id, "dev:raw:keyboard");
+			twz_name_assign(id, "/dev/raw/keyboard");
 			execv("/usr/bin/keyboard",
-			  (char *[]){ "/usr/bin/keyboard", "dev:raw:keyboard", "dev:input:keyboard", NULL });
+			  (char *[]){ "/usr/bin/keyboard", "/dev/raw/keyboard", "/dev/keyboard", NULL });
 			exit(1);
 		}
 		// twz_name_assign(uid, "dev:input:keyboard");
 	}
 	if(dr->device_id == DEVICE_ID_SERIAL) {
-		create_pty_pair("dev:pty:ptyS0", "dev:pty:ptyS0c");
+		create_pty_pair("/dev/pty/ptyS0", "/dev/pty/ptyS0c");
 		if(!fork()) {
 			kso_set_name(NULL, "[instance] serial");
-			twz_name_assign(id, "dev:raw:serial");
+			twz_name_assign(id, "/dev/raw/serial");
 			execv("/usr/bin/serial",
-			  (char *[]){ "/usr/bin/serial", "dev:raw:serial", "dev:pty:ptyS0", NULL });
+			  (char *[]){ "/usr/bin/serial", "/dev/raw/serial", "/dev/pty/ptyS0", NULL });
 			exit(1);
 		}
 	}
@@ -96,13 +96,6 @@ void start_stream_device(objid_t id)
 
 int main()
 {
-	printf("Hello from device manager\n");
-
-	if(mkdir("/dev", 0700) == -1) {
-		if(errno != EEXIST) {
-			fprintf(stderr, "failed to make /dev\n");
-		}
-	}
 	/* start devices */
 	twzobj root;
 	twz_object_init_guid(&root, 1, FE_READ);
@@ -147,7 +140,7 @@ int main()
 			twz_thread_exit(1);
 		}
 
-		execvp("nvme", (char *[]){ "nvme", "dev:controller:nvme", NULL });
+		execvp("nvme", (char *[]){ "nvme", "/dev/nvme", NULL });
 		fprintf(stderr, "failed to start nvme driver\n");
 		exit(1);
 	}

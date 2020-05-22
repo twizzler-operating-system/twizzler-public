@@ -118,14 +118,25 @@ static void copy_names(const char *bsname, twzobj *nobj)
 }
 #endif
 
+#include <libgen.h>
+#include <stdlib.h>
 int twz_name_assign(objid_t id, const char *name)
 {
 	if(!__name_init())
 		return -ENOTSUP;
 
-	//	twix_log("Assign: %s\n", name);
-	char *ch_name = alloca(strlen(name) + 1);
-	char *par_name = alloca(strlen(name) + 1);
+	twix_log("Assign: %s\n", name);
+	char *d1 = alloca(strlen(name) + 1);
+	char *d2 = alloca(strlen(name) + 1);
+
+	strcpy(d1, name);
+	strcpy(d2, name);
+
+	int r;
+	char *par_name = dirname(d1);
+	char *ch_name = basename(d2);
+#if 0
+
 	char *sl = strrchr(name, '/');
 
 	if(sl) {
@@ -140,15 +151,20 @@ int twz_name_assign(objid_t id, const char *name)
 	parent = &nameobj;
 	int r;
 	if(sl && sl != name) {
-		//	twix_log("looking up name parent %s\n", par_name);
+		twix_log("looking up name parent %s\n", par_name);
 		r = twz_object_init_name(&tmp, par_name, FE_READ | FE_WRITE);
 		if(r)
 			return r;
 		parent = &tmp;
 	}
+#endif
+	twzobj parent;
+	r = twz_object_init_name(&parent, par_name, FE_READ | FE_WRITE);
+	if(r)
+		return r;
 
-	//	twix_log("assign nameL %s\n", ch_name);
-	r = twz_hier_assign_name(parent, ch_name, NAME_ENT_REGULAR, id);
+	twix_log("assign nameL %s\n", ch_name);
+	r = twz_hier_assign_name(&parent, ch_name, NAME_ENT_REGULAR, id);
 	if(r)
 		return r;
 

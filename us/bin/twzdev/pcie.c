@@ -241,11 +241,11 @@ static void pcie_load_driver(struct pcie_function *pf)
 {
 	struct pcie_function_header *hdr = twz_device_getds(&pf->cobj);
 	if(hdr->vendorid == 0x1234 && hdr->deviceid == 0x1111) {
-		twz_name_assign(pf->cid, "dev:output:framebuffer");
+		twz_name_assign(pf->cid, "/dev/framebuffer");
 		return;
 	}
 	if(hdr->classid == 1 && hdr->subclassid == 8 && hdr->progif == 2) {
-		twz_name_assign(pf->cid, "dev:controller:nvme");
+		twz_name_assign(pf->cid, "/dev/nvme");
 		return;
 	}
 }

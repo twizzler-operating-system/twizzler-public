@@ -226,6 +226,25 @@ int main()
 
 	kso_set_name(NULL, "[instance] init");
 
+	if(mkdir("/dev", 0700) == -1) {
+		if(errno != EEXIST) {
+			EPRINTF("failed to make /dev\n");
+			return 1;
+		}
+	}
+	if(mkdir("/dev/raw", 0700) == -1) {
+		if(errno != EEXIST) {
+			EPRINTF("failed to make /dev/raw\n");
+			return 1;
+		}
+	}
+	if(mkdir("/dev/pty", 0700) == -1) {
+		if(errno != EEXIST) {
+			EPRINTF("failed to make /dev/pty\n");
+			return 1;
+		}
+	}
+
 	objid_t lid;
 	twzobj lobj;
 	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, &lid))) {
@@ -236,7 +255,7 @@ int main()
 		EPRINTF("failed to open log object");
 		abort();
 	}
-	if((r = twz_name_assign(lid, "dev:dfl:log"))) {
+	if((r = twz_name_assign(lid, "/dev/init-log"))) {
 		EPRINTF("failed to assign log object name");
 		abort();
 	}
@@ -251,7 +270,7 @@ int main()
 		EPRINTF("failed to create null object");
 		abort();
 	}
-	if((r = twz_name_assign(nid, "dev:null"))) {
+	if((r = twz_name_assign(nid, "/dev/null"))) {
 		EPRINTF("failed to assign null object name");
 		abort();
 	}
@@ -294,15 +313,15 @@ int main()
 	close(0);
 	close(1);
 	close(2);
-	if((fd = open("dev:null", O_RDONLY)) != 0) {
+	if((fd = open("/dev/null", O_RDONLY)) != 0) {
 		EPRINTF("err opening stdin\n");
 		abort();
 	}
-	if((fd = open("dev:dfl:log", O_RDWR)) != 1) {
+	if((fd = open("/dev/init-log", O_RDWR)) != 1) {
 		EPRINTF("err opening stdout\n");
 		abort();
 	}
-	if((fd = open("dev:dfl:log", O_RDWR)) != 2) {
+	if((fd = open("/dev/init-log", O_RDWR)) != 2) {
 		EPRINTF("err opening stderr\n");
 		abort();
 	}
@@ -315,12 +334,12 @@ int main()
 	int status;
 	wait(&status);
 
-	if((r = create_pty_pair("dev:pty:pty0", "dev:pty:ptyc0"))) {
+	if((r = create_pty_pair("/dev/pty/pty0", "/dev/pty/ptyc0"))) {
 		EPRINTF("failed to create pty pair\n");
 		abort();
 	}
 	if(!fork()) {
-		start_terminal("dev:input:keyboard", "dev:output:framebuffer", "dev:pty:pty0");
+		start_terminal("/dev/keyboard", "/dev/framebuffer", "/dev/pty/pty0");
 	}
 
 	if(!fork()) {
@@ -328,15 +347,15 @@ int main()
 		close(1);
 		close(2);
 
-		if((fd = open("dev:pty:ptyc0", O_RDONLY)) != 0) {
+		if((fd = open("/dev/pty/ptyc0", O_RDONLY)) != 0) {
 			EPRINTF("err opening stdin: %d\n", fd);
 			abort();
 		}
-		if((fd = open("dev:pty:ptyc0", O_RDWR)) != 1) {
+		if((fd = open("/dev/pty/ptyc0", O_RDWR)) != 1) {
 			EPRINTF("err opening stdout\n");
 			abort();
 		}
-		if((fd = open("dev:pty:ptyc0", O_RDWR)) != 2) {
+		if((fd = open("/dev/pty/ptyc0", O_RDWR)) != 2) {
 			EPRINTF("err opening stderr\n");
 			abort();
 		}
@@ -350,15 +369,15 @@ int main()
 		close(1);
 		close(2);
 
-		if((fd = open("dev:pty:ptyS0c", O_RDONLY)) != 0) {
+		if((fd = open("/dev/pty/ptyS0c", O_RDONLY)) != 0) {
 			EPRINTF("1err opening stdin: %d\n", fd);
 			abort();
 		}
-		if((fd = open("dev:pty:ptyS0c", O_RDWR)) != 1) {
+		if((fd = open("/dev/pty/ptyS0c", O_RDWR)) != 1) {
 			EPRINTF("1err opening stdout\n");
 			abort();
 		}
-		if((fd = open("dev:pty:ptyS0c", O_RDWR)) != 2) {
+		if((fd = open("/dev/pty/ptyS0c", O_RDWR)) != 2) {
 			EPRINTF("1err opening stderr\n");
 			abort();
 		}
