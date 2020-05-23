@@ -5,7 +5,8 @@ This is an operating system kernel and userspace, so the build is a little invol
 
 Requirements: Linux, with some reasonable build environment (gcc, make, curl, etc). A reasonably
 modern x86_64 Intel system. Installed developement versions (includes headers and libraries) for
-libtommath and libtomcrypt. Python 3 as the default 'python' on your system.
+libtommath and libtomcrypt. Python 3 as the default 'python' on your system. You'll need grub,
+xorriso, and mtools to make the boot iso.
 
 Note for Ubuntu users: Ubuntu uses dash as its shell by default. I have not tested the build system
 on Ubuntu.
