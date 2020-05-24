@@ -54,8 +54,8 @@ struct queue_hdr *create_q(size_t len)
 	memset(hdr, 0, sizeof(*hdr));
 	hdr->subqueue[0].length = len;
 	hdr->subqueue[1].length = len;
-	hdr->subqueue[0].stride = len;
-	hdr->subqueue[1].stride = len;
+	hdr->subqueue[0].stride = 8;
+	hdr->subqueue[1].stride = 8;
 	hdr->subqueue[0].queue = calloc(len, 8);
 	hdr->subqueue[1].queue = calloc(len, 8);
 
@@ -169,7 +169,7 @@ void *prod(void *a)
 	unsigned x = 0;
 	for(x = 0; x < icount; x++) {
 		PR("%d: enqueue %d\n", id, x);
-		enqueue(hdr, id, SUBQUEUE_SUBM, x * N + (id - 1));
+		queue_sub_enqueue(hdr, id, SUBQUEUE_SUBM, x * N + (id - 1));
 	}
 	done++;
 	return NULL;
@@ -182,7 +182,7 @@ void *cons(void *a)
 {
 	struct queue_hdr *hdr = a;
 	while(1) {
-		unsigned y = dequeue(hdr, SUBQUEUE_SUBM, done == N);
+		unsigned y = queue_sub_dequeue(hdr, SUBQUEUE_SUBM, done == N);
 		if(done == N && y == 0)
 			break;
 		if(y > max)
