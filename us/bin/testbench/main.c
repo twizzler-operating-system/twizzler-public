@@ -8,6 +8,8 @@
 #include <unistd.h>
 
 #include <twz/fault.h>
+#include <twz/obj.h>
+#include <twz/queue.h>
 #include <twz/twztry.h>
 
 struct test {
@@ -59,9 +61,49 @@ static void _foo_bar(struct test *test)
 	twztry_end;
 }
 
+static void _queue_st(struct test *test)
+{
+	twzobj obj;
+	int r;
+	r = twz_object_new(&obj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
+	TEST_CHECK_EQ(test, r, 0);
+
+	struct queue_hdr *hdr = twz_object_base(&obj);
+
+	r = queue_init_hdr(&obj, hdr, 32, 8, 32, 8);
+	TEST_CHECK_EQ(test, r, 0);
+
+	struct queue_entry qe;
+	for(uint32_t i = 0; i < 16; i++) {
+		qe.info = i;
+		// printf("submit %d\n", i);
+		r = queue_submit(hdr, &qe, 0);
+		TEST_CHECK_EQ(test, r, 0);
+	}
+
+	for(uint32_t i = 0; i < 16; i++) {
+		r = queue_receive(hdr, &qe, 0);
+		TEST_CHECK_EQ(test, r, 0);
+
+		// printf("reciev %d\n", qe.info);
+		TEST_CHECK_EQ(test, qe.info, i);
+
+		r = queue_complete(hdr, &qe, 0);
+		TEST_CHECK_EQ(test, r, 0);
+	}
+
+	for(uint32_t i = 0; i < 16; i++) {
+		r = queue_get_finished(hdr, &qe, 0);
+		TEST_CHECK_EQ(test, r, 0);
+		// printf("gotfin %d\n", qe.info);
+		TEST_CHECK_EQ(test, qe.info, i);
+	}
+}
+
 struct test tests[] = {
 	TEST_DECL("test-test", _test_test),
 	TEST_DECL("foo-bar", _foo_bar),
+	TEST_DECL("queue-st", _queue_st),
 };
 
 static const size_t nr_tests = sizeof(tests) / sizeof(tests[0]);
@@ -77,8 +119,8 @@ void usage()
 	printf("flags:\n");
 	printf("  -a                           : Run all tests\n");
 	printf("  -t <test-name-pattern>       : Run tests that match pattern.\n");
-	printf(
-	  "Test name patterns are like globs: test-* will match any test that starts with `test-'.\n");
+	printf("Test name patterns are like globs: test-* will match any test that starts with "
+	       "`test-'.\n");
 }
 
 static size_t successes = 0, fails = 0, incompletes = 0;
@@ -113,7 +155,6 @@ void foo()
 
 int main(int argc, char **argv)
 {
-	foo();
 	int c;
 	bool all = false;
 	struct lnode *list_of_tests = NULL;

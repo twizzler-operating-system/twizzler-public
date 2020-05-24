@@ -35,8 +35,6 @@ int twz_fot_indirect_resolve(twzobj *obj,
   void **vptr,
   uint64_t *info);
 
-enum twz_default_resolvers {
-	TWZ_NAME_RESOLVER_DFL = 0,
-	TWZ_NAME_RESOLVER_HIER = 0,
-	TWZ_NAME_RESOLVER_SOFN = 1,
-};
+#define TWZ_NAME_RESOLVER_DFL NULL
+#define TWZ_NAME_RESOLVER_HIER NULL
+#define TWZ_NAME_RESOLVER_SOFN (void *)1ul

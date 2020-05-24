@@ -478,7 +478,7 @@ int twz_fot_indirect_resolve(twzobj *obj,
   uint64_t *info)
 {
 	switch((long)fe->name.nresolver) {
-		case TWZ_NAME_RESOLVER_SOFN:
+		case(long)TWZ_NAME_RESOLVER_SOFN:
 			return __twz_fot_indirect_resolve_sofn(obj, fe, p, vptr, info);
 			break;
 	}

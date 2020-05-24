@@ -89,10 +89,10 @@ struct queue_hdr {
 		size_t stride;
 		uint8_t pada[64];
 		_Atomic uint32_t head;
-		_Atomic uint32_t bell;
 		_Atomic uint32_t waiters; // how many producers are waiting
+		_Atomic uint64_t bell;
 		uint8_t padb[64];
-		_Atomic uint32_t tail; // top bit indicates consumer is waiting.
+		_Atomic uint64_t tail; // top bit indicates consumer is waiting.
 	} subqueue[2];
 	/* the kernel cannot use data after this point */
 };
@@ -125,57 +125,21 @@ static inline int __wake_up(void *p, uint32_t v, int dq)
 }
 
 #else
-#include <linux/futex.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-_Atomic size_t calls_to_futex = 0;
-_Atomic size_t ctf_wakes = 0, ctf_sleeps = 0;
-_Atomic size_t dqcalls_to_futex = 0;
-_Atomic size_t dqctf_wakes = 0, dqctf_sleeps = 0;
-int futex(void *uaddr,
-  int futex_op,
-  int val,
-  const struct timespec *timeout,
-  int *uaddr2,
-  int val3,
-  int dq)
-{
-	if(dq) {
-		dqcalls_to_futex++;
-		if(futex_op == FUTEX_WAIT)
-			dqctf_sleeps++;
-		else
-			dqctf_wakes++;
-	} else {
-		calls_to_futex++;
-		if(futex_op == FUTEX_WAIT)
-			ctf_sleeps++;
-		else
-			ctf_wakes++;
-	}
-	return syscall(SYS_futex, uaddr, futex_op, val, timeout, uaddr2, val3);
-}
-
+#include <errno.h>
+#include <twz/_sys.h>
+#include <twz/thread.h>
 static inline int __wait_on(void *p, uint32_t v, int dq)
 {
-	int r = futex(p, FUTEX_WAIT, v, NULL, NULL, 0, dq);
-	if(r == -1) {
-		if(errno == EAGAIN || errno == EINTR)
-			return 0;
-		return -errno;
-	}
-	return r;
+	twz_thread_sync(THREAD_SYNC_SLEEP, p, v, NULL);
+	/* TODO: errors */
+	return 0;
 }
 
 static inline int __wake_up(void *p, uint32_t v, int dq)
 {
-	int r = futex(p, FUTEX_WAKE, v, NULL, NULL, 0, dq);
-	if(r == -1) {
-		if(errno == EAGAIN || errno == EINTR)
-			return 0;
-		return -errno;
-	}
-	return r;
+	twz_thread_sync(THREAD_SYNC_WAKE, p, v, NULL);
+	/* TODO: errors */
+	return 0;
 }
 #endif
 
