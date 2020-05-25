@@ -1,5 +1,7 @@
 #pragma once
 
+#include <twz/_obj.h>
+
 #define SYS_NULL 0
 #define SYS_THRD_SPAWN 1
 #define SYS_DEBUG_PRINT 2
@@ -18,7 +20,8 @@
 #define SYS_VMAP 15 /* TODO: remove */
 #define SYS_OTIE 16
 #define SYS_OCOPY 17
-#define NUM_SYSCALLS 18
+#define SYS_KQUEUE 18
+#define NUM_SYSCALLS 19
 
 #define KCONF_RDRESET 1
 #define KCONF_ARCH_TSC_PSPERIOD 1001
@@ -134,3 +137,8 @@ enum octl_operation {
 #define OC_CM_UC 1
 #define OC_CM_WT 2
 #define OC_CM_WC 3
+
+enum kernel_queues {
+	KQ_PAGER,
+	NUM_KERNEL_QUEUES,
+};

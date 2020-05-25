@@ -59,6 +59,9 @@ struct thread {
 	struct sleep_entry *sleep_entries;
 	size_t sleep_count;
 	struct task free_task;
+	/* pager info */
+	objid_t pager_obj_req;
+	ssize_t pager_page_req;
 	uintptr_t _last_oaddr; // TODO: remove
 	uint32_t _last_flags;
 	uint32_t _last_count;

@@ -335,6 +335,7 @@ void vm_kernel_unmap_object(struct object *obj)
 	obj_put(xobj);
 }
 
+#include <queue.h>
 static int __do_map(struct vm_context *ctx,
   uintptr_t ip,
   uintptr_t addr,
@@ -367,10 +368,13 @@ static int __do_map(struct vm_context *ctx,
 		if(!obj) {
 			spinlock_release_restore(&ctx->lock);
 			if(fault) {
-				struct fault_object_info info;
-				popul_info(&info, flags, ip, addr, id);
-				info.flags |= FAULT_OBJECT_EXIST;
-				thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
+				if(kernel_queue_pager_request_object(id)) {
+					struct fault_object_info info;
+					popul_info(&info, flags, ip, addr, id);
+					info.flags |= FAULT_OBJECT_EXIST;
+					thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
+				}
+				return 0;
 			}
 			return -ENOENT;
 		}

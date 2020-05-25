@@ -1,3 +1,4 @@
+#include <queue.h>
 #include <rand.h>
 #include <syscall.h>
 
@@ -26,4 +27,14 @@ long syscall_kconf(int cmd, long arg)
 			ret = arch_syscall_kconf(cmd, arg);
 	}
 	return ret;
+}
+
+long syscall_kqueue(uint64_t idlo, uint64_t idhi, enum kernel_queues kq, int flags)
+{
+	(void)flags;
+	objid_t id = MKID(idhi, idlo);
+	struct object *obj = obj_lookup(id, 0);
+	if(!obj)
+		return -ENOENT;
+	return kernel_queue_assign(kq, obj);
 }

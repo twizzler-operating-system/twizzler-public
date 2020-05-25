@@ -190,6 +190,10 @@ static void __twz_fault_unhandled_print(int fault_nr, void *data)
 	} else if(fault_nr == FAULT_EXCEPTION) {
 		struct fault_exception_info *ei = (void *)data;
 		PRINT("  ecode: %ld, info: %lx\n", ei->code, ei->arg0);
+	} else if(fault_nr == FAULT_OBJECT) {
+		struct fault_object_info *fobj = data;
+		PRINT("  id = " IDFMT "; flags = %lx\n", IDPR(fobj->objid), fobj->flags);
+		PRINT("  ip = %p, addr = %p\n", fobj->ip, fobj->addr);
 	} else if(fault_nr == FAULT_PPTR) {
 		struct fault_pptr_info *pi = (void *)data;
 		PRINT("objid: " IDFMT "; fote: %ld\n", IDPR(pi->objid), pi->fote);
@@ -244,6 +248,8 @@ __attribute__((used)) void __twz_fault_entry_c(int fault, void *_info, struct fa
 	if(fault == FAULT_OBJECT) {
 		if(__fault_obj_default(fault, _info) < 0) {
 			_twz_default_exception_handler(fault, _info);
+			fprintf(stderr, "  -- FAULT %d: unhandled.\n", fault);
+			__twz_fault_unhandled_print(fault, _info);
 			twz_thread_exit(EXIT_CODE_FAULT(fault));
 		}
 	} else if(fault == FAULT_FAULT) {

@@ -53,3 +53,4 @@ long syscall_ocopy(objid_t *destid,
   size_t soff,
   size_t len,
   int flags);
+long syscall_kqueue(uint64_t idlo, uint64_t idhi, enum kernel_queues kq, int flags);

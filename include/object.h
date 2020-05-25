@@ -15,6 +15,7 @@ struct kso_view {
 };
 
 struct kso_throbj {
+	struct thread *thread;
 };
 
 struct kso_sctx {
@@ -74,6 +75,7 @@ struct object_tie {
 #define OF_CPF_VALID 0x40
 #define OF_DELETE 0x80
 #define OF_HIDDEN 0x100
+#define OF_PAGER 0x200
 
 struct object {
 	uint128_t id;

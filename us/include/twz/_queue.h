@@ -97,6 +97,8 @@ struct queue_hdr {
 	/* the kernel cannot use data after this point */
 };
 
+#ifndef __QUEUE_TYPES_ONLY
+
 #define SUBQUEUE_SUBM 0
 #define SUBQUEUE_CMPL 1
 
@@ -114,29 +116,37 @@ struct queue_hdr {
 
 #if __KERNEL__
 
-static inline int __wait_on(void *p, uint32_t v, int dq)
+struct object;
+int kernel_queue_wait_on(struct object *, void *, uint64_t);
+int kernel_queue_wake_up(struct object *, void *, uint64_t);
+
+static inline int __wait_on(struct object *obj, void *p, uint64_t v, int dq)
 {
-	return 0;
+	(void)dq;
+	return kernel_queue_wait_on(obj, p, v);
 }
 
-static inline int __wake_up(void *p, uint32_t v, int dq)
+static inline int __wake_up(struct object *obj, void *p, uint64_t v, int dq)
 {
-	return 0;
+	(void)dq;
+	return kernel_queue_wake_up(obj, p, v);
 }
 
 #else
 #include <errno.h>
 #include <twz/_sys.h>
 #include <twz/thread.h>
-static inline int __wait_on(void *p, uint32_t v, int dq)
+static inline int __wait_on(void *o, void *p, uint64_t v, int dq)
 {
+	(void)o;
 	twz_thread_sync(THREAD_SYNC_SLEEP, p, v, NULL);
 	/* TODO: errors */
 	return 0;
 }
 
-static inline int __wake_up(void *p, uint32_t v, int dq)
+static inline int __wake_up(void *o, void *p, uint64_t v, int dq)
 {
+	(void)o;
 	twz_thread_sync(THREAD_SYNC_WAKE, p, v, NULL);
 	/* TODO: errors */
 	return 0;
@@ -145,7 +155,7 @@ static inline int __wake_up(void *p, uint32_t v, int dq)
 
 static inline _Bool is_turn(struct queue_hdr *hdr, int sq, uint32_t tail, struct queue_entry *entry)
 {
-	int turn = (tail / hdr->subqueue[sq].length) % 2;
+	uint32_t turn = (tail / hdr->subqueue[sq].length) % 2;
 	return (entry->cmd_id >> 31) != turn;
 }
 
@@ -155,11 +165,18 @@ static inline struct queue_entry *__get_entry(struct queue_hdr *hdr, int sq, uin
 	                + ((pos % hdr->subqueue[sq].length) * hdr->subqueue[sq].stride));
 }
 
-static inline int queue_sub_enqueue(struct queue_hdr *hdr,
+static inline int queue_sub_enqueue(
+#if __KERNEL__
+  struct object *obj,
+#endif
+  struct queue_hdr *hdr,
   int sq,
   struct queue_entry *submit,
   _Bool nonblock)
 {
+#if !__KERNEL__
+	void *obj = NULL;
+#endif
 	int r;
 	uint32_t h, t;
 
@@ -175,7 +192,7 @@ static inline int queue_sub_enqueue(struct queue_hdr *hdr,
 		if(nonblock) {
 			return -EAGAIN;
 		}
-		if((r = __wait_on(&hdr->subqueue[sq].tail, t, 0)) < 0) {
+		if((r = __wait_on(obj, &hdr->subqueue[sq].tail, t, 0)) < 0) {
 			return r;
 		}
 		/* grab the new tail value! */
@@ -201,7 +218,7 @@ static inline int queue_sub_enqueue(struct queue_hdr *hdr,
 	/* ring the bell! If the consumer isn't waiting, don't bother the kernel. */
 	hdr->subqueue[sq].bell++;
 	if(D_ISWAITING(hdr, sq)) {
-		if((r = __wake_up(&hdr->subqueue[sq].bell, 1, 0)) < 0) {
+		if((r = __wake_up(obj, &hdr->subqueue[sq].bell, 1, 0)) < 0) {
 			return r;
 		}
 	}
@@ -209,11 +226,18 @@ static inline int queue_sub_enqueue(struct queue_hdr *hdr,
 	return 0;
 }
 
-static inline int queue_sub_dequeue(struct queue_hdr *hdr,
+static inline int queue_sub_dequeue(
+#if __KERNEL__
+  struct object *obj,
+#endif
+  struct queue_hdr *hdr,
   int sq,
   struct queue_entry *result,
   _Bool nonblock)
 {
+#if !__KERNEL__
+	void *obj = NULL;
+#endif
 	int r;
 	uint32_t t, b;
 	/* grab the tail. Remember, we use the top bit to indicate we are waiting. */
@@ -236,7 +260,7 @@ static inline int queue_sub_dequeue(struct queue_hdr *hdr,
 			return -EAGAIN;
 		}
 		D_SETWAITING(hdr, sq);
-		if((r = __wait_on(&hdr->subqueue[sq].bell, b, 1)) < 0) {
+		if((r = __wait_on(obj, &hdr->subqueue[sq].bell, b, 1)) < 0) {
 			return r;
 		}
 		/* we waited on the bell; read a new value */
@@ -252,9 +276,11 @@ static inline int queue_sub_dequeue(struct queue_hdr *hdr,
 	hdr->subqueue[sq].tail = (hdr->subqueue[sq].tail + 1) & 0x7fffffff;
 	if(E_ISWAITING(hdr, sq)) {
 		/* wake up anyone waiting on the queue being full. */
-		if((r = __wake_up(&hdr->subqueue[sq].tail, 1, 1)) < 0) {
+		if((r = __wake_up(obj, &hdr->subqueue[sq].tail, 1, 1)) < 0) {
 			return r;
 		}
 	}
 	return 0;
 }
+
+#endif

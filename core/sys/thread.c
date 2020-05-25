@@ -61,6 +61,7 @@ long syscall_thread_spawn(uint64_t tidlo,
 	struct thread *t = thread_create();
 	t->thrid = tid;
 	t->throbj = &repr->thr; /* krc: move */
+	repr->thr.thread = t;
 	vm_setview(t, view);
 
 	obj_put(view);

@@ -53,6 +53,11 @@ __must_check static inline long sys_ocopy(objid_t dest,
 	return __syscall6(SYS_OCOPY, &dest, &src, doff, soff, len, flags);
 }
 
+__must_check static inline long sys_kqueue(objid_t id, enum kernel_queues kq, int flags)
+{
+	return __syscall6(SYS_KQUEUE, ID_LO(id), ID_HI(id), kq, flags, 0, 0);
+}
+
 __must_check static inline long sys_attach(objid_t pid, objid_t cid, int flags, int type)
 {
 	uint64_t sf = (uint64_t)(type & 0xffff) | (uint64_t)flags << 32;
