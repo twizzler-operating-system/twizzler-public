@@ -2,33 +2,33 @@
 #include <twz/obj.h>
 #include <twz/queue.h>
 
-int queue_submit(struct queue_hdr *hdr, struct queue_entry *qe, int flags)
+int queue_submit(twzobj *obj, struct queue_entry *qe, int flags)
 {
-	return queue_sub_enqueue(hdr, SUBQUEUE_SUBM, qe, !!(flags & QUEUE_NONBLOCK));
+	return queue_sub_enqueue(
+	  obj, twz_object_base(obj), SUBQUEUE_SUBM, qe, !!(flags & QUEUE_NONBLOCK));
 }
 
-int queue_complete(struct queue_hdr *hdr, struct queue_entry *qe, int flags)
+int queue_complete(twzobj *obj, struct queue_entry *qe, int flags)
 {
-	return queue_sub_enqueue(hdr, SUBQUEUE_CMPL, qe, !!(flags & QUEUE_NONBLOCK));
+	return queue_sub_enqueue(
+	  obj, twz_object_base(obj), SUBQUEUE_CMPL, qe, !!(flags & QUEUE_NONBLOCK));
 }
 
-int queue_receive(struct queue_hdr *hdr, struct queue_entry *qe, int flags)
+int queue_receive(twzobj *obj, struct queue_entry *qe, int flags)
 {
-	return queue_sub_dequeue(hdr, SUBQUEUE_SUBM, qe, !!(flags & QUEUE_NONBLOCK));
+	return queue_sub_dequeue(
+	  obj, twz_object_base(obj), SUBQUEUE_SUBM, qe, !!(flags & QUEUE_NONBLOCK));
 }
 
-int queue_get_finished(struct queue_hdr *hdr, struct queue_entry *qe, int flags)
+int queue_get_finished(twzobj *obj, struct queue_entry *qe, int flags)
 {
-	return queue_sub_dequeue(hdr, SUBQUEUE_CMPL, qe, !!(flags & QUEUE_NONBLOCK));
+	return queue_sub_dequeue(
+	  obj, twz_object_base(obj), SUBQUEUE_CMPL, qe, !!(flags & QUEUE_NONBLOCK));
 }
 
-int queue_init_hdr(twzobj *obj,
-  struct queue_hdr *hdr,
-  size_t sqlen,
-  size_t sqstride,
-  size_t cqlen,
-  size_t cqstride)
+int queue_init_hdr(twzobj *obj, size_t sqlen, size_t sqstride, size_t cqlen, size_t cqstride)
 {
+	struct queue_hdr *hdr = twz_object_base(obj);
 	if(sqstride < sizeof(struct queue_entry))
 		sqstride = sizeof(struct queue_entry);
 	sqstride = (sqstride + 7) & ~7;

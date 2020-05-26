@@ -44,8 +44,8 @@ void __rb_insert(struct rbnode *node, struct rbroot *root);
 				link = &(*link)->right;                                                            \
 		}                                                                                          \
 		if(result) {                                                                               \
-			rb_link_node(&(_new)->node, _parent, link);                                            \
-			__rb_insert(&(_new)->node, (root));                                                    \
+			rb_link_node(&(_new)->memb, _parent, link);                                            \
+			__rb_insert(&(_new)->memb, (root));                                                    \
 		}                                                                                          \
 		result;                                                                                    \
 	})

@@ -107,7 +107,10 @@ struct object {
 	/* lock for thread-sync operations */
 	struct spinlock tslock;
 
-	struct rbroot pagecache_root, pagecache_level1_root, tstable_root;
+	struct spinlock sleepers_lock;
+	struct list sleepers;
+
+	struct rbroot pagecache_root, pagecache_level1_root, tstable_root, page_requests_root;
 
 	struct rbnode slotnode, node;
 

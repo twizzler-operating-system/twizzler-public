@@ -77,6 +77,7 @@ struct timespec;
 long thread_sync_single(int operation, long *addr, long arg, struct timespec *spec);
 long thread_wake_object(struct object *obj, size_t offset, long arg);
 void thread_sync_uninit_thread(struct thread *thr);
+long thread_sleep_on_object(struct object *obj, size_t offset, long arg, bool dont_check);
 void thread_print_all_threads(void);
 void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *, size_t);
 

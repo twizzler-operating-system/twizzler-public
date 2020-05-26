@@ -201,4 +201,5 @@ struct nvme_controller {
 	struct nvme_queue *queues;
 	size_t nr_queues;
 	struct nvme_namespace *namespaces;
+	twzobj ext_qobj;
 };

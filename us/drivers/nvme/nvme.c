@@ -5,6 +5,7 @@
 #include <twz/name.h>
 #include <twz/obj.h>
 #include <twz/objctl.h>
+#include <twz/queue.h>
 #include <twz/sys.h>
 #include <twz/thread.h>
 
@@ -711,11 +712,23 @@ void nvme_wait_for_event(struct nvme_controller *nc)
 
 #include <pthread.h>
 
+#include <twz/queue.h>
+
+#include <twz/driver/queue.h>
 void *ptm(void *arg)
 {
 	struct nvme_controller *nc = arg;
 	nvmec_create_queues(nc, 4, nc->max_queue_slots);
 	nvmec_identify(nc);
+
+	fprintf(stderr, "NVME HERE\n");
+	while(1) {
+		struct queue_entry_bio bio;
+		fprintf(stderr, "[nvme] queue_receive\n");
+		int r = queue_receive(&nc->ext_qobj, (struct queue_entry *)&bio, 0);
+		fprintf(
+		  stderr, "[nvme] nvme got bio: %d %ld :: %lx\n", bio.qe.info, bio.blockid, bio.linaddr);
+	}
 
 	return 0;
 }
@@ -753,7 +766,15 @@ int main(int argc, char **argv)
 	nc.init = true;
 
 	pthread_t pt;
+
+	twz_object_new(&nc.ext_qobj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
+	queue_init_hdr(
+	  &nc.ext_qobj, 32, sizeof(struct queue_entry_bio), 32, sizeof(struct queue_entry_bio));
+
+	twz_name_assign(twz_object_guid(&nc.ext_qobj), "/dev/nvme-queue");
+
 	pthread_create(&pt, NULL, ptm, &nc);
+
 	nvme_wait_for_event(&nc);
 	return 0;
 }

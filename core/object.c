@@ -74,6 +74,7 @@ static void _obj_ctor(void *_u, void *ptr)
 	obj->pagecache_root = RBINIT;
 	obj->pagecache_level1_root = RBINIT;
 	obj->tstable_root = RBINIT;
+	obj->page_requests_root = RBINIT;
 }
 
 void obj_init(struct object *obj)

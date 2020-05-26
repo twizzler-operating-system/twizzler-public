@@ -1,5 +1,6 @@
 #include <pthread.h>
 #include <stdio.h>
+#include <twz/debug.h>
 #include <twz/obj.h>
 #include <twz/queue.h>
 #include <twz/sys.h>
@@ -21,21 +22,42 @@ void *tm(void *a)
 
 	int *p = twz_object_base(&obj);
 
+	debug_printf("[pager] p = %p\n", p);
+	printf("Doing read!\n");
+	printf("::: %d\n", *p);
 	printf("Doing write!\n");
 	*p = 4;
 	printf("Write got %d\n", *p);
 	return NULL;
 }
 
-void handle_pager_req(struct queue_hdr *hdr, struct queue_entry_pager *pqe)
+void handle_pager_req(twzobj *qobj, struct queue_entry_pager *pqe, twzobj *nvme_queue)
 {
 	printf("[pager] got request for object " IDFMT "\n", IDPR(pqe->id));
-	if(pqe->qe.info == PAGER_CMD_OBJECT) {
-		queue_complete(hdr, (struct queue_entry *)pqe, 0);
-	} else if(pqe->qe.info == PAGER_CMD_OBJECT_PAGE) {
+	if(pqe->cmd == PAGER_CMD_OBJECT) {
+		queue_complete(qobj, (struct queue_entry *)pqe, 0);
+	} else if(pqe->cmd == PAGER_CMD_OBJECT_PAGE) {
+		printf("[pager]   page request: %lx -> %lx\n", pqe->page, pqe->linaddr);
+		// pqe->result = PAGER_RESULT_ZERO;
+		pqe->result = PAGER_RESULT_COPY;
+		twzobj o;
+		twz_object_new(&o, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
+		int *p = twz_object_base(&o);
+		*p = 0x1234;
+		pqe->page = 1;
+		pqe->id = twz_object_guid(&o);
 
-		printf("[pager]   page request: %lx\n", pqe->page);
-		//queue_complete(hdr, (struct queue_entry *)pqe, 0);
+		queue_complete(qobj, (struct queue_entry *)pqe, 0);
+
+		struct queue_entry_bio bio = {
+			.qe = 0,
+			.blockid = 1,
+			.linaddr = pqe->linaddr,
+		};
+
+		printf("[pager] forwarding request to nvme\n");
+		queue_submit(nvme_queue, (struct queue_entry *)&bio, 0);
+		printf("[pager] submitted!\n");
 	}
 }
 
@@ -50,9 +72,7 @@ int main()
 		return 1;
 	}
 
-	struct queue_hdr *hdr = twz_object_base(&kq);
-	queue_init_hdr(
-	  &kq, hdr, 32, sizeof(struct queue_entry_pager), 32, sizeof(struct queue_entry_pager));
+	queue_init_hdr(&kq, 32, sizeof(struct queue_entry_pager), 32, sizeof(struct queue_entry_pager));
 
 	if((r = sys_kqueue(twz_object_guid(&kq), KQ_PAGER, 0))) {
 		fprintf(stderr, "failed to assign kqueue\n");
@@ -61,12 +81,19 @@ int main()
 
 	pthread_t pt;
 	pthread_create(&pt, NULL, tm, NULL);
+
+	twzobj nvme_queue;
+	if(twz_object_init_name(&nvme_queue, "/dev/nvme-queue", FE_READ | FE_WRITE)) {
+		fprintf(stderr, "failed to open nvme queue\n");
+		return 1;
+	}
+
 	while(1) {
 		struct queue_entry_pager pqe;
 		printf("[pager] queue_receive\n");
-		int r = queue_receive(hdr, (struct queue_entry *)&pqe, 0);
+		int r = queue_receive(&kq, (struct queue_entry *)&pqe, 0);
 		if(r == 0) {
-			handle_pager_req(hdr, &pqe);
+			handle_pager_req(&kq, &pqe, &nvme_queue);
 		}
 	}
 }

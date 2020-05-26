@@ -116,6 +116,7 @@ struct queue_hdr {
 
 #if __KERNEL__
 
+#include <object.h>
 struct object;
 int kernel_queue_wait_on(struct object *, void *, uint64_t);
 int kernel_queue_wake_up(struct object *, void *, uint64_t);
@@ -132,14 +133,31 @@ static inline int __wake_up(struct object *obj, void *p, uint64_t v, int dq)
 	return kernel_queue_wake_up(obj, p, v);
 }
 
+static inline struct queue_entry *__get_entry(struct object *obj,
+  struct queue_hdr *hdr,
+  int sq,
+  uint32_t pos)
+{
+	/* a queue object already has the kbase ref count > 1 */
+	void *base = obj_get_kaddr(obj);
+	void *r = (void *)((char *)hdr->subqueue[sq].queue
+	                   + ((pos % hdr->subqueue[sq].length) * hdr->subqueue[sq].stride));
+	obj_release_kaddr(obj);
+	printk("[kq] get_entry : %p\n", (char *)base + (long)r);
+	return (char *)base + (long)r;
+}
+
 #else
 #include <errno.h>
+#include <stdio.h>
 #include <twz/_sys.h>
 #include <twz/thread.h>
 static inline int __wait_on(void *o, void *p, uint64_t v, int dq)
 {
 	(void)o;
+	fprintf(stderr, "BLOCKING\n");
 	twz_thread_sync(THREAD_SYNC_SLEEP, p, v, NULL);
+	fprintf(stderr, "WAKEUP\n");
 	/* TODO: errors */
 	return 0;
 }
@@ -151,32 +169,38 @@ static inline int __wake_up(void *o, void *p, uint64_t v, int dq)
 	/* TODO: errors */
 	return 0;
 }
+
+static inline struct queue_entry *__get_entry(struct object *obj,
+  struct queue_hdr *hdr,
+  int sq,
+  uint32_t pos)
+{
+	return (void *)((char *)twz_object_lea(obj, hdr->subqueue[sq].queue)
+	                + ((pos % hdr->subqueue[sq].length) * hdr->subqueue[sq].stride));
+}
+
 #endif
 
 static inline _Bool is_turn(struct queue_hdr *hdr, int sq, uint32_t tail, struct queue_entry *entry)
 {
 	uint32_t turn = (tail / hdr->subqueue[sq].length) % 2;
+#if !__KERNEL__
+	fprintf(stderr, "::: turn? %x %d\n", entry->cmd_id >> 31, turn);
+#endif
 	return (entry->cmd_id >> 31) != turn;
-}
-
-static inline struct queue_entry *__get_entry(struct queue_hdr *hdr, int sq, uint32_t pos)
-{
-	return (void *)((char *)hdr->subqueue[sq].queue
-	                + ((pos % hdr->subqueue[sq].length) * hdr->subqueue[sq].stride));
 }
 
 static inline int queue_sub_enqueue(
 #if __KERNEL__
   struct object *obj,
+#else
+  twzobj *obj,
 #endif
   struct queue_hdr *hdr,
   int sq,
   struct queue_entry *submit,
   _Bool nonblock)
 {
-#if !__KERNEL__
-	void *obj = NULL;
-#endif
 	int r;
 	uint32_t h, t;
 
@@ -206,15 +230,24 @@ static inline int queue_sub_enqueue(
 	/* finally, write-in the data. We are using release-semantics for the store to cmd_id to ensure
 	 * the non-atomically-written data put into the queue entry is visible to the consumer that does
 	 * the paired acquire operation on the cmd_id. */
-	struct queue_entry *entry = __get_entry(hdr, sq, h);
+	struct queue_entry *entry = __get_entry(obj, hdr, sq, h);
 	entry->info = submit->info;
 	size_t datalen = hdr->subqueue[sq].stride - sizeof(struct queue_entry);
 	memcpy(entry->data, submit->data, datalen);
 
 	/* the turn alternates on passes through the queue */
 	uint32_t turn = 1 - ((h / hdr->subqueue[sq].length) % 2);
-	atomic_store(&entry->cmd_id, h | turn << 31);
+	atomic_store(&entry->cmd_id, h | (turn << 31));
 
+#if !__KERNEL__
+	twzobj o = twz_object_from_ptr(hdr);
+	fprintf(stderr,
+	  "::: stord " IDFMT " : %x -> %d %p\n",
+	  IDPR(twz_object_guid(&o)),
+	  h | (turn << 31),
+	  h,
+	  entry);
+#endif
 	/* ring the bell! If the consumer isn't waiting, don't bother the kernel. */
 	hdr->subqueue[sq].bell++;
 	if(D_ISWAITING(hdr, sq)) {
@@ -229,15 +262,14 @@ static inline int queue_sub_enqueue(
 static inline int queue_sub_dequeue(
 #if __KERNEL__
   struct object *obj,
+#else
+  twzobj *obj,
 #endif
   struct queue_hdr *hdr,
   int sq,
   struct queue_entry *result,
   _Bool nonblock)
 {
-#if !__KERNEL__
-	void *obj = NULL;
-#endif
 	int r;
 	uint32_t t, b;
 	/* grab the tail. Remember, we use the top bit to indicate we are waiting. */
@@ -245,7 +277,7 @@ static inline int queue_sub_dequeue(
 	b = hdr->subqueue[sq].bell;
 
 	/* we will be dequeuing at t, so just get the entry. But we might have to wait for it! */
-	struct queue_entry *entry = __get_entry(hdr, sq, t);
+	struct queue_entry *entry = __get_entry(obj, hdr, sq, t);
 	while(is_empty(b, t) || !is_turn(hdr, sq, t, entry)) {
 		/* sleep if the queue is empty (in which case don't bother checking the turn) OR if the
 		 * entry's turn is wrong. This happens if multiple enqueuers have raced as follows:
@@ -259,6 +291,16 @@ static inline int queue_sub_dequeue(
 		if(nonblock) {
 			return -EAGAIN;
 		}
+#if !__KERNEL__
+		twzobj o = twz_object_from_ptr(hdr);
+		fprintf(stderr,
+		  "::: " IDFMT " :: %d %d %d %p\n",
+		  IDPR(twz_object_guid(&o)),
+		  is_empty(b, t),
+		  is_turn(hdr, sq, t, entry),
+		  t,
+		  entry);
+#endif
 		D_SETWAITING(hdr, sq);
 		if((r = __wait_on(obj, &hdr->subqueue[sq].bell, b, 1)) < 0) {
 			return r;
