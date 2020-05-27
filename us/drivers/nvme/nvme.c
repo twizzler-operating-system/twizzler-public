@@ -713,7 +713,15 @@ void nvme_wait_for_event(struct nvme_controller *nc)
 #include <pthread.h>
 
 #include <twz/queue.h>
-
+#if 0
+static void nvme_cmd_init_read(struct nvme_cmd *cmd,
+  uintptr_t addr,
+  uint32_t nsid,
+  uint64_t lba,
+  uint16_t nrblks,
+  uint32_t blksz,
+  uint32_t pagesz)
+#endif
 #include <twz/driver/queue.h>
 void *ptm(void *arg)
 {
@@ -728,6 +736,21 @@ void *ptm(void *arg)
 		int r = queue_receive(&nc->ext_qobj, (struct queue_entry *)&bio, 0);
 		fprintf(
 		  stderr, "[nvme] nvme got bio: %d %ld :: %lx\n", bio.qe.info, bio.blockid, bio.linaddr);
+
+		struct nvme_cmd cmd;
+		uint16_t status;
+		uint32_t cres;
+		nvme_cmd_init_read(&cmd, bio.linaddr, 1, bio.blockid, 8, 512, 4096);
+		fprintf(stderr, "nvme performing read\n");
+		int res = nvmec_execute_cmd(nc, &cmd, &nc->queues[1], &status, &cres);
+		fprintf(stderr, "nvme got %d %d %d\n", res, status, cres);
+		nvme_cmd_init_read(&cmd, bio.linaddr, 1, bio.blockid, 8, 512, 4096);
+		res = nvmec_execute_cmd(nc, &cmd, &nc->queues[1], &status, &cres);
+		fprintf(stderr, "nvme got %d %d %d\n", res, status, cres);
+
+		bio.result = status;
+
+		queue_complete(&nc->ext_qobj, (struct queue_entry *)&bio, 0);
 	}
 
 	return 0;

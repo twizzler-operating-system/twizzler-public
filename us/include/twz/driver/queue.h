@@ -26,4 +26,6 @@ struct queue_entry_bio {
 	struct queue_entry qe;
 	uint64_t linaddr;
 	uint64_t blockid;
+	int result;
+	int pad;
 };

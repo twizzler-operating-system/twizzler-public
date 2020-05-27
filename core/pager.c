@@ -124,6 +124,7 @@ static void _pager_fn(void *a)
 			switch(pqe.result) {
 				case PAGER_RESULT_ZERO:
 					printk("[kq] result is to zero a page\n");
+					/* TODO: release resources */
 					obj_get_page(pr->obj, pr->pqe.page * mm_page_size(0), true);
 					break;
 				case PAGER_RESULT_COPY:
@@ -131,6 +132,7 @@ static void _pager_fn(void *a)
 					  IDPR(pqe.id),
 					  pqe.page);
 
+					/* TODO: release resources */
 					{
 						struct object *obj = obj_lookup(pqe.id, 0);
 						if(obj) {
@@ -154,6 +156,8 @@ static void _pager_fn(void *a)
 
 					break;
 				case PAGER_RESULT_DONE:
+					tmpmap_unmap_page(pr->tmpaddr);
+					obj_cache_page(pr->obj, pr->pqe.page * mm_page_size(0), pr->pp);
 					break;
 				default:
 				case PAGER_RESULT_ERROR:

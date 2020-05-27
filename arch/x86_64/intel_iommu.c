@@ -198,8 +198,13 @@ static void do_iommu_object_map_slot(struct object *obj, uint64_t flags)
 {
 	/* TODO: map w/ permissions */
 	(void)flags;
-	assert(obj->slot != NULL);
-	uintptr_t virt = obj->slot->num * OBJ_MAXSIZE;
+	uintptr_t virt;
+	if(obj->flags & OF_KERNEL) {
+		virt = obj->kslot->num * OBJ_MAXSIZE;
+	} else {
+		assert(obj->slot != NULL);
+		virt = obj->slot->num * OBJ_MAXSIZE;
+	}
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
 

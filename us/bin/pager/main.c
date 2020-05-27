@@ -39,25 +39,28 @@ void handle_pager_req(twzobj *qobj, struct queue_entry_pager *pqe, twzobj *nvme_
 	} else if(pqe->cmd == PAGER_CMD_OBJECT_PAGE) {
 		printf("[pager]   page request: %lx -> %lx\n", pqe->page, pqe->linaddr);
 		// pqe->result = PAGER_RESULT_ZERO;
-		pqe->result = PAGER_RESULT_COPY;
-		twzobj o;
-		twz_object_new(&o, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
-		int *p = twz_object_base(&o);
-		*p = 0x1234;
-		pqe->page = 1;
-		pqe->id = twz_object_guid(&o);
-
-		queue_complete(qobj, (struct queue_entry *)pqe, 0);
+		// pqe->result = PAGER_RESULT_COPY;
+		/*	twzobj o;
+		    twz_object_new(&o, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
+		    int *p = twz_object_base(&o);
+		    *p = 0x1234;
+		    pqe->page = 1;
+		    pqe->id = twz_object_guid(&o);
+		    */
 
 		struct queue_entry_bio bio = {
 			.qe = 0,
-			.blockid = 1,
+			.blockid = 0,
 			.linaddr = pqe->linaddr,
 		};
 
 		printf("[pager] forwarding request to nvme\n");
 		queue_submit(nvme_queue, (struct queue_entry *)&bio, 0);
 		printf("[pager] submitted!\n");
+		queue_get_finished(nvme_queue, (struct queue_entry *)&bio, 0);
+		printf("[pager] heard back from nvme: %d\n", bio.result);
+		pqe->result = PAGER_RESULT_DONE;
+		queue_complete(qobj, (struct queue_entry *)pqe, 0);
 	}
 }
 

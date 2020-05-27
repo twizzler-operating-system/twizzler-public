@@ -143,21 +143,19 @@ static inline struct queue_entry *__get_entry(struct object *obj,
 	void *r = (void *)((char *)hdr->subqueue[sq].queue
 	                   + ((pos % hdr->subqueue[sq].length) * hdr->subqueue[sq].stride));
 	obj_release_kaddr(obj);
-	printk("[kq] get_entry : %p\n", (char *)base + (long)r);
+	// printk("[kq] get_entry : %p\n", (char *)base + (long)r);
 	return (char *)base + (long)r;
 }
 
 #else
 #include <errno.h>
-#include <stdio.h>
+//#include <stdio.h>
 #include <twz/_sys.h>
 #include <twz/thread.h>
 static inline int __wait_on(void *o, void *p, uint64_t v, int dq)
 {
 	(void)o;
-	fprintf(stderr, "BLOCKING\n");
 	twz_thread_sync(THREAD_SYNC_SLEEP, p, v, NULL);
-	fprintf(stderr, "WAKEUP\n");
 	/* TODO: errors */
 	return 0;
 }
@@ -184,9 +182,6 @@ static inline struct queue_entry *__get_entry(struct object *obj,
 static inline _Bool is_turn(struct queue_hdr *hdr, int sq, uint32_t tail, struct queue_entry *entry)
 {
 	uint32_t turn = (tail / hdr->subqueue[sq].length) % 2;
-#if !__KERNEL__
-	fprintf(stderr, "::: turn? %x %d\n", entry->cmd_id >> 31, turn);
-#endif
 	return (entry->cmd_id >> 31) != turn;
 }
 
@@ -239,15 +234,6 @@ static inline int queue_sub_enqueue(
 	uint32_t turn = 1 - ((h / hdr->subqueue[sq].length) % 2);
 	atomic_store(&entry->cmd_id, h | (turn << 31));
 
-#if !__KERNEL__
-	twzobj o = twz_object_from_ptr(hdr);
-	fprintf(stderr,
-	  "::: stord " IDFMT " : %x -> %d %p\n",
-	  IDPR(twz_object_guid(&o)),
-	  h | (turn << 31),
-	  h,
-	  entry);
-#endif
 	/* ring the bell! If the consumer isn't waiting, don't bother the kernel. */
 	hdr->subqueue[sq].bell++;
 	if(D_ISWAITING(hdr, sq)) {
@@ -291,16 +277,6 @@ static inline int queue_sub_dequeue(
 		if(nonblock) {
 			return -EAGAIN;
 		}
-#if !__KERNEL__
-		twzobj o = twz_object_from_ptr(hdr);
-		fprintf(stderr,
-		  "::: " IDFMT " :: %d %d %d %p\n",
-		  IDPR(twz_object_guid(&o)),
-		  is_empty(b, t),
-		  is_turn(hdr, sq, t, entry),
-		  t,
-		  entry);
-#endif
 		D_SETWAITING(hdr, sq);
 		if((r = __wait_on(obj, &hdr->subqueue[sq].bell, b, 1)) < 0) {
 			return r;
@@ -324,5 +300,50 @@ static inline int queue_sub_dequeue(
 	}
 	return 0;
 }
+
+#ifndef __KERNEL__
+struct queue_dequeue_multiple_spec {
+	twzobj *obj;
+	struct queue_entry *result;
+	int sq;
+	int ret;
+};
+
+static inline ssize_t queue_sub_dequeue_multiple(size_t count,
+  struct queue_dequeue_multiple_spec *specs)
+{
+	if(count > 128)
+		return -EINVAL;
+	size_t sleep_count = 0;
+	struct sys_thread_sync_args tsa[count];
+	for(size_t i = 0; i < count; i++) {
+		struct queue_hdr *hdr = twz_object_base(specs[i].obj);
+		uint32_t t, b;
+		/* grab the tail. Remember, we use the top bit to indicate we are waiting. */
+		t = hdr->subqueue[specs[i].sq].tail & 0x7fffffff;
+		b = hdr->subqueue[specs[i].sq].bell;
+
+		/* we will be dequeuing at t, so just get the entry. But we might have to wait for it! */
+		struct queue_entry *entry = __get_entry(specs[i].obj, hdr, specs[i].sq, t);
+
+		if(is_empty(b, t) || !is_turn(hdr, specs[i].sq, t, entry)) {
+			specs[i].ret = 0;
+			twz_thread_sync_init(
+			  &tsa[sleep_count++], THREAD_SYNC_SLEEP, &hdr->subqueue[specs[i].sq].bell, b, NULL);
+		} else {
+			queue_sub_dequeue(specs[i].obj, hdr, specs[i].sq, specs[i].result, true);
+			specs[i].ret = 1;
+		}
+	}
+
+	if(sleep_count == count) {
+		int r = twz_thread_sync_multiple(sleep_count, tsa);
+		/* TODO: errors */
+		return queue_sub_dequeue_multiple(count, specs);
+	}
+
+	return count - sleep_count;
+}
+#endif
 
 #endif
