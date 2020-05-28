@@ -73,6 +73,8 @@
  *
  */
 
+/* TODO: get rid of multiples and divides */
+
 struct queue_entry {
 	_Atomic uint32_t cmd_id; // top bit is turn bit.
 	uint32_t info;           // some user-defined info
