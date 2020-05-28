@@ -43,10 +43,10 @@ $(BUILDDIR)/kernel.stage1: $(CRTI) $(CRTN)
 $(BUILDDIR)/kernel: $(CRTI) $(CRTN)
 
 bootiso: $(BUILDDIR)/kernel userspace
-	@mkdir -p $(BUILDDIR)/boot/grub
-	@cp machine/pc/grub.cfg $(BUILDDIR)/boot/grub
+	@mkdir -p $(BUILDDIR)/boot/boot/grub
+	@cp machine/pc/grub.cfg $(BUILDDIR)/boot/boot/grub
 	@-rm $(BUILDDIR)/boot.iso
-	cd $(BUILDDIR); grub-mkrescue -o boot.iso kernel us/root.tar
+	cd $(BUILDDIR); grub-mkrescue -o boot.iso kernel us/root.tar boot
 
 test-bochs: bootiso
 	bochs -f machine/pc/bochsrc.txt
