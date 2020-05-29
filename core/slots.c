@@ -99,6 +99,7 @@ struct slot *slot_alloc(void)
 	s->next = NULL;
 	krc_init(&s->rc);
 	spinlock_release_restore(&slot_lock);
+	// printk("slot alloc %ld\n", s->num);
 	return s;
 }
 
@@ -117,6 +118,7 @@ struct slot *slot_lookup(size_t n)
 void slot_release(struct slot *s)
 {
 	if(krc_put_locked(&s->rc, &slot_lock)) {
+		// printk("  FULL REL\n");
 		s->next = slot_stack;
 		slot_stack = s;
 		spinlock_release_restore(&slot_lock);

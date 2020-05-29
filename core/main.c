@@ -271,8 +271,11 @@ void kernel_main(struct processor *proc)
 			panic("failed to create initial objects: %d", r);
 		r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &bsvid);
 		if(r < 0)
-			printk(
-			  "Created bthrd = " IDFMT " and bstck = " IDFMT "\n", IDPR(bthrid), IDPR(bstckid));
+			panic("failed to create initial objects: %d", r);
+		printk("Created bthrd = " IDFMT ", bstck = " IDFMT ", bsvid = " IDFMT "\n",
+		  IDPR(bthrid),
+		  IDPR(bstckid),
+		  IDPR(bsvid));
 
 		struct object *bthr = obj_lookup(bthrid, 0);
 		struct object *bstck = obj_lookup(bstckid, 0);

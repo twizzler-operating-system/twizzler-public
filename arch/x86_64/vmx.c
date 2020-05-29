@@ -12,6 +12,10 @@ static _Atomic long vmexits_count = 0;
 
 static bool support_ept_switch_vmfunc = false;
 static bool support_virt_exception = false;
+static int suppoted_invept_types = 0;
+
+#define VMX_INVEPT_TYPE_SINGLE 1
+#define VMX_INVEPT_TYPE_ALL 2
 
 static void x86_64_vmenter(struct processor *proc);
 
@@ -144,6 +148,13 @@ static void x86_64_enable_vmx(struct processor *proc)
 		}
 	}
 
+	x86_64_rdmsr(X86_MSR_VMX_EPT_VPID_CAP, &lo, &hi);
+	if(!(lo & 1 << 20)) {
+		panic("VMX doesn't support invept");
+	}
+
+	suppoted_invept_types = (lo >> 25) & 3;
+
 #if 0
 	printk("processor %d entered vmx-root (VE=%d, VMF=%d)\n",
 	  current_processor->id,
@@ -230,6 +241,29 @@ static void vmx_handle_ept_violation(struct processor *proc)
 	vmx_queue_exception(20); /* #VE */
 }
 
+static int __get_register(uint32_t enc)
+{
+	static int r[] = {
+		[0] = REG_RAX,
+		[1] = REG_RAX,
+		[2] = REG_RAX,
+		[3] = REG_RAX,
+		[4] = REG_RAX,
+		[5] = REG_RAX,
+		[6] = REG_RAX,
+		[7] = REG_RAX,
+		[8] = REG_RAX,
+		[9] = REG_RAX,
+		[10] = REG_RAX,
+		[11] = REG_RAX,
+		[12] = REG_RAX,
+		[13] = REG_RAX,
+		[14] = REG_RAX,
+		[15] = REG_RAX,
+	};
+	return r[enc];
+}
+
 extern uint64_t clksrc_get_interrupt_countdown();
 __noinstrument __attribute__((used)) static void x86_64_vmexit_handler(struct processor *proc)
 {
@@ -285,9 +319,13 @@ __noinstrument __attribute__((used)) static void x86_64_vmexit_handler(struct pr
 		case VMEXIT_REASON_INVEPT:
 			/* TODO (perf): don't invalidate all mappings */
 			val = vmcs_readl(VMCS_EPT_PTR);
+			int type = proc->arch.vcpu_state_regs[__get_register((iinfo >> 28) & 0xf)];
+			//		printk("vmx invept :: %d :: supported: %x\n", type, suppoted_invept_types);
 			unsigned __int128 eptp = val;
-			asm volatile("invept %0, %%rax" ::"m"(eptp), "a"(proc->arch.vcpu_state_regs[REG_RAX])
-			             : "memory");
+			// asm volatile("invept %0, %%rax" ::"m"(eptp), "a"(proc->arch.vcpu_state_regs[REG_RAX])
+			//           : "memory");
+			// asm volatile("invept %0, %%rax" ::"m"(eptp), "a"(2) : "memory");
+			asm volatile("invept %0, %%rax" ::"m"(eptp), "a"(1) : "memory");
 			vm_instruction_advance();
 			break;
 		default:

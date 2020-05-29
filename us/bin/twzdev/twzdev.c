@@ -161,7 +161,7 @@ int main()
 	}
 
 	int r;
-#if 1
+#if 0
 	if(!fork()) {
 		kso_set_name(NULL, "[instance] nvme-driver");
 		r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);

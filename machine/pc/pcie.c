@@ -125,7 +125,10 @@ static void __alloc_bar(struct object *obj,
 			amount = mm_page_size(0);
 		}
 		obj_cache_page(obj, start, pg);
-		sz -= amount;
+		if(sz < amount)
+			sz = 0;
+		else
+			sz -= amount;
 		addr += amount;
 		start += amount;
 	}
@@ -197,15 +200,27 @@ static long pcie_function_init(struct object *pbobj,
 		if(!bar)
 			continue;
 		/* learn size */
-		space->device.bar[i] = 0xffffffff;
+		*(volatile uint32_t *)&space->device.bar[i] = 0xffffffff;
 		/* TODO: the proper way to do this is correctly map all this memory as UC */
 		asm volatile("clflush %0" ::"m"(space->device.bar[i]) : "memory");
-		uint32_t encsz = space->device.bar[i] & 0xfffffff0;
-		space->device.bar[i] = bar;
+		uint32_t encsz = (*(volatile uint32_t *)&space->device.bar[i]) & 0xfffffff0;
+		*(volatile uint32_t *)&space->device.bar[i] = bar;
 		asm volatile("clflush %0" ::"m"(space->device.bar[i]) : "memory");
 		size_t sz = ~encsz + 1;
+		// printk(":: sz: %x %lx\n", encsz, sz);
 		if(sz > 0x10000000) {
-			panic("NI - large bar");
+			printk("[pcie] warning - unimplemented: support for large BARs (%ld bytes)\n", sz);
+			return -ENOTSUP;
+			break;
+			continue;
+			panic("NI - large bar: %x %x %x %x %x %lx %lx",
+			  space->header.class_code,
+			  space->header.subclass,
+			  space->header.vendor_id,
+			  space->header.device_id,
+			  space->header.progif,
+			  sz,
+			  encsz);
 		}
 		if(bar & 1) {
 			/* TODO: I/O spaces? */

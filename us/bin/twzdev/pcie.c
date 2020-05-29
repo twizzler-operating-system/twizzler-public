@@ -132,6 +132,7 @@ static void pcie_print_function(struct pcie_function *pf, bool nums)
 		}
 	}
 
+#if 0
 	// printf("%x %x %x : %x %x\n", class, subclass, progif, vendor, device);
 	printf("[pcie] [%d:%d:%d] (%x:%x:%x) %s ",
 	  pf->bus,
@@ -143,7 +144,7 @@ static void pcie_print_function(struct pcie_function *pf, bool nums)
 	  sname ? sname : cname);
 	if(pname)
 		printf("[%s] ", pname);
-	printf(":: %s %s\n", vname, dname);
+#endif
 }
 
 static int pcie_init_function(struct pcie_function *pf)
@@ -209,10 +210,10 @@ static void pcie_init_space(struct pcie_bus_header *space)
 			volatile struct pcie_config_space *config =
 			  (void *)twz_object_lea(&pcie_cs_obj, (char *)space->spaces + addr);
 			/* if a device isn't plugged in, the lines go high */
+			// printf(":: %d %d %lx -> %x\n", bus, device, addr, config->header.vendor_id);
 			if(config->header.vendor_id == 0xffff) {
 				continue;
 			}
-			//		printf(":: %d %d %lx -> %x\n", bus, device, addr, config->header.vendor_id);
 			if(config->header.header_type & HEADER_MULTIFUNC) {
 				/* for a multi-function device, brute-force scan all functions. We check for
 				 * this

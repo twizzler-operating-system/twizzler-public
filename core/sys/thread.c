@@ -15,8 +15,9 @@ long syscall_thread_spawn(uint64_t tidlo,
   struct sys_thrd_spawn_args *tsa,
   int flags)
 {
-	if(flags)
+	if(flags) {
 		return -EINVAL;
+	}
 	objid_t tid = MKID(tidhi, tidlo);
 	struct object *repr = obj_lookup(tid, 0);
 	if(!repr) {

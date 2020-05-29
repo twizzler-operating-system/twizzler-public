@@ -176,15 +176,24 @@ int main()
 	wait(&status);
 
 	/* start the terminal program */
-	if(!fork()) {
-		start_terminal("/dev/keyboard", "/dev/framebuffer", "/dev/pty/pty0");
+	if(access("/dev/pty0", F_OK) == 0) {
+		if(!fork()) {
+			start_terminal("/dev/keyboard", "/dev/framebuffer", "/dev/pty/pty0");
+		}
+	} else {
+		fprintf(stderr, "no supported framebuffer found; skipping starting terminal\n");
 	}
 
 	/* start a login on the serial port and the terminal */
-	if(!fork()) {
-		reopen("/dev/pty/ptyc0", "/dev/pty/ptyc0", "/dev/pty/ptyc0");
+	if(access("/dev/ptyc0", F_OK) == 0) {
+		if(!fork()) {
+			reopen("/dev/pty/ptyc0", "/dev/pty/ptyc0", "/dev/pty/ptyc0");
 
-		start_login();
+			start_login();
+		}
+	} else {
+		fprintf(
+		  stderr, "no supported framebuffer found; skipping starting login shell on terminal\n");
 	}
 
 	if(!fork()) {
