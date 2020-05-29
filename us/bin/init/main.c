@@ -173,7 +173,7 @@ int main()
 	}
 
 	int status;
-	wait(&status);
+	r = wait(&status);
 
 	/* start the terminal program */
 	if(access("/dev/pty0", F_OK) == 0) {
@@ -181,7 +181,7 @@ int main()
 			start_terminal("/dev/keyboard", "/dev/framebuffer", "/dev/pty/pty0");
 		}
 	} else {
-		fprintf(stderr, "no supported framebuffer found; skipping starting terminal\n");
+		fprintf(stderr, "no supported framebuffer found; skipping starting terminal: %d\n", errno);
 	}
 
 	/* start a login on the serial port and the terminal */

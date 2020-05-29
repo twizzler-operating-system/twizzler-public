@@ -181,7 +181,7 @@ static size_t _load_initrd(char *start, size_t modlen)
 
 		int compl = (((char *)h - start) * 100) / modlen;
 		if((compl % 20) == 0)
-			printk("[initrd] parsing objects: %d%%\r", compl);
+			printk("[initrd] parsing objects: %d%%\r", compl );
 
 		switch(h->typeflag[0]) {
 			size_t nl;
@@ -291,6 +291,7 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 			switch(tag->type) {
 				struct multiboot_tag_old_acpi *acpi_old_tag;
 				struct multiboot_tag_new_acpi *acpi_new_tag;
+				struct multiboot_tag_framebuffer *framebuffer_hdr;
 				case MULTIBOOT_TAG_TYPE_END:
 					/* force loop to exit */
 					t = info->tags + info->total_size;
@@ -308,6 +309,16 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 				case MULTIBOOT_TAG_TYPE_ACPI_NEW:
 					acpi_new_tag = (void *)tag;
 					acpi_set_rsdp(acpi_new_tag->rsdp, tag->size - sizeof(*acpi_new_tag));
+					break;
+				case MULTIBOOT_TAG_TYPE_FRAMEBUFFER:
+					framebuffer_hdr = (void *)tag;
+					printk("[boot] multiboot framebuffer: addr=%lx, %d %d %d, bpp=%d, type=%d\n",
+					  framebuffer_hdr->common.framebuffer_addr,
+					  framebuffer_hdr->common.framebuffer_width,
+					  framebuffer_hdr->common.framebuffer_height,
+					  framebuffer_hdr->common.framebuffer_pitch,
+					  framebuffer_hdr->common.framebuffer_bpp,
+					  framebuffer_hdr->common.framebuffer_type);
 					break;
 			}
 		}

@@ -84,6 +84,17 @@ multiboot2_header:
 	.long PHYS(_start)
 	.long 0
 	_mbh_entry_end:
+
+	_mbh_fb_start:
+	.short MULTIBOOT_HEADER_TAG_FRAMEBUFFER
+	.short 0
+	.long 20
+	.long 0
+	.long 0
+	.long 0
+	.long 0
+	_mbh_fb_end:
+
 	.short 0
 	.short 0
 	.long 8
