@@ -91,7 +91,7 @@ multiboot2_header:
 	.long 20
 	.long 0
 	.long 0
-	.long 0
+	.long 32
 	.long 0
 	_mbh_fb_end:
 

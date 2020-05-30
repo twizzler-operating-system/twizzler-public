@@ -243,8 +243,8 @@ static void pcie_load_driver(struct pcie_function *pf)
 {
 	struct pcie_function_header *hdr = twz_device_getds(&pf->cobj);
 	if(hdr->vendorid == 0x1234 && hdr->deviceid == 0x1111) {
-		create_pty_pair("/dev/pty/pty0", "/dev/pty/ptyc0");
-		twz_name_assign(pf->cid, "/dev/framebuffer");
+		//	create_pty_pair("/dev/pty/pty0", "/dev/pty/ptyc0");
+		//	twz_name_assign(pf->cid, "/dev/framebuffer");
 		return;
 	}
 	if(hdr->classid == 1 && hdr->subclassid == 8 && hdr->progif == 2) {

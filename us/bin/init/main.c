@@ -174,9 +174,10 @@ int main()
 
 	int status;
 	r = wait(&status);
+	fprintf(stderr, "HERE\n");
 
 	/* start the terminal program */
-	if(access("/dev/pty0", F_OK) == 0) {
+	if(access("/dev/pty/pty0", F_OK) == 0) {
 		if(!fork()) {
 			start_terminal("/dev/keyboard", "/dev/framebuffer", "/dev/pty/pty0");
 		}
@@ -185,7 +186,7 @@ int main()
 	}
 
 	/* start a login on the serial port and the terminal */
-	if(access("/dev/ptyc0", F_OK) == 0) {
+	if(access("/dev/pty/ptyc0", F_OK) == 0) {
 		if(!fork()) {
 			reopen("/dev/pty/ptyc0", "/dev/pty/ptyc0", "/dev/pty/ptyc0");
 

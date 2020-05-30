@@ -125,6 +125,21 @@ static void start_stream_device(objid_t id)
 	}
 }
 
+static void start_misc_device(objid_t id)
+{
+	twzobj dobj;
+	twz_object_init_guid(&dobj, id, FE_READ | FE_WRITE);
+	struct device_repr *dr = twz_object_base(&dobj);
+
+	switch(dr->device_id) {
+		case DEVICE_ID_FRAMEBUFFER:
+			printf("[twzdev] registered framebuffer\n");
+			create_pty_pair("/dev/pty/pty0", "/dev/pty/ptyc0");
+			twz_name_assign(id, "/dev/framebuffer");
+			break;
+	}
+}
+
 int main()
 {
 	/* start devices */
@@ -151,7 +166,15 @@ int main()
 							continue;
 						start_stream_device(k->id);
 					}
-
+				} else if(br->bus_type == DEVICE_BT_MISC) {
+					for(size_t i = 0; i < br->max_children; i++) {
+						struct kso_attachment *k = twz_object_lea(&dobj, &br->children[i]);
+						if(k->id == 0)
+							continue;
+						start_misc_device(k->id);
+					}
+				} else if(br->bus_type == DEVICE_BT_SYSTEM) {
+					/* nothing */
 				} else {
 					fprintf(stderr, "unknown bus_type: %d\n", br->bus_type);
 				}

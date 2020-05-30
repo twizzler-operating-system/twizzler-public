@@ -3,6 +3,7 @@
 #include <arch/x86_64-vmx.h>
 #include <arch/x86_64.h>
 #include <debug.h>
+#include <device.h>
 #include <init.h>
 #include <kc.h>
 #include <machine/machine.h>
@@ -12,6 +13,9 @@
 #include <processor.h>
 #include <string.h>
 #include <tmpmap.h>
+
+#include <twz/driver/device.h>
+#include <twz/driver/misc.h>
 
 /* TODO (major): clean up this file */
 
@@ -273,6 +277,51 @@ static enum memory_subtype memory_subtype_map(unsigned int mtb_type)
 	                                                            : _subtypes[mtb_type];
 }
 
+static struct multiboot_tag_framebuffer fbinfo;
+static bool found_fbinfo = false;
+
+static void __late_init_framebuffer(void *a __unused)
+{
+	if(!found_fbinfo)
+		return;
+	static struct object *fb_obj;
+	fb_obj = device_register(DEVICE_BT_MISC, DEVICE_ID_FRAMEBUFFER);
+	kso_setname(fb_obj, "VBE-compatible Framebuffer");
+
+	struct misc_framebuffer *mfb = device_get_devspecific(fb_obj);
+	mfb->height = fbinfo.common.framebuffer_height;
+	mfb->width = fbinfo.common.framebuffer_width;
+	mfb->pitch = fbinfo.common.framebuffer_pitch;
+	mfb->bpp = fbinfo.common.framebuffer_bpp;
+	mfb->type = fbinfo.common.framebuffer_height == MULTIBOOT_FRAMEBUFFER_TYPE_RGB
+	              ? MISC_FRAMEBUFFER_TYPE_GRAPHICAL
+	              : MISC_FRAMEBUFFER_TYPE_UNKNOWN;
+	mfb->offset = mm_page_size(1);
+
+	size_t sz = mfb->height * mfb->pitch;
+	uintptr_t addr = fbinfo.common.framebuffer_addr;
+	size_t start = mm_page_size(1);
+	while(sz > 0) {
+		struct page *pg = page_alloc_nophys();
+		pg->addr = addr;
+		pg->type = PAGE_TYPE_MMIO;
+		pg->flags |= PAGE_CACHE_WC;
+		pg->level = 1;
+		size_t amount = mm_page_size(1);
+		obj_cache_page(fb_obj, start, pg);
+		if(sz < amount)
+			sz = 0;
+		else
+			sz -= amount;
+		addr += amount;
+		start += amount;
+	}
+
+	kso_attach(device_get_misc_bus(), fb_obj, DEVICE_ID_FRAMEBUFFER);
+	device_release_headers(fb_obj);
+}
+POST_INIT(__late_init_framebuffer, NULL);
+
 void x86_64_init(uint32_t magic, struct multiboot *mth)
 {
 	idt_init();
@@ -319,6 +368,8 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 					  framebuffer_hdr->common.framebuffer_pitch,
 					  framebuffer_hdr->common.framebuffer_bpp,
 					  framebuffer_hdr->common.framebuffer_type);
+					fbinfo = *framebuffer_hdr;
+					found_fbinfo = true;
 					break;
 			}
 		}

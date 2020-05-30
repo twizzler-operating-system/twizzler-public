@@ -10,6 +10,8 @@ enum device_sync { DEVICE_SYNC_READY, DEVICE_SYNC_ERROR, DEVICE_SYNC_IOV_FAULT, 
 #define DEVICE_ID_KEYBOARD 1
 #define DEVICE_ID_SERIAL 2
 
+#define DEVICE_ID_FRAMEBUFFER 3
+
 struct device_interrupt {
 	_Atomic uint64_t sp;
 	uint32_t flags;

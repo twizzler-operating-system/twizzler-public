@@ -6,6 +6,7 @@
 #include <twz/bstream.h>
 #include <twz/debug.h>
 #include <twz/driver/device.h>
+#include <twz/driver/misc.h>
 #include <twz/driver/pcie.h>
 #include <twz/io.h>
 #include <twz/name.h>
@@ -473,21 +474,32 @@ void setup_pty(int cw, int ch)
 void init_fb(struct fb *fb)
 {
 	if(fb->init == 1) {
+#if 0
 		struct pcie_function_header *hdr = twz_device_getds(&fb->obj);
 		fb->front_buffer = twz_object_lea(&fb->obj, (void *)hdr->bars[0]);
 		volatile struct bga_regs *regs = twz_object_lea(&fb->obj, (void *)hdr->bars[2] + 0x500);
-		printf("GOT BAR 2: %p\n", regs);
 		regs->index = 0xb0c5;
 		regs->enable = 0;
 		regs->xres = 1024;
 		regs->yres = 768;
 		regs->bpp = 0x20;
 		regs->enable = 1 | 0x40;
+#endif
 
+		struct misc_framebuffer *mfb = twz_device_getds(&fb->obj);
+		fb->front_buffer = twz_object_lea(&fb->obj, (void *)mfb->offset);
+
+		fb->fbw = mfb->width;
+		fb->fbh = mfb->height;
+		fb->bpp = mfb->bpp / 8;
+		fb->pitch = mfb->pitch;
+		/* TODO: check mfb type */
+#if 0
 		fb->fbw = 1024;
 		fb->fbh = 768;
 		fb->bpp = 4;
 		fb->pitch = fb->fbw * fb->bpp;
+#endif
 		fb->gl_w = 8;
 		fb->gl_h = 16;
 		fb->x = 0;
