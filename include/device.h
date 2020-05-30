@@ -21,3 +21,4 @@ void device_signal_sync(struct object *obj, int snum, uint64_t val);
 struct object *bus_register(uint32_t bustype, uint32_t busid, size_t bssz);
 void *bus_get_busspecific(struct object *obj);
 struct bus_repr *bus_get_repr(struct object *obj);
+struct object *device_get_misc_bus(void);

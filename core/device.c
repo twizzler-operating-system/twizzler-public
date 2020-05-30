@@ -169,3 +169,20 @@ void device_unregister(struct object *obj)
 {
 	panic("NI - device_unregister %p", obj);
 }
+
+struct object *device_get_misc_bus(void)
+{
+	static struct spinlock lock = SPINLOCK_INIT;
+	static struct object *_Atomic misc_bus = NULL;
+	if(!misc_bus) {
+		spinlock_acquire_save(&lock);
+		if(!misc_bus) {
+			/* krc: move */
+			misc_bus = bus_register(DEVICE_BT_MISC, 0, 0);
+			kso_setname(misc_bus, "Misc Bus");
+			kso_root_attach(misc_bus, 0, KSO_DEVBUS);
+		}
+		spinlock_release_restore(&lock);
+	}
+	return misc_bus;
+}
