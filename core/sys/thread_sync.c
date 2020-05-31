@@ -76,7 +76,13 @@ static void _sp_release(void *_sp)
 	slabcache_free(&sc_syncpoint, sp);
 }
 
-static int sp_sleep_prep(struct syncpoint *sp, long *addr, long val, struct timespec *spec, int idx, bool dont_check)
+static int sp_sleep_prep(struct syncpoint *sp,
+  long *addr,
+  long val,
+  struct timespec *spec,
+  int idx,
+  bool dont_check,
+  bool bits32)
 {
 	int64_t ns = spec ? (spec->tv_nsec + spec->tv_sec * 1000000000ul) : -1ul;
 	spinlock_acquire_save(&sp->lock);
@@ -88,7 +94,8 @@ static int sp_sleep_prep(struct syncpoint *sp, long *addr, long val, struct time
 	list_insert(&sp->waiters, &current_thread->sleep_entries[idx].entry);
 
 	/* TODO: verify that addr is a valid address that we can access */
-	int r = dont_check || (atomic_load(addr) == val);
+	int r =
+	  dont_check || (bits32 ? (atomic_load((int *)addr) == (int)val) : (atomic_load(addr) == val));
 	spinlock_release_restore(&current_thread->lock);
 	spinlock_release_restore(&sp->lock);
 	return r;
@@ -113,9 +120,15 @@ static void sp_sleep_finish(struct syncpoint *sp, int stay_asleep, int idx)
 	krc_put_call(sp, refs, _sp_release);
 }
 
-static int sp_sleep(struct syncpoint *sp, long *addr, long val, struct timespec *spec, int idx, bool dont_check)
+static int sp_sleep(struct syncpoint *sp,
+  long *addr,
+  long val,
+  struct timespec *spec,
+  int idx,
+  bool dont_check,
+  bool bits32)
 {
-	sp_sleep_finish(sp, sp_sleep_prep(sp, addr, val, spec, idx, dont_check), idx);
+	sp_sleep_finish(sp, sp_sleep_prep(sp, addr, val, spec, idx, dont_check, bits32), idx);
 	return 0;
 }
 
@@ -187,7 +200,9 @@ static long thread_sync_single_norestore(int operation,
   long *addr,
   long arg,
   struct timespec *spec,
-  int idx, bool dont_check)
+  int idx,
+  bool dont_check,
+  bool bits32)
 {
 	objid_t id;
 	uint64_t off;
@@ -203,7 +218,7 @@ static long thread_sync_single_norestore(int operation,
 	long ret = -1;
 	switch(operation) {
 		case THREAD_SYNC_SLEEP:
-			ret = sp_sleep_prep(sp, addr, arg, spec, idx, dont_check);
+			ret = sp_sleep_prep(sp, addr, arg, spec, idx, dont_check, bits32);
 			break;
 		case THREAD_SYNC_WAKE:
 			ret = sp_wake(sp, arg);
@@ -258,10 +273,10 @@ long thread_sleep_on_object(struct object *obj, size_t offset, long arg, bool do
 	if(!dont_check) {
 		panic("NI - in-kernel sleep on object with addr check");
 	}
-	return sp_sleep(sp, NULL, arg, NULL, 0, dont_check);
+	return sp_sleep(sp, NULL, arg, NULL, 0, dont_check, false);
 }
 
-long thread_sync_single(int operation, long *addr, long arg, struct timespec *spec)
+long thread_sync_single(int operation, long *addr, long arg, struct timespec *spec, bool bits32)
 {
 	objid_t id;
 	uint64_t off;
@@ -277,7 +292,7 @@ long thread_sync_single(int operation, long *addr, long arg, struct timespec *sp
 	switch(operation) {
 		case THREAD_SYNC_SLEEP:
 			__thread_init_sync(1);
-			return sp_sleep(sp, addr, arg, spec, 0, false);
+			return sp_sleep(sp, addr, arg, spec, 0, false, bits32);
 		case THREAD_SYNC_WAKE:
 			return sp_wake(sp, arg);
 		default:
@@ -298,7 +313,9 @@ long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args)
 		  (long *)args[i].addr,
 		  args[i].arg,
 		  (args[i].flags & THREAD_SYNC_TIMEOUT) ? args[i].spec : NULL,
-		  i, false);
+		  i,
+		  false,
+		  !!(args[i].flags & THREAD_SYNC_32BIT));
 		ok = ok || r >= 0;
 		args[i].res = r >= 0 ? 1 : r; // TODO
 		if(args[i].op == THREAD_SYNC_SLEEP && r == 0)

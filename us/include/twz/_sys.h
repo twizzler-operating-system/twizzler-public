@@ -65,6 +65,7 @@ enum kso_invl_current {
 #define THREAD_SYNC_WAKE 1
 
 #define THREAD_SYNC_TIMEOUT 1
+#define THREAD_SYNC_32BIT 2
 
 struct timespec;
 struct sys_thread_sync_args {

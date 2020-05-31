@@ -74,7 +74,7 @@ void thread_wake(struct thread *t);
 void thread_exit(void);
 void thread_raise_fault(struct thread *t, int fault, void *info, size_t);
 struct timespec;
-long thread_sync_single(int operation, long *addr, long arg, struct timespec *spec);
+long thread_sync_single(int operation, long *addr, long arg, struct timespec *spec, bool);
 long thread_wake_object(struct object *obj, size_t offset, long arg);
 void thread_sync_uninit_thread(struct thread *thr);
 long thread_sleep_on_object(struct object *obj, size_t offset, long arg, bool dont_check);

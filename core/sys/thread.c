@@ -119,7 +119,7 @@ long syscall_thrd_ctl(int op, long arg)
 			/* TODO (sec): check eptr */
 			eptr = (long *)arg;
 			if(eptr) {
-				thread_sync_single(THREAD_SYNC_WAKE, eptr, INT_MAX, NULL);
+				thread_sync_single(THREAD_SYNC_WAKE, eptr, INT_MAX, NULL, false);
 			}
 			thread_exit();
 			break;
