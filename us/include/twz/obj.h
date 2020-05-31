@@ -47,7 +47,7 @@ _Bool objid_parse(const char *name, size_t len, objid_t *id);
 #define twz_ptr_rebase(fe, p)                                                                      \
 	({ (typeof(p))((uintptr_t)SLOT_TO_VADDR(fe) | (uintptr_t)twz_ptr_local(p)); })
 
-#define twz_ptr_islocal(p) ({ ((p) < OBJ_MAXSIZE); })
+#define twz_ptr_islocal(p) ({ ((uintptr_t)(p) < OBJ_MAXSIZE); })
 
 void *__twz_object_lea_foreign(twzobj *o, const void *p);
 

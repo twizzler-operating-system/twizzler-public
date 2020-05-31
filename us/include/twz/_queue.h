@@ -1,6 +1,13 @@
 #pragma once
 
+#ifdef __cplusplus
+#include <atomic>
+using std::atomic_uint_least32_t;
+using std::atomic_uint_least64_t;
+#else /* not __cplusplus */
 #include <stdatomic.h>
+#endif /* __cplusplus */
+
 #include <stdint.h>
 #include <string.h>
 
@@ -76,8 +83,8 @@
 /* TODO: get rid of multiples and divides */
 
 struct queue_entry {
-	_Atomic uint32_t cmd_id; // top bit is turn bit.
-	uint32_t info;           // some user-defined info
+	atomic_uint_least32_t cmd_id; // top bit is turn bit.
+	uint32_t info;                // some user-defined info
 	char data[];
 };
 
@@ -90,11 +97,11 @@ struct queue_hdr {
 		size_t length;
 		size_t stride;
 		uint8_t pada[64];
-		_Atomic uint32_t head;
-		_Atomic uint32_t waiters; // how many producers are waiting
-		_Atomic uint64_t bell;
+		atomic_uint_least32_t head;
+		atomic_uint_least32_t waiters; // how many producers are waiting
+		atomic_uint_least64_t bell;
 		uint8_t padb[64];
-		_Atomic uint64_t tail; // top bit indicates consumer is waiting.
+		atomic_uint_least64_t tail; // top bit indicates consumer is waiting.
 	} subqueue[2];
 	/* the kernel cannot use data after this point */
 };
@@ -154,7 +161,7 @@ static inline struct queue_entry *__get_entry(struct object *obj,
 //#include <stdio.h>
 #include <twz/_sys.h>
 #include <twz/thread.h>
-static inline int __wait_on(void *o, void *p, uint64_t v, int dq)
+static inline int __wait_on(void *o, atomic_uint_least64_t *p, uint64_t v, int dq)
 {
 	(void)o;
 	twz_thread_sync(THREAD_SYNC_SLEEP, p, v, NULL);
@@ -162,7 +169,7 @@ static inline int __wait_on(void *o, void *p, uint64_t v, int dq)
 	return 0;
 }
 
-static inline int __wake_up(void *o, void *p, uint64_t v, int dq)
+static inline int __wake_up(void *o, atomic_uint_least64_t *p, uint64_t v, int dq)
 {
 	(void)o;
 	twz_thread_sync(THREAD_SYNC_WAKE, p, v, NULL);
@@ -170,13 +177,18 @@ static inline int __wake_up(void *o, void *p, uint64_t v, int dq)
 	return 0;
 }
 
-static inline struct queue_entry *__get_entry(struct object *obj,
+static inline struct queue_entry *__get_entry(
+#if __KERNEL__
+  struct object *obj,
+#else
+  twzobj *obj,
+#endif
   struct queue_hdr *hdr,
   int sq,
   uint32_t pos)
 {
-	return (void *)((char *)twz_object_lea(obj, hdr->subqueue[sq].queue)
-	                + ((pos % hdr->subqueue[sq].length) * hdr->subqueue[sq].stride));
+	return (struct queue_entry *)((char *)twz_object_lea(obj, hdr->subqueue[sq].queue)
+	                              + ((pos % hdr->subqueue[sq].length) * hdr->subqueue[sq].stride));
 }
 
 #endif
@@ -319,7 +331,7 @@ static inline ssize_t queue_sub_dequeue_multiple(size_t count,
 	size_t sleep_count = 0;
 	struct sys_thread_sync_args tsa[count];
 	for(size_t i = 0; i < count; i++) {
-		struct queue_hdr *hdr = twz_object_base(specs[i].obj);
+		struct queue_hdr *hdr = (struct queue_hdr *)twz_object_base(specs[i].obj);
 		uint32_t t, b;
 		/* grab the tail. Remember, we use the top bit to indicate we are waiting. */
 		t = hdr->subqueue[specs[i].sq].tail & 0x7fffffff;

@@ -1,5 +1,12 @@
 #pragma once
 
+#ifdef __cplusplus
+#include <atomic>
+using std::atomic_uint_least64_t;
+#else /* not __cplusplus */
+#include <stdatomic.h>
+#endif /* __cplusplus */
+
 #include <twz/_fault.h>
 #include <twz/_kso.h>
 #include <twz/_objid.h>
@@ -16,7 +23,7 @@
 struct twzthread_repr {
 	struct kso_hdr hdr;
 	objid_t reprid;
-	_Atomic uint64_t syncs[THRD_SYNCPOINTS];
+	atomic_uint_least64_t syncs[THRD_SYNCPOINTS];
 	uint64_t syncinfos[THRD_SYNCPOINTS];
 	struct faultinfo faults[NUM_FAULTS];
 	struct kso_attachment attached[TWZ_THRD_MAX_SCS];

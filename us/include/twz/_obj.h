@@ -4,6 +4,12 @@
 
 #include <twz/_objid.h>
 
+#include <twz/__cpp_compat.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MI_MAGIC 0x54575A4F
 
 #define MIF_SZ 0x1
@@ -40,7 +46,7 @@ struct metainfo {
 	_Alignas(16) struct metaext exts[];
 } __attribute__((packed));
 
-_Static_assert(sizeof(struct metainfo) == 64, "");
+static_assert(sizeof(struct metainfo) == 64, "");
 
 #define FE_READ MIP_DFL_READ
 #define FE_WRITE MIP_DFL_WRITE
@@ -65,8 +71,12 @@ struct fotentry {
 	uint64_t info;
 };
 
-_Static_assert(sizeof(struct fotentry) == 32, "");
+static_assert(sizeof(struct fotentry) == 32, "");
 #define OBJ_MAXFOTE ((1ul << 20) - 0x1000 / sizeof(struct fotentry))
 #define OBJ_TOPDATA (OBJ_MAXSIZE - (0x1000 + OBJ_MAXFOTE * sizeof(struct fotentry)))
 
-_Static_assert(OBJ_TOPDATA == 0x3E000000, "");
+static_assert(OBJ_TOPDATA == 0x3E000000, "");
+
+#ifdef __cplusplus
+}
+#endif

@@ -1,4 +1,12 @@
 #pragma once
+
+#ifdef __cplusplus
+#include <atomic>
+using std::atomic_uint_least64_t;
+#else /* not __cplusplus */
+#include <stdatomic.h>
+#endif /* __cplusplus */
+
 #include <twz/_thrd.h>
 #include <twz/_types.h>
 #include <twz/obj.h>
@@ -40,16 +48,17 @@ int twz_thread_ready(struct thread *thread, int sp, uint64_t info);
 
 struct timespec;
 __must_check int twz_thread_sync(int op,
-  _Atomic uint64_t *addr,
+  atomic_uint_least64_t *addr,
   uint64_t val,
   struct timespec *timeout);
 
 struct sys_thread_sync_args;
 void twz_thread_sync_init(struct sys_thread_sync_args *args,
   int op,
-  _Atomic uint64_t *addr,
+  atomic_uint_least64_t *addr,
   uint64_t val,
   struct timespec *timeout);
+int twz_thread_sync32(int op, atomic_uint_least32_t *addr, uint32_t val, struct timespec *timeout);
 
 __must_check int twz_thread_sync_multiple(size_t count, struct sys_thread_sync_args *);
 
@@ -63,6 +72,6 @@ int twz_exec_view(twzobj *view,
   char *const *env);
 
 #ifndef __KERNEL__
-void twz_thread_cword_wake(_Atomic uint64_t *w, uint64_t val);
-uint64_t twz_thread_cword_consume(_Atomic uint64_t *w, uint64_t reset);
+void twz_thread_cword_wake(atomic_uint_least64_t *w, uint64_t val);
+uint64_t twz_thread_cword_consume(atomic_uint_least64_t *w, uint64_t reset);
 #endif
