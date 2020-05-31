@@ -56,9 +56,9 @@ long syscall_ocopy(objid_t *destid, objid_t *srcid, size_t doff, size_t soff, si
 	if(len & (mm_page_size(0) - 1))
 		return -EINVAL;
 
-	struct object *src = obj_lookup(*srcid, 0);
+	struct object *src = *srcid ? obj_lookup(*srcid, 0) : NULL;
 	struct object *dest = obj_lookup(*destid, 0);
-	if(!src || !dest) {
+	if(!dest) {
 		if(src)
 			obj_put(src);
 		if(dest)
@@ -69,7 +69,8 @@ long syscall_ocopy(objid_t *destid, objid_t *srcid, size_t doff, size_t soff, si
 	obj_copy_pages(dest, src, doff, soff, len);
 
 	obj_put(dest);
-	obj_put(src);
+	if(src)
+		obj_put(src);
 
 	return 0;
 }
