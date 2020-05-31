@@ -2,7 +2,7 @@ PLAYGROUND_PROGS=example queue
 
 PLAYGROUND_LIBS=-Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive
 
-PLAYGROUND_CFLAGS=-g -fno-omit-frame-pointer
+PLAYGROUND_CFLAGS=-g -fno-omit-frame-pointer -O3
 
 $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/playground/%.o $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
 	@echo "[LD]      $@"

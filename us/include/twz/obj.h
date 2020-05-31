@@ -7,6 +7,10 @@
 
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define TWZ_OBJ_CACHE_SIZE 16
 typedef struct _twz_object {
 	void *_int_base;
@@ -164,3 +168,7 @@ static inline void twz_fote_init_name(struct fotentry *fe,
 	fe->name.data = name;
 	fe->name.nresolver = resolver;
 }
+
+#ifdef __cplusplus
+}
+#endif

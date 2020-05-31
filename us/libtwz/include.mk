@@ -11,6 +11,12 @@ $(BUILDDIR)/us/libtwz/%.o: us/libtwz/%.c $(MUSL_HDRS)
 	@echo "[CC]      $@"
 	@$(TWZCC) $(TWZCFLAGS) $(LIBTWZCFLAGS) -fno-omit-frame-pointer -g -Ius/libtwz/include -include us/libtwz/include/libtwz.h -c -o $@ -MD -fPIC $<
 
+$(BUILDDIR)/us/libtwz/queue.o: us/libtwz/queue.c $(MUSL_HDRS)
+	@mkdir -p $(dir $@)
+	@echo "[CC]      $@"
+	@$(TWZCC) $(TWZCFLAGS) $(LIBTWZCFLAGS) -O3 -fno-omit-frame-pointer -g -Ius/libtwz/include -include us/libtwz/include/libtwz.h -c -o $@ -MD -fPIC $<
+
+
 #if [ -f $$($(TWZCC) -print-file-name=libubsan.a) ]; then \
 	#	echo "[ARx]     libubsan.a";\
 	#	(cd $(dir $@)/tmp;\

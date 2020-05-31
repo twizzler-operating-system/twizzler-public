@@ -85,7 +85,9 @@ using std::atomic_uint_least64_t;
 struct queue_entry {
 	atomic_uint_least32_t cmd_id; // top bit is turn bit.
 	uint32_t info;                // some user-defined info
+#ifndef __cplusplus
 	char data[];
+#endif
 };
 
 struct queue_hdr {
@@ -158,7 +160,7 @@ static inline struct queue_entry *__get_entry(struct object *obj,
 
 #else
 #include <errno.h>
-//#include <stdio.h>
+#include <stdio.h>
 #include <twz/_sys.h>
 #include <twz/thread.h>
 static inline int __wait_on(void *o, atomic_uint_least64_t *p, uint64_t v, int dq)
@@ -172,6 +174,7 @@ static inline int __wait_on(void *o, atomic_uint_least64_t *p, uint64_t v, int d
 static inline int __wake_up(void *o, atomic_uint_least64_t *p, uint64_t v, int dq)
 {
 	(void)o;
+	// printf("wake: %d\n", dq);
 	twz_thread_sync(THREAD_SYNC_WAKE, p, v, NULL);
 	/* TODO: errors */
 	return 0;
@@ -214,22 +217,33 @@ static inline int queue_sub_enqueue(
 	uint32_t h, t;
 
 	/* indicate that we may be waiting. */
-	E_INCWAITING(hdr, sq);
 
 	/* part 1 -- reserve a slot. This is as easy as just incrementing the head atomically. */
 	h = atomic_fetch_add(&hdr->subqueue[sq].head, 1);
 	/* part 2 -- wait until there is space. If the queue is full, then sleep on the tail. We will be
 	 * woken up by the consumer. */
 	t = hdr->subqueue[sq].tail;
+	int waiter = 0;
+	if(is_full(h, t, hdr->subqueue[sq].length)) {
+		waiter = 1;
+		E_INCWAITING(hdr, sq);
+	}
 	while(is_full(h, t, hdr->subqueue[sq].length)) {
 		if(nonblock) {
+			if(waiter) {
+				E_DECWAITING(hdr, sq);
+			}
 			return -EAGAIN;
 		}
 		if((r = __wait_on(obj, &hdr->subqueue[sq].tail, t, 0)) < 0) {
+			E_DECWAITING(hdr, sq);
 			return r;
 		}
 		/* grab the new tail value! */
 		t = hdr->subqueue[sq].tail;
+	}
+	if(waiter) {
+		E_DECWAITING(hdr, sq);
 	}
 
 	/* we use the top bit of cmd_id to indicate the turn of the queue, so make sure our slot doesn't
@@ -242,7 +256,11 @@ static inline int queue_sub_enqueue(
 	struct queue_entry *entry = __get_entry(obj, hdr, sq, h);
 	entry->info = submit->info;
 	size_t datalen = hdr->subqueue[sq].stride - sizeof(struct queue_entry);
+#ifdef __cplusplus
+	memcpy((char *)entry + sizeof(*entry), (char *)submit + sizeof(*submit), datalen);
+#else
 	memcpy(entry->data, submit->data, datalen);
+#endif
 
 	/* the turn alternates on passes through the queue */
 	uint32_t turn = 1 - ((h / hdr->subqueue[sq].length) % 2);
@@ -255,7 +273,6 @@ static inline int queue_sub_enqueue(
 			return r;
 		}
 	}
-	E_DECWAITING(hdr, sq);
 	return 0;
 }
 
@@ -293,6 +310,7 @@ static inline int queue_sub_dequeue(
 		}
 		D_SETWAITING(hdr, sq);
 		if((r = __wait_on(obj, &hdr->subqueue[sq].bell, b, 1)) < 0) {
+			D_CLRWAITING(hdr, sq);
 			return r;
 		}
 		/* we waited on the bell; read a new value */
@@ -300,8 +318,8 @@ static inline int queue_sub_dequeue(
 	}
 	D_CLRWAITING(hdr, sq);
 
-	/* the is_turn function does the acquire operation that pairs with the release on cmd_id in the
-	 * enqueue function. */
+	/* the is_turn function does the acquire operation that pairs with the release on cmd_id in
+	 * the enqueue function. */
 	memcpy(result, entry, hdr->subqueue[sq].stride);
 
 	/* update the tail, remembering not to overwrite the waiting bit */
@@ -337,7 +355,8 @@ static inline ssize_t queue_sub_dequeue_multiple(size_t count,
 		t = hdr->subqueue[specs[i].sq].tail & 0x7fffffff;
 		b = hdr->subqueue[specs[i].sq].bell;
 
-		/* we will be dequeuing at t, so just get the entry. But we might have to wait for it! */
+		/* we will be dequeuing at t, so just get the entry. But we might have to wait for it!
+		 */
 		struct queue_entry *entry = __get_entry(specs[i].obj, hdr, specs[i].sq, t);
 
 		if(is_empty(b, t) || !is_turn(hdr, specs[i].sq, t, entry)) {
