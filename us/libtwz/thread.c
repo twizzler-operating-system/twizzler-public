@@ -274,6 +274,20 @@ int twz_thread_sync(int op, _Atomic uint64_t *addr, uint64_t val, struct timespe
 	return sys_thread_sync(1, &args);
 }
 
+int twz_thread_sync32(int op, _Atomic uint32_t *addr, uint32_t val, struct timespec *timeout)
+{
+	struct sys_thread_sync_args args = {
+		.op = op,
+		.addr = (uint64_t *)addr,
+		.arg = val,
+		.spec = timeout,
+	};
+	if(timeout)
+		args.flags |= THREAD_SYNC_TIMEOUT;
+	args.flags |= THREAD_SYNC_32BIT;
+	return sys_thread_sync(1, &args);
+}
+
 int twz_thread_sync_multiple(size_t c, struct sys_thread_sync_args *args)
 {
 	return sys_thread_sync(c, args);

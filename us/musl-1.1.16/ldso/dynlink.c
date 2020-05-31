@@ -1958,7 +1958,7 @@ int dl_iterate_phdr(int(*callback)(struct dl_phdr_info *info, size_t size, void 
 
 __attribute__((__visibility__("hidden")))
 void __dl_vseterr(const char *, va_list);
-#if 1
+#if 0
 static void error(const char *fmt, ...)
 {
 	va_list ap;
@@ -1979,6 +1979,9 @@ static void error(const char *fmt, ...)
 	va_list ap;
 	va_start(ap, fmt);
 	debug_vprintf(fmt, ap);
+	if(!runtime) {
+		ldso_fail = 1;
+	}
 #if 0
 	if (!runtime) {
 		vdprintf(2, fmt, ap);

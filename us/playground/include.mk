@@ -1,4 +1,4 @@
-PLAYGROUND_PROGS=example
+PLAYGROUND_PROGS=example queue
 
 PLAYGROUND_LIBS=-Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive
 
@@ -8,10 +8,20 @@ $(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/playground/%.o $(SYSROOT_READY)
 	@echo "[LD]      $@"
 	@$(TWZCC) $(TWZLDFLAGS) -g -o $@ -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@)) $(PLAYGROUND_LIBS)
 
+$(BUILDDIR)/us/sysroot/usr/bin/%: $(BUILDDIR)/us/playground/%.opp $(SYSROOT_READY) $(SYSLIBS) $(UTILS) $(ALL_EXTRAS)
+	@echo "[LD]      $@"
+	@$(TWZCXX) $(TWZLDFLAGS) -g -o $@ -MD $< $(EXTRAS_$(notdir $@)) $(LIBS_$(notdir $@)) $(PLAYGROUND_LIBS)
+
 $(BUILDDIR)/us/playground/%.o: us/playground/%.c $(MUSL_HDRS)
 	@mkdir -p $(dir $@)
 	@echo "[CC]      $@"
 	@$(TWZCC) $(TWZCFLAGS) $(PLAYGROUND_CFLAGS) -o $@ $(CFLAGS_$(basename $(notdir $@))) -c -MD $<
+
+$(BUILDDIR)/us/playground/%.opp: us/playground/%.cpp $(MUSL_HDRS)
+	@mkdir -p $(dir $@)
+	@echo "[CC]      $@"
+	@$(TWZCXX) $(TWZCFLAGS) $(PLAYGROUND_CFLAGS) -o $@ $(CFLAGS_$(basename $(notdir $@))) -c -MD $<
+
 
 SYSROOT_FILES+=$(addprefix $(BUILDDIR)/us/sysroot/usr/bin/,$(PLAYGROUND_PROGS))
 

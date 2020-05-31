@@ -534,9 +534,12 @@ static int __twix_mmap_take_slot(size_t slot)
 
 static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, int fd, size_t off)
 {
-	struct file *file = twix_get_fd(fd);
-	if(!file)
-		return -EBADF;
+	struct file *file = NULL;
+	if(fd != -1) {
+		file = twix_get_fd(fd);
+		if(!file)
+			return -EBADF;
+	}
 	int r;
 	twzobj newobj;
 	twzobj *obj;
@@ -560,7 +563,12 @@ static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, 
 	if(len > OBJ_TOPDATA) {
 		len = OBJ_TOPDATA;
 	}
-	struct metainfo *mi = twz_object_meta(&file->obj);
+	twzobj __fobj;
+	if(addr) {
+		__fobj = twz_object_from_ptr(addr);
+	}
+	twzobj *fobj = file ? &file->obj : &__fobj;
+	struct metainfo *mi = twz_object_meta(fobj);
 	if(mi->flags & MIF_SZ) {
 		if(len > mi->sz) {
 			len = mi->sz;
@@ -569,7 +577,10 @@ static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, 
 	size_t adj = 0;
 	if(flags & MAP_PRIVATE) {
 		// debug_printf(":::: %p -> %lx %lx\n", addr, VADDR_TO_SLOT(addr), TWZSLOT_MMAP_BASE);
-		ssize_t slot = addr ? __twix_mmap_take_slot(VADDR_TO_SLOT(addr)) : __twix_mmap_get_slot();
+
+		ssize_t slot =
+		  fd == -1 ? VADDR_TO_SLOT(addr)
+		           : (addr ? __twix_mmap_take_slot(VADDR_TO_SLOT(addr)) : __twix_mmap_get_slot());
 		if(slot < 0) {
 			return -ENOMEM;
 		}
@@ -578,7 +589,21 @@ static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, 
 			if((long)addr % OBJ_MAXSIZE < OBJ_NULLPAGE_SIZE) {
 				return -EINVAL;
 			}
-			adj = ((long)addr % OBJ_MAXSIZE) - OBJ_NULLPAGE_SIZE;
+			adj = ((long)addr % OBJ_MAXSIZE);
+
+			if(fd == -1) {
+				/* overwriting part of an object */
+				if(flags & MAP_ANON) {
+					/* TODO: check if object mapped here */
+					if((r = sys_ocopy(
+					      twz_object_guid(fobj), 0, adj, 0, (len + 0xfff) & ~0xfff, 0))) {
+						return r;
+					}
+					return SLOT_TO_VADDR(slot) + adj;
+				} else {
+					return -ENOTSUP;
+				}
+			}
 		}
 
 		if((r = twz_object_new(&newobj,
@@ -590,7 +615,7 @@ static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, 
 		}
 
 		if((r = sys_ocopy(twz_object_guid(&newobj),
-		      twz_object_guid(&file->obj),
+		      twz_object_guid(fobj),
 		      OBJ_NULLPAGE_SIZE,
 		      off + OBJ_NULLPAGE_SIZE,
 		      (len + 0xfff) & ~0xfff,
@@ -617,7 +642,7 @@ static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, 
 		    }*/
 
 	} else {
-		obj = &file->obj;
+		obj = fobj;
 		adj = off;
 	}
 	return (long)twz_object_base(obj) + adj;
@@ -632,7 +657,7 @@ static __inline__ unsigned long long rdtsc(void)
 long linux_sys_mmap(void *addr, size_t len, int prot, int flags, int fd, size_t off)
 {
 	// twix_log("sys_mmap: %p %lx %x %x %d %lx\n", addr, len, prot, flags, fd, off);
-	if(fd >= 0) {
+	if(fd >= 0 || (fd == -1 && addr)) {
 		//	size_t s = rdtsc();
 		long ret = __internal_mmap_object(addr, len, prot, flags, fd, off);
 		//	size_t e = rdtsc();
@@ -918,11 +943,14 @@ long linux_sys_futex(int *uaddr,
 	(void)timeout;
 	(void)uaddr2;
 	(void)val3;
+	twix_log("futex %d: %p (%x) %x %p\n", op, uaddr, uaddr ? *uaddr : 0, val, timeout);
 	switch((op & FUTEX_CMD_MASK)) {
 		case FUTEX_WAIT:
+			twz_thread_sync32(THREAD_SYNC_SLEEP, uaddr, val, timeout);
 			return 0; // TODO
 			break;
 		case FUTEX_WAKE:
+			twz_thread_sync32(THREAD_SYNC_WAKE, uaddr, val, NULL);
 			return 0; // TODO
 			break;
 		default:
