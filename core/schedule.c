@@ -176,13 +176,13 @@ void thread_sleep(struct thread *t, int flags, int64_t timeout)
 		t->priority = 1000;
 	}
 	/* TODO: threadsafe? */
-	bool in = arch_interrupt_set(false);
+	spinlock_acquire_save(&t->processor->sched_lock);
 	if(t->state != THREADSTATE_BLOCKED) {
 		t->state = THREADSTATE_BLOCKED;
 		list_remove(&t->rq_entry);
 		t->processor->stats.running--;
 	}
-	arch_interrupt_set(in);
+	spinlock_release_restore(&t->processor->sched_lock);
 }
 
 void thread_wake(struct thread *t)
@@ -193,6 +193,7 @@ void thread_wake(struct thread *t)
 		list_insert(&t->processor->runqueue, &t->rq_entry);
 		t->processor->stats.running++;
 		if(t->processor != current_processor) {
+			/* TODO: check if processor is halted */
 			processor_send_ipi(t->processor->id, PROCESSOR_IPI_RESUME, NULL, PROCESSOR_IPI_NOWAIT);
 		}
 	}
