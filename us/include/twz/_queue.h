@@ -228,11 +228,11 @@ static inline int queue_sub_enqueue(
 	 * woken up by the consumer. */
 	t = hdr->subqueue[sq].tail;
 	int waiter = 0;
-	if(is_full(h, t, hdr->subqueue[sq].l2length)) {
-		waiter = 1;
-		E_INCWAITING(hdr, sq);
-		t = hdr->subqueue[sq].tail;
-	}
+	// if(is_full(h, t, hdr->subqueue[sq].l2length)) {
+	//		waiter = 1;
+	//	E_INCWAITING(hdr, sq);
+	//	t = hdr->subqueue[sq].tail;
+	//}
 	int attempts = 1000;
 	while(is_full(h, t, hdr->subqueue[sq].l2length)) {
 		if(nonblock) {
@@ -242,9 +242,16 @@ static inline int queue_sub_enqueue(
 			return -EAGAIN;
 		}
 		if(attempts == 0) {
-			if((r = __wait_on(obj, &hdr->subqueue[sq].tail, t, 0)) < 0) {
-				E_DECWAITING(hdr, sq);
-				return r;
+			if(waiter == 0) {
+				waiter = 1;
+				E_INCWAITING(hdr, sq);
+			}
+			t = hdr->subqueue[sq].tail;
+			if(is_full(h, t, hdr->subqueue[sq].l2length)) {
+				if((r = __wait_on(obj, &hdr->subqueue[sq].tail, t, 0)) < 0) {
+					E_DECWAITING(hdr, sq);
+					return r;
+				}
 			}
 		} else {
 			attempts--;
@@ -322,6 +329,7 @@ static inline int queue_sub_dequeue(
 		}
 		if(attempts == 0) {
 			D_SETWAITING(hdr, sq);
+			b = hdr->subqueue[sq].bell;
 			if(is_empty(b, t) || !is_turn(hdr, sq, t, entry)) {
 				if((r = __wait_on(obj, &hdr->subqueue[sq].bell, b, 1)) < 0) {
 					D_CLRWAITING(hdr, sq);
