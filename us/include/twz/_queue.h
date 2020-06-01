@@ -101,6 +101,7 @@ struct queue_hdr {
 		uint8_t pada[64];
 		atomic_uint_least32_t head;
 		atomic_uint_least32_t waiters; // how many producers are waiting
+		uint8_t padc[64];
 		atomic_uint_least64_t bell;
 		uint8_t padb[64];
 		atomic_uint_least64_t tail; // top bit indicates consumer is waiting.
@@ -227,7 +228,9 @@ static inline int queue_sub_enqueue(
 	if(is_full(h, t, hdr->subqueue[sq].length)) {
 		waiter = 1;
 		E_INCWAITING(hdr, sq);
+		t = hdr->subqueue[sq].tail;
 	}
+	int attempts = 100;
 	while(is_full(h, t, hdr->subqueue[sq].length)) {
 		if(nonblock) {
 			if(waiter) {
@@ -235,9 +238,14 @@ static inline int queue_sub_enqueue(
 			}
 			return -EAGAIN;
 		}
-		if((r = __wait_on(obj, &hdr->subqueue[sq].tail, t, 0)) < 0) {
-			E_DECWAITING(hdr, sq);
-			return r;
+		if(attempts == 0) {
+			if((r = __wait_on(obj, &hdr->subqueue[sq].tail, t, 0)) < 0) {
+				E_DECWAITING(hdr, sq);
+				return r;
+			}
+		} else {
+			attempts--;
+			asm volatile("pause");
 		}
 		/* grab the new tail value! */
 		t = hdr->subqueue[sq].tail;
@@ -295,6 +303,7 @@ static inline int queue_sub_dequeue(
 
 	/* we will be dequeuing at t, so just get the entry. But we might have to wait for it! */
 	struct queue_entry *entry = __get_entry(obj, hdr, sq, t);
+	int attempts = 100;
 	while(is_empty(b, t) || !is_turn(hdr, sq, t, entry)) {
 		/* sleep if the queue is empty (in which case don't bother checking the turn) OR if the
 		 * entry's turn is wrong. This happens if multiple enqueuers have raced as follows:
@@ -308,15 +317,24 @@ static inline int queue_sub_dequeue(
 		if(nonblock) {
 			return -EAGAIN;
 		}
-		D_SETWAITING(hdr, sq);
-		if((r = __wait_on(obj, &hdr->subqueue[sq].bell, b, 1)) < 0) {
-			D_CLRWAITING(hdr, sq);
-			return r;
+		if(attempts == 0) {
+			D_SETWAITING(hdr, sq);
+			if(is_empty(b, t) || !is_turn(hdr, sq, t, entry)) {
+				if((r = __wait_on(obj, &hdr->subqueue[sq].bell, b, 1)) < 0) {
+					D_CLRWAITING(hdr, sq);
+					return r;
+				}
+			}
+		} else {
+			attempts--;
+			asm volatile("pause");
 		}
 		/* we waited on the bell; read a new value */
 		b = hdr->subqueue[sq].bell;
 	}
-	D_CLRWAITING(hdr, sq);
+	if(attempts == 0) {
+		D_CLRWAITING(hdr, sq);
+	}
 
 	/* the is_turn function does the acquire operation that pairs with the release on cmd_id in
 	 * the enqueue function. */
