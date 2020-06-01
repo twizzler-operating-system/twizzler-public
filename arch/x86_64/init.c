@@ -105,6 +105,25 @@ static void proc_init(void)
 	asm volatile("stmxcsr %0" : "=m"(mxcsr));
 	mxcsr |= 0x1f80; // mask all
 	asm volatile("ldmxcsr %0" : "=m"(mxcsr));
+
+	// x86_64_rdmsr(X86_MSR_PKG_CST_CONFIG_CONTROL, &lo, &hi);
+	// printk("CST CONFIG: %x %x\n", hi, lo);
+	x86_64_rdmsr(X86_MSR_POWER_CTL, &lo, &hi);
+	printk("POWER CTL : %x %x\n", hi, lo);
+	x86_64_rdmsr(X86_MSR_MISC_ENABLE, &lo, &hi);
+	printk("MISC : %x %x\n", hi, lo);
+
+	lo |=
+	  (1 /* fast strings */ | (1 << 3) /* auto thermo control */ | (1 << 7) /* perf monitoring */
+	    | (1 << 16) /* enhanced speed step */ | (1 << 18) /* enable monitor/mwait */);
+	x86_64_wrmsr(X86_MSR_MISC_ENABLE, lo, hi);
+	x86_64_rdmsr(X86_MSR_MISC_ENABLE, &lo, &hi);
+	printk("MISC : %x %x\n", hi, lo);
+
+	uint32_t c = x86_64_cpuid(5, 0, 2);
+	printk(":: %x\n", c);
+	c = x86_64_cpuid(1, 0, 2);
+	printk(":: %x\n", c);
 }
 
 struct ustar_header {

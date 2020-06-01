@@ -41,6 +41,11 @@
 
 #define X86_MSR_TSC_DEADLINE 0x6E0
 
+#define X86_MSR_PKG_CST_CONFIG_CONTROL 0xe2
+#define X86_MSR_POWER_CTL 0x1fc
+
+#define X86_MSR_MISC_ENABLE 0x1a0
+
 __noinstrument static inline void x86_64_rdmsr(uint32_t msr, uint32_t *lo, uint32_t *hi)
 {
 	asm volatile("rdmsr" : "=a"(*lo), "=d"(*hi) : "c"(msr));
