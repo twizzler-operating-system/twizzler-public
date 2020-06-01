@@ -100,7 +100,8 @@ int main()
 
 	/* init the queue object, here we have 32 queue entries */
 	queue_init_hdr(
-	  &qo, 1 << 22, sizeof(struct packet_queue_entry), 32, sizeof(struct packet_queue_entry));
+	  &qo, 22, sizeof(struct packet_queue_entry), 8, sizeof(struct packet_queue_entry));
+	printf("packet queue size = %ld\n", sizeof(struct packet_queue_entry));
 
 	/* start the consumer... */
 	if(!fork()) {

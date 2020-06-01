@@ -96,7 +96,7 @@ struct queue_hdr {
 	struct {
 		uint8_t pad[64];
 		struct queue_entry *queue;
-		size_t length;
+		size_t l2length;
 		size_t stride;
 		uint8_t pada[64];
 		atomic_uint_least32_t head;
@@ -123,7 +123,8 @@ struct queue_hdr {
 #define E_DECWAITING(q, i) ((q)->subqueue[i].waiters--)
 #define D_CLRWAITING(q, i) ((q)->subqueue[i].tail &= ~(1ul << 31))
 
-#define is_full(head, tail, length) ({ (head & 0x7fffffff) - (tail & 0x7fffffff) >= length; })
+#define is_full(head, tail, l2length)                                                              \
+	({ (head & 0x7fffffff) - (tail & 0x7fffffff) >= (1ul << l2length); })
 #define is_empty(head, tail) ({ (head & 0x7fffffff) == (tail & 0x7fffffff); })
 
 #if __KERNEL__
@@ -152,11 +153,12 @@ static inline struct queue_entry *__get_entry(struct object *obj,
 {
 	/* a queue object already has the kbase ref count > 1 */
 	void *base = obj_get_kaddr(obj);
-	void *r = (void *)((char *)hdr->subqueue[sq].queue
-	                   + ((pos % hdr->subqueue[sq].length) * hdr->subqueue[sq].stride));
+	void *r =
+	  (void *)((char *)hdr->subqueue[sq].queue
+	           + ((pos & ((1ul << hdr->subqueue[sq].l2length) - 1)) * hdr->subqueue[sq].stride));
 	obj_release_kaddr(obj);
 	// printk("[kq] get_entry : %p\n", (char *)base + (long)r);
-	return (char *)base + (long)r;
+	return (struct queue_entry *)((char *)base + (long)r);
 }
 
 #else
@@ -192,14 +194,15 @@ static inline struct queue_entry *__get_entry(
   uint32_t pos)
 {
 	return (struct queue_entry *)((char *)twz_object_lea(obj, hdr->subqueue[sq].queue)
-	                              + ((pos % hdr->subqueue[sq].length) * hdr->subqueue[sq].stride));
+	                              + ((pos & ((1ul << hdr->subqueue[sq].l2length) - 1))
+	                                 * hdr->subqueue[sq].stride));
 }
 
 #endif
 
 static inline _Bool is_turn(struct queue_hdr *hdr, int sq, uint32_t tail, struct queue_entry *entry)
 {
-	uint32_t turn = (tail / hdr->subqueue[sq].length) % 2;
+	uint32_t turn = (tail / (1ul << hdr->subqueue[sq].l2length)) % 2;
 	return (entry->cmd_id >> 31) != turn;
 }
 
@@ -225,13 +228,13 @@ static inline int queue_sub_enqueue(
 	 * woken up by the consumer. */
 	t = hdr->subqueue[sq].tail;
 	int waiter = 0;
-	if(is_full(h, t, hdr->subqueue[sq].length)) {
+	if(is_full(h, t, hdr->subqueue[sq].l2length)) {
 		waiter = 1;
 		E_INCWAITING(hdr, sq);
 		t = hdr->subqueue[sq].tail;
 	}
-	int attempts = 100;
-	while(is_full(h, t, hdr->subqueue[sq].length)) {
+	int attempts = 1000;
+	while(is_full(h, t, hdr->subqueue[sq].l2length)) {
 		if(nonblock) {
 			if(waiter) {
 				E_DECWAITING(hdr, sq);
@@ -271,7 +274,7 @@ static inline int queue_sub_enqueue(
 #endif
 
 	/* the turn alternates on passes through the queue */
-	uint32_t turn = 1 - ((h / hdr->subqueue[sq].length) % 2);
+	uint32_t turn = 1 - ((h / (1ul << hdr->subqueue[sq].l2length)) % 2);
 	atomic_store(&entry->cmd_id, h | (turn << 31));
 
 	/* ring the bell! If the consumer isn't waiting, don't bother the kernel. */
@@ -303,7 +306,7 @@ static inline int queue_sub_dequeue(
 
 	/* we will be dequeuing at t, so just get the entry. But we might have to wait for it! */
 	struct queue_entry *entry = __get_entry(obj, hdr, sq, t);
-	int attempts = 100;
+	int attempts = 1000;
 	while(is_empty(b, t) || !is_turn(hdr, sq, t, entry)) {
 		/* sleep if the queue is empty (in which case don't bother checking the turn) OR if the
 		 * entry's turn is wrong. This happens if multiple enqueuers have raced as follows:

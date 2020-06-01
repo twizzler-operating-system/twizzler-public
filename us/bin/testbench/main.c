@@ -71,7 +71,7 @@ static void _queue_st(struct test *test)
 
 	struct queue_hdr *hdr = twz_object_base(&obj);
 
-	r = queue_init_hdr(&obj, 32, 8, 32, 8);
+	r = queue_init_hdr(&obj, 5, 8, 5, 8);
 	TEST_CHECK_EQ(test, r, 0);
 
 	struct queue_entry qe;

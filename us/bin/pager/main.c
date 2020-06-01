@@ -75,7 +75,7 @@ int main()
 		return 1;
 	}
 
-	queue_init_hdr(&kq, 32, sizeof(struct queue_entry_pager), 32, sizeof(struct queue_entry_pager));
+	queue_init_hdr(&kq, 5, sizeof(struct queue_entry_pager), 5, sizeof(struct queue_entry_pager));
 
 	if((r = sys_kqueue(twz_object_guid(&kq), KQ_PAGER, 0))) {
 		fprintf(stderr, "failed to assign kqueue\n");

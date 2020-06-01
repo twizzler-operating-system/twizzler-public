@@ -792,7 +792,7 @@ int main(int argc, char **argv)
 
 	twz_object_new(&nc.ext_qobj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
 	queue_init_hdr(
-	  &nc.ext_qobj, 32, sizeof(struct queue_entry_bio), 32, sizeof(struct queue_entry_bio));
+	  &nc.ext_qobj, 5, sizeof(struct queue_entry_bio), 5, sizeof(struct queue_entry_bio));
 
 	twz_name_assign(twz_object_guid(&nc.ext_qobj), "/dev/nvme-queue");
 
