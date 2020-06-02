@@ -57,6 +57,14 @@ void arch_processor_scheduler_wakeup(struct processor *proc)
 __noinstrument void arch_processor_halt(struct processor *proc)
 {
 	if(x86_features.features & X86_FEATURE_MWAIT) {
+		long mw = 0;
+		if(proc->arch.mwait_info++ > 1) {
+			mw = 0x20;
+		} else {
+			clksrc_set_interrupt_countdown(1000000000, false);
+		}
+		printk("mwait: %ld\n", proc->arch.mwait_info);
+
 		if(proc->flags & PROCESSOR_HASWORK)
 			goto wakeup;
 
@@ -66,7 +74,7 @@ __noinstrument void arch_processor_halt(struct processor *proc)
 		if(proc->flags & PROCESSOR_HASWORK)
 			goto wakeup;
 
-		asm volatile("mwait" ::"a"(0x20), "c"(0x1) : "memory");
+		asm volatile("mwait" ::"a"(mw), "c"(0x1) : "memory");
 	} else {
 		/* note the race-condition: HASWORK is checked before the halt and not after. this is okay;
 		 * if we fall-back to the halt loop, we also use the RESUME IPI. */
@@ -74,6 +82,11 @@ __noinstrument void arch_processor_halt(struct processor *proc)
 	}
 
 wakeup:
+	if(!(atomic_fetch_and(&proc->flags, ~PROCESSOR_HASWORK) & PROCESSOR_HASWORK)) {
+		proc->arch.mwait_info++;
+	} else {
+		proc->arch.mwait_info = 0;
+	}
 	proc->flags &= ~PROCESSOR_HASWORK;
 
 	// asm volatile("sti; hlt");

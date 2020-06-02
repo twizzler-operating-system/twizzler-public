@@ -100,6 +100,7 @@ struct arch_processor {
 		uint64_t ip;
 	} * veinfo;
 	uintptr_t *eptp_list;
+	size_t mwait_info;
 };
 
 _Static_assert(offsetof(struct arch_processor, scratch_sp) == 0,
