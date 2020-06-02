@@ -34,6 +34,17 @@ static struct processor _dummy_proc;
 
 static size_t xsave_region_size = 512;
 
+static void x86_feature_detect(void)
+{
+	uint32_t ecx = x86_64_cpuid(1, 0, 2 /*ECX*/);
+	if(ecx & (1 << 3)) {
+		printk("[idle] using mwait idle loop\n");
+		x86_features.features |= X86_FEATURE_MWAIT;
+	} else {
+		printk("[idle] mwait unsupported; falling back to HLT loop\n");
+	}
+}
+
 static void proc_init(void)
 {
 	uint64_t cr0, cr4;
@@ -112,13 +123,6 @@ static void proc_init(void)
 	// printk("CST CONFIG: %x %x\n", hi, lo);
 	// x86_64_rdmsr(X86_MSR_POWER_CTL, &lo, &hi);
 	// printk("POWER CTL : %x %x\n", hi, lo);
-	uint32_t ecx = x86_64_cpuid(1, 0, 2 /*ECX*/);
-	if(ecx & (1 << 3)) {
-		printk("[idle] using mwait idle loop\n");
-		x86_features.features |= X86_FEATURE_MWAIT;
-	} else {
-		printk("[idle] mwait unsupported; falling back to HLT loop\n");
-	}
 	x86_64_rdmsr(X86_MSR_MISC_ENABLE, &lo, &hi);
 	lo |=
 	  (1 /* fast strings */ | (1 << 3) /* auto thermo control */ | (1 << 7) /* perf monitoring */
@@ -346,6 +350,7 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 {
 	idt_init();
 	serial_init();
+	x86_feature_detect();
 	proc_init();
 
 	// void (*initrd_hook)(void *) = NULL;
