@@ -42,3 +42,21 @@ size_t arch_processor_virtual_width(void)
 	}
 	return virtual_address_bits - 1;
 }
+
+__noinstrument void arch_processor_halt(struct processor *proc)
+{
+	if(proc->flags & PROCESSOR_HASWORK)
+		return;
+	asm volatile("monitor" ::"a"(&proc->flags), "d"(0ul), "c"(0ul) : "memory");
+
+	if(proc->flags & PROCESSOR_HASWORK)
+		return;
+	asm volatile("mwait" ::"a"(0x0), "c"(0x1) : "memory");
+
+	proc->flags &= ~PROCESSOR_HASWORK;
+
+	// asm volatile("sti; hlt");
+	// for(long i = 0; i < 10000000; i++) {
+	//	asm volatile("pause");
+	//}
+}
