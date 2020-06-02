@@ -124,6 +124,8 @@ static void proc_init(void)
 	printk(":: %x\n", c);
 	c = x86_64_cpuid(1, 0, 2);
 	printk(":: %x\n", c);
+	c = x86_64_cpuid(6, 0, 2);
+	printk(":: %x\n", c);
 }
 
 struct ustar_header {

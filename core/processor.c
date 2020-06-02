@@ -184,7 +184,8 @@ static void __do_processor_attach_thread(struct processor *proc, struct thread *
 	proc->load++;
 	proc->stats.running++;
 	if(proc != current_processor) {
-		processor_send_ipi(proc->id, PROCESSOR_IPI_RESUME, NULL, PROCESSOR_IPI_NOWAIT);
+		proc->flags |= PROCESSOR_HASWORK;
+		//	processor_send_ipi(proc->id, PROCESSOR_IPI_RESUME, NULL, PROCESSOR_IPI_NOWAIT);
 	}
 }
 
