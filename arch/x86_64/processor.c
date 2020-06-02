@@ -61,9 +61,8 @@ __noinstrument void arch_processor_halt(struct processor *proc)
 		if(proc->arch.mwait_info++ > 1) {
 			mw = 0x20;
 		} else {
-			clksrc_set_interrupt_countdown(1000000000, false);
+			clksrc_set_interrupt_countdown(100000, false);
 		}
-		printk("mwait: %ld\n", proc->arch.mwait_info);
 
 		if(proc->flags & PROCESSOR_HASWORK)
 			goto wakeup;
