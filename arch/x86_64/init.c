@@ -121,7 +121,9 @@ static void proc_init(void)
 	printk("MISC : %x %x\n", hi, lo);
 
 	uint32_t c = x86_64_cpuid(5, 0, 2);
-	printk(":: %x\n", c);
+	uint32_t a = x86_64_cpuid(5, 0, 0);
+	uint32_t b = x86_64_cpuid(5, 0, 1);
+	printk(":: %x %x %x\n", a, b, c);
 	c = x86_64_cpuid(1, 0, 2);
 	printk(":: %x\n", c);
 	c = x86_64_cpuid(6, 0, 2);
@@ -206,7 +208,7 @@ static size_t _load_initrd(char *start, size_t modlen)
 
 		int compl = (((char *)h - start) * 100) / modlen;
 		if((compl % 20) == 0)
-			printk("[initrd] parsing objects: %d%%\r", compl );
+			printk("[initrd] parsing objects: %d%%\r", compl);
 
 		switch(h->typeflag[0]) {
 			size_t nl;

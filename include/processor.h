@@ -27,7 +27,9 @@ struct processor {
 	struct arch_processor arch;
 	struct list runqueue;
 	struct spinlock sched_lock;
+	char pad[64];
 	_Atomic int flags;
+	char pad2[64];
 	unsigned int id;
 	unsigned long load;
 	void *percpu;

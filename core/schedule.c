@@ -111,7 +111,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			if(!processor_has_threads(proc)) {
 				spinlock_release(&proc->sched_lock, 0);
 				arch_processor_halt(proc);
-				printk("wokeup\n");
+				//		printk("wokeup\n");
 			} else {
 				spinlock_release(&proc->sched_lock, 1);
 			}
@@ -196,8 +196,7 @@ void thread_wake(struct thread *t)
 		if(t->processor != current_processor) {
 			/* TODO: check if processor is halted */
 			t->processor->flags |= PROCESSOR_HASWORK;
-			// processor_send_ipi(t->processor->id, PROCESSOR_IPI_RESUME, NULL,
-			// PROCESSOR_IPI_NOWAIT);
+			processor_send_ipi(t->processor->id, PROCESSOR_IPI_RESUME, NULL, PROCESSOR_IPI_NOWAIT);
 		}
 	}
 	spinlock_release_restore(&t->processor->sched_lock);

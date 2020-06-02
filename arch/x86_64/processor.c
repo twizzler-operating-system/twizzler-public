@@ -45,14 +45,19 @@ size_t arch_processor_virtual_width(void)
 
 __noinstrument void arch_processor_halt(struct processor *proc)
 {
+	// printk("mwait on %p %x\n", &proc->flags, proc->flags & PROCESSOR_HASWORK);
 	if(proc->flags & PROCESSOR_HASWORK)
-		return;
-	asm volatile("monitor" ::"a"(&proc->flags), "d"(0ul), "c"(0ul) : "memory");
+		goto wakeup;
+
+	asm volatile("mfence; clflush 0(%0); mfence" ::"r"(&proc->flags) : "memory");
+	asm volatile("monitor; mfence" ::"a"(&proc->flags), "d"(0ul), "c"(0ul) : "memory");
 
 	if(proc->flags & PROCESSOR_HASWORK)
-		return;
-	asm volatile("mwait" ::"a"(0x0), "c"(0x1) : "memory");
+		goto wakeup;
 
+	asm volatile("mwait" ::"a"(0x20), "c"(0x1) : "memory");
+
+wakeup:
 	proc->flags &= ~PROCESSOR_HASWORK;
 
 	// asm volatile("sti; hlt");
