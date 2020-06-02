@@ -7,7 +7,15 @@
 
 #define X86_DOUBLE_FAULT_IST_IDX 0
 
+#define X86_FEATURE_MWAIT 1
+
 #ifndef ASSEMBLY
+
+struct processor_features {
+	uint64_t features;
+	uint64_t bugs;
+};
+extern struct processor_features x86_features;
 
 struct x86_64_tss {
 	uint32_t __res0;

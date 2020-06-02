@@ -27,7 +27,9 @@ struct processor {
 	struct arch_processor arch;
 	struct list runqueue;
 	struct spinlock sched_lock;
+	char pad[64];
 	_Atomic int flags;
+	char pad2[64];
 	unsigned int id;
 	unsigned long load;
 	void *percpu;
@@ -68,6 +70,7 @@ __attribute__((const)) struct processor *processor_get_current(void);
 unsigned int arch_processor_current_id(void);
 void processor_send_ipi(int destid, int vector, void *arg, int flags);
 void arch_processor_send_ipi(int destid, int vector, int flags);
+void arch_processor_scheduler_wakeup(struct processor *proc);
 void processor_ipi_finish(void);
 void processor_shutdown(void);
 void processor_print_all_stats(void);

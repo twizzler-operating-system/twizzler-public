@@ -16,7 +16,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 	uint64_t ji = clksrc_get_nanoseconds();
 	mm_update_stats();
 
-	if(0 && ++proc->ctr % 1000 == 0) {
+	if(0 && ++proc->ctr % 10 == 0) {
 		uint32_t lom, him, loa, hia;
 		x86_64_rdmsr(0xe7, &lom, &him);
 		x86_64_rdmsr(0xe8, &loa, &hia);
@@ -194,10 +194,7 @@ void thread_wake(struct thread *t)
 		list_insert(&t->processor->runqueue, &t->rq_entry);
 		t->processor->stats.running++;
 		if(t->processor != current_processor) {
-			/* TODO: check if processor is halted */
-			t->processor->flags |= PROCESSOR_HASWORK;
-			// processor_send_ipi(t->processor->id, PROCESSOR_IPI_RESUME, NULL,
-			// PROCESSOR_IPI_NOWAIT);
+			arch_processor_scheduler_wakeup(t->processor);
 		}
 	}
 	spinlock_release_restore(&t->processor->sched_lock);

@@ -43,19 +43,37 @@ size_t arch_processor_virtual_width(void)
 	return virtual_address_bits - 1;
 }
 
+void arch_processor_scheduler_wakeup(struct processor *proc)
+{
+	proc->flags |= PROCESSOR_HASWORK;
+	if(!(x86_features.features & X86_FEATURE_MWAIT)) {
+		/* if we don't have mwait, the sleeping processor is in HLT loop, which means we must send
+		 * it an IPI to wake it. */
+		/* TODO: check if processor is halted */
+		processor_send_ipi(proc->id, PROCESSOR_IPI_RESUME, NULL, PROCESSOR_IPI_NOWAIT);
+	}
+}
+
 __noinstrument void arch_processor_halt(struct processor *proc)
 {
-	if(proc->flags & PROCESSOR_HASWORK)
-		return;
+	if(x86_features.features & X86_FEATURE_MWAIT) {
+		if(proc->flags & PROCESSOR_HASWORK)
+			goto wakeup;
 
-	asm volatile("mfence; clflush 0(%0); mfence" ::"r"(&proc->flags) : "memory");
+		asm volatile("mfence; clflush 0(%0); mfence" ::"r"(&proc->flags) : "memory");
+		asm volatile("monitor; mfence" ::"a"(&proc->flags), "d"(0ul), "c"(0ul) : "memory");
 
-	asm volatile("monitor; mfence" ::"a"(&proc->flags), "d"(0ul), "c"(0ul) : "memory");
+		if(proc->flags & PROCESSOR_HASWORK)
+			goto wakeup;
 
-	if(proc->flags & PROCESSOR_HASWORK)
-		return;
-	asm volatile("mfence; mwait; mfence" ::"a"(0x20), "c"(0x1) : "memory");
+		asm volatile("mwait" ::"a"(0x20), "c"(0x1) : "memory");
+	} else {
+		/* note the race-condition: HASWORK is checked before the halt and not after. this is okay;
+		 * if we fall-back to the halt loop, we also use the RESUME IPI. */
+		asm volatile("sti; hlt");
+	}
 
+wakeup:
 	proc->flags &= ~PROCESSOR_HASWORK;
 
 	// asm volatile("sti; hlt");

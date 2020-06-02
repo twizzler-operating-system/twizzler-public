@@ -28,6 +28,8 @@ uint64_t x86_64_bot_mem;
 extern void idt_init(void);
 extern void idt_init_secondary(void);
 
+struct processor_features x86_features = {};
+
 static struct processor _dummy_proc;
 
 static size_t xsave_region_size = 512;
@@ -108,17 +110,21 @@ static void proc_init(void)
 
 	// x86_64_rdmsr(X86_MSR_PKG_CST_CONFIG_CONTROL, &lo, &hi);
 	// printk("CST CONFIG: %x %x\n", hi, lo);
-	x86_64_rdmsr(X86_MSR_POWER_CTL, &lo, &hi);
-	printk("POWER CTL : %x %x\n", hi, lo);
+	// x86_64_rdmsr(X86_MSR_POWER_CTL, &lo, &hi);
+	// printk("POWER CTL : %x %x\n", hi, lo);
+	uint32_t ecx = x86_64_cpuid(1, 0, 2 /*ECX*/);
+	if(ecx & (1 << 3)) {
+		printk("[idle] using mwait idle loop\n");
+		x86_features.features |= X86_FEATURE_MWAIT;
+	} else {
+		printk("[idle] mwait unsupported; falling back to HLT loop\n");
+	}
 	x86_64_rdmsr(X86_MSR_MISC_ENABLE, &lo, &hi);
-	printk("MISC : %x %x\n", hi, lo);
-
 	lo |=
 	  (1 /* fast strings */ | (1 << 3) /* auto thermo control */ | (1 << 7) /* perf monitoring */
 	    | (1 << 16) /* enhanced speed step */ | (1 << 18) /* enable monitor/mwait */);
 	x86_64_wrmsr(X86_MSR_MISC_ENABLE, lo, hi);
 	x86_64_rdmsr(X86_MSR_MISC_ENABLE, &lo, &hi);
-	printk("MISC : %x %x\n", hi, lo);
 }
 
 struct ustar_header {
