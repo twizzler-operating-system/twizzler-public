@@ -120,8 +120,8 @@ __noinstrument static inline void arch_processor_relax(void)
 
 __noinstrument static inline void arch_processor_halt(void)
 {
-	// asm volatile("mwait" ::"a"(1), "c"(0x20) : "memory");
-	asm volatile("sti; hlt");
+	asm volatile("cli; mwait" ::"c"(0ul), "a"(0x20ul) : "memory");
+	// asm volatile("sti; hlt");
 	// for(long i = 0; i < 10000000; i++) {
 	//	asm volatile("pause");
 	//}

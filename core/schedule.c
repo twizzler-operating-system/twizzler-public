@@ -16,7 +16,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 	uint64_t ji = clksrc_get_nanoseconds();
 	mm_update_stats();
 
-	if(0 && ++proc->ctr % 1000 == 0) {
+	if(++proc->ctr % 10 == 0) {
 		uint32_t lom, him, loa, hia;
 		x86_64_rdmsr(0xe7, &lom, &him);
 		x86_64_rdmsr(0xe8, &loa, &hia);
