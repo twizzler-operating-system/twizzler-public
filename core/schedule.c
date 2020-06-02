@@ -111,7 +111,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			if(!processor_has_threads(proc)) {
 				spinlock_release(&proc->sched_lock, 0);
 				arch_processor_halt(proc);
-				printk("wokeup\n");
+				// printk("wokeup\n");
 			} else {
 				spinlock_release(&proc->sched_lock, 1);
 			}

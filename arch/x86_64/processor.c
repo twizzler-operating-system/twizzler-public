@@ -47,11 +47,14 @@ __noinstrument void arch_processor_halt(struct processor *proc)
 {
 	if(proc->flags & PROCESSOR_HASWORK)
 		return;
-	asm volatile("monitor" ::"a"(&proc->flags), "d"(0ul), "c"(0ul) : "memory");
+
+	asm volatile("mfence; clflush 0(%0); mfence" ::"r"(&proc->flags) : "memory");
+
+	asm volatile("monitor; mfence" ::"a"(&proc->flags), "d"(0ul), "c"(0ul) : "memory");
 
 	if(proc->flags & PROCESSOR_HASWORK)
 		return;
-	asm volatile("mwait" ::"a"(0x0), "c"(0x1) : "memory");
+	asm volatile("mfence; mwait; mfence" ::"a"(0x20), "c"(0x1) : "memory");
 
 	proc->flags &= ~PROCESSOR_HASWORK;
 

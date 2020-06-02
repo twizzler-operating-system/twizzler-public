@@ -119,13 +119,6 @@ static void proc_init(void)
 	x86_64_wrmsr(X86_MSR_MISC_ENABLE, lo, hi);
 	x86_64_rdmsr(X86_MSR_MISC_ENABLE, &lo, &hi);
 	printk("MISC : %x %x\n", hi, lo);
-
-	uint32_t c = x86_64_cpuid(5, 0, 2);
-	printk(":: %x\n", c);
-	c = x86_64_cpuid(1, 0, 2);
-	printk(":: %x\n", c);
-	c = x86_64_cpuid(6, 0, 2);
-	printk(":: %x\n", c);
 }
 
 struct ustar_header {
