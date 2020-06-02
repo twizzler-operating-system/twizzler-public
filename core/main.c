@@ -199,10 +199,10 @@ void kernel_main(struct processor *proc)
 		device_release_headers(so);
 
 		obj_put(so);
+		printk("[kernel] sizeof struct page: %ld\n", sizeof(struct page));
 	}
 	post_init_calls_execute(!(proc->flags & PROCESSOR_BSP));
 
-	printk("[kerne] sizeof page: %ld\n", sizeof(struct page));
 	// printk("Waiting at kernel_main_barrier\n");
 	processor_barrier(&kernel_main_barrier);
 

@@ -88,10 +88,6 @@ __noinstrument static inline void vmcs_write32_fixed(uint32_t msr,
 
 static void x86_64_enable_vmx(struct processor *proc)
 {
-	uint32_t loa, hia;
-	x86_64_rdmsr(X86_MSR_POWER_CTL, &loa, &hia);
-	printk("POWER CTL : %x %x\n", hia, loa);
-
 	uint32_t ecx = x86_64_cpuid(1, 0, 2);
 	if(!(ecx & (1 << 5))) {
 		panic("VMX extensions not available (not supported");
