@@ -657,7 +657,10 @@ static void _obj_release(void *_obj)
 
 			struct object_tie *tie = rb_entry(n, struct object_tie, node);
 #if CONFIG_DEBUG_OBJECT_LIFE
-			printk("UNTIE object " IDFMT "\n", IDPR(tie->child->id));
+			printk("UNTIE object " IDFMT " from " IDFMT " (%d)\n",
+			  IDPR(tie->child->id),
+			  IDPR(obj->id),
+			  obj->kso_type);
 #endif
 			rb_delete(&tie->node, &obj->ties_root);
 			obj_put(tie->child);
@@ -1206,7 +1209,8 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		struct objpage *p = obj_get_page(o, loaddr % OBJ_MAXSIZE, !(o->flags & OF_PAGER));
 		if(!p) {
 			assert(o->flags & OF_PAGER);
-			kernel_queue_pager_request_page(o, (loaddr % OBJ_MAXSIZE) / mm_page_size(0));
+			if(kernel_queue_pager_request_page(o, (loaddr % OBJ_MAXSIZE) / mm_page_size(0)) == -1) {
+			}
 			goto done;
 		}
 		assert(p);

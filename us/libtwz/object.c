@@ -146,7 +146,7 @@ int twz_object_create(int flags, objid_t kuid, objid_t src, objid_t *id)
 
 		/* now that we've tied the object, delete it to start refcounting it */
 		if(twz_object_delete_guid(*id, 0)) {
-			libtwz_panic("failed to delete object whily tying");
+			libtwz_panic("failed to delete object while tying");
 		}
 	}
 	return 0;

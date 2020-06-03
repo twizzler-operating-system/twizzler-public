@@ -183,7 +183,7 @@ int kernel_queue_pager_request_object(objid_t id)
 	struct queue_hdr *hdr = kernel_queue_get_hdr(KQ_PAGER);
 	struct object *qobj = kernel_queue_get_object(KQ_PAGER);
 	if(!qobj || !hdr) {
-		printk("[kq] warning - no pager registered\n");
+		//	printk("[kq] warning - no pager registered\n");
 		return -1;
 	}
 	printk("[kq] pager request object " IDFMT "\n", IDPR(id));

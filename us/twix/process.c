@@ -261,6 +261,7 @@ static int __internal_load_elf_object(twzobj *view,
 
 	twz_object_tie(view, &new_text, 0);
 	twz_object_tie(view, &new_data, 0);
+	/* TODO: delete these too */
 
 	size_t base_slot = interp ? 0x10003 : 0;
 	twz_view_set(view, base_slot, twz_object_guid(&new_text), VE_READ | VE_EXEC);
@@ -614,6 +615,9 @@ static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, 
 			return r;
 		}
 
+		//	twix_log("mmap create object " IDFMT " --> %lx\n", IDPR(twz_object_guid(&newobj)),
+		//slot);
+
 		if((r = sys_ocopy(twz_object_guid(&newobj),
 		      twz_object_guid(fobj),
 		      OBJ_NULLPAGE_SIZE,
@@ -783,6 +787,9 @@ long linux_sys_fork(struct twix_register_frame *frame)
 	twz_view_fixedset(&pds[pid].thrd.obj, TWZSLOT_STACK, sid, VE_READ | VE_WRITE | VE_FIXED);
 	// twz_object_wire_guid(&view, sid);
 
+	// twix_log("FORK view = " IDFMT ", stack = " IDFMT "\n",
+	//  IDPR(twz_object_guid(&view)),
+	//  IDPR(twz_object_guid(&stack)));
 	size_t slots_to_copy[] = {
 		1, TWZSLOT_UNIX, 0x10004, 0x10006 /* mmap */
 	};
@@ -805,6 +812,7 @@ long linux_sys_fork(struct twix_register_frame *frame)
 			/* TODO: cleanup */
 			return r;
 		}
+		//	twix_log("FORK COPY-DERIVE %lx: " IDFMT " --> " IDFMT "\n", i, IDPR(id), IDPR(nid));
 		if(flags & VE_FIXED)
 			twz_view_fixedset(&pds[pid].thrd.obj, i, nid, flags);
 		else
@@ -819,9 +827,11 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		uint32_t flags;
 		twz_view_get(NULL, i, &id, &flags);
 		if(!(flags & VE_VALID) || !(flags & VE_WRITE)) {
+			if(flags & VE_VALID) {
+				twz_object_wire_guid(&view, id);
+			}
 			continue;
 		}
-		// twix_log("FORK COPY-DERIVE %lx\n", i);
 		/* Copy-derive */
 		objid_t nid;
 		if((r = twz_object_create(
@@ -832,6 +842,7 @@ long linux_sys_fork(struct twix_register_frame *frame)
 			/* TODO: cleanup */
 			return r;
 		}
+		//	twix_log("FORK COPY-DERIVE %lx: " IDFMT " --> " IDFMT "\n", i, IDPR(id), IDPR(nid));
 		if(flags & VE_FIXED)
 			twz_view_fixedset(&pds[pid].thrd.obj, i, nid, flags);
 		else
