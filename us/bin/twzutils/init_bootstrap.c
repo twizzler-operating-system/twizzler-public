@@ -3,7 +3,8 @@
 
 #include <twz/debug.h>
 
-int main(int argc, char **argv)
+extern int __name_bootstrap(void);
+int main()
 {
 	debug_printf("Bootstrapping naming system\n");
 	if(__name_bootstrap() == -1) {

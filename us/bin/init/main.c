@@ -174,7 +174,6 @@ int main()
 
 	int status;
 	r = wait(&status);
-	fprintf(stderr, "HERE\n");
 
 	/* start the terminal program */
 	if(access("/dev/pty/pty0", F_OK) == 0) {

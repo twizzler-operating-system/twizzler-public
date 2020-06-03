@@ -467,7 +467,7 @@ int nvmec_identify(struct nvme_controller *nc)
 	void *ci_memory = (void *)((uintptr_t)twz_object_base(&nc->qo) + 0x200000);
 	void *nsl_memory = (void *)((uintptr_t)twz_object_base(&nc->qo) + 0x200000 + 0x1000);
 	void *ns_memory = (void *)((uintptr_t)twz_object_base(&nc->qo) + 0x200000 + 0x2000);
-	void *r_memory = (void *)((uintptr_t)twz_object_base(&nc->qo) + 0x200000 + 0x3000);
+	// void *r_memory = (void *)((uintptr_t)twz_object_base(&nc->qo) + 0x200000 + 0x3000);
 
 	int r = twz_device_map_object(&nc->co, &nc->qo, 0x200000, 0x4000);
 	if(r)
@@ -734,6 +734,7 @@ void *ptm(void *arg)
 		struct queue_entry_bio bio;
 		fprintf(stderr, "[nvme] queue_receive\n");
 		int r = queue_receive(&nc->ext_qobj, (struct queue_entry *)&bio, 0);
+		(void)r;
 		fprintf(
 		  stderr, "[nvme] nvme got bio: %d %ld :: %lx\n", bio.qe.info, bio.blockid, bio.linaddr);
 
@@ -790,7 +791,8 @@ int main(int argc, char **argv)
 
 	pthread_t pt;
 
-	twz_object_new(&nc.ext_qobj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
+	if(twz_object_new(&nc.ext_qobj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE) < 0)
+		abort();
 	queue_init_hdr(
 	  &nc.ext_qobj, 5, sizeof(struct queue_entry_bio), 5, sizeof(struct queue_entry_bio));
 

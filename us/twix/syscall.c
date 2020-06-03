@@ -18,6 +18,9 @@
 #define LINUX_SYS_lseek 8
 #define LINUX_SYS_mmap 9
 
+#define LINUX_SYS_munmap 11
+#define LINUX_SYS_mprotect 10
+
 #define LINUX_SYS_ioctl 16
 #define LINUX_SYS_pread 17
 #define LINUX_SYS_pwrite 18
@@ -27,9 +30,12 @@
 
 #define LINUX_SYS_select 23
 
+#define LINUX_SYS_madvise 28
+
 #define LINUX_SYS_dup 32
 #define LINUX_SYS_dup2 33
 
+#define LINUX_SYS_getpid 39
 #define LINUX_SYS_clone 56
 #define LINUX_SYS_fork 57
 #define LINUX_SYS_execve 59
@@ -42,12 +48,17 @@
 
 #define LINUX_SYS_readlink 89
 
+#define LINUX_SYS_getrlimit 97
+
 #define LINUX_SYS_getuid 102
 #define LINUX_SYS_getgid 104
 #define LINUX_SYS_geteuid 107
 #define LINUX_SYS_getegid 108
 
+#define LINUX_SYS_getppid 110
+#define LINUX_SYS_getpgid 121
 #define LINUX_SYS_arch_prctl 158
+#define LINUX_SYS_gettid 186
 
 #define LINUX_SYS_futex 202
 
@@ -67,6 +78,7 @@
 #define LINUX_SYS_preadv 295
 #define LINUX_SYS_pwritev 296
 
+#define LINUX_SYS_prlimit 302
 #define LINUX_SYS_getrandom 318
 
 #define LINUX_SYS_preadv2 327
@@ -128,6 +140,15 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_dup3] = linux_sys_dup3,
 	[LINUX_SYS_getrandom] = linux_sys_getrandom,
 	[LINUX_SYS_mkdir] = linux_sys_mkdir,
+	[LINUX_SYS_munmap] = linux_sys_munmap,
+	[LINUX_SYS_mprotect] = linux_sys_mprotect,
+	[LINUX_SYS_madvise] = linux_sys_madvise,
+	[LINUX_SYS_gettid] = linux_sys_gettid,
+	[LINUX_SYS_getpid] = linux_sys_getpid,
+	[LINUX_SYS_getppid] = linux_sys_getppid,
+	[LINUX_SYS_prlimit] = linux_sys_prlimit,
+	[LINUX_SYS_getpgid] = linux_sys_getpgid,
+	[LINUX_SYS_getrlimit] = linux_sys_getrlimit,
 };
 
 __attribute__((unused)) static const char *syscall_names[] = {

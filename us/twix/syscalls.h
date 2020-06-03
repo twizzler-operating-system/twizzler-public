@@ -135,3 +135,13 @@ long linux_sys_futex(int *uaddr,
   int *uaddr2,
   int val3);
 long linux_sys_clock_gettime(clockid_t clock, struct timespec *tp);
+
+long linux_sys_munmap();
+long linux_sys_madvise();
+long linux_sys_mprotect();
+long linux_sys_prlimit();
+long linux_sys_getpgid();
+long linux_sys_getppid();
+long linux_sys_getpid();
+long linux_sys_gettid();
+long linux_sys_getrlimit();

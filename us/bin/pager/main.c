@@ -48,11 +48,10 @@ void handle_pager_req(twzobj *qobj, struct queue_entry_pager *pqe, twzobj *nvme_
 		    pqe->id = twz_object_guid(&o);
 		    */
 
-		struct queue_entry_bio bio = {
-			.qe = 0,
-			.blockid = 0,
-			.linaddr = pqe->linaddr,
-		};
+		struct queue_entry_bio bio;
+		bio.qe.info = 0;
+		bio.blockid = 0;
+		bio.linaddr = pqe->linaddr;
 
 		printf("[pager] forwarding request to nvme\n");
 		queue_submit(nvme_queue, (struct queue_entry *)&bio, 0);

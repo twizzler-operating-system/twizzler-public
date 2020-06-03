@@ -54,6 +54,7 @@ static void _foo_bar(struct test *test)
 	{
 		int *p = NULL;
 		volatile int z = *p;
+		(void)z;
 	}
 	twzcatch(FAULT_NULL)
 	{
@@ -63,6 +64,7 @@ static void _foo_bar(struct test *test)
 
 static void _queue_st(struct test *test)
 {
+	(void)test;
 #if 0
 	twzobj obj;
 	int r;

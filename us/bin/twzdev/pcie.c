@@ -144,6 +144,12 @@ static void pcie_print_function(struct pcie_function *pf, bool nums)
 	  sname ? sname : cname);
 	if(pname)
 		printf("[%s] ", pname);
+#else
+	(void)cname;
+	(void)pname;
+	(void)sname;
+	(void)dname;
+	(void)vname;
 #endif
 }
 

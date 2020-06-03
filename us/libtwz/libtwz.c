@@ -69,8 +69,8 @@ static void syminfo_callback(void *data,
   uintptr_t symval,
   uintptr_t symsize)
 {
-	(void)symname;
 	(void)symsize;
+	(void)symval;
 	struct bt_ctx *ctx = data;
 	__print_backtrace_line(ctx->count, (unsigned long)pc, "??", 0, symname ? symname : "??");
 }

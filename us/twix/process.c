@@ -1001,3 +1001,48 @@ long linux_sys_futex(int *uaddr,
 	}
 	return 0;
 }
+
+long linux_sys_gettid()
+{
+	return 1;
+}
+
+long linux_sys_getpid()
+{
+	return 1;
+}
+
+long linux_sys_getppid()
+{
+	return 1;
+}
+
+long linux_sys_getpgid()
+{
+	return 1;
+}
+
+long linux_sys_prlimit()
+{
+	return -ENOSYS;
+}
+
+long linux_sys_mprotect()
+{
+	return -ENOSYS;
+}
+
+long linux_sys_madvise()
+{
+	return 0;
+}
+
+long linux_sys_munmap()
+{
+	return -ENOSYS;
+}
+
+long linux_sys_getrlimit()
+{
+	return -ENOSYS;
+}

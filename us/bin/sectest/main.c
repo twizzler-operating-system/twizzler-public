@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <twz/alloc.h>
@@ -120,7 +121,7 @@ static void sign_dsa(unsigned char *hash,
 	size_t kdlen = b64len;
 	unsigned char *kd = malloc(b64len);
 	int e;
-	for(int i = 0; i < b64len; i++) {
+	for(size_t i = 0; i < b64len; i++) {
 		printf("%c", b64data[i]);
 	}
 	if((e = base64_decode(b64data, b64len, kd, &kdlen)) != CRYPT_OK) {
@@ -262,7 +263,7 @@ int twz_cap_create(struct sccap **cap,
 	unsigned char out[128];
 
 	size_t keylen;
-	char *keystart;
+	unsigned char *keystart;
 
 	fprintf(stderr, "gate off = %x\n", (*cap)->gates.offset);
 
@@ -303,6 +304,7 @@ void call_the_gate(twzobj *lib)
 
 void child(twzobj *context, twzobj *data, twzobj *lib)
 {
+	(void)data;
 	printf("Hello from child!\n");
 
 	int r;
@@ -327,7 +329,7 @@ void child(twzobj *context, twzobj *data, twzobj *lib)
 }
 
 #include <dlfcn.h>
-int main(int argc, char **argv)
+int main()
 {
 	void *dl = dlopen("/usr/lib/stdl.so", RTLD_LAZY | RTLD_GLOBAL);
 
