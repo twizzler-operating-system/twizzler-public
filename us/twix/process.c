@@ -616,7 +616,7 @@ static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, 
 		}
 
 		//	twix_log("mmap create object " IDFMT " --> %lx\n", IDPR(twz_object_guid(&newobj)),
-		//slot);
+		// slot);
 
 		if((r = sys_ocopy(twz_object_guid(&newobj),
 		      twz_object_guid(fobj),
@@ -793,6 +793,20 @@ long linux_sys_fork(struct twix_register_frame *frame)
 	size_t slots_to_copy[] = {
 		1, TWZSLOT_UNIX, 0x10004, 0x10006 /* mmap */
 	};
+
+	size_t slots_to_tie[] = { 0x10003 };
+
+	for(size_t j = 0; j < sizeof(slots_to_tie) / sizeof(slots_to_tie[0]); j++) {
+		size_t i = slots_to_tie[j];
+		objid_t id;
+		uint32_t flags;
+		twz_view_get(NULL, i, &id, &flags);
+		if(!(flags & VE_VALID)) {
+			continue;
+		}
+		twz_object_wire_guid(&view, id);
+	}
+
 	for(size_t j = 0; j < sizeof(slots_to_copy) / sizeof(slots_to_copy[0]); j++) {
 		size_t i = slots_to_copy[j];
 		objid_t id;
