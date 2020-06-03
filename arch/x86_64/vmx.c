@@ -241,6 +241,7 @@ static void vmx_handle_ept_violation(struct processor *proc)
 	vmx_queue_exception(20); /* #VE */
 }
 
+#if 0
 static int __get_register(uint32_t enc)
 {
 	static int r[] = {
@@ -263,6 +264,7 @@ static int __get_register(uint32_t enc)
 	};
 	return r[enc];
 }
+#endif
 
 extern uint64_t clksrc_get_interrupt_countdown();
 __noinstrument __attribute__((used)) static void x86_64_vmexit_handler(struct processor *proc)
@@ -273,7 +275,7 @@ __noinstrument __attribute__((used)) static void x86_64_vmexit_handler(struct pr
 	unsigned long reason = vmcs_readl(VMCS_EXIT_REASON);
 	unsigned long qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
 	unsigned long grip = vmcs_readl(VMCS_GUEST_RIP);
-	unsigned long grsp = vmcs_readl(VMCS_GUEST_RSP);
+	// unsigned long grsp = vmcs_readl(VMCS_GUEST_RSP);
 	unsigned long iinfo = vmcs_readl(VMCS_VM_INSTRUCTION_INFO);
 	/*
 	    if(reason != VMEXIT_REASON_CPUID
@@ -319,12 +321,8 @@ __noinstrument __attribute__((used)) static void x86_64_vmexit_handler(struct pr
 		case VMEXIT_REASON_INVEPT:
 			/* TODO (perf): don't invalidate all mappings */
 			val = vmcs_readl(VMCS_EPT_PTR);
-			int type = proc->arch.vcpu_state_regs[__get_register((iinfo >> 28) & 0xf)];
-			//		printk("vmx invept :: %d :: supported: %x\n", type, suppoted_invept_types);
+			// int type = proc->arch.vcpu_state_regs[__get_register((iinfo >> 28) & 0xf)];
 			unsigned __int128 eptp = val;
-			// asm volatile("invept %0, %%rax" ::"m"(eptp), "a"(proc->arch.vcpu_state_regs[REG_RAX])
-			//           : "memory");
-			// asm volatile("invept %0, %%rax" ::"m"(eptp), "a"(2) : "memory");
 			asm volatile("invept %0, %%rax" ::"m"(eptp), "a"(1) : "memory");
 			vm_instruction_advance();
 			break;

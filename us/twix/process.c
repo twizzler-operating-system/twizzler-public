@@ -794,8 +794,9 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		1, TWZSLOT_UNIX, 0x10004, 0x10006 /* mmap */
 	};
 
-	size_t slots_to_tie[] = { 0x10003 };
+	size_t slots_to_tie[] = { 0, 0x10003 };
 
+	/* TODO: move this all to just mmap */
 	for(size_t j = 0; j < sizeof(slots_to_tie) / sizeof(slots_to_tie[0]); j++) {
 		size_t i = slots_to_tie[j];
 		objid_t id;
@@ -968,7 +969,6 @@ long linux_sys_futex(int *uaddr,
 	(void)timeout;
 	(void)uaddr2;
 	(void)val3;
-	twix_log("futex %d: %p (%x) %x %p\n", op, uaddr, uaddr ? *uaddr : 0, val, timeout);
 	switch((op & FUTEX_CMD_MASK)) {
 		case FUTEX_WAIT:
 			twz_thread_sync32(THREAD_SYNC_SLEEP, uaddr, val, timeout);

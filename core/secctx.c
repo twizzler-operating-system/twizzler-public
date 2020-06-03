@@ -505,7 +505,7 @@ static void __lookup_perms(struct sctx *sc,
 
 		if(b->target == target->id) {
 			EPRINTK("    - lookup_perms: found!\n");
-			struct scgates gs = { .offset = 0, .length = OBJ_MAXSIZE, .align = 0 };
+			struct scgates gs = { .offset = 0, .length = ~0, .align = 0 };
 			/* get this entry's perm, masked with this buckets mask. Then, if we're gating,
 			 * check the gates. */
 			perms |= __lookup_perm_bucket(sc->obj, b, &gs, target) & b->pmask;
@@ -686,7 +686,7 @@ fault_noperm:
 	if(do_fault) {
 		/* TODO: check if this is right */
 		struct fault_sctx_info info =
-		  twz_fault_build_sctx_info(target->id, ip, loaddr % OBJ_MAXSIZE, needed);
+		  twz_fault_build_sctx_info(target->id, ip, (void *)(loaddr % OBJ_MAXSIZE), needed);
 		thread_raise_fault(current_thread, FAULT_SCTX, &info, sizeof(info));
 	}
 
@@ -795,6 +795,7 @@ static bool __secctx_thread_detach(struct sctx *s, struct thread *thr)
 	return ok;
 }
 
+#if 0
 static bool secctx_thread_detach(struct sctx *s, struct thread *thr)
 {
 	bool ok;
@@ -803,6 +804,7 @@ static bool secctx_thread_detach(struct sctx *s, struct thread *thr)
 	spinlock_release_restore(&thr->sc_lock);
 	return ok;
 }
+#endif
 
 #define __TWZ_DETACH_DETACH 0x1000
 static bool __secctx_detach_event(struct thread *thr, bool entry, int sysc)

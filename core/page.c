@@ -119,7 +119,7 @@ static struct arena page_arena;
 
 #include <twz/driver/memory.h>
 
-static __do_page_build_stats(struct page_stats *stats, struct page_group *pg)
+static void __do_page_build_stats(struct page_stats *stats, struct page_group *pg)
 {
 	stats->page_size = mm_page_size(pg->level);
 	stats->avail = pg->avail;
@@ -362,6 +362,7 @@ void page_dealloc(struct page *p, int flags)
 		return;
 	}
 
+	assert(p->level <= 2 && p->level >= 0);
 	struct page_group *pg = default_pg[p->level];
 	do {
 		if(!(p->flags & PAGE_ZERO) && (pg->flags & PAGE_ZERO)) {
@@ -444,8 +445,9 @@ static bool __do_page_split(struct page_group *group, bool simple)
  *   - if a group is out of pages, split from split_fallback.
  */
 
-struct page *page_alloc(int type, int flags, int level)
+struct page *page_alloc(int type __unused, int flags, int level)
 {
+	struct page_group *pg = NULL;
 	if(!mm_ready) {
 		level = 0;
 		flags |= PAGE_CRITICAL;
@@ -474,7 +476,8 @@ struct page *page_alloc(int type, int flags, int level)
 	}
 
 	assert(level <= MAX_PGLEVEL);
-	struct page_group *pg = default_pg[level];
+	assert(level >= 0 && level <= 2);
+	pg = default_pg[level];
 
 	// printk("PAGE_ALLOC %x %d: 1\n", flags, level);
 	do {

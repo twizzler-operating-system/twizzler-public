@@ -272,7 +272,11 @@ uintptr_t mm_physical_early_alloc(void)
 }
 
 #include <processor.h>
-void *__mm_memory_alloc(size_t length, int type, bool clear, const char *file, int linenr)
+void *__mm_memory_alloc(size_t length,
+  int type,
+  bool clear,
+  const char *file __unused,
+  int linenr __unused)
 {
 	length = align_up(length, mm_page_size(0));
 	mm_kernel_alloced_total += length;

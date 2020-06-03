@@ -1,5 +1,6 @@
 #include <debug.h>
 #include <interrupt.h>
+#include <page.h>
 #include <processor.h>
 #include <stdarg.h>
 

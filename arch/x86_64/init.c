@@ -386,7 +386,7 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 					break;
 				case MULTIBOOT_TAG_TYPE_FRAMEBUFFER:
 					framebuffer_hdr = (void *)tag;
-					printk("[boot] multiboot framebuffer: addr=%lx, %d %d %d, bpp=%d, type=%d\n",
+					printk("[boot] multiboot framebuffer: addr=%llx, %d %d %d, bpp=%d, type=%d\n",
 					  framebuffer_hdr->common.framebuffer_addr,
 					  framebuffer_hdr->common.framebuffer_width,
 					  framebuffer_hdr->common.framebuffer_height,

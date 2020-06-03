@@ -45,7 +45,12 @@ long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 	return suc;
 }
 
-long syscall_ocopy(objid_t *destid, objid_t *srcid, size_t doff, size_t soff, size_t len, int flags)
+long syscall_ocopy(objid_t *destid,
+  objid_t *srcid,
+  size_t doff,
+  size_t soff,
+  size_t len,
+  int flags __unused)
 {
 	/* TODO: check permissions */
 	// printk("OCOPY: --> %lx %lx %lx\n", doff, soff, len);

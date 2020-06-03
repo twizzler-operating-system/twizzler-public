@@ -1,5 +1,6 @@
 #include <object.h>
 #include <page.h>
+#include <pager.h>
 #include <processor.h>
 #include <slab.h>
 #include <slots.h>

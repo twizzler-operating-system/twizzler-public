@@ -211,16 +211,6 @@ static long pcie_function_init(struct object *pbobj,
 		if(sz > 0x10000000) {
 			printk("[pcie] warning - unimplemented: support for large BARs (%ld bytes)\n", sz);
 			return -ENOTSUP;
-			break;
-			continue;
-			panic("NI - large bar: %x %x %x %x %x %lx %lx",
-			  space->header.class_code,
-			  space->header.subclass,
-			  space->header.vendor_id,
-			  space->header.device_id,
-			  space->header.progif,
-			  sz,
-			  encsz);
 		}
 		if(bar & 1) {
 			/* TODO: I/O spaces? */

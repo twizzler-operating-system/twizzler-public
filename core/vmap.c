@@ -1,6 +1,7 @@
 #include <lib/inthash.h>
 #include <memory.h>
 #include <object.h>
+#include <pager.h>
 #include <processor.h>
 #include <slab.h>
 #include <slots.h>

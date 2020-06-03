@@ -1,4 +1,5 @@
 #include <arch/x86_64-msr.h>
+#include <clksrc.h>
 #include <processor.h>
 
 void arch_processor_enumerate()

@@ -32,7 +32,7 @@ int kso_root_attach(struct object *obj, uint64_t flags, int type)
 	return i;
 }
 
-void kso_root_detach(int idx)
+void kso_root_detach(int i)
 {
 	struct object *root = obj_lookup(1, 0);
 	spinlock_acquire_save(&lock);
@@ -43,7 +43,7 @@ void kso_root_detach(int idx)
 		.type = 0,
 	};
 	obj_write_data(root,
-	  offsetof(struct kso_root_repr, attached) + sizeof(struct kso_attachment) * idx,
+	  offsetof(struct kso_root_repr, attached) + sizeof(struct kso_attachment) * i,
 	  sizeof(kar),
 	  &kar);
 
