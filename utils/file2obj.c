@@ -51,6 +51,8 @@ static void int_to_octal(uint64_t n, char *out)
 	for(; n; n >>= 3, c++) {
 		tmp[c] = '0' + (n & 7);
 	}
+	if(c > 11)
+		c = 11;
 	for(c--; c >= 0; c--)
 		*out++ = tmp[c];
 	*out = 0;

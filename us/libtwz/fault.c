@@ -19,8 +19,10 @@ static struct {
 	void *userdata;
 } _fault_table[NUM_FAULTS];
 
-//#define FPR(s)                                                                                     \
-//	fprintf(stderr, "  -- FAULT: " s " (ip=%p, addr=%p, id=" IDFMT ")\n", source, addr, IDPR(id))
+#if 0
+#define FPR(s)                                                                                     \
+	fprintf(stderr, "  -- FAULT: " s " (ip=%p, addr=%p, id=" IDFMT ")\n", source, addr, IDPR(id))
+#endif
 
 #define FPR(...)
 

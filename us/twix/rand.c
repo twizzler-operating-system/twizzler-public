@@ -175,5 +175,6 @@ static unsigned int rdrand_get_bytes(unsigned int n, unsigned char *dest)
 
 long linux_sys_getrandom(char *buf, size_t len, unsigned int flags)
 {
-	return rdrand_get_bytes(len, buf);
+	(void)flags;
+	return rdrand_get_bytes(len, (unsigned char *)buf);
 }

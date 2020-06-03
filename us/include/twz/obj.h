@@ -94,8 +94,8 @@ __must_check int twz_object_unwire(twzobj *view, twzobj *obj);
 
 #define TWZ_OD_IMMEDIATE 1
 
-__must_check int twz_object_delete(twzobj *obj, int flags);
-__must_check int twz_object_delete_guid(objid_t id, int flags);
+int twz_object_delete(twzobj *obj, int flags);
+int twz_object_delete_guid(objid_t id, int flags);
 objid_t twz_object_guid(twzobj *o);
 
 int twz_object_build_alloc(twzobj *obj, size_t offset);

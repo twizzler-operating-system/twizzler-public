@@ -57,7 +57,8 @@ void example_open_an_object_by_name(const char *name)
 	twzobj obj;
 
 	/* open an object named 'name' for reading and writing */
-	twz_object_init_name(&obj, name, FE_READ | FE_WRITE);
+	if(twz_object_init_name(&obj, name, FE_READ | FE_WRITE) < 0)
+		return;
 	/* note: this can fail */
 
 	struct example_hdr *hdr = twz_object_base(&obj);
@@ -73,6 +74,7 @@ void example_load_a_pointer(twzobj *obj)
 	 * 'p-ptr', a persistent pointer. We have to first translate it into a v-ptr like so: */
 	struct foo *some_data_v = twz_object_lea(obj, hdr->some_data);
 	/* and now we can do stuff with this. Note: this call either succeeds or throws */
+	(void)some_data_v;
 }
 
 void example_store_a_pointer(twzobj *obj, void *some_virt_addr)
@@ -105,7 +107,8 @@ void example_create_temporary_object(void)
 {
 	twzobj obj;
 	/* lets create a volatile object */
-	twz_object_new(&obj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_VOLATILE);
+	if(twz_object_new(&obj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_VOLATILE) < 0)
+		return;
 
 	/* by default, this object is tied to our thread, that is, the kernel will not delete it until
 	 * at least our thread object is deleted. */
@@ -136,7 +139,8 @@ void example_allocate_from_object(void)
 	 *    because it's probably the easiest to do. */
 
 	twzobj obj;
-	twz_object_new(&obj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
+	if(twz_object_new(&obj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE) < 0)
+		return;
 
 	/* init the object to respond to the default allocation API */
 	twz_object_build_alloc(&obj, 0);
@@ -150,6 +154,7 @@ void example_allocate_from_object(void)
 
 	/* note that the returned pointer is a persistent pointer! So it must be LEA'd to be used: */
 	void *v = twz_object_lea(&obj, p);
+	(void)v;
 
 	/* to free, you can pass either the p-ptr or the v-ptr to free. This is because Twizzler will
 	 * assume you're referring to some data within the object you pass to it, so don't screw that

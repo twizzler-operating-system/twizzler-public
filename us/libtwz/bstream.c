@@ -97,6 +97,7 @@ ssize_t bstream_hdr_write(twzobj *obj,
 
 int bstream_hdr_poll(twzobj *obj, struct bstream_hdr *hdr, uint64_t type, struct event *event)
 {
+	(void)obj;
 	if(event) {
 		event_init(event, &hdr->ev, type, NULL);
 	}
@@ -139,7 +140,6 @@ int bstream_obj_init(twzobj *obj, struct bstream_hdr *hdr, uint32_t nbits)
 	if((r = twz_object_addext(obj, EVENT_METAEXT_TAG, &hdr->ev)))
 		goto cleanup;
 	memset(hdr, 0, sizeof(*hdr));
-	// mutex_init(&hdr->lock);
 	mutex_init(&hdr->lock);
 	hdr->nbits = nbits;
 	event_obj_init(obj, &hdr->ev);
@@ -172,33 +172,7 @@ int bstream_obj_init(twzobj *obj, struct bstream_hdr *hdr, uint32_t nbits)
 		goto cleanup;
 	}
 
-#if 0
-	twzobj co;
-	r = twz_object_init_name(&co, BSTREAM_CTRL_OBJ, FE_READ | FE_EXEC);
-	if(r) {
-		goto cleanup;
-	}
-	r = twz_ptr_store_guid(
-	  obj, &hdr->io.read, &co, TWZ_GATE_CALL(NULL, BSTREAM_GATE_READ), FE_READ | FE_EXEC);
-	if(r) {
-		goto cleanup2;
-	}
-	r = twz_ptr_store_guid(
-	  obj, &hdr->io.write, &co, TWZ_GATE_CALL(NULL, BSTREAM_GATE_WRITE), FE_READ | FE_EXEC);
-	if(r) {
-		goto cleanup2;
-	}
-	r = twz_ptr_store_guid(
-	  obj, &hdr->io.poll, &co, TWZ_GATE_CALL(NULL, BSTREAM_GATE_POLL), FE_READ | FE_EXEC);
-	if(r) {
-		goto cleanup2;
-	}
-
-	twz_object_release(&co);
-#endif
 	return 0;
-cleanup2:
-	// twz_object_release(&co);
 cleanup:
 	twz_object_delext(obj, TWZIO_METAEXT_TAG, &hdr->io);
 	twz_object_delext(obj, EVENT_METAEXT_TAG, &hdr->ev);

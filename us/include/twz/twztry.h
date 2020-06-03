@@ -41,10 +41,10 @@ extern void _twz_try_unhandled(int, void *);
 #define twztry                                                                                     \
 	{                                                                                              \
 		jmp_buf _jb;                                                                               \
-		jmp_buf *_pjb = _twz_jmp_buf;                                                              \
+		jmp_buf *volatile _pjb = _twz_jmp_buf;                                                     \
 		_twz_jmp_buf = &_jb;                                                                       \
 		_twz_try_okay = 1;                                                                         \
-		int _fc, _hdl = 0;                                                                         \
+		volatile int _fc, _hdl = 0;                                                                \
 		switch((_fc = setjmp(_jb))) {                                                              \
 			case 0:
 

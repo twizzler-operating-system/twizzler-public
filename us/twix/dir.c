@@ -15,7 +15,7 @@ ssize_t linux_sys_readlink(const char *path, char *buf, size_t bufsz)
 	return twz_hier_readlink(root, path, buf, bufsz);
 }
 
-int linux_sys_mkdir(char *path, int mode)
+long linux_sys_mkdir(char *path, int mode)
 {
 	// twix_log(":: mkdir :::%s\n", path);
 	/* TODO: reentrant */
@@ -30,8 +30,8 @@ int linux_sys_mkdir(char *path, int mode)
 		return -EEXIST;
 	}
 
-	char *dup1[PATH_MAX + 1];
-	char *dup2[PATH_MAX + 1];
+	char dup1[PATH_MAX + 1];
+	char dup2[PATH_MAX + 1];
 	strcpy(dup1, path);
 	strcpy(dup2, path);
 

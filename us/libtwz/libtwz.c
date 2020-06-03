@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static bool disable_backtrace = false;
 
@@ -68,6 +69,8 @@ static void syminfo_callback(void *data,
   uintptr_t symval,
   uintptr_t symsize)
 {
+	(void)symname;
+	(void)symsize;
 	struct bt_ctx *ctx = data;
 	__print_backtrace_line(ctx->count, (unsigned long)pc, "??", 0, symname ? symname : "??");
 }

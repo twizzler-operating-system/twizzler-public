@@ -36,13 +36,13 @@ int main()
 	if(twz_object_new(&obj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_VOLATILE) < 0)
 		abort();
 
-	char *mem = twz_object_base(&obj);
+	// char *mem = twz_object_base(&obj);
 
 	struct timespec st, en, df;
 
 	for(int i = 0; i < 80; i++) {
 		clock_gettime(CLOCK_MONOTONIC, &st);
-		for(volatile long i = 0; i < 1000000000ul; i++)
+		for(volatile long i = 0; i < 1000000000l; i++)
 			;
 		//	do_test(mem, 1ul << (i / 4 + 1), (i / 2) % 2);
 		clock_gettime(CLOCK_MONOTONIC, &en);

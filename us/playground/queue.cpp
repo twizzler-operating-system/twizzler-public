@@ -1,6 +1,7 @@
 #include <twz/obj.h>
 #include <twz/queue.h>
 
+#include <cstdlib>
 #include <unistd.h>
 
 #include <cstdio>
@@ -35,6 +36,7 @@ void consumer(twzobj *qobj)
 		queue_receive(qobj, (struct queue_entry *)&pqe, 0);
 		//	printf("consumer got %d: %p\n", pqe.qe.info, pqe.ptr);
 		char *packet_data = twz_object_lea(qobj, (char *)pqe.ptr);
+		(void)packet_data;
 		//	printf("   read packet data: %s\n", packet_data);
 
 		count++;
@@ -85,7 +87,7 @@ static void *make_packet(twzobj *data_obj)
 		//	p = (void *)((char *)p + 0x1000);
 	}
 
-	static int packet_num = 0;
+	// static int packet_num = 0;
 	// sprintf((char *)p, "Hey! This is some example packet data! Packet #%d\n", packet_num++);
 
 	return p;
@@ -95,8 +97,10 @@ int main()
 {
 	/* make a queue object and an object to hold packet data */
 	twzobj qo, data_obj;
-	twz_object_new(&qo, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
-	twz_object_new(&data_obj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
+	if(twz_object_new(&qo, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE) < 0)
+		abort();
+	if(twz_object_new(&data_obj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE) < 0)
+		abort();
 
 	/* init the queue object, here we have 32 queue entries */
 	queue_init_hdr(
@@ -117,6 +121,7 @@ int main()
 		uint32_t info = get_new_info();
 
 		/* store a pointer to some packet data */
+		pqe.qe.info = info;
 		pqe.ptr = twz_ptr_swizzle(&qo, make_packet(&data_obj), FE_READ);
 
 		/* submit the packet! */

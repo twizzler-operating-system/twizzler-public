@@ -12,7 +12,11 @@ enum {
 	BLACK,
 };
 
-#if 1
+#ifndef __unused
+#define __unused __attribute__((unused))
+#endif
+
+#if 0
 #define TXOPT_RECORD_TMP(...)
 #define TXOPT_RECORD(...)
 #define TX_RECORD_COMMIT(...)
@@ -24,8 +28,8 @@ enum {
 #define _clwb(...)
 #define _pfence()
 #endif
-#define mutex_acquire(...)
-#define mutex_release(...)
+//#define mutex_acquire(...)
+//#define mutex_release(...)
 
 static void _doprint_tree(twzobj *obj, int indent, struct btree_node *root);
 static inline struct btree_node *__c(void *x)
@@ -135,7 +139,7 @@ static void rotateLeft(twzobj *obj,
 {
 	struct btree_node *pt_right = __l(obj, __l(obj, (*pt))->right);
 
-	int rcode;
+	int rcode __unused;
 	TXOPT_START(obj, tx, rcode)
 	{
 		struct btree_node *v_pt = __l(obj, (*pt));
@@ -188,7 +192,7 @@ static void rotateRight(twzobj *obj,
 {
 	struct btree_node *pt_left = __l(obj, __l(obj, (*pt))->left);
 
-	int rcode;
+	int rcode __unused;
 	TXOPT_START(obj, tx, rcode)
 	{
 		struct btree_node *v_pt = __l(obj, (*pt));
@@ -244,7 +248,7 @@ static void fixViolation(twzobj *obj,
 	struct btree_node *parent_pt = NULL;
 	struct btree_node *grand_parent_pt = NULL;
 
-	int rcode;
+	int rcode __unused;
 	while((*pt != *root) && (__l(obj, (*pt))->color != BLACK)
 	      && (__l(obj, __l(obj, (*pt))->parent)->color == RED)) {
 		parent_pt = __l(obj, __l(obj, (*pt))->parent);
@@ -312,7 +316,7 @@ static void fixViolation(twzobj *obj,
 			    The uncle of pt is also red
 			    Only Recoloring required */
 			if((uncle_pt != NULL) && (uncle_pt->color == RED)) {
-				int rcode;
+				int rcode __unused;
 				TXOPT_START(obj, tx, rcode)
 				{
 					TXOPT_RECORD_TMP(tx, &grand_parent_pt->color);
@@ -443,15 +447,6 @@ static struct btree_node *__bt_leftmost(twzobj *obj, struct btree_node *n)
 	return n;
 }
 
-static struct btree_node *__bt_leftmost2(twzobj *obj, struct btree_node *n, size_t *c)
-{
-	while(n->left) {
-		(*c)++;
-		n = __l(obj, n->left);
-	}
-	return n;
-}
-
 static struct btree_node *__bt_rightmost(twzobj *obj, struct btree_node *n)
 {
 	while(n->right) {
@@ -459,7 +454,9 @@ static struct btree_node *__bt_rightmost(twzobj *obj, struct btree_node *n)
 	}
 	return n;
 }
-static struct btree_node *__bt_next(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n)
+static struct btree_node *__bt_next(twzobj *obj,
+  struct btree_hdr *hdr __unused,
+  struct btree_node *n)
 {
 	//	long long a = rdtsc();
 	if(n->right) {
@@ -478,7 +475,9 @@ static struct btree_node *__bt_next(twzobj *obj, struct btree_hdr *hdr, struct b
 	return p;
 }
 
-static struct btree_node *__bt_prev(twzobj *obj, struct btree_hdr *hdr, struct btree_node *n)
+static struct btree_node *__bt_prev(twzobj *obj,
+  struct btree_hdr *hdr __unused,
+  struct btree_node *n)
 {
 	if(n->left) {
 		struct btree_node *r = __bt_rightmost(obj, __l(obj, n->left));
@@ -493,7 +492,9 @@ static struct btree_node *__bt_prev(twzobj *obj, struct btree_hdr *hdr, struct b
 	return p;
 }
 
-static struct btree_node *__bt_sibling(twzobj *obj, struct btree_hdr *hdr, struct btree_node *node)
+static struct btree_node *__bt_sibling(twzobj *obj,
+  struct btree_hdr *hdr __unused,
+  struct btree_node *node)
 {
 	struct btree_node *p = __l(obj, node->parent);
 	if(!p)
@@ -617,7 +618,7 @@ static void __delete_fixup2(twzobj *obj, struct btree_hdr *hdr, struct btree_nod
 static struct btree_node *__bt_delete(twzobj *obj, struct btree_hdr *hdr, struct btree_node *node)
 {
 	struct btree_node *ret = node, *child = NULL, *free = NULL, *fixup = NULL;
-	int rcode, done = 0;
+	int rcode __unused, done = 0;
 
 	//_doprint_tree(obj, 0, __l(obj, hdr->root));
 

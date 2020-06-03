@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <twz/name.h>
 #include <twz/sys.h>
@@ -58,7 +59,7 @@ __attribute__((used)) static int __do_exec(uint64_t entry,
 
 extern char **environ;
 static int __internal_do_exec(twzobj *view,
-  size_t entry,
+  void *entry,
   char const *const *argv,
   char *const *env,
   void *auxbase,
@@ -259,8 +260,10 @@ static int __internal_load_elf_object(twzobj *view,
 		}
 	}
 
-	twz_object_tie(view, &new_text, 0);
-	twz_object_tie(view, &new_data, 0);
+	if(twz_object_tie(view, &new_text, 0) < 0)
+		abort();
+	if(twz_object_tie(view, &new_data, 0) < 0)
+		abort();
 	/* TODO: delete these too */
 
 	size_t base_slot = interp ? 0x10003 : 0;
@@ -508,7 +511,7 @@ struct mmap_slot {
 };
 
 #include <twz/mutex.h>
-static struct mutex mmap_mutex;
+// static struct mutex mmap_mutex;
 static uint8_t mmap_bitmap[TWZSLOT_MMAP_NUM / 8];
 
 static ssize_t __twix_mmap_get_slot(void)
@@ -522,7 +525,7 @@ static ssize_t __twix_mmap_get_slot(void)
 	return -1;
 }
 
-static int __twix_mmap_take_slot(size_t slot)
+static ssize_t __twix_mmap_take_slot(size_t slot)
 {
 	// debug_printf(":::: TAKE SLOT %lx %lx\n", slot, slot - TWZSLOT_MMAP_BASE);
 	slot -= TWZSLOT_MMAP_BASE;
@@ -580,7 +583,7 @@ static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, 
 		// debug_printf(":::: %p -> %lx %lx\n", addr, VADDR_TO_SLOT(addr), TWZSLOT_MMAP_BASE);
 
 		ssize_t slot =
-		  fd == -1 ? VADDR_TO_SLOT(addr)
+		  fd == -1 ? (ssize_t)VADDR_TO_SLOT(addr)
 		           : (addr ? __twix_mmap_take_slot(VADDR_TO_SLOT(addr)) : __twix_mmap_get_slot());
 		if(slot < 0) {
 			return -ENOMEM;
@@ -600,7 +603,7 @@ static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, 
 					      twz_object_guid(fobj), 0, adj, 0, (len + 0xfff) & ~0xfff, 0))) {
 						return r;
 					}
-					return SLOT_TO_VADDR(slot) + adj;
+					return (long)SLOT_TO_VADDR(slot) + adj;
 				} else {
 					return -ENOTSUP;
 				}
@@ -637,7 +640,7 @@ static long __internal_mmap_object(void *addr, size_t len, int prot, int flags, 
 
 		twz_object_release(&newobj);
 
-		return SLOT_TO_VADDR(slot) + OBJ_NULLPAGE_SIZE;
+		return (long)SLOT_TO_VADDR(slot) + OBJ_NULLPAGE_SIZE;
 		/*	if(off) {
 		        char *src = twz_object_base(&file->obj);
 		        char *dst = twz_object_base(obj);
@@ -724,6 +727,7 @@ static bool __fork_view_clone(twzobj *nobj,
   objid_t *nid,
   uint32_t *nflags)
 {
+	(void)nobj;
 	if(i == 0 || (i >= TWZSLOT_ALLOC_START && i <= TWZSLOT_ALLOC_MAX)) {
 		*nid = oid;
 		*nflags = oflags;
@@ -764,16 +768,19 @@ long linux_sys_fork(struct twix_register_frame *frame)
 	}
 	pds[pid].pid = pid;
 	// debug_printf("== creating thread\n");
-	twz_thread_create(&pds[pid].thrd);
+	if(twz_thread_create(&pds[pid].thrd) < 0)
+		abort();
 
-	twz_view_clone(NULL, &view, 0, __fork_view_clone);
+	if(twz_view_clone(NULL, &view, 0, __fork_view_clone) < 0)
+		abort();
 
 	objid_t sid;
 	twzobj stack;
 	twz_view_fixedset(
 	  &pds[pid].thrd.obj, TWZSLOT_THRD, pds[pid].thrd.tid, VE_READ | VE_WRITE | VE_FIXED);
 	/* TODO: handle these */
-	twz_object_wire_guid(&view, pds[pid].thrd.tid);
+	if(twz_object_wire_guid(&view, pds[pid].thrd.tid) < 0)
+		abort();
 
 	twz_view_set(&view, TWZSLOT_CVIEW, vid, VE_READ | VE_WRITE);
 
@@ -782,7 +789,8 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		twix_log(":: fork create stack returned %d\n", r);
 		abort();
 	}
-	twz_object_tie(&pds[pid].thrd.obj, &stack, 0);
+	if(twz_object_tie(&pds[pid].thrd.obj, &stack, 0) < 0)
+		abort();
 	sid = twz_object_guid(&stack);
 	twz_view_fixedset(&pds[pid].thrd.obj, TWZSLOT_STACK, sid, VE_READ | VE_WRITE | VE_FIXED);
 	// twz_object_wire_guid(&view, sid);
@@ -805,7 +813,8 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		if(!(flags & VE_VALID)) {
 			continue;
 		}
-		twz_object_wire_guid(&view, id);
+		if(twz_object_wire_guid(&view, id) < 0)
+			abort();
 	}
 
 	for(size_t j = 0; j < sizeof(slots_to_copy) / sizeof(slots_to_copy[0]); j++) {
@@ -832,8 +841,10 @@ long linux_sys_fork(struct twix_register_frame *frame)
 			twz_view_fixedset(&pds[pid].thrd.obj, i, nid, flags);
 		else
 			twz_view_set(&view, i, nid, flags);
-		twz_object_wire_guid(&view, nid);
-		twz_object_delete_guid(nid, 0);
+		if(twz_object_wire_guid(&view, nid) < 0)
+			abort();
+		if(twz_object_delete_guid(nid, 0) < 0)
+			abort();
 	}
 
 	for(size_t j = TWZSLOT_MMAP_BASE; j < TWZSLOT_MMAP_BASE + TWZSLOT_MMAP_NUM; j++) {
@@ -843,7 +854,8 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		twz_view_get(NULL, i, &id, &flags);
 		if(!(flags & VE_VALID) || !(flags & VE_WRITE)) {
 			if(flags & VE_VALID) {
-				twz_object_wire_guid(&view, id);
+				if(twz_object_wire_guid(&view, id) < 0)
+					abort();
 			}
 			continue;
 		}
@@ -862,8 +874,10 @@ long linux_sys_fork(struct twix_register_frame *frame)
 			twz_view_fixedset(&pds[pid].thrd.obj, i, nid, flags);
 		else
 			twz_view_set(&view, i, nid, flags);
-		twz_object_wire_guid(&view, nid);
-		twz_object_delete_guid(nid, 0);
+		if(twz_object_wire_guid(&view, nid) < 0)
+			abort();
+		if(twz_object_delete_guid(nid, 0) < 0)
+			abort();
 	}
 
 	// twz_object_wire(NULL, &stack);
@@ -892,8 +906,10 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		return r;
 	}
 
-	twz_object_tie(NULL, &view, TIE_UNTIE);
-	twz_object_tie(NULL, &stack, TIE_UNTIE);
+	if(twz_object_tie(NULL, &view, TIE_UNTIE) < 0)
+		abort();
+	if(twz_object_tie(NULL, &stack, TIE_UNTIE) < 0)
+		abort();
 	twz_object_release(&view);
 	twz_object_release(&stack);
 
@@ -971,11 +987,12 @@ long linux_sys_futex(int *uaddr,
 	(void)val3;
 	switch((op & FUTEX_CMD_MASK)) {
 		case FUTEX_WAIT:
-			twz_thread_sync32(THREAD_SYNC_SLEEP, uaddr, val, timeout);
+			twz_thread_sync32(
+			  THREAD_SYNC_SLEEP, (_Atomic unsigned int *)uaddr, val, (struct timespec *)timeout);
 			return 0; // TODO
 			break;
 		case FUTEX_WAKE:
-			twz_thread_sync32(THREAD_SYNC_WAKE, uaddr, val, NULL);
+			twz_thread_sync32(THREAD_SYNC_WAKE, (_Atomic unsigned int *)uaddr, val, NULL);
 			return 0; // TODO
 			break;
 		default:

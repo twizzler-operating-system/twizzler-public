@@ -63,6 +63,7 @@ long linux_sys_open(const char *path, int flags, int mode)
 
 static int internal_dup(int oldfd, int newfd, int flags, int vers)
 {
+	(void)flags;
 	// debug_printf("internal dup %d %d %x %d\n", oldfd, newfd, flags, vers);
 	if(oldfd == newfd && vers == 3) {
 		//	debug_printf("   -> inval\n");
@@ -100,17 +101,17 @@ static int internal_dup(int oldfd, int newfd, int flags, int vers)
 	return newfd;
 }
 
-int linux_sys_dup3(int oldfd, int newfd, int flags)
+long linux_sys_dup3(int oldfd, int newfd, int flags)
 {
 	return internal_dup(oldfd, newfd, flags, 3);
 }
 
-int linux_sys_dup2(int oldfd, int newfd)
+long linux_sys_dup2(int oldfd, int newfd)
 {
 	return internal_dup(oldfd, newfd, 0, 2);
 }
 
-int linux_sys_dup(int oldfd)
+long linux_sys_dup(int oldfd)
 {
 	return internal_dup(oldfd, -1, 0, 1);
 }
