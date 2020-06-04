@@ -272,10 +272,10 @@ void kernel_main(struct processor *proc)
 		r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_READ | MIP_DFL_WRITE, &bsvid);
 		if(r < 0)
 			panic("failed to create initial objects: %d", r);
-		printk("Created bthrd = " IDFMT ", bstck = " IDFMT ", bsvid = " IDFMT "\n",
-		  IDPR(bthrid),
-		  IDPR(bstckid),
-		  IDPR(bsvid));
+		/*	printk("Created bthrd = " IDFMT ", bstck = " IDFMT ", bsvid = " IDFMT "\n",
+		      IDPR(bthrid),
+		      IDPR(bstckid),
+		      IDPR(bsvid));*/
 
 		struct object *bthr = obj_lookup(bthrid, 0);
 		struct object *bstck = obj_lookup(bstckid, 0);
@@ -355,6 +355,7 @@ void kernel_main(struct processor *proc)
 				(long)tsa.stack_base, (long)tsa.stack_base + tsa.stack_size,
 				(long)tsa.tls_base, (long)tsa.arg);
 #endif
+		printk("[kernel] spawning init thread\n");
 		r = syscall_thread_spawn(ID_LO(bthrid), ID_HI(bthrid), &tsa, 0);
 		if(r < 0) {
 			panic("thread_spawn: %d\n", r);
