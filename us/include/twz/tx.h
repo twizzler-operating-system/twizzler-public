@@ -27,7 +27,7 @@ struct twz_tx {
 #include <setjmp.h>
 #include <twz/obj.h>
 
-static void tx_init(struct twz_tx *tx, uint32_t logsz)
+static inline void tx_init(struct twz_tx *tx, uint32_t logsz)
 {
 	tx->logsz = logsz;
 	tx->tmpend = tx->end = 0;
@@ -58,6 +58,7 @@ __must_check static inline int __tx_add_commit(struct twz_tx *tx)
 	tx->end = tx->tmpend;
 	_clwb(&tx->end);
 	_pfence();
+	return 0;
 }
 
 __must_check static inline int __tx_add(struct twz_tx *tx, void *p, uint16_t len)

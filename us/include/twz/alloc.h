@@ -23,7 +23,6 @@ struct twzoa_header {
 
 #define ALLOC_METAINFO_TAG 0xaaaaaaaa11223344
 
-twzobj;
 // int oa_init(twzobj *obj, size_t start, size_t end);
 void oa_hdr_init(twzobj *obj, struct twzoa_header *h, size_t start, size_t end);
 void oa_hdr_free(twzobj *obj, struct twzoa_header *hdr, void *p);

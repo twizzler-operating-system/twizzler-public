@@ -40,22 +40,22 @@ static inline void _clwb(const void *p)
 	}
 	switch(__flush_mode) {
 		case __FM_CLFLUSH:
-			_mm_clflush(p);
+			_mm_clflush((void *)p);
 			break;
 		case __FM_CLFLUSH_OPT:
-			_mm_clflushopt(p);
+			_mm_clflushopt((void *)p);
 			break;
 		case __FM_CLWB:
-			_mm_clwb(p);
+			_mm_clwb((void *)p);
 	}
 }
 
 static inline void _clwb_len(const void *p, size_t len)
 {
-	char *l = p;
+	const char *l = p;
 	long long rem = len;
 	while(rem > 0) {
-		_clwb(l);
+		_clwb((void *)l);
 		size_t off = (uintptr_t)l & (__CL_SIZE - 1);
 		l += (__CL_SIZE - off);
 		rem -= (__CL_SIZE - off);

@@ -50,7 +50,7 @@ __must_check static inline long sys_ocopy(objid_t dest,
   size_t len,
   int flags)
 {
-	return __syscall6(SYS_OCOPY, &dest, &src, doff, soff, len, flags);
+	return __syscall6(SYS_OCOPY, (long)&dest, (long)&src, doff, soff, len, flags);
 }
 
 __must_check static inline long sys_kqueue(objid_t id, enum kernel_queues kq, int flags)
