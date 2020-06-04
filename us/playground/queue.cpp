@@ -52,7 +52,7 @@ void consumer(twzobj *qobj)
 			clock_gettime(CLOCK_MONOTONIC, &start);
 		}
 
-		// queue_complete(qobj, (struct queue_entry *)&pqe, 0);
+		queue_complete(qobj, (struct queue_entry *)&pqe, 0);
 	}
 }
 
