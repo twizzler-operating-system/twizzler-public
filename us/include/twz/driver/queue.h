@@ -6,6 +6,7 @@
 struct queue_entry_pager {
 	struct queue_entry qe;
 	objid_t id;
+	objid_t tmpobjid;
 	objid_t reqthread;
 	uint64_t linaddr;
 	uint64_t page;
@@ -24,6 +25,7 @@ struct queue_entry_pager {
 
 struct queue_entry_bio {
 	struct queue_entry qe;
+	objid_t tmpobjid;
 	uint64_t linaddr;
 	uint64_t blockid;
 	int result;

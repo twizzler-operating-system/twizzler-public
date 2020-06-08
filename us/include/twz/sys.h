@@ -27,7 +27,7 @@ static inline long __sys_debug_print(const char *str, size_t len)
 	return __syscall6(SYS_DEBUG_PRINT, (long)str, len, 0, 0, 0, 0);
 }
 
-__attribute__((deprecated)) static inline long sys_vmap(const void *restrict p, int cmd, long arg)
+__attribute__((deprecated)) static inline long sys_vmap(const void *p, int cmd, long arg)
 {
 	return __syscall6(SYS_VMAP, (long)p, cmd, arg, 0, 0, 0);
 }

@@ -29,3 +29,28 @@ objid_t str_to_objid(char *s)
 	}
 	return res;
 }
+
+int str_to_objid_try(char *s, objid_t *id)
+{
+	objid_t res = 0;
+	for(; *s; s++) {
+		if(*s == ':')
+			continue;
+		if(*s == 'x')
+			continue;
+		if(*s == '0' && *(s + 1) == 'x')
+			continue;
+		res <<= 4;
+		if(*s >= '0' && *s <= '9')
+			res += *s - '0';
+		else if(*s >= 'a' && *s <= 'f')
+			res += *s - 'a' + 10;
+		else if(*s >= 'A' && *s <= 'F')
+			res += *s - 'A' + 10;
+		else {
+			return -1;
+		}
+	}
+	*id = res;
+	return 0;
+}

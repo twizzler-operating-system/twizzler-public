@@ -1,5 +1,4 @@
-#include <pthread.h>
-#include <stdio.h>
+#include <cstdio>
 #include <twz/debug.h>
 #include <twz/obj.h>
 #include <twz/queue.h>
@@ -7,10 +6,16 @@
 
 #include <twz/driver/queue.h>
 
+#include <thread>
+#include <vector>
+
 twzobj kq;
 
-#include "test.h"
+std::vector<struct queue_entry_pager *> incoming_reqs;
 
+//#include "test.h"
+
+#if 0
 void *tm(void *a)
 {
 	(void)a;
@@ -20,7 +25,7 @@ void *tm(void *a)
 	twzobj obj;
 	twz_object_init_guid(&obj, id, FE_READ | FE_WRITE);
 
-	int *p = twz_object_base(&obj);
+	int *p = (int *)twz_object_base(&obj);
 
 	debug_printf("[pager] p = %p\n", p);
 	printf("Doing read!\n");
@@ -30,12 +35,13 @@ void *tm(void *a)
 	printf("Write got %d\n", *p);
 	return NULL;
 }
-
+#endif
 void handle_pager_req(twzobj *qobj, struct queue_entry_pager *pqe, twzobj *nvme_queue)
 {
 	printf("[pager] got request for object " IDFMT "\n", IDPR(pqe->id));
 	if(pqe->cmd == PAGER_CMD_OBJECT) {
 		queue_complete(qobj, (struct queue_entry *)pqe, 0);
+		printf("[pager] complete!\n");
 	} else if(pqe->cmd == PAGER_CMD_OBJECT_PAGE) {
 		printf("[pager]   page request: %lx -> %lx\n", pqe->page, pqe->linaddr);
 		// pqe->result = PAGER_RESULT_ZERO;
@@ -50,6 +56,7 @@ void handle_pager_req(twzobj *qobj, struct queue_entry_pager *pqe, twzobj *nvme_
 
 		struct queue_entry_bio bio;
 		bio.qe.info = 0;
+		bio.tmpobjid = pqe->tmpobjid;
 		bio.blockid = 0;
 		bio.linaddr = pqe->linaddr;
 
@@ -61,6 +68,11 @@ void handle_pager_req(twzobj *qobj, struct queue_entry_pager *pqe, twzobj *nvme_
 		pqe->result = PAGER_RESULT_DONE;
 		queue_complete(qobj, (struct queue_entry *)pqe, 0);
 	}
+}
+
+void foo()
+{
+	debug_printf("HELLOL\n");
 }
 
 int main()
@@ -81,8 +93,10 @@ int main()
 		return 1;
 	}
 
-	pthread_t pt;
-	pthread_create(&pt, NULL, tm, NULL);
+	std::thread thr(foo);
+
+	// pthread_t pt;
+	// pthread_create(&pt, NULL, tm, NULL);
 
 	twzobj nvme_queue;
 	if(twz_object_init_name(&nvme_queue, "/dev/nvme-queue", FE_READ | FE_WRITE)) {
@@ -91,11 +105,11 @@ int main()
 	}
 
 	while(1) {
-		struct queue_entry_pager pqe;
-		printf("[pager] queue_receive\n");
-		int r = queue_receive(&kq, (struct queue_entry *)&pqe, 0);
+		queue_entry_pager *pqe = new queue_entry_pager;
+		int r = queue_receive(&kq, (struct queue_entry *)pqe, 0);
+		printf("[pager]: got request %d\n", pqe->qe.info);
 		if(r == 0) {
-			handle_pager_req(&kq, &pqe, &nvme_queue);
+			handle_pager_req(&kq, pqe, &nvme_queue);
 		}
 	}
 }

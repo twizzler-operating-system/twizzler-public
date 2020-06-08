@@ -183,7 +183,7 @@ int main()
 		}
 	}
 
-#if 0
+#if 1
 	int r;
 	if(!fork()) {
 		kso_set_name(NULL, "[instance] nvme-driver");

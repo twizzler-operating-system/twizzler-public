@@ -54,8 +54,13 @@ $(BUILDDIR)/utils/hier: utils/hier.c
 	@mkdir -p $(BUILDDIR)/utils
 	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/hier.c -Ius/include -MD
 
+$(BUILDDIR)/utils/mkimg: utils/mkimg.c
+	@echo "[HOSTCC]  $@"
+	@mkdir -p $(BUILDDIR)/utils
+	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/mkimg.c -Ius/include -MD
 
-UTILS=$(addprefix $(BUILDDIR)/utils/,objstat file2obj elfsplit bsv appendobj sctx mkcap mkdlg makekey mkuser hier)
+
+UTILS=$(addprefix $(BUILDDIR)/utils/,objstat file2obj elfsplit bsv appendobj sctx mkcap mkdlg makekey mkuser hier mkimg)
 
 -include $(addsuffix .d,$(UTILS))
 

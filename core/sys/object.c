@@ -376,6 +376,7 @@ long syscall_opin(uint64_t lo, uint64_t hi, uint64_t *addr, int flags)
 		o->flags &= ~OF_PINNED;
 	} else {
 		o->flags |= OF_PINNED;
+		/* TODO: does this return a slot that needs to be released? */
 		obj_alloc_slot(o);
 		assert(o->slot != NULL);
 		if(addr)

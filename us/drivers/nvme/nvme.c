@@ -735,8 +735,19 @@ void *ptm(void *arg)
 		fprintf(stderr, "[nvme] queue_receive\n");
 		int r = queue_receive(&nc->ext_qobj, (struct queue_entry *)&bio, 0);
 		(void)r;
-		fprintf(
-		  stderr, "[nvme] nvme got bio: %d %ld :: %lx\n", bio.qe.info, bio.blockid, bio.linaddr);
+		fprintf(stderr,
+		  "[nvme] nvme got bio: %d %ld :: %lx (" IDFMT ")\n",
+		  bio.qe.info,
+		  bio.blockid,
+		  bio.linaddr,
+		  IDPR(bio.tmpobjid));
+
+		twzobj tmpobj;
+		twz_object_init_guid(&tmpobj, bio.tmpobjid, FE_READ);
+		r = twz_device_map_object(&nc->co, &tmpobj, 0, 0x100000);
+		if(r) {
+			fprintf(stderr, "[nvme]: :( :( %d\n", r);
+		}
 
 		struct nvme_cmd cmd;
 		uint16_t status;
@@ -744,9 +755,6 @@ void *ptm(void *arg)
 		nvme_cmd_init_read(&cmd, bio.linaddr, 1, bio.blockid, 8, 512, 4096);
 		fprintf(stderr, "nvme performing read\n");
 		int res = nvmec_execute_cmd(nc, &cmd, &nc->queues[1], &status, &cres);
-		fprintf(stderr, "nvme got %d %d %d\n", res, status, cres);
-		nvme_cmd_init_read(&cmd, bio.linaddr, 1, bio.blockid, 8, 512, 4096);
-		res = nvmec_execute_cmd(nc, &cmd, &nc->queues[1], &status, &cres);
 		fprintf(stderr, "nvme got %d %d %d\n", res, status, cres);
 
 		bio.result = status;

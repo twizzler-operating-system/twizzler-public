@@ -1,9 +1,11 @@
+#include <init.h>
 #include <object.h>
 #include <page.h>
 #include <pager.h>
 #include <processor.h>
 #include <slab.h>
 #include <slots.h>
+#include <syscall.h>
 #include <thread.h>
 #include <tmpmap.h>
 
@@ -16,8 +18,7 @@ struct pager_request {
 	struct rbnode node_id;
 	struct rbnode node_obj;
 	struct object *obj;
-	void *tmpaddr;
-	struct page *pp;
+	struct objpage *objpage;
 };
 
 static struct rbroot root;
@@ -62,16 +63,28 @@ static int __pr_compar(struct pager_request *a, struct pager_request *b)
 	return __pr_compar_key(a, b->pqe.qe.info);
 }
 
-// rb_insert(&nobj->pagecache_level1_root, npg, struct objpage, node, __objpage_compar);
-// struct rbnode *node =
-// rb_search(&src->pagecache_root, src_idx, struct objpage, node, __objpage_compar_key);
+static struct object *pager_tmp_object = NULL;
+
+static void pager_init(void *a __unused)
+{
+	objid_t id;
+	int r = syscall_ocreate(0, 0, 0, 0, MIP_DFL_WRITE | MIP_DFL_READ, &id);
+	assert(r == 0);
+	pager_tmp_object = obj_lookup(id, 0);
+	if(pager_tmp_object) {
+		pager_tmp_object->flags |= OF_PINNED;
+		obj_alloc_slot(pager_tmp_object);
+	}
+}
+POST_INIT(pager_init, NULL);
+
 static void _pager_fn(void *a)
 {
 	(void)a;
 
 	struct queue_hdr *hdr = kernel_queue_get_hdr(KQ_PAGER);
 	struct object *qobj = kernel_queue_get_object(KQ_PAGER);
-	printk("call to pager_fn\n");
+	// printk("call to pager_fn\n");
 	spinlock_acquire_save(&pager_lock);
 
 	struct queue_entry_pager pqe;
@@ -157,8 +170,10 @@ static void _pager_fn(void *a)
 
 					break;
 				case PAGER_RESULT_DONE:
-					tmpmap_unmap_page(pr->tmpaddr);
-					obj_cache_page(pr->obj, pr->pqe.page * mm_page_size(0), pr->pp);
+					// tmpmap_unmap_page(pr->tmpaddr);
+					// obj_cache_page(pr->obj, pr->pqe.page * mm_page_size(0), pr->pp);
+					printk("::: completed %ld %lx\n", pr->pqe.page, pr->objpage->page->addr);
+					obj_cache_page(pr->obj, pr->pqe.page * mm_page_size(0), pr->objpage->page);
 					break;
 				default:
 				case PAGER_RESULT_ERROR:
@@ -258,11 +273,38 @@ int kernel_queue_pager_request_page(struct object *obj, size_t pg)
 	pr->pqe.reqthread = current_thread->thrid;
 	pr->pqe.cmd = PAGER_CMD_OBJECT_PAGE;
 	pr->pqe.result = 0;
-	pr->pp =
-	  page_alloc(obj->flags & OF_PERSIST ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, 0);
-	pr->tmpaddr = tmpmap_map_page(pr->pp);
+	//	pr->pp =
+	//	  page_alloc(obj->flags & OF_PERSIST ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO,
+	// 0);
 
-	pr->pqe.linaddr = mm_vtoo(pr->tmpaddr);
+	static size_t tmppgnr = 0;
+	size_t i = 0;
+	size_t maxtmppgnr = OBJ_TOPDATA / mm_page_size(0);
+	struct objpage *tmppg = NULL;
+	for(i = tmppgnr + 1; (i % maxtmppgnr != tmppgnr) || !(i % maxtmppgnr); i++) {
+		tmppg = obj_get_page(pager_tmp_object, (i % maxtmppgnr) * mm_page_size(0), true);
+		break;
+	}
+	if(i == tmppgnr) {
+		/* TODO: too many outstanding requests */
+		panic("");
+	}
+	tmppgnr = i % maxtmppgnr;
+	// tmppg = obj_get_page(pager_tmp_object, i, true);
+	printk("[kq] tmpobj " IDFMT " page %p %ld: %lx\n",
+	  IDPR(pager_tmp_object->id),
+	  tmppg,
+	  i,
+	  tmppg->page->addr);
+	pr->objpage = tmppg;
+	pr->pqe.linaddr =
+	  pager_tmp_object->slot->num * OBJ_MAXSIZE + (i % maxtmppgnr) * mm_page_size(0);
+	pr->pqe.tmpobjid = pager_tmp_object->id;
+	printk("[kq]: linaddr: %lx\n", pr->pqe.linaddr);
+
+	// pr->tmpaddr = tmpmap_map_page(pr->pp);
+
+	// pr->pqe.linaddr = mm_vtoo(pr->tmpaddr);
 	// pr->pqe.linaddr = obj->slot->num * OBJ_MAXSIZE + pg * mm_page_size(0);
 
 	if(kernel_queue_submit(qobj, hdr, (struct queue_entry *)&pr->pqe) == 0) {
