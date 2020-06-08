@@ -19,6 +19,7 @@ struct pager_request {
 	struct rbnode node_obj;
 	struct object *obj;
 	struct objpage *objpage;
+	struct thread *thread;
 };
 
 static struct rbroot root;
@@ -119,7 +120,8 @@ static void _pager_fn(void *a)
 				obj->flags |= OF_KERNEL | OF_CPF_VALID | OF_PAGER;
 				obj->cached_pflags = MIP_DFL_WRITE | MIP_DFL_READ;
 				obj_put(obj);
-				tobj->thr.thread->pager_obj_req = 0;
+				pr->thread->pager_obj_req = 0;
+				// tobj->thr.thread->pager_obj_req = 0;
 			} else {
 				/* TODO: error */
 			}
@@ -135,6 +137,7 @@ static void _pager_fn(void *a)
 			rb_delete(&pr->node_obj, &pr->obj->page_requests_root);
 
 			thread_wake_object(pr->obj, pr->pqe.page * mm_page_size(0), ~0);
+			pr->thread->pager_obj_req = 0;
 			switch(pqe.result) {
 				case PAGER_RESULT_ZERO:
 					printk("[kq] result is to zero a page\n");
@@ -177,6 +180,7 @@ static void _pager_fn(void *a)
 					break;
 				default:
 				case PAGER_RESULT_ERROR:
+					thread_exit();
 					/* TODO: error */
 					break;
 			}
@@ -220,6 +224,7 @@ int kernel_queue_pager_request_object(objid_t id)
 	pr->pqe.reqthread = current_thread->thrid;
 	pr->pqe.cmd = PAGER_CMD_OBJECT;
 	pr->pqe.result = 0;
+	pr->thread = current_thread;
 
 	if(kernel_queue_submit(qobj, hdr, (struct queue_entry *)&pr->pqe) == 0) {
 		/* TODO: verify that this did not overwrite */
@@ -251,6 +256,7 @@ int kernel_queue_pager_request_page(struct object *obj, size_t pg)
 	bool new = current_thread->pager_obj_req == 0;
 
 	if(!new) {
+		printk("[kq] not new\n");
 		obj_put(qobj);
 		return -1;
 	}
@@ -297,6 +303,7 @@ int kernel_queue_pager_request_page(struct object *obj, size_t pg)
 	  i,
 	  tmppg->page->addr);
 	pr->objpage = tmppg;
+	pr->thread = current_thread;
 	pr->pqe.linaddr =
 	  pager_tmp_object->slot->num * OBJ_MAXSIZE + (i % maxtmppgnr) * mm_page_size(0);
 	pr->pqe.tmpobjid = pager_tmp_object->id;

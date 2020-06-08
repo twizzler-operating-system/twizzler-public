@@ -209,6 +209,7 @@ static void __thread_finish_cleanup2(void *_t)
 	arch_thread_destroy(t);
 	thread_sync_uninit_thread(t);
 	memset(&t->arch, 0, sizeof(t->arch));
+	t->pager_obj_req = 0;
 	_thread_ctor(NULL, t);
 	slabcache_free(&_sc_thread, t);
 }

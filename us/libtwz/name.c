@@ -120,6 +120,33 @@ static void copy_names(const char *bsname, twzobj *nobj)
 
 #include <libgen.h>
 #include <stdlib.h>
+
+int twz_name_assign_namespace(objid_t id, const char *name)
+{
+	if(!__name_init())
+		return -ENOTSUP;
+
+	char *d1 = alloca(strlen(name) + 1);
+	char *d2 = alloca(strlen(name) + 1);
+
+	strcpy(d1, name);
+	strcpy(d2, name);
+
+	int r;
+	char *par_name = dirname(d1);
+	char *ch_name = basename(d2);
+	twzobj parent;
+	r = twz_object_init_name(&parent, par_name, FE_READ | FE_WRITE);
+	if(r)
+		return r;
+
+	r = twz_hier_assign_name(&parent, ch_name, NAME_ENT_NAMESPACE, id);
+	if(r)
+		return r;
+
+	return 0;
+}
+
 int twz_name_assign(objid_t id, const char *name)
 {
 	if(!__name_init())
@@ -134,29 +161,6 @@ int twz_name_assign(objid_t id, const char *name)
 	int r;
 	char *par_name = dirname(d1);
 	char *ch_name = basename(d2);
-#if 0
-
-	char *sl = strrchr(name, '/');
-
-	if(sl) {
-		strncpy(par_name, name, sl - name);
-		strcpy(ch_name, sl + 1);
-	} else {
-		strcpy(ch_name, name);
-	}
-
-	twzobj *parent;
-	twzobj tmp;
-	parent = &nameobj;
-	int r;
-	if(sl && sl != name) {
-		twix_log("looking up name parent %s\n", par_name);
-		r = twz_object_init_name(&tmp, par_name, FE_READ | FE_WRITE);
-		if(r)
-			return r;
-		parent = &tmp;
-	}
-#endif
 	twzobj parent;
 	r = twz_object_init_name(&parent, par_name, FE_READ | FE_WRITE);
 	if(r)
@@ -167,22 +171,6 @@ int twz_name_assign(objid_t id, const char *name)
 		return r;
 
 	return 0;
-
-#if 0
-	struct btree_val kv = { .mv_data = name, .mv_size = strlen(name) + 1 };
-	struct btree_val dv = { .mv_data = &id, .mv_size = sizeof(id) };
-
-	int r = bt_put(&nameobj, twz_object_base(&nameobj), &kv, &dv, NULL);
-	if(r)
-		return r;
-
-	char buf[64];
-	snprintf(buf, 64, "#" IDFMT, IDPR(id));
-	struct btree_val rdv = { .mv_data = name, .mv_size = strlen(name) + 1 };
-	struct btree_val rkv = { .mv_data = buf, .mv_size = strlen(buf) + 1 };
-	bt_put(&nameobj, twz_object_base(&nameobj), &rkv, &rdv, NULL);
-	return 0;
-#endif
 }
 
 int __name_bootstrap(void)

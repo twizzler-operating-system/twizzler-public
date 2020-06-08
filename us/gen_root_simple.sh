@@ -3,20 +3,19 @@
 set -e
 set -u
 
-export SYSROOT=$(pwd)/projects/$PROJECT/build/us/sysroot
-export OBJROOT=$(pwd)/projects/$PROJECT/build/us/objroot
-export KEYROOT=$(pwd)/projects/$PROJECT/build/us/keyroot
+#export SYSROOT=$(pwd)/projects/$PROJECT/build/us/sysroot
+#export OBJROOT=$(pwd)/projects/$PROJECT/build/us/objroot
 
-for ent in $(find projects/$PROJECT/build/us/sysroot | cut -d'/' -f6- | grep -v '\.data$'); do
+export SYSROOT=$1
+export OBJROOT=$2
+
+#echo $1 >&2
+#echo $(find $SYSROOT | sed "s|$SYSROOT||g") >&2
+for ent in $(find $SYSROOT | sed "s|$SYSROOT||g" | grep -v '\.data$'); do
 	if [[ -f $SYSROOT/$ent ]]; then
 		target=$OBJROOT/${ent//\//_}.obj
-		key=$KEYROOT/${ent//\//_}.pubkey.obj
 		extra=
 		perms=rxh
-		if [[ -f $key ]]; then
-			extra="-k $(./projects/$PROJECT/build/utils/objstat -i $key)"
-			perms=rh
-		fi
 
 		#echo $ent >&2
 		if [[ -L $SYSROOT/$ent ]]; then

@@ -5,6 +5,10 @@
 #include <twz/_objid.h>
 #include <twz/_types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct twz_nament {
 	objid_t id;
 	size_t reclen;
@@ -38,3 +42,8 @@ int twz_fot_indirect_resolve(twzobj *obj,
 #define TWZ_NAME_RESOLVER_DFL NULL
 #define TWZ_NAME_RESOLVER_HIER NULL
 #define TWZ_NAME_RESOLVER_SOFN (void *)1ul
+
+int twz_name_assign_namespace(objid_t id, const char *name);
+#ifdef __cplusplus
+}
+#endif
