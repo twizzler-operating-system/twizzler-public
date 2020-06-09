@@ -122,6 +122,7 @@ struct object {
 	struct vmap *kvmap;
 	struct slot *kslot;
 	void *kaddr;
+	struct object *sourced_from;
 };
 
 #define obj_get_kbase(obj) ({ (void *)((char *)obj_get_kaddr(obj) + OBJ_NULLPAGE_SIZE); })
@@ -147,6 +148,7 @@ void object_space_release_slot(struct slot *slot);
 
 struct object *obj_create(uint128_t id, enum kso_type);
 void obj_system_init(void);
+void obj_system_init_objpage(void);
 struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot);
 
 #define OBJ_LOOKUP_HIDDEN 1
@@ -223,3 +225,5 @@ void arch_object_destroy(struct object *obj);
 void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t phys, uintptr_t vaddr, uint32_t flags);
 bool arch_objspace_getmap(uintptr_t v, uintptr_t *p, int *level, uint64_t *flags);
 bool arch_objspace_map(uintptr_t v, uintptr_t p, int level, uint64_t flags);
+
+void obj_clone_cow(struct object *src, struct object *nobj);

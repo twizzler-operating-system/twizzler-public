@@ -16,6 +16,12 @@
 #include <unordered_map>
 #include <vector>
 
+#include <twz/debug.h>
+
+#define fprintf(x, ...) debug_printf(__VA_ARGS__)
+
+#define printf(...) debug_printf(__VA_ARGS__)
+
 twzobj kq;
 
 std::queue<struct queue_entry_pager *> incoming_reqs;
@@ -137,17 +143,15 @@ class device
 
 	ssize_t page_lookup(objid_t id, size_t pgnr)
 	{
-		//	printf("page lookup " IDFMT " page %ld\n", IDPR(id), pgnr);
+		printf("page lookup " IDFMT " page %ld\n", IDPR(id), pgnr);
 		struct bucket *b = get_bucket(1, get_bucket_num(id, pgnr, sb->hashlen));
 
-		//	printf("bucket: " IDFMT " %ld :: %ld %ld\n", IDPR(b->id), b->pgnum, b->chainpage,
-		// b->next);
+		printf("bucket: " IDFMT " %ld :: %ld %ld\n", IDPR(b->id), b->pgnum, b->chainpage, b->next);
 		while(b->id != 0 && (b->id != id || b->pgnum != pgnr) && b->chainpage != 0) {
 			b = get_bucket(b->chainpage, b->next);
 
-			//		printf(
-			//		  "bucket: " IDFMT " %ld :: %ld %ld\n", IDPR(b->id), b->pgnum, b->chainpage,
-			// b->next);
+			printf(
+			  "bucket: " IDFMT " %ld :: %ld %ld\n", IDPR(b->id), b->pgnum, b->chainpage, b->next);
 		}
 
 		if(b->id != id || b->pgnum != pgnr)
@@ -182,10 +186,10 @@ void tm()
 
 void handle_pager_req(twzobj *qobj, struct queue_entry_pager *pqe, device *dev)
 {
-	// printf("[pager] got request for object " IDFMT "\n", IDPR(pqe->id));
+	printf("[pager] got request for object " IDFMT "\n", IDPR(pqe->id));
 	if(pqe->cmd == PAGER_CMD_OBJECT) {
 		ssize_t r = dev->page_lookup(pqe->id, 0);
-		//	printf("[pager] page_lookup returned %ld\n", r);
+		printf("[pager] %d page_lookup returned %ld\n", pqe->qe.info, r);
 		// r = -1;
 		pqe->result = r < 0 ? PAGER_RESULT_ERROR : PAGER_RESULT_DONE;
 		queue_complete(qobj, (struct queue_entry *)pqe, 0);

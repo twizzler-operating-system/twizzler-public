@@ -1,6 +1,7 @@
 #include <arch/x86_64-msr.h>
 #include <arch/x86_64-vmx.h>
 #include <clksrc.h>
+#include <kalloc.h>
 #include <processor.h>
 #include <secctx.h>
 #include <syscall.h>

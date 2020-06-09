@@ -84,6 +84,7 @@ static void __complete_object(struct pager_request *pr, struct queue_entry_pager
 		printk("[kq] warning - completion ID mismatch\n");
 		return;
 	}
+	printk(":: %d\n", pqe->result);
 	if(pqe->result == PAGER_RESULT_DONE) {
 		struct object *obj = obj_lookup(pqe->id, 0);
 		if(!obj) {
@@ -96,9 +97,10 @@ static void __complete_object(struct pager_request *pr, struct queue_entry_pager
 		obj_put(obj);
 		pr->thread->pager_obj_req = 0;
 	} else {
-		struct fault_object_info info =
-		  twz_fault_build_object_info(pr->pqe.id, NULL /* TODO */, NULL, FAULT_OBJECT_EXIST);
-		thread_queue_fault(pr->thread, FAULT_OBJECT, &info, sizeof(info));
+		pr->thread->pager_obj_req = 0;
+		// struct fault_object_info info =
+		//  twz_fault_build_object_info(pr->pqe.id, NULL /* TODO */, NULL, FAULT_OBJECT_EXIST);
+		// thread_queue_fault(pr->thread, FAULT_OBJECT, &info, sizeof(info));
 	}
 
 	thread_wake(pr->thread);
@@ -203,7 +205,7 @@ int kernel_queue_pager_request_object(objid_t id)
 	if(kernel_queue_submit(qobj, hdr, (struct queue_entry *)&pr->pqe) == 0) {
 		/* TODO: verify that this did not overwrite */
 		rb_insert(&root, pr, struct pager_request, node_id, __pr_compar);
-		//	printk("[kq] enqueued! info = %d\n", pr->pqe.qe.info);
+		printk("[kq] enqueued! info = %d\n", pr->pqe.qe.info);
 		current_thread->pager_obj_req = id;
 	} else {
 		printk("[kq] failed enqueue\n");
@@ -296,7 +298,7 @@ int kernel_queue_pager_request_page(struct object *obj, size_t pg)
 
 		current_thread->pager_obj_req = obj->id;
 	} else {
-		//	printk("[kq] failed enqueue\n");
+		printk("[kq] failed enqueue\n");
 		thread_wake(current_thread);
 	}
 

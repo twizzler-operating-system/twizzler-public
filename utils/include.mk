@@ -57,7 +57,7 @@ $(BUILDDIR)/utils/hier: utils/hier.c
 $(BUILDDIR)/utils/mkimg: utils/mkimg.c
 	@echo "[HOSTCC]  $@"
 	@mkdir -p $(BUILDDIR)/utils
-	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/mkimg.c -Ius/include -MD
+	@$(HOSTCC) $(HOSTCFLAGS) -Ius/include -o $@ utils/mkimg.c -Ius/include -MD -fsanitize=undefined -fsanitize=address
 
 
 UTILS=$(addprefix $(BUILDDIR)/utils/,objstat file2obj elfsplit bsv appendobj sctx mkcap mkdlg makekey mkuser hier mkimg)

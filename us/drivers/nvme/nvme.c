@@ -729,7 +729,6 @@ void *ptm(void *arg)
 	nvmec_create_queues(nc, 4, nc->max_queue_slots);
 	nvmec_identify(nc);
 
-	fprintf(stderr, "NVME HERE\n");
 	while(1) {
 		struct queue_entry_bio bio;
 		// fprintf(stderr, "[nvme] queue_receive\n");
@@ -747,7 +746,7 @@ void *ptm(void *arg)
 
 		twzobj tmpobj;
 		twz_object_init_guid(&tmpobj, bio.tmpobjid, FE_READ);
-		r = twz_device_map_object(&nc->co, &tmpobj, 0, 0x400000);
+		r = twz_device_map_object(&nc->co, &tmpobj, 0, 0x800000);
 		if(r) {
 			fprintf(stderr, "[nvme]: :( :( %d\n", r);
 		}
@@ -767,6 +766,7 @@ void *ptm(void *arg)
 
 	return 0;
 }
+// 00b77b59cf8f2eb3
 
 int main(int argc, char **argv)
 {

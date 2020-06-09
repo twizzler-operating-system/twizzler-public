@@ -135,7 +135,7 @@ void add_object_page(objid_t id, size_t pg, void *data, size_t len)
 	} else {
 		b->datapage = 0;
 	}
-	printf("    added object page %p " IDFMT " :: %lx :: %ld\n", b, IDPR(id), pg, b->datapage);
+	// printf("    added object page %p " IDFMT " :: %lx :: %ld\n", b, IDPR(id), pg, b->datapage);
 }
 
 struct ustar_header {
@@ -177,11 +177,16 @@ static void copy_data(objid_t id, FILE *file, size_t len, int meta)
 	size_t nrpages = ((len + (0x1000 - 1)) & ~(0x1000 - 1)) / 0x1000;
 
 	for(size_t i = pg; i < pg + nrpages; i++) {
-		printf("  copying page %ld (%ld bytes this page)\n", i, len > 0x1000 ? 0x1000 : len);
+		// printf("  copying page %ld (%ld bytes this page)\n", i, len > 0x1000 ? 0x1000 : len);
 		char buffer[0x1000];
-		fread(buffer, 1, 0x1000, file);
-		add_object_page(id, i, buffer, len > 0x1000 ? 0x1000 : len);
-		len -= 0x1000;
+		size_t rl = 0;
+		ssize_t rc = 0;
+		do {
+			rl += rc;
+		} while((rc = fread(buffer + rl, 1, (len > 0x1000 ? 0x1000 : len) - rl, file)) > 0);
+		//	size_t rl = fread(buffer, 1, 0x1000, file);
+		add_object_page(id, i, buffer, rl);
+		len -= rl;
 	}
 }
 
@@ -203,9 +208,9 @@ static void process_object(const char *filename, objid_t id)
 		errx(1, "invalid object");
 	}
 
-	printf("%s :: %s %s\n", filename, hdr.name, hdr.magic);
+	// printf("%s :: %s %s\n", filename, hdr.name, hdr.magic);
 	size_t sz = octal_to_int(hdr.size);
-	printf("  datasz = %ld\n", sz);
+	// printf("  datasz = %ld\n", sz);
 
 	copy_data(id, file, sz, 0);
 
@@ -222,7 +227,7 @@ static void process_object(const char *filename, objid_t id)
 
 	sz = octal_to_int(hdr.size);
 	copy_data(id, file, sz, 1);
-	printf("  metasz = %ld\n", sz);
+	// printf("  metasz = %ld\n", sz);
 
 	fclose(file);
 	add_object_page(id, 0, NULL, 0);
