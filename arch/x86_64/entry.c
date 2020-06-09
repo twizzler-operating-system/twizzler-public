@@ -239,6 +239,16 @@ __noinstrument void arch_thread_resume(struct thread *thread, uint64_t timeout)
 			thread->processor->stats.sctx_switch++;
 		}
 	}
+
+	spinlock_acquire_save(&thread->lock);
+	if(thread->pending_fault_info) {
+		thread_raise_fault(
+		  thread, thread->pending_fault, thread->pending_fault_info, thread->pending_fault_infolen);
+		kfree(thread->pending_fault_info);
+		thread->pending_fault_info = NULL;
+	}
+	spinlock_release_restore(&thread->lock);
+
 	if(timeout) {
 		clksrc_set_interrupt_countdown(timeout, false);
 	}

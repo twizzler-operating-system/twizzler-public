@@ -13,6 +13,12 @@
 #define TIMESLICE_SCALE 20000
 
 #include <arch/x86_64-msr.h>
+
+static void thread_resume(struct thread *thr, uint64_t timeout)
+{
+	arch_thread_resume(thr, timeout);
+}
+
 __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 {
 	uint64_t ji = clksrc_get_nanoseconds();
@@ -29,6 +35,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 		x86_64_wrmsr(0xe8, 0, 0);
 	}
 
+	pager_idle_task();
 	workqueue_dowork(&proc->wq);
 	while(true) {
 		/* TODO (major): allow current thread to run again */
@@ -44,7 +51,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			spinlock_release(&proc->sched_lock, 0);
 			// clksrc_set_interrupt_countdown(current_thread->timeslice_expire - ji, false);
 
-			arch_thread_resume(current_thread, current_thread->timeslice_expire - ji);
+			thread_resume(current_thread, current_thread->timeslice_expire - ji);
 		}
 		if(current_thread && current_thread->timeslice_expire <= ji) {
 #if 0
@@ -102,7 +109,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			if(next != current_thread) {
 				proc->stats.thr_switch++;
 			}
-			arch_thread_resume(next, empty ? 0 : next->timeslice_expire - ji);
+			thread_resume(next, empty ? 0 : next->timeslice_expire - ji);
 		} else {
 			spinlock_release(&proc->sched_lock, 1);
 			/* we're halting here, but the arch_processor_halt function will return
@@ -210,8 +217,8 @@ static void __thread_finish_cleanup2(void *_t)
 	struct thread *t = _t;
 	arch_thread_destroy(t);
 	thread_sync_uninit_thread(t);
-	memset(&t->arch, 0, sizeof(t->arch));
-	t->pager_obj_req = 0;
+	memset(t, 0, sizeof(*t));
+	// memset(&t->arch, 0, sizeof(t->arch));
 	_thread_ctor(NULL, t);
 	slabcache_free(&_sc_thread, t);
 }
@@ -403,4 +410,23 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 			thread_exit();
 		}
 	}
+}
+
+void thread_queue_fault(struct thread *thr, int fault, void *info, size_t infolen)
+{
+	void *ptr = kalloc(infolen);
+	memcpy(ptr, info, infolen);
+	spinlock_acquire_save(&thr->lock);
+	if(thr->pending_fault_info) {
+		spinlock_release_restore(&thr->lock);
+		printk("warning - unable to queue fault to thread %ld\n", thr->id);
+		kfree(ptr);
+		return;
+	}
+
+	thr->pending_fault_info = ptr;
+	thr->pending_fault = fault;
+	thr->pending_fault_infolen = infolen;
+
+	spinlock_release_restore(&thr->lock);
 }

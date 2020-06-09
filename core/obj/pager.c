@@ -9,6 +9,7 @@
 #include <thread.h>
 #include <tmpmap.h>
 
+#include <twz/_fault.h>
 #include <twz/driver/queue.h>
 
 #include <queue.h>
@@ -24,8 +25,6 @@ struct pager_request {
 
 static struct rbroot root;
 static struct spinlock pager_lock = SPINLOCK_INIT;
-static _Atomic size_t nr_outstanding = 0;
-static struct task pager_task;
 
 static void _sc_pr_ctor(void *p __unused, void *o)
 {
@@ -79,21 +78,68 @@ static void pager_init(void *a __unused)
 }
 POST_INIT(pager_init, NULL);
 
-static void _pager_fn(void *a)
+static void __complete_object(struct pager_request *pr, struct queue_entry_pager *pqe)
 {
-	(void)a;
+	if(pr->pqe.id != pqe->id) {
+		printk("[kq] warning - completion ID mismatch\n");
+		return;
+	}
+	if(pqe->result == PAGER_RESULT_DONE) {
+		struct object *obj = obj_lookup(pqe->id, 0);
+		if(!obj) {
+			/* create it */
+			obj = obj_create(pqe->id, 0);
+		}
+		/* need to make this atomic with create */
+		obj->flags |= OF_KERNEL | OF_CPF_VALID | OF_PAGER;
+		obj->cached_pflags = MIP_DFL_WRITE | MIP_DFL_READ;
+		obj_put(obj);
+		pr->thread->pager_obj_req = 0;
+	} else {
+		struct fault_object_info info =
+		  twz_fault_build_object_info(pr->pqe.id, NULL /* TODO */, NULL, FAULT_OBJECT_EXIST);
+		thread_queue_fault(pr->thread, FAULT_OBJECT, &info, sizeof(info));
+	}
 
+	thread_wake(pr->thread);
+}
+
+static void __complete_page(struct pager_request *pr, struct queue_entry_pager *pqe)
+{
+	pr->thread->pager_obj_req = 0;
+	if(pqe->id != pr->pqe.id || pqe->page != pr->pqe.page) {
+		printk("[kq] warning - ID or page mismatch\n");
+		goto cleanup;
+	}
+	switch(pqe->result) {
+		case PAGER_RESULT_ZERO:
+			obj_get_page(pr->obj, pr->pqe.page * mm_page_size(0), true);
+			break;
+		case PAGER_RESULT_DONE:
+			obj_cache_page(pr->obj, pr->pqe.page * mm_page_size(0), pr->objpage->page);
+			break;
+		default:
+		case PAGER_RESULT_ERROR: {
+			struct fault_object_info info = twz_fault_build_object_info(
+			  pr->pqe.id, NULL /* TODO */, NULL, FAULT_OBJECT_NOMAP /* TODO */);
+			thread_queue_fault(pr->thread, FAULT_OBJECT, &info, sizeof(info));
+		} break;
+	}
+cleanup:
+	rb_delete(&pr->node_obj, &pr->obj->page_requests_root);
+	thread_wake_object(pr->obj, pr->pqe.page * mm_page_size(0), ~0);
+	obj_put(pr->obj);
+	pr->obj = NULL;
+}
+
+static void _pager_fn(void)
+{
 	struct queue_hdr *hdr = kernel_queue_get_hdr(KQ_PAGER);
 	struct object *qobj = kernel_queue_get_object(KQ_PAGER);
-	// printk("call to pager_fn\n");
 	spinlock_acquire_save(&pager_lock);
 
 	struct queue_entry_pager pqe;
 	if(kernel_queue_get_cmpls(qobj, hdr, (struct queue_entry *)&pqe) == 0) {
-		printk("[kq] got completion %d for " IDFMT "\n", pqe.qe.info, IDPR(pqe.id));
-		assert(nr_outstanding > 0);
-		nr_outstanding--;
-
 		struct rbnode *node =
 		  rb_search(&root, pqe.qe.info, struct pager_request, node_id, __pr_compar_key);
 
@@ -104,95 +150,16 @@ static void _pager_fn(void *a)
 
 		struct pager_request *pr = rb_entry(node, struct pager_request, node_id);
 		rb_delete(&pr->node_id, &root);
-		/* TODO: check ID match, etc */
 
 		if(pr->pqe.cmd == PAGER_CMD_OBJECT) {
-			printk("[kq] completion is for object\n");
-			struct object *tobj = obj_lookup(pqe.reqthread, 0);
-			if(pqe.result == PAGER_RESULT_DONE) {
-				struct object *obj = obj_lookup(pqe.id, 0);
-				if(!obj) {
-					/* create it */
-					obj = obj_create(pqe.id, 0);
-				}
-				printk("[kq] ok!\n");
-				/* need to make this atomic with create */
-				obj->flags |= OF_KERNEL | OF_CPF_VALID | OF_PAGER;
-				obj->cached_pflags = MIP_DFL_WRITE | MIP_DFL_READ;
-				obj_put(obj);
-				pr->thread->pager_obj_req = 0;
-				// tobj->thr.thread->pager_obj_req = 0;
-			} else {
-				/* TODO: error */
-			}
-
-			if(tobj && tobj->kso_type == KSO_THREAD) {
-				thread_wake(tobj->thr.thread);
-			} else {
-				printk("[kq] pager completed request for dead thread or non-thread\n");
-			}
-
+			__complete_object(pr, &pqe);
 		} else if(pr->pqe.cmd == PAGER_CMD_OBJECT_PAGE) {
-			printk("[kq] completion is for page\n");
-			rb_delete(&pr->node_obj, &pr->obj->page_requests_root);
-
-			thread_wake_object(pr->obj, pr->pqe.page * mm_page_size(0), ~0);
-			pr->thread->pager_obj_req = 0;
-			switch(pqe.result) {
-				case PAGER_RESULT_ZERO:
-					printk("[kq] result is to zero a page\n");
-					/* TODO: release resources */
-					obj_get_page(pr->obj, pr->pqe.page * mm_page_size(0), true);
-					break;
-				case PAGER_RESULT_COPY:
-					printk("[kq] result is to copy a page from " IDFMT " :: %lx\n",
-					  IDPR(pqe.id),
-					  pqe.page);
-
-					/* TODO: release resources */
-					{
-						struct object *obj = obj_lookup(pqe.id, 0);
-						if(obj) {
-							printk("[kq] copying page!\n");
-							void *base = obj_get_kaddr(obj);
-							struct page *pp =
-							  page_alloc((pr->obj->flags & OF_PERSIST) ? PAGE_TYPE_PERSIST
-							                                           : PAGE_TYPE_VOLATILE,
-							    0,
-							    0);
-							void *mp = tmpmap_map_page(pp);
-							/* TODO: bounds check */
-							memcpy(mp, base + pqe.page * mm_page_size(0), mm_page_size(0));
-							obj_cache_page(pr->obj, pr->pqe.page * mm_page_size(0), pp);
-							tmpmap_unmap_page(mp);
-							obj_release_kaddr(obj);
-						} else {
-							/* TODO: error */
-						}
-					}
-
-					break;
-				case PAGER_RESULT_DONE:
-					// tmpmap_unmap_page(pr->tmpaddr);
-					// obj_cache_page(pr->obj, pr->pqe.page * mm_page_size(0), pr->pp);
-					printk("::: completed %ld %lx\n", pr->pqe.page, pr->objpage->page->addr);
-					obj_cache_page(pr->obj, pr->pqe.page * mm_page_size(0), pr->objpage->page);
-					break;
-				default:
-				case PAGER_RESULT_ERROR:
-					thread_exit();
-					/* TODO: error */
-					break;
-			}
-			obj_put(pr->obj);
-			pr->obj = NULL;
+			__complete_page(pr, &pqe);
 		}
+		slabcache_free(&sc_pager_request, pr);
 	}
 
 done:
-	if(nr_outstanding && !a) {
-		workqueue_insert(&current_processor->wq, &pager_task, _pager_fn, NULL);
-	}
 	spinlock_release_restore(&pager_lock);
 
 	obj_put(qobj);
@@ -201,7 +168,7 @@ done:
 void pager_idle_task(void)
 {
 	if(kernel_queue_get_hdr(KQ_PAGER)) {
-		_pager_fn((void *)1);
+		_pager_fn();
 	}
 }
 
@@ -213,11 +180,11 @@ int kernel_queue_pager_request_object(objid_t id)
 		//	printk("[kq] warning - no pager registered\n");
 		return -1;
 	}
-	printk("[kq] pager request object " IDFMT "\n", IDPR(id));
+	// printk("[kq] pager request object " IDFMT "\n", IDPR(id));
 	bool new = current_thread->pager_obj_req == 0;
 
 	if(!new) {
-		printk("[kq] this is a redo!\n");
+		// printk("[kq] this is a redo!\n");
 		obj_put(qobj);
 		return -1;
 	}
@@ -236,11 +203,8 @@ int kernel_queue_pager_request_object(objid_t id)
 	if(kernel_queue_submit(qobj, hdr, (struct queue_entry *)&pr->pqe) == 0) {
 		/* TODO: verify that this did not overwrite */
 		rb_insert(&root, pr, struct pager_request, node_id, __pr_compar);
-		printk("[kq] enqueued! info = %d\n", pr->pqe.qe.info);
+		//	printk("[kq] enqueued! info = %d\n", pr->pqe.qe.info);
 		current_thread->pager_obj_req = id;
-		if(nr_outstanding++ == 0) {
-			workqueue_insert(&current_processor->wq, &pager_task, _pager_fn, NULL);
-		}
 	} else {
 		printk("[kq] failed enqueue\n");
 		thread_wake(current_thread);
@@ -256,14 +220,14 @@ int kernel_queue_pager_request_page(struct object *obj, size_t pg)
 	struct queue_hdr *hdr = kernel_queue_get_hdr(KQ_PAGER);
 	struct object *qobj = kernel_queue_get_object(KQ_PAGER);
 	if(!qobj || !hdr) {
-		printk("[kq] warning - no pager registered\n");
+		// printk("[kq] warning - no pager registered\n");
 		return -1;
 	}
-	printk("[kq] pager request page " IDFMT " :: %lx\n", IDPR(obj->id), pg);
+	// printk("[kq] pager request page " IDFMT " :: %lx\n", IDPR(obj->id), pg);
 	bool new = current_thread->pager_obj_req == 0;
 
 	if(!new) {
-		printk("[kq] not new\n");
+		//	printk("[kq] not new\n");
 		obj_put(qobj);
 		return -1;
 	}
@@ -304,17 +268,17 @@ int kernel_queue_pager_request_page(struct object *obj, size_t pg)
 	}
 	tmppgnr = i % maxtmppgnr;
 	// tmppg = obj_get_page(pager_tmp_object, i, true);
-	printk("[kq] tmpobj " IDFMT " page %p %ld: %lx\n",
-	  IDPR(pager_tmp_object->id),
-	  tmppg,
-	  i,
-	  tmppg->page->addr);
+	// printk("[kq] tmpobj " IDFMT " page %p %ld: %lx\n",
+	//  IDPR(pager_tmp_object->id),
+	//  tmppg,
+	//  i,
+	// tmppg->page->addr);
 	pr->objpage = tmppg;
 	pr->thread = current_thread;
 	pr->pqe.linaddr =
 	  pager_tmp_object->slot->num * OBJ_MAXSIZE + (i % maxtmppgnr) * mm_page_size(0);
 	pr->pqe.tmpobjid = pager_tmp_object->id;
-	printk("[kq]: linaddr: %lx\n", pr->pqe.linaddr);
+	// printk("[kq]: linaddr: %lx\n", pr->pqe.linaddr);
 
 	// pr->tmpaddr = tmpmap_map_page(pr->pp);
 
@@ -324,18 +288,15 @@ int kernel_queue_pager_request_page(struct object *obj, size_t pg)
 	if(kernel_queue_submit(qobj, hdr, (struct queue_entry *)&pr->pqe) == 0) {
 		/* TODO: verify that this did not overwrite */
 		rb_insert(&root, pr, struct pager_request, node_id, __pr_compar);
-		printk("[kq] enqueued! info %d\n", pr->pqe.qe.info);
+		//	printk("[kq] enqueued! info %d\n", pr->pqe.qe.info);
 
 		krc_get(&obj->refs);
 		pr->obj = obj;
 		rb_insert(&obj->page_requests_root, pr, struct pager_request, node_obj, __pr_compar_obj);
 
 		current_thread->pager_obj_req = obj->id;
-		if(nr_outstanding++ == 0) {
-			workqueue_insert(&current_processor->wq, &pager_task, _pager_fn, NULL);
-		}
 	} else {
-		printk("[kq] failed enqueue\n");
+		//	printk("[kq] failed enqueue\n");
 		thread_wake(current_thread);
 	}
 

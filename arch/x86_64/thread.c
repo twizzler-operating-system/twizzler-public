@@ -1,3 +1,4 @@
+#include <kalloc.h>
 #include <processor.h>
 #include <syscall.h>
 #include <thread.h>
@@ -79,7 +80,7 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 {
 	/* TODO: sanity check stack address */
 	if(t != current_thread) {
-		panic("NI - raise fault in non-current thread");
+		// panic("NI - raise fault in non-current thread");
 	}
 
 	uint64_t *arg0, *arg1, *jmp, *stack, *rsp, *rbp;

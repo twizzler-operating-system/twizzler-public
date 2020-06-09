@@ -65,6 +65,9 @@ struct thread {
 	uintptr_t _last_oaddr; // TODO: remove
 	uint32_t _last_flags;
 	uint32_t _last_count;
+	void *pending_fault_info;
+	int pending_fault;
+	size_t pending_fault_infolen;
 };
 
 struct arch_syscall_become_args;
@@ -79,6 +82,7 @@ long thread_wake_object(struct object *obj, size_t offset, long arg);
 void thread_sync_uninit_thread(struct thread *thr);
 long thread_sleep_on_object(struct object *obj, size_t offset, long arg, bool dont_check);
 void thread_print_all_threads(void);
+void thread_queue_fault(struct thread *thr, int fault, void *info, size_t infolen);
 void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *, size_t);
 
 struct thread *thread_lookup(unsigned long id);
