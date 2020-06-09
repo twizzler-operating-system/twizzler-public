@@ -190,12 +190,19 @@ static void _pager_fn(void *a)
 	}
 
 done:
-	if(nr_outstanding) {
+	if(nr_outstanding && !a) {
 		workqueue_insert(&current_processor->wq, &pager_task, _pager_fn, NULL);
 	}
 	spinlock_release_restore(&pager_lock);
 
 	obj_put(qobj);
+}
+
+void pager_idle_task(void)
+{
+	if(kernel_queue_get_hdr(KQ_PAGER)) {
+		_pager_fn((void *)1);
+	}
 }
 
 int kernel_queue_pager_request_object(objid_t id)
@@ -293,7 +300,7 @@ int kernel_queue_pager_request_page(struct object *obj, size_t pg)
 	}
 	if(i == tmppgnr) {
 		/* TODO: too many outstanding requests */
-		panic("");
+		panic(" ");
 	}
 	tmppgnr = i % maxtmppgnr;
 	// tmppg = obj_get_page(pager_tmp_object, i, true);

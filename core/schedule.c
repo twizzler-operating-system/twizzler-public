@@ -4,6 +4,7 @@
 #include <lib/iter.h>
 #include <object.h>
 #include <page.h>
+#include <pager.h>
 #include <processor.h>
 #include <thread.h>
 
@@ -107,6 +108,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			/* we're halting here, but the arch_processor_halt function will return
 			 * after an interrupt is fired. Since we're in kernel-space, any interrupt
 			 * we get will not invoke the scheduler. */
+			pager_idle_task();
 			page_idle_zero();
 			spinlock_acquire(&proc->sched_lock);
 			if(!processor_has_threads(proc)) {

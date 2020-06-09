@@ -768,8 +768,8 @@ void *ptm(void *arg)
 
 int main(int argc, char **argv)
 {
-	if(!argv[1] || argc == 1) {
-		fprintf(stderr, "usage: nvme controller-name\n");
+	if(!argv[1] || argc < 2) {
+		fprintf(stderr, "usage: nvme controller-name queue-name\n");
 		return 1;
 	}
 
@@ -777,6 +777,11 @@ int main(int argc, char **argv)
 	int r = twz_object_init_name(&nc.co, argv[1], FE_READ | FE_WRITE);
 	if(r) {
 		fprintf(stderr, "nvme: failed to open controller %s: %d\n", argv[1], r);
+		return 1;
+	}
+	r = twz_object_init_name(&nc.ext_qobj, argv[2], FE_READ | FE_WRITE);
+	if(r) {
+		fprintf(stderr, "nvme: failed to open queue\n");
 		return 1;
 	}
 
@@ -799,13 +804,6 @@ int main(int argc, char **argv)
 	nc.init = true;
 
 	pthread_t pt;
-
-	if(twz_object_new(&nc.ext_qobj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE) < 0)
-		abort();
-	queue_init_hdr(
-	  &nc.ext_qobj, 5, sizeof(struct queue_entry_bio), 5, sizeof(struct queue_entry_bio));
-
-	twz_name_assign(twz_object_guid(&nc.ext_qobj), "/dev/nvme-queue");
 
 	pthread_create(&pt, NULL, ptm, &nc);
 

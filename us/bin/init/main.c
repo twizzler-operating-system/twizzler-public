@@ -175,6 +175,12 @@ int main()
 	int status;
 	r = wait(&status);
 
+	if(!fork()) {
+		execlp("pager", "pager", NULL);
+		exit(0);
+	}
+	wait(&status);
+
 	/* start the terminal program */
 	if(access("/dev/pty/pty0", F_OK) == 0) {
 		if(!fork()) {

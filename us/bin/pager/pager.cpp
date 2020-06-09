@@ -5,6 +5,7 @@
 #include <twz/objctl.h>
 #include <twz/queue.h>
 #include <twz/sys.h>
+#include <unistd.h>
 
 #include <twz/driver/queue.h>
 
@@ -57,6 +58,7 @@ class device
 		if(r) {
 			throw "failed to pin";
 		}
+		chain_map[1] = (struct bucket *)((char *)twz_object_base(&tmpdata) + 0x1000);
 	}
 	twzobj tmpdata;
 	uintptr_t tmpdata_pin;
@@ -73,7 +75,7 @@ class device
 		bio.blockid = 0;
 		bio.linaddr = tmpdata_pin;
 
-		printf("[pager] submitting get_sb\n");
+		fprintf(stderr, "[pager] submitting get_sb\n");
 		queue_submit(req_queue, (struct queue_entry *)&bio, 0);
 		queue_get_finished(req_queue, (struct queue_entry *)&bio, 0);
 
@@ -82,12 +84,13 @@ class device
 		}
 
 		sb = (struct sb *)twz_object_base(&tmpdata);
-		printf("[pager] opened device with nameroot = " IDFMT ", hashlen = %ld\n",
+		fprintf(stderr,
+		  "[pager] opened device with nameroot = " IDFMT ", hashlen = %ld\n",
 		  IDPR(sb->nameroot),
 		  sb->hashlen);
 		size_t nrhtpgs =
 		  (((sb->hashlen * sizeof(struct bucket)) + (0x1000 - 1)) & ~(0x1000 - 1)) / 0x1000;
-		printf("[pager] reading hash table (%ld pages)\n", nrhtpgs);
+		fprintf(stderr, "[pager] reading hash table (%ld pages)\n", nrhtpgs);
 		for(size_t i = 0; i < nrhtpgs; i++) {
 			bio.qe.info = 0;
 			bio.tmpobjid = twz_object_guid(&tmpdata);
@@ -98,7 +101,6 @@ class device
 			queue_get_finished(req_queue, (struct queue_entry *)&bio, 0);
 		}
 		offset = nrhtpgs + 1;
-		chain_map[1] = (struct bucket *)((char *)twz_object_base(&tmpdata) + 0x1000);
 		printf("[pager] mounting namespace\n");
 		twz_name_assign_namespace(sb->nameroot, (char const *)"/storage");
 		//	printf("ok\n");
@@ -234,10 +236,9 @@ void foo()
 	}
 }
 
+twzobj nvme_queue;
 int main()
 {
-	printf("hello from pager\n");
-
 	int r;
 	if((r = twz_object_new(&kq, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_VOLATILE))
 	   < 0) {
@@ -252,27 +253,30 @@ int main()
 		return 1;
 	}
 
-	twzobj *nvme_queue = (twzobj *)malloc(sizeof(&nvme_queue));
-	if(twz_object_init_name(nvme_queue, "/dev/nvme-queue", FE_READ | FE_WRITE)) {
-		fprintf(stderr, "failed to open nvme queue\n");
-		return 1;
-	}
+	if(!fork()) {
+		//	twzobj *nvme_queue = (twzobj *)malloc(sizeof(&nvme_queue));
+		if(twz_object_init_name(&nvme_queue, "/dev/nvme-queue", FE_READ | FE_WRITE)) {
+			fprintf(stderr, "failed to open nvme queue\n");
+			return 1;
+		}
 
-	nvme_dev = new device(nvme_queue);
+		nvme_dev = new device(&nvme_queue);
 
-	nvme_dev->get_sb();
+		nvme_dev->get_sb();
 
-	std::thread thr(foo);
-	std::thread thr2(tm);
+		std::thread thr(foo);
+		// std::thread thr2(tm);
 
-	while(1) {
-		queue_entry_pager *pqe = new queue_entry_pager;
-		int r = queue_receive(&kq, (struct queue_entry *)pqe, 0);
-		printf("[pager]: got request %d\n", pqe->qe.info);
-		if(r == 0) {
-			std::unique_lock<std::mutex> lck(incoming_lock);
-			incoming_reqs.push(pqe);
-			incoming_cv.notify_all();
+		while(1) {
+			queue_entry_pager *pqe = new queue_entry_pager;
+			int r = queue_receive(&kq, (struct queue_entry *)pqe, 0);
+			printf("[pager]: got request %d\n", pqe->qe.info);
+			if(r == 0) {
+				std::unique_lock<std::mutex> lck(incoming_lock);
+				incoming_reqs.push(pqe);
+				incoming_cv.notify_all();
+			}
 		}
 	}
+	return 0;
 }
