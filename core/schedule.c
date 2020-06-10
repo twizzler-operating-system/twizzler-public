@@ -314,10 +314,10 @@ static void __print_fault_info(struct thread *t, int fault, void *info)
 			printk("fei->ip    %p\n", fei->ip);
 			printk("fei->code  %lx\n", fei->code);
 			printk("fei->arg0  %lx\n", fei->arg0);
-			unsigned char *c = fei->ip;
+			/*unsigned char *c = fei->ip;
 			for(int i = 0; i < 16; i++)
-				printk("%x ", c[i]);
-			printk("\n");
+			    printk("%x ", c[i]);
+			printk("\n");*/
 			break;
 		case FAULT_SCTX:
 			fsi = info;

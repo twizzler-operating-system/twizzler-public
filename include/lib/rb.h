@@ -29,25 +29,25 @@ void __rb_insert(struct rbnode *node, struct rbroot *root);
 
 #define rb_insert(root, _new, type, memb, compar)                                                  \
 	({                                                                                             \
-		bool result = true;                                                                        \
+		bool _result = true;                                                                       \
 		struct rbnode **link = &(root)->node, *_parent = NULL;                                     \
 		while(*link) {                                                                             \
 			_parent = *link;                                                                       \
 			type *_node = rb_entry(_parent, type, memb);                                           \
 			int _r = compar(_node, _new);                                                          \
 			if(_r == 0) {                                                                          \
-				result = false;                                                                    \
+				_result = false;                                                                   \
 				break;                                                                             \
 			} else if(_r > 0)                                                                      \
 				link = &(*link)->left;                                                             \
 			else                                                                                   \
 				link = &(*link)->right;                                                            \
 		}                                                                                          \
-		if(result) {                                                                               \
+		if(_result) {                                                                              \
 			rb_link_node(&(_new)->memb, _parent, link);                                            \
 			__rb_insert(&(_new)->memb, (root));                                                    \
 		}                                                                                          \
-		result;                                                                                    \
+		_result;                                                                                   \
 	})
 
 #define rb_search(root, key, type, memb, compar_key)                                               \

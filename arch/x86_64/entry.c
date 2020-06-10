@@ -248,12 +248,27 @@ __noinstrument void arch_thread_resume(struct thread *thread, uint64_t timeout)
 		kfree(thread->pending_fault_info);
 		thread->pending_fault_info = NULL;
 	}
+	uint64_t return_addr =
+	  thread->arch.was_syscall ? thread->arch.syscall.rcx : thread->arch.exception.rip;
+	if(!VADDR_IS_USER(return_addr)) {
+		struct fault_exception_info fei =
+		  twz_fault_build_exception_info((void *)return_addr, 14, 1);
+		thread_raise_fault(thread, FAULT_EXCEPTION, &fei, sizeof(fei));
+	}
+
 	spinlock_release_restore(&thread->lock);
+
+	if(thread->state == THREADSTATE_EXITED) {
+		thread_schedule_resume();
+	}
 
 	if(timeout) {
 		clksrc_set_interrupt_countdown(timeout, false);
 	}
 	if(thread->arch.was_syscall) {
+		if(thread->state == THREADSTATE_EXITED) {
+			/* thread exited! */
+		}
 		x86_64_resume_userspace(&thread->arch.syscall);
 	} else {
 		x86_64_resume_userspace_interrupt(&thread->arch.exception);

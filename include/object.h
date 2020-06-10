@@ -77,6 +77,11 @@ struct object_tie {
 #define OF_HIDDEN 0x100
 #define OF_PAGER 0x200
 
+struct derivation_info {
+	objid_t id;
+	struct list entry;
+};
+
 struct object {
 	uint128_t id;
 	struct arch_object arch;
@@ -122,7 +127,10 @@ struct object {
 	struct vmap *kvmap;
 	struct slot *kslot;
 	void *kaddr;
+
 	struct object *sourced_from;
+	struct list derivations;
+	struct rbroot idx_map;
 };
 
 #define obj_get_kbase(obj) ({ (void *)((char *)obj_get_kaddr(obj) + OBJ_NULLPAGE_SIZE); })
@@ -131,11 +139,13 @@ struct page;
 #define OBJPAGE_MAPPED 1
 #define OBJPAGE_COW 2
 struct objpage {
-	size_t idx;
+	size_t idx, srcidx;
 	uint64_t flags;
 	struct page *page;
 	struct krc refs;
-	struct rbnode node;
+	struct rbnode node, idx_map_node;
+	struct spinlock lock;
+	struct object *obj; /* weak */
 };
 
 struct object_space {
@@ -161,7 +171,17 @@ struct object *obj_lookup_slot(uintptr_t oaddr, struct slot **);
 void obj_cache_page(struct object *obj, size_t idx, struct page *);
 void obj_kso_init(struct object *obj, enum kso_type ksot);
 void obj_put_page(struct objpage *p);
-struct objpage *obj_get_page(struct object *obj, size_t idx, bool);
+
+enum obj_get_page_result {
+	GETPAGE_OK,
+	GETPAGE_PAGER,
+	GETPAGE_NOENT,
+};
+
+#define OBJ_GET_PAGE_PAGEROK 1
+#define OBJ_GET_PAGE_ALLOC 2
+
+enum obj_get_page_result obj_get_page(struct object *obj, size_t idx, struct objpage **, int);
 void obj_put(struct object *o);
 void obj_assign_id(struct object *obj, objid_t id);
 objid_t obj_compute_id(struct object *obj);
@@ -175,6 +195,10 @@ bool obj_kaddr_valid(struct object *obj, void *kaddr, size_t);
 void obj_release_kaddr(struct object *obj);
 void *obj_get_kaddr(struct object *obj);
 void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t soff, size_t len);
+
+#define OBJPAGE_RELEASE_UNMAP 1
+#define OBJPAGE_RELEASE_OBJLOCKED 2
+void objpage_release(struct objpage *op, int);
 
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
@@ -191,6 +215,7 @@ void arch_object_unmap_all(struct object *obj);
 bool arch_object_map_page(struct object *obj, struct objpage *);
 bool arch_object_map_flush(struct object *obj, size_t idx);
 bool arch_object_premap_page(struct object *obj, int idx, int level);
+void arch_object_page_remap_cow(struct objpage *op);
 bool arch_object_getmap(struct object *obj,
   uintptr_t off,
   uintptr_t *phys,

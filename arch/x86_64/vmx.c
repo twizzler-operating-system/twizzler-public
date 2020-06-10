@@ -293,10 +293,6 @@ __noinstrument __attribute__((used)) static void x86_64_vmexit_handler(struct pr
 #endif
 	// printk(":: %lx\n", clksrc_get_interrupt_countdown());
 
-	// uint32_t x, y;
-	// x86_64_rdmsr(X86_MSR_GS_BASE, &x, &y);
-	// printk("GS: %x %x\nPROC: %p", y, x, &proc->arch);
-
 	atomic_fetch_add(&vmexits_count, 1);
 	switch(reason) {
 		uintptr_t val;
@@ -326,9 +322,21 @@ __noinstrument __attribute__((used)) static void x86_64_vmexit_handler(struct pr
 			asm volatile("invept %0, %%rax" ::"m"(eptp), "a"(1) : "memory");
 			vm_instruction_advance();
 			break;
-		default:
-			panic("Unhandled VMEXIT: %ld %lx %lx %lx", reason, qual, grip, iinfo);
-			break;
+		default: {
+			uint32_t x, y;
+			x86_64_rdmsr(X86_MSR_GS_BASE, &x, &y);
+			printk("GS: %x %x\nPROC: %p", y, x, &proc->arch);
+			unsigned long gs = vmcs_readl(VMCS_GUEST_GS_BASE);
+			unsigned long iinfo = vmcs_readl(VMCS_VM_INSTRUCTION_INFO);
+			panic("Unhandled VMEXIT: %ld %lx %lx %lx :: %lx %x %x",
+			  reason,
+			  qual,
+			  grip,
+			  iinfo,
+			  gs,
+			  x,
+			  y);
+		} break;
 	}
 
 	x86_64_vmenter(proc);

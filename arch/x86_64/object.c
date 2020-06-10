@@ -84,6 +84,33 @@ void arch_object_remap_cow(struct object *obj)
 		  PROCESSOR_IPI_DEST_OTHERS, PROCESSOR_IPI_SHOOTDOWN, NULL, PROCESSOR_IPI_NOWAIT);
 }
 
+void arch_object_page_remap_cow(struct objpage *op)
+{
+	if(!op->page)
+		return;
+	uintptr_t virt = op->idx * mm_page_size(op->page->level);
+	int pd_idx = PD_IDX(virt);
+	int pt_idx = PT_IDX(virt);
+	/* map with ALL permissions; we'll restrict permissions at a higher level */
+
+	if(op->obj->arch.pd[pd_idx] & PAGE_LARGE) {
+		op->obj->arch.pd[pd_idx] &= ~EPT_WRITE;
+	} else {
+		uint64_t *pt = op->obj->arch.pts[pd_idx];
+		if(pt) {
+			pt[pt_idx] &= ~EPT_WRITE;
+		}
+	}
+
+	/* TODO */
+	int x;
+	asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
+	asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3" ::: "memory", "rax");
+	if(current_thread)
+		processor_send_ipi(
+		  PROCESSOR_IPI_DEST_OTHERS, PROCESSOR_IPI_SHOOTDOWN, NULL, PROCESSOR_IPI_NOWAIT);
+}
+
 void arch_object_unmap_slot(struct object_space *space, struct slot *slot)
 {
 	if(!space)

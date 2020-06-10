@@ -1,6 +1,10 @@
+#include <kalloc.h>
+#include <lib/iter.h>
+#include <lib/list.h>
 #include <lib/rb.h>
 #include <object.h>
 #include <page.h>
+#include <pager.h>
 #include <processor.h>
 #include <slab.h>
 
@@ -26,52 +30,96 @@ static int __objpage_compar(struct objpage *a, struct objpage *b)
 {
 	return __objpage_compar_key(a, b->idx);
 }
-static struct objpage *objpage_alloc(void)
+
+static int __objpage_idxmap_compar_key(struct objpage *a, size_t n)
+{
+	if(a->srcidx > n)
+		return 1;
+	else if(a->srcidx < n)
+		return -1;
+	return 0;
+}
+
+static int __objpage_idxmap_compar(struct objpage *a, struct objpage *b)
+{
+	return __objpage_idxmap_compar_key(a, b->srcidx);
+}
+
+static struct objpage *objpage_alloc(struct object *obj)
 {
 	struct objpage *op = slabcache_alloc(&sc_objpage);
 	op->flags = 0;
 	op->page = NULL;
+	op->lock = SPINLOCK_INIT;
+	krc_init(&op->refs);
+	op->obj = obj; /* weak */
 	return op;
+}
+
+static void objpage_delete(struct objpage *op)
+{
+	if(op->page) {
+		if(op->flags & OBJPAGE_COW) {
+			if(op->page->cowcount-- <= 1) {
+				page_dealloc(op->page, 0);
+			}
+		} else {
+			page_dealloc(op->page, 0);
+		}
+		op->page = NULL;
+	}
+	slabcache_free(&sc_objpage, op);
+}
+
+void objpage_release(struct objpage *op, int flags)
+{
+	if(!(flags & OBJPAGE_RELEASE_OBJLOCKED)) {
+		spinlock_acquire_save(&op->obj->lock);
+	}
+	spinlock_acquire_save(&op->lock);
+	struct object *obj = op->obj;
+	if(flags & OBJPAGE_RELEASE_UNMAP) {
+		rb_delete(&op->node, &op->obj->pagecache_root);
+		op->obj = NULL;
+	}
+	if(krc_put(&op->refs)) {
+		objpage_delete(op);
+	}
+	spinlock_release_restore(&op->lock);
+	if(!(flags & OBJPAGE_RELEASE_OBJLOCKED)) {
+		spinlock_release_restore(&obj->lock);
+	}
+}
+
+#define OBJPAGE_CLONE_REMAP 1
+
+static struct objpage *objpage_clone(struct object *newobj, struct objpage *op, int flags)
+{
+	struct objpage *new_op = objpage_alloc(newobj);
+	spinlock_acquire_save(&op->lock);
+	if(op->page) {
+		new_op->page = op->page;
+		if(flags & OBJPAGE_CLONE_REMAP) {
+			arch_object_page_remap_cow(op);
+		}
+		op->page->cowcount++;
+	}
+	op->flags |= OBJPAGE_COW;
+	spinlock_release_restore(&op->lock);
+	new_op->idx = op->idx;
+	new_op->flags = OBJPAGE_COW;
+
+	return new_op;
 }
 
 void obj_clone_cow(struct object *src, struct object *nobj)
 {
-	// printk("CLONE_COW " IDFMT " -> " IDFMT "\n", IDPR(src->id), IDPR(nobj->id));
 	spinlock_acquire_save(&src->lock);
 	arch_object_remap_cow(src);
 	for(struct rbnode *node = rb_first(&src->pagecache_root); node; node = rb_next(node)) {
 		struct objpage *pg = rb_entry(node, struct objpage, node);
-		if(pg->page) {
-			assert(pg->page->cowcount >= 1);
-			pg->page->cowcount++;
-			// pg->flags &= ~OBJPAGE_MAPPED;
-			pg->flags |= OBJPAGE_COW;
-
-			struct objpage *npg = objpage_alloc();
-			npg->idx = pg->idx;
-			// npg->flags = pg->flags;
-			npg->flags = OBJPAGE_COW;
-			npg->page = pg->page;
-
-			rb_insert(&nobj->pagecache_root, npg, struct objpage, node, __objpage_compar);
-		}
-	}
-	for(struct rbnode *node = rb_first(&src->pagecache_level1_root); node; node = rb_next(node)) {
-		struct objpage *pg = rb_entry(node, struct objpage, node);
-		if(pg->page) {
-			pg->page->cowcount++;
-			// pg->flags &= ~OBJPAGE_MAPPED;
-			pg->flags |= OBJPAGE_COW;
-
-			struct objpage *npg = objpage_alloc();
-			npg->idx = pg->idx;
-			// npg->flags = pg->flags;
-			npg->page = pg->page;
-			npg->flags = OBJPAGE_COW;
-			// npg->flags &= ~OBJPAGE_MAPPED;
-
-			rb_insert(&nobj->pagecache_level1_root, npg, struct objpage, node, __objpage_compar);
-		}
+		struct objpage *npg = objpage_clone(nobj, pg, 0);
+		rb_insert(&nobj->pagecache_root, npg, struct objpage, node, __objpage_compar);
 	}
 
 	spinlock_release_restore(&src->lock);
@@ -79,6 +127,9 @@ void obj_clone_cow(struct object *src, struct object *nobj)
 
 void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t soff, size_t len)
 {
+	if(dest->sourced_from && src) {
+		panic("TODO: NI - object with pages sourced from multiple objects %p");
+	}
 	if(src) {
 		spinlock_acquire_save(&src->lock);
 		arch_object_remap_cow(src);
@@ -89,6 +140,13 @@ void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t
 	size_t last_idx = ~0;
 
 	if(src) {
+		krc_get(&src->refs);
+		dest->sourced_from = src;
+
+		struct derivation_info *di = kalloc(sizeof(*di));
+		di->id = dest->id;
+		list_insert(&src->derivations, &di->entry);
+
 		struct rbnode *fn = rb_first(&src->pagecache_root);
 		struct rbnode *ln = rb_last(&src->pagecache_root);
 		if(fn) {
@@ -101,8 +159,6 @@ void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t
 		}
 	}
 
-	// printk("copy: fn = %lx, ln = %lx\n", first_idx, last_idx);
-
 	for(size_t i = 0; i < len / mm_page_size(0); i++) {
 		size_t dst_idx = doff / mm_page_size(0) + i;
 
@@ -110,57 +166,243 @@ void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t
 		  rb_search(&dest->pagecache_root, dst_idx, struct objpage, node, __objpage_compar_key);
 		if(dnode) {
 			struct objpage *dp = rb_entry(dnode, struct objpage, node);
-			if(dp->page) {
-				if(dp->flags & OBJPAGE_COW) {
-					spinlock_acquire_save(&dp->page->lock);
-					if(dp->page->cowcount-- <= 1) {
-						page_dealloc(dp->page, 0);
-					}
-					spinlock_release_restore(&dp->page->lock);
-				} else {
-					page_dealloc(dp->page, 0);
-				}
-				dp->page = NULL;
-			}
-			rb_delete(&dp->node, &dest->pagecache_root);
-			slabcache_free(&sc_objpage, dp);
+			objpage_release(dp, OBJPAGE_RELEASE_UNMAP | OBJPAGE_RELEASE_OBJLOCKED);
 		}
 
 		if(src) {
 			size_t src_idx = soff / mm_page_size(0) + i;
-			if(src_idx < first_idx)
-				continue;
-			if(src_idx > last_idx)
-				break;
+			//		if(src_idx < first_idx)
+			//			continue;
+			//		if(src_idx > last_idx)
+			//			break;
 			/* TODO: check max src_idx and min, and optimize (don't bother lookup if we exceed
 			 * these) */
 			struct rbnode *node =
 			  rb_search(&src->pagecache_root, src_idx, struct objpage, node, __objpage_compar_key);
-			//	printk("considering page %ld: %p\n", src_idx, node);
+			struct objpage *new_op;
 			if(node) {
 				struct objpage *pg = rb_entry(node, struct objpage, node);
-				if(pg->page) {
-					//		printk("   cow! %ld -> %ld\n", src_idx, dst_idx);
-					assert(pg->page->cowcount >= 1);
-					pg->page->cowcount++;
-					// pg->flags &= ~OBJPAGE_MAPPED;
-					pg->flags |= OBJPAGE_COW;
-
-					struct objpage *npg = objpage_alloc();
-					npg->idx = dst_idx;
-					// npg->flags = pg->flags;
-					npg->flags = OBJPAGE_COW;
-					npg->page = pg->page;
-
-					rb_insert(&dest->pagecache_root, npg, struct objpage, node, __objpage_compar);
-				}
+				new_op = objpage_clone(dest, pg, 0);
+			} else {
+				new_op = objpage_alloc(dest);
+				new_op->srcidx = src_idx;
+				rb_insert(
+				  &dest->idx_map, new_op, struct objpage, idx_map_node, __objpage_idxmap_compar);
 			}
+			new_op->idx = dst_idx;
+			rb_insert(&dest->pagecache_root, new_op, struct objpage, node, __objpage_compar);
 		}
 	}
 	spinlock_release_restore(&dest->lock);
 	if(src) {
 		spinlock_release_restore(&src->lock);
 	}
+}
+
+static struct objpage *__obj_get_large_page(struct object *obj, size_t addr)
+{
+	size_t idx = addr / mm_page_size(1);
+	struct objpage *op = NULL;
+	struct rbnode *node =
+	  rb_search(&obj->pagecache_level1_root, idx, struct objpage, node, __objpage_compar_key);
+	if(node) {
+		op = rb_entry(node, struct objpage, node);
+		krc_get(&op->refs);
+		return op;
+	}
+	return NULL;
+}
+
+static void __obj_get_page_alloc_page(struct objpage *op)
+{
+	struct page *pp = page_alloc(
+	  (op->obj->flags & OF_PERSIST) ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, 0);
+	pp->cowcount = 1;
+	op->page = pp;
+	op->page->flags |= flag_if_notzero(op->obj->cache_mode & OC_CM_UC, PAGE_CACHE_UC);
+	op->page->flags |= flag_if_notzero(op->obj->cache_mode & OC_CM_WB, PAGE_CACHE_WB);
+	op->page->flags |= flag_if_notzero(op->obj->cache_mode & OC_CM_WT, PAGE_CACHE_WT);
+	op->page->flags |= flag_if_notzero(op->obj->cache_mode & OC_CM_WC, PAGE_CACHE_WC);
+}
+
+static void __obj_get_page_handle_derived(struct objpage *op)
+{
+	/* okay, we're adding a page to an object. We need to check:
+	 *   for each object with pages derived from this object, would we have cared about this page
+	 * when deriving? This means,
+	 *   - if the object is "whole-derived", check the page with the same idx as op.
+	 *   - if the object is partially derived, look up the page in the src_idx -> dest_idx map for
+	 *     derived object, and check that page.
+	 */
+
+	assert(op->page);
+	struct object *obj = op->obj;
+	foreach(e, list, &obj->derivations) {
+		struct derivation_info *derived = list_entry(e, struct derivation_info, entry);
+
+		struct object *derived_obj = obj_lookup(derived->id, 0);
+		//		printk("checking derivation object " IDFMT ": %d\n", IDPR(derived->id),
+		//!!derived_obj);
+		if(!derived_obj)
+			continue;
+
+		spinlock_acquire_save(&derived_obj->lock);
+		struct rbnode *node;
+		node = rb_search(
+		  &derived_obj->pagecache_root, op->idx, struct objpage, node, __objpage_compar_key);
+		//		printk("  normal idx %lx returned %d\n", op->idx, !!node);
+		if(node) {
+			struct objpage *dop = rb_entry(node, struct objpage, node);
+			if(dop->page == NULL) {
+				op->flags |= OBJPAGE_COW;
+				op->flags &= OBJPAGE_MAPPED;
+				op->page->cowcount++;
+				dop->flags |= OBJPAGE_COW;
+				dop->flags &= OBJPAGE_MAPPED;
+				dop->page = op->page;
+			}
+		}
+
+		node = rb_search(&derived_obj->idx_map,
+		  op->idx,
+		  struct objpage,
+		  idx_map_node,
+		  __objpage_idxmap_compar_key);
+		//		printk("  mapped idx %lx returned %d\n", op->idx, !!node);
+		if(node) {
+			rb_delete(node, &derived_obj->idx_map);
+			struct objpage *dop = rb_entry(node, struct objpage, idx_map_node);
+			//			printk("    :: %lx\n", dop->idx);
+			if(dop->page == NULL) {
+				op->flags |= OBJPAGE_COW;
+				op->flags &= OBJPAGE_MAPPED;
+				op->page->cowcount++;
+				dop->flags |= OBJPAGE_COW;
+				dop->flags &= OBJPAGE_MAPPED;
+				dop->page = op->page;
+			}
+		}
+		spinlock_release_restore(&derived_obj->lock);
+
+		/* TODO: this can lead to deadlock */
+		obj_put(derived_obj);
+		//		printk("  done\n");
+	}
+}
+
+static void __obj_get_page_alloc(struct object *obj, size_t idx, struct objpage **result)
+{
+	struct objpage *page = objpage_alloc(obj);
+	page->idx = idx;
+	__obj_get_page_alloc_page(page);
+	rb_insert(&obj->pagecache_root, page, struct objpage, node, __objpage_compar);
+	*result = page;
+}
+
+static enum obj_get_page_result __obj_get_page_resolve(struct objpage *op, int flags)
+{
+	if(op->page != NULL) {
+		return GETPAGE_OK;
+	}
+
+	if(op->obj->flags & OF_PAGER) {
+		if(!(flags & OBJ_GET_PAGE_PAGEROK)) {
+			panic("A");
+		}
+		kernel_queue_pager_request_page(op->obj, op->idx);
+		return GETPAGE_PAGER;
+	}
+
+	if(flags & OBJ_GET_PAGE_ALLOC) {
+		__obj_get_page_alloc_page(op);
+		__obj_get_page_handle_derived(op);
+	}
+
+	return GETPAGE_OK;
+}
+
+static enum obj_get_page_result __obj_get_page(struct object *obj,
+  size_t addr,
+  struct objpage **result,
+  int flags)
+{
+	*result = NULL;
+	spinlock_acquire_save(&obj->lock);
+	struct objpage *op = __obj_get_large_page(obj, addr);
+	if(op) {
+		*result = op;
+		spinlock_release_restore(&obj->lock);
+		return GETPAGE_OK;
+	}
+	size_t idx = addr / mm_page_size(0);
+	struct rbnode *node;
+	node = rb_search(&obj->pagecache_root, idx, struct objpage, node, __objpage_compar_key);
+	if(node) {
+		op = rb_entry(node, struct objpage, node);
+		krc_get(&op->refs);
+		*result = op;
+
+		enum obj_get_page_result res = GETPAGE_OK;
+		if(op->page == NULL) {
+			if(op->obj->flags & OF_PAGER) {
+				kernel_queue_pager_request_page(obj, idx);
+				spinlock_release_restore(&obj->lock);
+				res = GETPAGE_PAGER;
+			} else if(obj->sourced_from) {
+				struct objpage *sop;
+				spinlock_release_restore(&obj->lock);
+				res = obj_get_page(
+				  obj->sourced_from, op->srcidx ? op->srcidx * mm_page_size(0) : addr, &sop, flags);
+				printk("getting page %lx from source obj " IDFMT ": %d\n", idx, IDPR(obj->id), res);
+				if(res == GETPAGE_OK) {
+					return obj_get_page(obj, addr, result, flags);
+				}
+				if(sop) {
+					objpage_release(sop, 0);
+				}
+			} else if(flags & OBJ_GET_PAGE_ALLOC) {
+				__obj_get_page_alloc_page(op);
+				__obj_get_page_handle_derived(op);
+				spinlock_release_restore(&obj->lock);
+			} else {
+				spinlock_release_restore(&obj->lock);
+			}
+		} else {
+			spinlock_release_restore(&obj->lock);
+		}
+
+		return res;
+	}
+
+	if(obj->flags & OF_PAGER) {
+		if(!(flags & OBJ_GET_PAGE_PAGEROK)) {
+			panic("tried to get a page from a paged object without PAGEROK");
+		}
+
+		kernel_queue_pager_request_page(obj, idx);
+		/* TODO: error ? */
+		spinlock_release_restore(&obj->lock);
+		return GETPAGE_PAGER;
+	}
+
+	if(!(flags & OBJ_GET_PAGE_ALLOC)) {
+		spinlock_release_restore(&obj->lock);
+		return GETPAGE_NOENT;
+	}
+
+	__obj_get_page_alloc(obj, idx, result);
+	__obj_get_page_handle_derived(*result);
+	spinlock_release_restore(&obj->lock);
+	return GETPAGE_OK;
+}
+
+enum obj_get_page_result obj_get_page(struct object *obj,
+  size_t addr,
+  struct objpage **result,
+  int flags)
+{
+	enum obj_get_page_result r = __obj_get_page(obj, addr, result, flags);
+	return r;
 }
 
 void obj_cache_page(struct object *obj, size_t addr, struct page *p)
@@ -175,7 +417,7 @@ void obj_cache_page(struct object *obj, size_t addr, struct page *p)
 	struct objpage *page;
 	/* TODO (major): deal with overwrites? */
 	if(node == NULL) {
-		page = objpage_alloc();
+		page = objpage_alloc(obj);
 		page->idx = idx;
 		krc_init(&page->refs);
 	} else {
@@ -192,85 +434,8 @@ void obj_cache_page(struct object *obj, size_t addr, struct page *p)
 	}
 	if(node == NULL)
 		rb_insert(root, page, struct objpage, node, __objpage_compar);
+	__obj_get_page_handle_derived(page);
 	// arch_object_map_page(obj, page->page, page->idx);
 	// page->flags |= OBJPAGE_MAPPED;
 	spinlock_release_restore(&obj->lock);
-}
-
-static struct objpage *__obj_get_page(struct object *obj, size_t addr, bool alloc)
-{
-	size_t idx = addr / mm_page_size(1);
-	struct objpage *lpage = NULL;
-	struct rbnode *node =
-	  rb_search(&obj->pagecache_level1_root, idx, struct objpage, node, __objpage_compar_key);
-	if(node)
-		lpage = rb_entry(node, struct objpage, node);
-	// printk("OGP0\n");
-	if(lpage && lpage->page->level == 1) {
-		/* found a large page */
-		krc_get(&lpage->refs);
-		return lpage;
-	}
-	idx = addr / mm_page_size(0);
-	struct objpage *page = NULL;
-	node = rb_search(&obj->pagecache_root, idx, struct objpage, node, __objpage_compar_key);
-	if(node)
-		page = rb_entry(node, struct objpage, node);
-	// printk("OGP1\n");
-	if(page == NULL) {
-		if(!alloc) {
-			return NULL;
-		}
-		//	printk("OGPa0\n");
-		int level = ((addr >= mm_page_size(1))) ? 0 : 0; /* TODO */
-		struct page *pp = page_alloc(
-		  (obj->flags & OF_PERSIST) ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, level);
-		//	printk("OGPa0.0\n");
-		pp->cowcount = 1;
-		page = objpage_alloc();
-		page->page = pp;
-		//	printk("OGPa0.1\n");
-		// page->page =
-		//  page_alloc(obj->persist ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, level);
-		page->idx = addr / mm_page_size(page->page->level);
-		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_UC, PAGE_CACHE_UC);
-		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WB, PAGE_CACHE_WB);
-		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WT, PAGE_CACHE_WT);
-		page->page->flags |= flag_if_notzero(obj->cache_mode & OC_CM_WC, PAGE_CACHE_WC);
-		//	printk("OGPa1\n");
-#if 0
-		printk("adding page %ld: %d %d :: " IDFMT "\n",
-		  page->idx,
-		  page->page->level,
-		  level,
-		  IDPR(obj->id));
-#endif
-		krc_init_zero(&page->refs);
-		rb_insert(page->page->level ? &obj->pagecache_level1_root : &obj->pagecache_root,
-		  page,
-		  struct objpage,
-		  node,
-		  __objpage_compar);
-		//	printk("OGPa2\n");
-	}
-	krc_get(&page->refs);
-	return page;
-}
-
-struct objpage *obj_get_page(struct object *obj, size_t addr, bool alloc)
-{
-	spinlock_acquire_save(&obj->lock);
-	struct objpage *op = __obj_get_page(obj, addr, alloc);
-	spinlock_release_restore(&obj->lock);
-	return op;
-}
-
-static void _objpage_release(void *page)
-{
-	(void)page; /* TODO (major): implement */
-}
-
-void obj_put_page(struct objpage *p)
-{
-	krc_put_call(p, refs, _objpage_release);
 }

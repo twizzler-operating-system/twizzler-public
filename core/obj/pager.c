@@ -114,9 +114,10 @@ static void __complete_page(struct pager_request *pr, struct queue_entry_pager *
 		goto cleanup;
 	}
 	switch(pqe->result) {
-		case PAGER_RESULT_ZERO:
-			obj_get_page(pr->obj, pr->pqe.page * mm_page_size(0), true);
-			break;
+		case PAGER_RESULT_ZERO: {
+			struct objpage *op;
+			obj_get_page(pr->obj, pr->pqe.page * mm_page_size(0), &op, OBJ_GET_PAGE_ALLOC);
+		} break;
 		case PAGER_RESULT_DONE:
 			obj_cache_page(pr->obj, pr->pqe.page * mm_page_size(0), pr->objpage->page);
 			break;
@@ -253,7 +254,8 @@ int kernel_queue_pager_request_page(struct object *obj, size_t pg)
 	pr->pqe.cmd = PAGER_CMD_OBJECT_PAGE;
 	pr->pqe.result = 0;
 	//	pr->pp =
-	//	  page_alloc(obj->flags & OF_PERSIST ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO,
+	//	  page_alloc(obj->flags & OF_PERSIST ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE,
+	// PAGE_ZERO,
 	// 0);
 
 	static size_t tmppgnr = 0;
@@ -261,7 +263,8 @@ int kernel_queue_pager_request_page(struct object *obj, size_t pg)
 	size_t maxtmppgnr = OBJ_TOPDATA / mm_page_size(0);
 	struct objpage *tmppg = NULL;
 	for(i = tmppgnr + 1; (i % maxtmppgnr != tmppgnr) || !(i % maxtmppgnr); i++) {
-		tmppg = obj_get_page(pager_tmp_object, (i % maxtmppgnr) * mm_page_size(0), true);
+		obj_get_page(
+		  pager_tmp_object, (i % maxtmppgnr) * mm_page_size(0), &tmppg, OBJ_GET_PAGE_ALLOC);
 		break;
 	}
 	if(i == tmppgnr) {

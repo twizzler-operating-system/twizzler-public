@@ -269,7 +269,8 @@ static void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __
 				if(o) {
 					do_iommu_object_map_slot(o, 0);
 					iommu_set_context_entry(im, sid >> 8, sid & 0xff, ept_phys, 1);
-					struct objpage *p = obj_get_page(o, idx, true);
+					struct objpage *p;
+					obj_get_page(o, idx, &p, OBJ_GET_PAGE_ALLOC);
 
 					printk("[iommu] mapping page %ld\n", p->idx);
 					if(!(p->flags & OBJPAGE_MAPPED)) {

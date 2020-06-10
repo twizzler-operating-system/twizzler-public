@@ -332,6 +332,19 @@ long syscall_ocreate(uint64_t kulo,
 	else
 		printk("CREATE OBJECT: " IDFMT "\n", IDPR(id));
 #endif
+
+	if(srcid) {
+		struct object *so = obj_lookup(srcid, 0);
+		struct derivation_info *di = kalloc(sizeof(*di));
+
+		spinlock_acquire_save(&so->lock);
+		di->id = id;
+		list_insert(&so->derivations, &di->entry);
+		spinlock_release_restore(&so->lock);
+
+		obj_put(so);
+	}
+
 	obj_put(o);
 
 	if(retid)
@@ -405,7 +418,8 @@ long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long a
 			pne = (arg1 + arg2) / mm_page_size(0);
 			/* TODO: bounds check */
 			for(size_t i = pnb; i < pne; i++) {
-				struct objpage *pg = obj_get_page(o, i * mm_page_size(0), true);
+				struct objpage *pg;
+				obj_get_page(o, i * mm_page_size(0), &pg, OBJ_GET_PAGE_ALLOC);
 				/* TODO: locking */
 				pg->page->flags |= flag_if_notzero(arg3 & OC_CM_UC, PAGE_CACHE_UC);
 				pg->page->flags |= flag_if_notzero(arg3 & OC_CM_WB, PAGE_CACHE_WB);
@@ -421,7 +435,8 @@ long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long a
 
 			/* TODO: bounds check */
 			for(size_t i = pnb; i < pne; i++) {
-				struct objpage *pg = obj_get_page(o, i * mm_page_size(0), true);
+				struct objpage *pg;
+				obj_get_page(o, i * mm_page_size(0), &pg, OBJ_GET_PAGE_ALLOC);
 				/* TODO: locking */
 				arch_object_map_page(o, pg);
 				if(arg3)

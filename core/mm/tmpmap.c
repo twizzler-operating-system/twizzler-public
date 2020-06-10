@@ -97,7 +97,8 @@ void *tmpmap_map_page(struct page *page)
 
 	// assert(!op || !(op->flags & OBJPAGE_MAPPED));
 	obj_cache_page(&tmpmap_object, virt, page);
-	struct objpage *op = obj_get_page(&tmpmap_object, virt, false);
+	struct objpage *op;
+	obj_get_page(&tmpmap_object, virt, &op, 0);
 	spinlock_acquire_save(&tmpmap_object.lock);
 	op->flags &= ~OBJPAGE_COW;
 	arch_object_map_page(&tmpmap_object, op);

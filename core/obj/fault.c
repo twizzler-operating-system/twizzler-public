@@ -231,14 +231,20 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		spinlock_release_restore(&p.page->lock);
 	} else {
 		//	printk("P\n");
-		struct objpage *p = obj_get_page(o, loaddr % OBJ_MAXSIZE, !(o->flags & OF_PAGER));
-		if(!p) {
-			assert(o->flags & OF_PAGER);
-			if(kernel_queue_pager_request_page(o, (loaddr % OBJ_MAXSIZE) / mm_page_size(0)) == -1) {
-			}
-			goto done;
+		struct objpage *p;
+		enum obj_get_page_result gpr =
+		  obj_get_page(o, loaddr % OBJ_MAXSIZE, &p, OBJ_GET_PAGE_ALLOC | OBJ_GET_PAGE_PAGEROK);
+		//		  (o->flags & OF_PAGER) ? 0 : OBJ_GET_PAGE_ALLOC);
+		switch(gpr) {
+			case GETPAGE_OK:
+				break;
+			case GETPAGE_PAGER:
+				goto done;
+			case GETPAGE_NOENT: {
+				panic("TODO: raise fault");
+			} break;
 		}
-		assert(p);
+		assert(p && p->page);
 		//	printk("P0\n");
 		if(!(o->flags & OF_KERNEL))
 			spinlock_acquire_save(&o->lock);

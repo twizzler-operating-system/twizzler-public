@@ -1,3 +1,4 @@
+#include <kalloc.h>
 #include <lib/bitmap.h>
 #include <lib/blake2.h>
 #include <lib/iter.h>
@@ -63,6 +64,8 @@ void obj_init(struct object *obj)
 	krc_init_zero(&obj->mapcount);
 	arch_object_init(obj);
 	obj->ties_root = RBINIT;
+	obj->idx_map = RBINIT;
+	list_init(&obj->derivations);
 }
 
 static void _obj_dtor(void *_u, void *ptr)
@@ -155,11 +158,12 @@ struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
 
 	obj_clone_cow(src, obj);
 
-	if(src->flags & OF_PAGER) {
-		obj->sourced_from = src;
-	} else {
-		obj_put(src);
-	}
+	// if(src->flags & OF_PAGER) {
+	krc_get(&src->refs);
+	obj->sourced_from = src;
+	//} else {
+	//	obj_put(src);
+	//}
 
 	if(id) {
 		spinlock_acquire_save(&objlock);
@@ -246,6 +250,7 @@ struct slot *obj_alloc_slot(struct object *obj)
 	spinlock_release_restore(&obj->lock);
 	return obj->slot;
 }
+
 static void _obj_release(void *_obj)
 {
 	struct object *obj = _obj;
@@ -270,55 +275,15 @@ static void _obj_release(void *_obj)
 #endif
 			rb_delete(&tie->node, &obj->ties_root);
 			obj_put(tie->child);
-#warning "objpage lifetime"
+#warning "obj lifetime"
 			// slabcache_free(&sc_objtie, tie);
 		}
 
-		// printk("FREEING OBJECT PAGES: %d, " IDFMT "\n", obj->kso_type, IDPR(obj->id));
-		// if(obj->kso_type)
-		//	return;
 		arch_object_unmap_all(obj);
-		//	if(obj->kso_type)
-		// return;
-#if 1
-		// spinlock_acquire_save(&obj->lock);
 		for(struct rbnode *node = rb_first(&obj->pagecache_root); node; node = next) {
-			struct objpage *pg = rb_entry(node, struct objpage, node);
-			if(pg->page) {
-				if(pg->flags & OBJPAGE_COW) {
-					spinlock_acquire_save(&pg->page->lock);
-					if(pg->page->cowcount-- <= 1) {
-						page_dealloc(pg->page, 0);
-					}
-					spinlock_release_restore(&pg->page->lock);
-				} else {
-					page_dealloc(pg->page, 0);
-				}
-				pg->page = NULL;
-			}
 			next = rb_next(node);
-			rb_delete(&pg->node, &obj->pagecache_root);
-#warning "objpage lifetime"
-			//		slabcache_free(&sc_objpage, pg);
-		}
-		for(struct rbnode *node = rb_first(&obj->pagecache_level1_root); node; node = next) {
 			struct objpage *pg = rb_entry(node, struct objpage, node);
-			if(pg->page) {
-				if(pg->flags & OBJPAGE_COW) {
-					spinlock_acquire_save(&pg->page->lock);
-					if(pg->page->cowcount-- <= 1) {
-						page_dealloc(pg->page, 0);
-					}
-					spinlock_release_restore(&pg->page->lock);
-				} else {
-					page_dealloc(pg->page, 0);
-				}
-				pg->page = NULL;
-			}
-			next = rb_next(node);
-			rb_delete(&pg->node, &obj->pagecache_level1_root);
-#warning "objpage lifetime"
-			//		slabcache_free(&sc_objpage, pg);
+			objpage_release(pg, OBJPAGE_RELEASE_UNMAP);
 		}
 
 		if(obj->sourced_from) {
@@ -327,9 +292,10 @@ static void _obj_release(void *_obj)
 		}
 		arch_object_destroy(obj);
 		obj_count--;
-		// spinlock_release_restore(&obj->lock);
-		//	printk("OK\n");
-#endif
+		foreach(e, list, &obj->derivations) {
+			struct derivation_info *di = list_entry(e, struct derivation_info, entry);
+			kfree(di);
+		}
 
 		/* TODO: clean up... */
 		slabcache_free(&sc_objs, obj);
