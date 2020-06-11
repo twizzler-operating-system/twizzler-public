@@ -259,6 +259,8 @@ __noinstrument void arch_thread_resume(struct thread *thread, uint64_t timeout)
 	spinlock_release_restore(&thread->lock);
 
 	if(thread->state == THREADSTATE_EXITED) {
+		/* we might have exited while we're in this function (e.g. those raise_fault calls!) so
+		 * double check this. */
 		thread_schedule_resume();
 	}
 
