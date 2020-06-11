@@ -76,6 +76,7 @@ struct object_tie {
 #define OF_DELETE 0x80
 #define OF_HIDDEN 0x100
 #define OF_PAGER 0x200
+#define OF_PARTIAL 0x400
 
 struct derivation_info {
 	objid_t id;

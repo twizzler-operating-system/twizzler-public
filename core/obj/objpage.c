@@ -49,6 +49,7 @@ static struct objpage *objpage_alloc(struct object *obj)
 {
 	struct objpage *op = slabcache_alloc(&sc_objpage);
 	op->flags = 0;
+	op->srcidx = 0;
 	op->page = NULL;
 	op->lock = SPINLOCK_INIT;
 	krc_init(&op->refs);
@@ -136,12 +137,21 @@ void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t
 	}
 	spinlock_acquire_save(&dest->lock);
 
+#if 0
+	printk("copy pages::" IDFMT " => " IDFMT ": %lx -> %lx for %lx\n",
+	  IDPR(src ? src->id : 0),
+	  IDPR(dest->id),
+	  soff / 0x1000,
+	  doff / 0x1000,
+	  len / 0x1000);
+#endif
 	size_t first_idx = 0;
 	size_t last_idx = ~0;
 
 	if(src) {
 		krc_get(&src->refs);
 		dest->sourced_from = src;
+		dest->flags |= OF_PARTIAL;
 
 		struct derivation_info *di = kalloc(sizeof(*di));
 		di->id = dest->id;
@@ -236,49 +246,49 @@ static void __obj_get_page_handle_derived(struct objpage *op)
 	 */
 
 	assert(op->page);
+	assert(!(op->flags & OBJPAGE_MAPPED));
 	struct object *obj = op->obj;
 	foreach(e, list, &obj->derivations) {
 		struct derivation_info *derived = list_entry(e, struct derivation_info, entry);
 
 		struct object *derived_obj = obj_lookup(derived->id, 0);
-		//		printk("checking derivation object " IDFMT ": %d\n", IDPR(derived->id),
-		//!!derived_obj);
+		// printk("checking derivation object " IDFMT ": %d\n", IDPR(derived->id), !!derived_obj);
 		if(!derived_obj)
 			continue;
 
 		spinlock_acquire_save(&derived_obj->lock);
 		struct rbnode *node;
+#if 0
 		node = rb_search(
 		  &derived_obj->pagecache_root, op->idx, struct objpage, node, __objpage_compar_key);
-		//		printk("  normal idx %lx returned %d\n", op->idx, !!node);
-		if(node) {
+		// printk("  normal idx %lx returned %d\n", op->idx, !!node);
+		if(node && 0) {
 			struct objpage *dop = rb_entry(node, struct objpage, node);
 			if(dop->page == NULL) {
 				op->flags |= OBJPAGE_COW;
-				op->flags &= OBJPAGE_MAPPED;
+				assert(op->page->cowcount > 0);
 				op->page->cowcount++;
-				dop->flags |= OBJPAGE_COW;
-				dop->flags &= OBJPAGE_MAPPED;
+				dop->flags = OBJPAGE_COW;
 				dop->page = op->page;
 			}
 		}
+#endif
 
 		node = rb_search(&derived_obj->idx_map,
 		  op->idx,
 		  struct objpage,
 		  idx_map_node,
 		  __objpage_idxmap_compar_key);
-		//		printk("  mapped idx %lx returned %d\n", op->idx, !!node);
+		// printk("  mapped idx %lx returned %d\n", op->idx, !!node);
 		if(node) {
 			rb_delete(node, &derived_obj->idx_map);
 			struct objpage *dop = rb_entry(node, struct objpage, idx_map_node);
-			//			printk("    :: %lx\n", dop->idx);
+			// printk("    :: %lx\n", dop->idx);
 			if(dop->page == NULL) {
 				op->flags |= OBJPAGE_COW;
-				op->flags &= OBJPAGE_MAPPED;
+				assert(op->page->cowcount > 0);
 				op->page->cowcount++;
-				dop->flags |= OBJPAGE_COW;
-				dop->flags &= OBJPAGE_MAPPED;
+				dop->flags = OBJPAGE_COW;
 				dop->page = op->page;
 			}
 		}
@@ -299,28 +309,6 @@ static void __obj_get_page_alloc(struct object *obj, size_t idx, struct objpage 
 	*result = page;
 }
 
-static enum obj_get_page_result __obj_get_page_resolve(struct objpage *op, int flags)
-{
-	if(op->page != NULL) {
-		return GETPAGE_OK;
-	}
-
-	if(op->obj->flags & OF_PAGER) {
-		if(!(flags & OBJ_GET_PAGE_PAGEROK)) {
-			panic("A");
-		}
-		kernel_queue_pager_request_page(op->obj, op->idx);
-		return GETPAGE_PAGER;
-	}
-
-	if(flags & OBJ_GET_PAGE_ALLOC) {
-		__obj_get_page_alloc_page(op);
-		__obj_get_page_handle_derived(op);
-	}
-
-	return GETPAGE_OK;
-}
-
 static enum obj_get_page_result __obj_get_page(struct object *obj,
   size_t addr,
   struct objpage **result,
@@ -334,7 +322,11 @@ static enum obj_get_page_result __obj_get_page(struct object *obj,
 		spinlock_release_restore(&obj->lock);
 		return GETPAGE_OK;
 	}
+	objid_t bs = ((objid_t)0xE8F8615C6BEB8A00 << 64) | 0x44398226A06DBE62ul;
 	size_t idx = addr / mm_page_size(0);
+	if(obj->sourced_from && obj->sourced_from->id == bs) {
+		// printk("lookup page for (derived from) bash: " IDFMT " %lx\n", IDPR(obj->id), idx);
+	}
 	struct rbnode *node;
 	node = rb_search(&obj->pagecache_root, idx, struct objpage, node, __objpage_compar_key);
 	if(node) {
@@ -345,17 +337,32 @@ static enum obj_get_page_result __obj_get_page(struct object *obj,
 		enum obj_get_page_result res = GETPAGE_OK;
 		if(op->page == NULL) {
 			if(op->obj->flags & OF_PAGER) {
+				if(!(flags & OBJ_GET_PAGE_PAGEROK)) {
+					panic("tried to get a page from a paged object without PAGEROK");
+				}
 				kernel_queue_pager_request_page(obj, idx);
 				spinlock_release_restore(&obj->lock);
 				res = GETPAGE_PAGER;
 			} else if(obj->sourced_from) {
 				struct objpage *sop;
 				spinlock_release_restore(&obj->lock);
+
+#if 0
+				printk("%lx getting page %lx from source obj " IDFMT "\n",
+				  idx,
+				  op->srcidx,
+				  IDPR(obj->sourced_from->id));
+#endif
+				/* TODO: we can probably pass flags & ~OBJ_GET_PAGE_ALLOC  and handle that. */
+				assert(op->srcidx);
 				res = obj_get_page(
 				  obj->sourced_from, op->srcidx ? op->srcidx * mm_page_size(0) : addr, &sop, flags);
-				printk("getting page %lx from source obj " IDFMT ": %d\n", idx, IDPR(obj->id), res);
 				if(res == GETPAGE_OK) {
-					return obj_get_page(obj, addr, result, flags);
+					struct objpage *oldres = *result;
+					res = obj_get_page(obj, addr, result, flags);
+					if(oldres) {
+						objpage_release(oldres, 0);
+					}
 				}
 				if(sop) {
 					objpage_release(sop, 0);
@@ -374,6 +381,9 @@ static enum obj_get_page_result __obj_get_page(struct object *obj,
 		return res;
 	}
 
+	if(obj->sourced_from && obj->sourced_from->id == bs) {
+		// printk("A\n");
+	}
 	if(obj->flags & OF_PAGER) {
 		if(!(flags & OBJ_GET_PAGE_PAGEROK)) {
 			panic("tried to get a page from a paged object without PAGEROK");
@@ -384,6 +394,25 @@ static enum obj_get_page_result __obj_get_page(struct object *obj,
 		spinlock_release_restore(&obj->lock);
 		return GETPAGE_PAGER;
 	}
+
+#if 0
+	if(obj->sourced_from && !(obj->flags & OF_PARTIAL)) {
+		struct objpage *sop;
+		spinlock_release_restore(&obj->lock);
+		enum obj_get_page_result res = obj_get_page(obj->sourced_from, addr, &sop, flags);
+		printk("getting page %lx from source obj " IDFMT ": %d\n",
+		  idx,
+		  IDPR(obj->sourced_from->id),
+		  res);
+		if(res == GETPAGE_OK) {
+			res = obj_get_page(obj, addr, result, flags);
+		}
+		if(sop) {
+			objpage_release(sop, 0);
+		}
+		return res;
+	}
+#endif
 
 	if(!(flags & OBJ_GET_PAGE_ALLOC)) {
 		spinlock_release_restore(&obj->lock);

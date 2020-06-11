@@ -84,7 +84,7 @@ static void __complete_object(struct pager_request *pr, struct queue_entry_pager
 		printk("[kq] warning - completion ID mismatch\n");
 		return;
 	}
-	printk(":: %d\n", pqe->result);
+	// printk("complete object :: %d\n", pqe->result);
 	if(pqe->result == PAGER_RESULT_DONE) {
 		struct object *obj = obj_lookup(pqe->id, 0);
 		if(!obj) {
@@ -113,6 +113,7 @@ static void __complete_page(struct pager_request *pr, struct queue_entry_pager *
 		printk("[kq] warning - ID or page mismatch\n");
 		goto cleanup;
 	}
+	// printk("complete page :: %d\n", pqe->result);
 	switch(pqe->result) {
 		case PAGER_RESULT_ZERO: {
 			struct objpage *op;
@@ -206,7 +207,7 @@ int kernel_queue_pager_request_object(objid_t id)
 	if(kernel_queue_submit(qobj, hdr, (struct queue_entry *)&pr->pqe) == 0) {
 		/* TODO: verify that this did not overwrite */
 		rb_insert(&root, pr, struct pager_request, node_id, __pr_compar);
-		printk("[kq] enqueued! info = %d\n", pr->pqe.qe.info);
+		// printk("[kq] enqueued! info = %d\n", pr->pqe.qe.info);
 		current_thread->pager_obj_req = id;
 	} else {
 		printk("[kq] failed enqueue\n");

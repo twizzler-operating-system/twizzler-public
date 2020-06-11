@@ -43,10 +43,13 @@ struct bucket {
 	uint64_t next;
 	uint64_t chainpage;
 	uint64_t datapage;
+	uint64_t pad0;
+	uint64_t pad1;
 };
 
 static size_t get_bucket_num(objid_t id, size_t pg, size_t htlen)
 {
+	// return (id ^ (objid_t)pg) % htlen;
 	return (id ^ ((objid_t)pg << (pg % 31))) % htlen;
 }
 
@@ -143,15 +146,17 @@ class device
 
 	ssize_t page_lookup(objid_t id, size_t pgnr)
 	{
-		printf("page lookup " IDFMT " page %ld\n", IDPR(id), pgnr);
+		//	printf("page lookup " IDFMT " page %ld\n", IDPR(id), pgnr);
 		struct bucket *b = get_bucket(1, get_bucket_num(id, pgnr, sb->hashlen));
 
-		printf("bucket: " IDFMT " %ld :: %ld %ld\n", IDPR(b->id), b->pgnum, b->chainpage, b->next);
+		// printf("bucket: " IDFMT " %ld :: %ld %ld\n", IDPR(b->id), b->pgnum, b->chainpage,
+		// b->next);
 		while(b->id != 0 && (b->id != id || b->pgnum != pgnr) && b->chainpage != 0) {
 			b = get_bucket(b->chainpage, b->next);
 
-			printf(
-			  "bucket: " IDFMT " %ld :: %ld %ld\n", IDPR(b->id), b->pgnum, b->chainpage, b->next);
+			//	printf(
+			//	  "bucket: " IDFMT " %ld :: %ld %ld\n", IDPR(b->id), b->pgnum, b->chainpage,
+			//b->next);
 		}
 
 		if(b->id != id || b->pgnum != pgnr)
@@ -186,17 +191,19 @@ void tm()
 
 void handle_pager_req(twzobj *qobj, struct queue_entry_pager *pqe, device *dev)
 {
-	printf("[pager] got request for object " IDFMT "\n", IDPR(pqe->id));
+	// printf("[pager] got request for object " IDFMT "\n", IDPR(pqe->id));
 	if(pqe->cmd == PAGER_CMD_OBJECT) {
 		ssize_t r = dev->page_lookup(pqe->id, 0);
-		printf("[pager] %d page_lookup returned %ld\n", pqe->qe.info, r);
+		if(r < 0)
+			printf("!!! [pager] %d page_lookup returned %ld\n", pqe->qe.info, r);
 		// r = -1;
 		pqe->result = r < 0 ? PAGER_RESULT_ERROR : PAGER_RESULT_DONE;
 		queue_complete(qobj, (struct queue_entry *)pqe, 0);
 		//	printf("[pager] complete!\n");
 	} else if(pqe->cmd == PAGER_CMD_OBJECT_PAGE) {
 		ssize_t r = dev->page_lookup(pqe->id, pqe->page);
-		if(r < 0) {
+		if(r <= 0) {
+			printf("!!!!! [pager] %d page_lookup returned %ld\n", pqe->qe.info, r);
 			pqe->result = PAGER_RESULT_ZERO;
 			queue_complete(qobj, (struct queue_entry *)pqe, 0);
 			return;

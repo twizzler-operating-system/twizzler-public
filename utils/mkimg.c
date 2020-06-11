@@ -29,11 +29,13 @@ struct bucket {
 	uint64_t next;
 	uint64_t chainpage;
 	uint64_t datapage;
+	uint64_t pad0;
+	uint64_t pad1;
 };
 
 static void *out_base;
-static size_t outmm_sz = 0x2000;
-static size_t nextpg = 0x1000;
+static size_t outmm_sz;
+static size_t nextpg;
 static size_t cur_chain_page = 0;
 static size_t cur_chain_idx = 0;
 static int mmfd = 0;
@@ -51,26 +53,32 @@ static void *alloc_page(void)
 	if(nextpg > outmm_sz) {
 		size_t oldsz = outmm_sz;
 		outmm_sz += 0x10000;
-		munmap(out_base, oldsz);
+		//	munmap(out_base, oldsz);
 		ftruncate(mmfd, outmm_sz);
-		out_base = mmap(NULL, outmm_sz, PROT_READ | PROT_WRITE, MAP_SHARED, mmfd, 0);
+		out_base = mmap(out_base, outmm_sz, PROT_READ | PROT_WRITE, MAP_SHARED, mmfd, 0);
 	}
+	memset((char *)out_base + next, 0, 0x1000);
 	return (char *)out_base + next;
 }
 
 static size_t get_bucket_num(objid_t id, size_t pg)
 {
 	return (id ^ ((objid_t)pg << (pg % 31))) % htlen;
+	// return (id ^ (objid_t)pg) % htlen;
 }
 
 static struct bucket *get_bucket(uint64_t chainpage, size_t bn)
 {
+	if(chainpage == 1)
+		assert(bn < htlen);
+	else
+		assert(bn < 0x1000 / sizeof(struct bucket));
 	return (struct bucket *)((char *)out_base + chainpage * 0x1000 + bn * sizeof(struct bucket));
 }
 
 static uint64_t addr_to_pagenr(void *p)
 {
-	return ((uint64_t)p - (uint64_t)out_base) / 0x1000;
+	return ((uintptr_t)p - (uintptr_t)out_base) / 0x1000;
 }
 
 static size_t max_chain_len = 0;
@@ -93,11 +101,13 @@ void add_object_page(objid_t id, size_t pg, void *data, size_t len)
 		last = b;
 		if(b->chainpage) {
 			b = get_bucket(b->chainpage, b->next);
+			assert(b->id);
 			continue;
 		}
 
 		if(cur_chain_page == 0 || cur_chain_idx >= (0x1000 / sizeof(struct bucket))) {
 			cur_chain_page = addr_to_pagenr(alloc_page());
+			printf(":: %ld\n", cur_chain_page);
 			cur_chain_idx = 0;
 			nr_chain_pages++;
 		}
@@ -115,6 +125,7 @@ void add_object_page(objid_t id, size_t pg, void *data, size_t len)
 	if(nr_pages > 1) {
 		avg_chain_len = (avg_chain_len * (nr_pages - 1) + cl) / (float)nr_pages;
 	}
+
 	if(last) {
 		last->chainpage = last_chain;
 		last->next = last_idx;
@@ -132,11 +143,15 @@ void add_object_page(objid_t id, size_t pg, void *data, size_t len)
 		data_copied += len;
 
 		b->datapage = addr_to_pagenr(datapage);
+		assert(b->datapage > 0);
 	} else {
 		b->datapage = 0;
 	}
 	// printf("    added object page %p " IDFMT " :: %lx :: %ld\n", b, IDPR(id), pg, b->datapage);
 }
+
+// 6d 1f
+// 155240
 
 struct ustar_header {
 	char name[100];
@@ -280,7 +295,7 @@ int main(int argc, char **argv)
 		if(str_to_objid_try(ent->d_name, &id)) {
 			continue;
 		}
-		//	printf(":: %s :: %lx:%lx\n", ent->d_name, (uint64_t)(id >> 64), (uint64_t)id);
+		// printf(":: %s :: %lx:%lx\n", ent->d_name, (uint64_t)(id >> 64), (uint64_t)id);
 		char *filename;
 		asprintf(&filename, "%s/%s", argv[optind], ent->d_name);
 		struct stat st;
@@ -292,11 +307,13 @@ int main(int argc, char **argv)
 	}
 
 	htlen = (totalsz / 0x1000) * 2;
-	// printf(
-	//"estimated htsz = %ld entries (%ld KB)\n", htlen, (htlen * sizeof(struct bucket)) / 1024);
-
 	outmm_sz =
 	  0x1000 /* sb */ + (((htlen * sizeof(struct bucket)) + (0x1000 - 1)) & ~(0x1000 - 1)) + 0x1000;
+	printf("estimated htsz = %ld entries (%ld KB) %ld\n",
+	  htlen,
+	  (htlen * sizeof(struct bucket)) / 1024,
+	  outmm_sz / 0x1000);
+
 	nextpg = outmm_sz - 0x1000;
 	ftruncate(mmfd, outmm_sz);
 	out_base = mmap(NULL, outmm_sz, PROT_READ | PROT_WRITE, MAP_SHARED, mmfd, 0);
