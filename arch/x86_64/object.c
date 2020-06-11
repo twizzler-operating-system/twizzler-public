@@ -13,6 +13,8 @@ bool arch_object_getmap_slot_flags(struct object_space *space, struct slot *slot
 {
 	uint64_t ef = 0;
 
+	if(flags)
+		*flags = 0;
 	if(!space)
 		space = current_thread ? &current_thread->active_sc->space : &_bootstrap_object_space;
 
@@ -20,15 +22,17 @@ bool arch_object_getmap_slot_flags(struct object_space *space, struct slot *slot
 	int pml4_idx = PML4_IDX(virt);
 	int pdpt_idx = PDPT_IDX(virt);
 
-	if(!space->arch.ept[pml4_idx])
+	if(!space->arch.ept[pml4_idx]) {
 		return false;
+	}
 
 	uintptr_t *pdpt = space->arch.pdpts[pml4_idx];
-	if(!pdpt[pdpt_idx])
+	if(!pdpt[pdpt_idx]) {
+		// printk(":( %ld %p %p %lx %p\n", slot->num, space, pdpt, pdpt[pdpt_idx], &pdpt[pdpt_idx]);
 		return false;
+	}
 	ef = pdpt[pdpt_idx] & ~EPT_PAGE_MASK;
 	if(flags) {
-		*flags = 0;
 		if(ef & EPT_READ)
 			*flags |= OBJSPACE_READ;
 		if(ef & EPT_WRITE)
@@ -123,6 +127,7 @@ void arch_object_unmap_slot(struct object_space *space, struct slot *slot)
 	if(!space->arch.ept[pml4_idx]) {
 		return;
 	}
+	// printk("unmap slot :: %ld\n", slot->num);
 	uint64_t *pdpt = space->arch.pdpts[pml4_idx];
 	if(pdpt[pdpt_idx])
 		space->arch.counts[pml4_idx]--;
@@ -161,10 +166,21 @@ void arch_object_map_slot(struct object_space *space,
 		  mm_vtop(space->arch.pdpts[pml4_idx]) | EPT_READ | EPT_WRITE | EPT_EXEC;
 	}
 	uint64_t *pdpt = space->arch.pdpts[pml4_idx];
+#if 0
+	printk("mapping %p %lx %lx %p %ld: %p %lx\n",
+	  obj,
+	  obj->arch.pt_root,
+	  ef,
+	  space,
+	  slot->num,
+	  pdpt,
+	  pdpt[pdpt_idx]);
+#endif
 	if(pdpt[pdpt_idx] == 0) {
 		space->arch.counts[pml4_idx]++;
 	}
 	pdpt[pdpt_idx] = obj->arch.pt_root | ef;
+	// printk("     %p %lx\n", &pdpt[pdpt_idx], pdpt[pdpt_idx]);
 }
 
 /* TODO: switch to passing an objpage */

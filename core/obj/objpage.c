@@ -61,6 +61,9 @@ static void objpage_delete(struct objpage *op)
 {
 	if(op->page) {
 		if(op->flags & OBJPAGE_COW) {
+			//		printk(
+			//		  "COW rel: %d : " IDFMT " :: %lx\n", op->page->cowcount, IDPR(op->obj->id),
+			// op->idx);
 			if(op->page->cowcount-- <= 1) {
 				page_dealloc(op->page, 0);
 			}
@@ -74,19 +77,16 @@ static void objpage_delete(struct objpage *op)
 
 void objpage_release(struct objpage *op, int flags)
 {
+	struct object *obj = op->obj;
 	if(!(flags & OBJPAGE_RELEASE_OBJLOCKED)) {
-		spinlock_acquire_save(&op->obj->lock);
+		spinlock_acquire_save(&obj->lock);
 	}
 	spinlock_acquire_save(&op->lock);
-	struct object *obj = op->obj;
-	if(flags & OBJPAGE_RELEASE_UNMAP) {
-		rb_delete(&op->node, &op->obj->pagecache_root);
-		op->obj = NULL;
-	}
 	if(krc_put(&op->refs)) {
 		objpage_delete(op);
+	} else {
+		spinlock_release_restore(&op->lock);
 	}
-	spinlock_release_restore(&op->lock);
 	if(!(flags & OBJPAGE_RELEASE_OBJLOCKED)) {
 		spinlock_release_restore(&obj->lock);
 	}
@@ -154,6 +154,7 @@ void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t
 		dest->flags |= OF_PARTIAL;
 
 		struct derivation_info *di = kalloc(sizeof(*di));
+		//	printk("alloced derivation %p for " IDFMT "\n", di, IDPR(src->id));
 		di->id = dest->id;
 		list_insert(&src->derivations, &di->entry);
 
@@ -176,7 +177,8 @@ void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t
 		  rb_search(&dest->pagecache_root, dst_idx, struct objpage, node, __objpage_compar_key);
 		if(dnode) {
 			struct objpage *dp = rb_entry(dnode, struct objpage, node);
-			objpage_release(dp, OBJPAGE_RELEASE_UNMAP | OBJPAGE_RELEASE_OBJLOCKED);
+			rb_delete(dnode, &dp->obj->pagecache_root);
+			objpage_release(dp, OBJPAGE_RELEASE_OBJLOCKED);
 		}
 
 		if(src) {
@@ -200,6 +202,7 @@ void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t
 				  &dest->idx_map, new_op, struct objpage, idx_map_node, __objpage_idxmap_compar);
 			}
 			new_op->idx = dst_idx;
+			//		krc_get(&new_op->refs);
 			rb_insert(&dest->pagecache_root, new_op, struct objpage, node, __objpage_compar);
 		}
 	}
@@ -228,6 +231,7 @@ static void __obj_get_page_alloc_page(struct objpage *op)
 	struct page *pp = page_alloc(
 	  (op->obj->flags & OF_PERSIST) ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, 0);
 	pp->cowcount = 1;
+	op->flags = 0;
 	op->page = pp;
 	op->page->flags |= flag_if_notzero(op->obj->cache_mode & OC_CM_UC, PAGE_CACHE_UC);
 	op->page->flags |= flag_if_notzero(op->obj->cache_mode & OC_CM_WB, PAGE_CACHE_WB);
@@ -305,6 +309,7 @@ static void __obj_get_page_alloc(struct object *obj, size_t idx, struct objpage 
 	struct objpage *page = objpage_alloc(obj);
 	page->idx = idx;
 	__obj_get_page_alloc_page(page);
+	krc_get(&page->refs);
 	rb_insert(&obj->pagecache_root, page, struct objpage, node, __objpage_compar);
 	*result = page;
 }
@@ -322,11 +327,19 @@ static enum obj_get_page_result __obj_get_page(struct object *obj,
 		spinlock_release_restore(&obj->lock);
 		return GETPAGE_OK;
 	}
-	objid_t bs = ((objid_t)0xE8F8615C6BEB8A00 << 64) | 0x44398226A06DBE62ul;
+	// objid_t bs = ((objid_t)0xE8F8615C6BEB8A00 << 64) | 0x44398226A06DBE62ul;
+	objid_t bs = ((objid_t)0x50055A5D4E2A7D7F << 64) | 0x974BB8B26C30C99Aul;
 	size_t idx = addr / mm_page_size(0);
+#if 0
+	if((obj->id == bs))
+		printk("lookup page for: " IDFMT " %lx :: %p\n",
+		  IDPR(obj->id),
+		  idx,
+		  __builtin_return_address(1));
 	if(obj->sourced_from && obj->sourced_from->id == bs) {
 		// printk("lookup page for (derived from) bash: " IDFMT " %lx\n", IDPR(obj->id), idx);
 	}
+#endif
 	struct rbnode *node;
 	node = rb_search(&obj->pagecache_root, idx, struct objpage, node, __objpage_compar_key);
 	if(node) {
@@ -448,7 +461,6 @@ void obj_cache_page(struct object *obj, size_t addr, struct page *p)
 	if(node == NULL) {
 		page = objpage_alloc(obj);
 		page->idx = idx;
-		krc_init(&page->refs);
 	} else {
 		page = rb_entry(node, struct objpage, node);
 	}
@@ -461,8 +473,10 @@ void obj_cache_page(struct object *obj, size_t addr, struct page *p)
 	if(p->cowcount > 1) {
 		page->flags |= OBJPAGE_COW;
 	}
-	if(node == NULL)
+	if(node == NULL) {
+		krc_get(&page->refs);
 		rb_insert(root, page, struct objpage, node, __objpage_compar);
+	}
 	__obj_get_page_handle_derived(page);
 	// arch_object_map_page(obj, page->page, page->idx);
 	// page->flags |= OBJPAGE_MAPPED;

@@ -262,41 +262,63 @@ static void _obj_release(void *_obj)
 		printk("FINAL DELETE object " IDFMT "\n", IDPR(obj->id));
 #endif
 
-		struct rbnode *n, *next;
-		for(n = rb_first(&obj->ties_root); n; n = next) {
-			next = rb_next(n);
-
-			struct object_tie *tie = rb_entry(n, struct object_tie, node);
-#if CONFIG_DEBUG_OBJECT_LIFE
-			printk("UNTIE object " IDFMT " from " IDFMT " (%d)\n",
-			  IDPR(tie->child->id),
-			  IDPR(obj->id),
-			  obj->kso_type);
-#endif
-			rb_delete(&tie->node, &obj->ties_root);
-			obj_put(tie->child);
-#warning "obj lifetime"
-			// slabcache_free(&sc_objtie, tie);
-		}
+		obj_tie_free(obj);
 
 		arch_object_unmap_all(obj);
+		//		printk("releasin object pages\n");
+		struct rbnode *next;
 		for(struct rbnode *node = rb_first(&obj->pagecache_root); node; node = next) {
 			next = rb_next(node);
 			struct objpage *pg = rb_entry(node, struct objpage, node);
-			objpage_release(pg, OBJPAGE_RELEASE_UNMAP);
+			//		printk(":: %ld\n", pg->refs.count);
+			rb_delete(node, &obj->pagecache_root);
+			objpage_release(pg, 0);
 		}
 
+		for(struct rbnode *node = rb_first(&obj->pagecache_level1_root); node; node = next) {
+			next = rb_next(node);
+			struct objpage *pg = rb_entry(node, struct objpage, node);
+			//		printk(":: %ld\n", pg->refs.count);
+			rb_delete(node, &obj->pagecache_root);
+			objpage_release(pg, 0);
+		}
+
+		struct list *lnext;
 		if(obj->sourced_from) {
+			spinlock_acquire_save(&obj->sourced_from->lock);
+			for(struct list *e = list_iter_start(&obj->sourced_from->derivations);
+			    e != list_iter_end(&obj->sourced_from->derivations);
+			    e = lnext) {
+				lnext = list_iter_next(e);
+				struct derivation_info *di = list_entry(e, struct derivation_info, entry);
+				if(di->id == obj->id) {
+					list_remove(&di->entry);
+					kfree(di);
+				}
+			}
+
+			spinlock_release_restore(&obj->sourced_from->lock);
 			obj_put(obj->sourced_from);
 			obj->sourced_from = NULL;
 		}
-		arch_object_destroy(obj);
-		obj_count--;
-		foreach(e, list, &obj->derivations) {
+#if 0
+		printk("obj release " IDFMT ":: %p %p\n",
+		  IDPR(obj->id),
+		  list_iter_start(&obj->derivations),
+		  list_iter_end(&obj->derivations));
+#endif
+		for(struct list *e = list_iter_start(&obj->derivations);
+		    e != list_iter_end(&obj->derivations);
+		    e = lnext) {
+			lnext = list_iter_next(e);
 			struct derivation_info *di = list_entry(e, struct derivation_info, entry);
+			//	printk("freed derivation %p\n", di);
+			list_remove(&di->entry);
 			kfree(di);
 		}
 
+		arch_object_destroy(obj);
+		obj_count--;
 		/* TODO: clean up... */
 		slabcache_free(&sc_objs, obj);
 	}

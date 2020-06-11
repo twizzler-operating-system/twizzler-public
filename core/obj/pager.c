@@ -91,9 +91,9 @@ static void __complete_object(struct pager_request *pr, struct queue_entry_pager
 			/* create it */
 			obj = obj_create(pqe->id, 0);
 		}
-		/* need to make this atomic with create */
-		obj->flags |= OF_KERNEL | OF_CPF_VALID | OF_PAGER;
-		obj->cached_pflags = MIP_DFL_WRITE | MIP_DFL_READ;
+		/* need to make this atomic with create, and actually use the right flags */
+		obj->flags |= OF_CPF_VALID | OF_PAGER;
+		obj->cached_pflags = MIP_DFL_WRITE | MIP_DFL_READ | MIP_DFL_EXEC;
 		obj_put(obj);
 		pr->thread->pager_obj_req = 0;
 	} else {
@@ -116,8 +116,9 @@ static void __complete_page(struct pager_request *pr, struct queue_entry_pager *
 	// printk("complete page :: %d\n", pqe->result);
 	switch(pqe->result) {
 		case PAGER_RESULT_ZERO: {
-			struct objpage *op;
-			obj_get_page(pr->obj, pr->pqe.page * mm_page_size(0), &op, OBJ_GET_PAGE_ALLOC);
+			struct page *page = page_alloc(
+			  pr->obj->flags & OF_PERSIST ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, 0);
+			obj_cache_page(pr->obj, pr->pqe.page * mm_page_size(0), page);
 		} break;
 		case PAGER_RESULT_DONE:
 			obj_cache_page(pr->obj, pr->pqe.page * mm_page_size(0), pr->objpage->page);

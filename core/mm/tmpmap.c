@@ -102,6 +102,7 @@ void *tmpmap_map_page(struct page *page)
 	spinlock_acquire_save(&tmpmap_object.lock);
 	op->flags &= ~OBJPAGE_COW;
 	arch_object_map_page(&tmpmap_object, op);
+	objpage_release(op, OBJPAGE_RELEASE_OBJLOCKED);
 	spinlock_release_restore(&tmpmap_object.lock);
 	int x;
 	asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));

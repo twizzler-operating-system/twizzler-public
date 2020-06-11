@@ -280,6 +280,7 @@ static void __iommu_fault_handler(int v __unused, struct interrupt_handler *h __
 					arch_object_map_flush(
 					  o, p->idx * mm_page_size(p->page->level) /* TODO: this is brittle */);
 
+					objpage_release(p, 0);
 					obj_put(o);
 				} else {
 					printk("[iommu] fault to slot %ld; unknown object\n", slot_num);

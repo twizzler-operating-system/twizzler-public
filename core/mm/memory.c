@@ -158,6 +158,7 @@ void mm_print_stats(void)
 		struct mem_allocator *alloc = list_entry(e, struct mem_allocator, entry);
 		printk("allocator: avail = %lx; free = %lx\n", alloc->available_memory, alloc->free_memory);
 	}
+	mm_print_kalloc_stats();
 	page_print_stats();
 }
 

@@ -8,14 +8,24 @@ static inline void *sbrk(intptr_t x)
 	panic("sbrk called from malloc");
 }
 
+static _Atomic size_t kalloc_mmap_nr = 0;
+
+void mm_print_kalloc_stats(void)
+{
+	printk("kalloc amount: %lx (%ld KB)\n", kalloc_mmap_nr, kalloc_mmap_nr / 1024);
+}
+
 static inline void *twz_mmap(void *addr, size_t sz, int prot, int flags)
 {
+	// printk("mmap: %lx\n", sz);
+	// debug_print_backtrace();
 	(void)prot;
 	(void)flags;
 	(void)addr;
 	if(sz > mm_page_size(0))
 		panic("NI - large mmap_wrapper (%lx)", sz);
 	void *r = mm_memory_alloc(sz, PM_TYPE_DRAM, true);
+	kalloc_mmap_nr += sz;
 	// printk("mmap: %p %lx\n", r, sz);
 	return r;
 }
@@ -24,6 +34,7 @@ static inline int munmap(void *addr, size_t sz)
 {
 	(void)sz;
 	mm_memory_dealloc(addr);
+	kalloc_mmap_nr -= sz;
 	//	printk("warning - munmap called (%p %lx)\n", addr, sz);
 	return 0;
 }
@@ -32,7 +43,6 @@ static inline int munmap(void *addr, size_t sz)
 #include <spinlock.h>
 
 static struct spinlock dlm_lock = SPINLOCK_INIT;
-
 void *realloc(void *, size_t);
 void *malloc(size_t);
 void free(void *);

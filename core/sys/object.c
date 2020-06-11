@@ -1,3 +1,4 @@
+#include <kalloc.h>
 #include <object.h>
 #include <processor.h>
 #include <rand.h>
@@ -337,6 +338,7 @@ long syscall_ocreate(uint64_t kulo,
 		struct object *so = obj_lookup(srcid, 0);
 		struct derivation_info *di = kalloc(sizeof(*di));
 
+		//	printk("alloced derivation: %p\n", di);
 		spinlock_acquire_save(&so->lock);
 		di->id = id;
 		list_insert(&so->derivations, &di->entry);
@@ -426,6 +428,7 @@ long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long a
 				pg->page->flags |= flag_if_notzero(arg3 & OC_CM_WT, PAGE_CACHE_WT);
 				pg->page->flags |= flag_if_notzero(arg3 & OC_CM_WC, PAGE_CACHE_WC);
 				arch_object_map_page(o, pg);
+				objpage_release(pg, 0);
 			}
 			break;
 		case OCO_MAP:
@@ -441,6 +444,7 @@ long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long a
 				arch_object_map_page(o, pg);
 				if(arg3)
 					arch_object_map_flush(o, i * mm_page_size(0));
+				// objpage_release(pg, 0);
 			}
 			if(arg3) {
 				objid_t doid = *(objid_t *)arg3;

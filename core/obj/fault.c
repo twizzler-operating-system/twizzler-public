@@ -159,8 +159,13 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			current_thread->_last_count = 0;
 		} else {
 			current_thread->_last_count++;
-			if(current_thread->_last_count > 50)
-				panic("DOUBLE OADDR FAULT\n");
+			if(current_thread->_last_count > 500) {
+				panic("DOUBLE OADDR FAULT :: " IDFMT "; %lx %lx %x\n",
+				  IDPR(o ? o->id : 0),
+				  ip,
+				  loaddr,
+				  flags);
+			}
 		}
 	}
 #if 0
@@ -188,13 +193,24 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 
 	// printk("A\n");
 
+	//	objid_t bs = ((objid_t)0x50055A5D4E2A7D7F << 64) | 0x974BB8B26C30C99Aul;
+	objid_t bs = ((objid_t)0x347D434E6693D076 << 64) | 0x5907F55CA6CE1890ul;
+	if(o->id == bs) {
+		//	printk(":: %d %lx %x\n", do_map, existing_flags, flags);
+	}
 	// asm volatile("mov %%rsp, %0" : "=r"(rsp));
 	// printk("---> %lx\n", rsp);
 	if(do_map) {
 		if(!VADDR_IS_KERNEL(vaddr) && !(o->flags & OF_KERNEL)) {
-			if(!__objspace_fault_calculate_perms(o, flags, loaddr, vaddr, ip, &perms)) {
-				goto done;
+			if(o->flags & OF_PAGER) {
+				/* TODO */
+				perms = OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U;
+			} else {
+				if(!__objspace_fault_calculate_perms(o, flags, loaddr, vaddr, ip, &perms)) {
+					goto done;
+				}
 			}
+
 			perms &= (OBJSPACE_READ | OBJSPACE_WRITE | OBJSPACE_EXEC_U);
 		} else {
 			perms = OBJSPACE_READ | OBJSPACE_WRITE;
@@ -203,7 +219,11 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			panic("TODO: this mapping will never work");
 		}
 
-		//	printk("B\n");
+		//		if(o->id == bs)
+		//			printk("mapping with perms %lx\n", perms);
+
+		//		if(o->id == bs)
+		//			printk("B\n");
 		spinlock_acquire_save(&slot->lock);
 		if(!arch_object_getmap_slot_flags(NULL, slot, &existing_flags)) {
 			//		if(o->flags & OF_KERNEL)
@@ -234,11 +254,17 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		struct objpage *p;
 		enum obj_get_page_result gpr =
 		  obj_get_page(o, loaddr % OBJ_MAXSIZE, &p, OBJ_GET_PAGE_ALLOC | OBJ_GET_PAGE_PAGEROK);
+		if(o->id == bs) {
+			//			printk("::: gpr %d\n", gpr);
+		}
 		//		  (o->flags & OF_PAGER) ? 0 : OBJ_GET_PAGE_ALLOC);
 		switch(gpr) {
 			case GETPAGE_OK:
 				break;
 			case GETPAGE_PAGER:
+				if(p) {
+					objpage_release(p, 0);
+				}
 				goto done;
 			case GETPAGE_NOENT: {
 				panic("TODO: raise fault");
@@ -253,12 +279,13 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			spinlock_acquire_save(&p->page->lock);
 
 #if 0
-		printk(":: ofl=%lx, opfl=%lx, pcc=%d, %ld %ld\n",
-		  o->flags,
-		  p->flags,
-		  p->page->cowcount,
-		  o->refs.count,
-		  o->mapcount.count);
+		if(o->id == bs)
+			printk(":: ofl=%lx, opfl=%lx, pcc=%d, %ld %ld\n",
+			  o->flags,
+			  p->flags,
+			  p->page->cowcount,
+			  o->refs.count,
+			  o->mapcount.count);
 #endif
 		if(!(o->flags & OF_KERNEL)) {
 			if(p->page->cowcount <= 1 && (p->flags & OBJPAGE_COW)) {
@@ -340,8 +367,13 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			}
 			spinlock_release_restore(&o->lock);
 		}
+
+		//		int t = arch_object_getmap_slot_flags(NULL, slot, &existing_flags);
+		//		if(o->id == bs)
+		//			printk("----> %d %lx\n", t, existing_flags);
 		if(!(o->flags & OF_KERNEL))
 			spinlock_release_restore(&p->page->lock);
+		objpage_release(p, OBJPAGE_RELEASE_OBJLOCKED);
 		if(!(o->flags & OF_KERNEL))
 			spinlock_release_restore(&o->lock);
 	}

@@ -62,3 +62,22 @@ void obj_tie(struct object *parent, struct object *child)
 
 	spinlock_release_restore(&parent->lock);
 }
+
+void obj_tie_free(struct object *obj)
+{
+	struct rbnode *n, *next;
+	for(n = rb_first(&obj->ties_root); n; n = next) {
+		next = rb_next(n);
+
+		struct object_tie *tie = rb_entry(n, struct object_tie, node);
+#if CONFIG_DEBUG_OBJECT_LIFE
+		printk("UNTIE object " IDFMT " from " IDFMT " (%d)\n",
+		  IDPR(tie->child->id),
+		  IDPR(obj->id),
+		  obj->kso_type);
+#endif
+		rb_delete(&tie->node, &obj->ties_root);
+		obj_put(tie->child);
+		slabcache_free(&sc_objtie, tie);
+	}
+}

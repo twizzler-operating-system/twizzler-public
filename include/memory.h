@@ -91,6 +91,7 @@ void mm_update_stats(void);
 struct page_stats;
 int page_build_stats(struct page_stats *stats, int idx);
 void mm_print_stats(void);
+void mm_print_kalloc_stats(void);
 
 static inline void *mm_virtual_early_alloc(void)
 {

@@ -156,7 +156,6 @@ void object_space_release_slot(struct slot *slot)
 {
 	/* to call this, we'll first have no object referencing this slot. This means it'll never be
 	 * mapped into an object_space while we're releasing it. */
-	// printk("RELEASE %ld\n", slot->num);
 	struct list *e, *n;
 	spinlock_acquire_save(&slot->lock);
 	for(e = list_iter_start(&slot->spaces); e != list_iter_end(&slot->spaces); e = n) {

@@ -219,6 +219,7 @@ static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 			  IDPR(map->obj->id),
 			  map->obj->mapcount.count);
 #endif
+			//			printk("B :: " IDFMT "\n", IDPR(map->obj->id));
 			vm_map_disestablish(current_thread->ctx, map);
 			// arch_vm_unmap_object(current_thread->ctx, map);
 			// rb_delete(node, &current_thread->ctx->root);

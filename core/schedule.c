@@ -217,7 +217,9 @@ static void __thread_finish_cleanup2(void *_t)
 	struct thread *t = _t;
 	arch_thread_destroy(t);
 	thread_sync_uninit_thread(t);
+	void *back = t->sctx_entries;
 	memset(t, 0, sizeof(*t));
+	t->sctx_entries = back;
 	// memset(&t->arch, 0, sizeof(t->arch));
 	_thread_ctor(NULL, t);
 	slabcache_free(&_sc_thread, t);
@@ -249,6 +251,11 @@ void thread_exit(void)
 	current_thread->ctx = NULL;
 
 	kso_root_detach(current_thread->kso_attachment_num);
+
+	if(current_thread->pending_fault_info) {
+		kfree(current_thread->pending_fault_info);
+		current_thread->pending_fault_info = NULL;
+	}
 
 	struct object *obj = kso_get_obj(current_thread->throbj, thr);
 	obj_free_kaddr(obj);
