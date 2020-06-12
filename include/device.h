@@ -11,6 +11,7 @@ struct device {
 	uint32_t flags;
 };
 void iommu_object_map_slot(struct device *dev, struct object *obj);
+void iommu_invalidate_tlb(void);
 struct device_repr *device_get_repr(struct object *obj);
 void *device_get_devspecific(struct object *obj);
 void device_release_headers(struct object *obj);

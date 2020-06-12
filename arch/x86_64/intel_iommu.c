@@ -47,6 +47,9 @@ struct iommu {
 	uint64_t cap;
 	bool init;
 	void **table_pages;
+	void *qi_addr;
+	size_t qi_len, qi_tail, qi_stride;
+	struct spinlock qi_lock;
 };
 
 #define MAX_IOMMUS 16
@@ -91,7 +94,9 @@ static struct iommu iommus[MAX_IOMMUS] = {};
 #define IOMMU_CAP_ND(x) (((x)&7) * 2 + 4)
 
 #define IOMMU_EXCAP_DT (1 << 2)
+#define IOMMU_EXCAP_QI (1 << 1)
 
+#define IOMMU_GCMD_QIE (1ul << 26)
 #define IOMMU_GCMD_TE (1ul << 31)
 #define IOMMU_GCMD_SRTP (1ul << 30)
 
@@ -313,18 +318,95 @@ static struct interrupt_alloc_req _iommu_int_iaq[2] = {
 	}
 };
 
+union qi_entry {
+	struct {
+		uint64_t qw0;
+		uint64_t qw1;
+	};
+};
+
+struct iommu_inval {
+	union qi_entry entry;
+	volatile uint32_t status;
+};
+
+static void iommu_submit_invalidation(struct iommu *im, struct iommu_inval *inv)
+{
+	spinlock_acquire_save(&im->qi_lock);
+
+	while(((im->qi_tail + im->qi_stride) % im->qi_len) == iommu_read64(im, IOMMU_REG_IQH)) {
+		spinlock_release_restore(&im->qi_lock);
+		arch_processor_relax();
+		spinlock_acquire_save(&im->qi_lock);
+	}
+
+	union qi_entry *entry = (void *)((char *)im->qi_addr + im->qi_tail);
+	*entry = inv->entry;
+
+	im->qi_tail = (im->qi_tail + im->qi_stride) % im->qi_len;
+	iommu_write64(im, IOMMU_REG_IQT, im->qi_tail);
+
+	spinlock_release_restore(&im->qi_lock);
+}
+
+#define IOMMU_INVL_IOTLB_GRAN_GLOBAL (1 << 4)
+#define IOMMU_INVL_IOTLB_GRAN_DSEL (2 << 4)
+#define IOMMU_INVL_IOTLB_GRAN_PSEL (3 << 4)
+
+static void iommu_build_iotlb_invl(struct iommu_inval *inv,
+  uintptr_t addr,
+  bool hint,
+  uint8_t addr_mask,
+  uint16_t did,
+  uint8_t flags)
+{
+	inv->entry.qw1 = addr | (hint ? (1 << 6) : 0) | addr_mask;
+	inv->entry.qw0 = ((uint32_t)did << 16) | flags | 2;
+}
+
+#define IOMMU_INVL_WAIT_STATWR (1 << 5)
+#define IOMMU_INVL_WAIT_IF (1 << 4)
+#define IOMMU_INVL_WAIT_FENCE (1 << 6)
+
+static void iommu_build_wait_invl(struct iommu_inval *inv,
+  uintptr_t addr,
+  uint32_t status,
+  uint8_t flags)
+{
+	inv->entry.qw1 = addr;
+	inv->entry.qw0 = ((uint64_t)status << 32) | flags | 5;
+	inv->status = 0;
+}
+
+void iommu_invalidate_tlb(void)
+{
+	for(size_t i = 0; i < MAX_IOMMUS; i++) {
+		if(iommus[i].base) {
+			struct iommu *im = &iommus[i];
+			struct iommu_inval inv;
+			iommu_build_iotlb_invl(&inv, 0, false, 0, 0, IOMMU_INVL_IOTLB_GRAN_GLOBAL);
+			iommu_submit_invalidation(im, &inv);
+			iommu_build_wait_invl(&inv, mm_vtop((void *)&inv.status), 1, IOMMU_INVL_WAIT_STATWR);
+			iommu_submit_invalidation(im, &inv);
+			while(inv.status != 1) {
+				arch_processor_relax();
+			}
+		}
+	}
+}
+
 static int iommu_init(struct iommu *im)
 {
 	/* TODO: verify caps and ecaps */
 	// uint32_t vs = iommu_read32(im, IOMMU_REG_VERS);
 	uint64_t cap = iommu_read64(im, IOMMU_REG_CAP);
-	// uint64_t ecap = iommu_read64(im, IOMMU_REG_EXCAP);
+	uint64_t ecap = iommu_read64(im, IOMMU_REG_EXCAP);
 	im->cap = cap;
 
 	ept_virt = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
 	ept_phys = mm_vtop(ept_virt);
 
-	// printk(":: %lx %lx %x\n", cap, ecap, vs);
+	// printk(":: %lx %lx\n", cap, ecap);
 	/*	printk("nfr=%lx, sllps=%lx, fro=%lx, nd=%ld\n",
 	      IOMMU_CAP_NFR(cap),
 	      IOMMU_CAP_SLLPS(cap),
@@ -336,7 +418,13 @@ static int iommu_init(struct iommu *im)
 		// return -1;
 	}
 	if(IOMMU_CAP_SLLPS(cap) != 3) {
-		printk("[iommui] iommu %d does not support huge pages at sl translation\n", im->id);
+		printk("[iommu] iommu %d does not support huge pages at sl translation\n", im->id);
+		return -1;
+	}
+
+	if(!(ecap & IOMMU_EXCAP_QI)) {
+		printk("[iommu] iommu %d does not support queued invalidations\n", im->id);
+		/* TODO: should we support this? */
 		return -1;
 	}
 
@@ -367,10 +455,45 @@ static int iommu_init(struct iommu *im)
 
 	im->table_pages = mm_memory_alloc(sizeof(void *) * 512, PM_TYPE_DRAM, true);
 	im->init = true;
-	uint32_t cmd = IOMMU_GCMD_TE;
-	iommu_write32(im, IOMMU_REG_GCMD, cmd);
-	iommu_status_wait(im, IOMMU_GCMD_TE, true);
+	// uint32_t cmd = IOMMU_GCMD_TE;
+	// iommu_write32(im, IOMMU_REG_GCMD, cmd);
+	// iommu_status_wait(im, IOMMU_GCMD_TE, true);
 
+	/* enable queued invalidations */
+	im->qi_len = 0x1000;
+	im->qi_addr = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);
+
+	uint64_t val = mm_vtop(im->qi_addr);
+
+	iommu_write64(im, IOMMU_REG_IQT, 0);
+	iommu_write64(im, IOMMU_REG_IQA, val);
+
+	iommu_write32(im, IOMMU_REG_ICEC, 0);
+
+	iommu_write32(im, IOMMU_REG_GCMD, IOMMU_GCMD_QIE | IOMMU_GCMD_TE);
+	iommu_status_wait(im, IOMMU_GCMD_QIE, true);
+	im->qi_lock = SPINLOCK_INIT;
+	im->qi_stride = 16;
+
+#if 0
+	struct iommu_inval iv;
+	iommu_build_iotlb_invl(&iv, false, 0, 0, 0, IOMMU_INVL_IOTLB_GRAN_GLOBAL);
+	iommu_submit_invalidation(im, &iv);
+
+	iommu_build_wait_invl(&iv, mm_vtop(&iv.status), 1234, IOMMU_INVL_WAIT_STATWR);
+	iommu_submit_invalidation(im, &iv);
+
+	// asm volatile("sti");
+
+	for(;;) {
+		for(volatile long i = 0; i < 1000000000; i++)
+			;
+		printk("%d\n", iv.status);
+	}
+
+	for(;;)
+		;
+#endif
 	return 0;
 }
 
