@@ -23,6 +23,11 @@ struct queue_entry_pager {
 #define PAGER_CMD_OBJECT 1
 #define PAGER_CMD_OBJECT_PAGE 2
 
+enum bio_result {
+	BIO_RESULT_OK,
+	BIO_RESULT_ERR,
+};
+
 struct queue_entry_bio {
 	struct queue_entry qe;
 	objid_t tmpobjid;

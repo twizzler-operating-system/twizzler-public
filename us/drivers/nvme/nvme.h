@@ -180,7 +180,18 @@ struct nvme_namespace {
 	struct nvme_controller *nc;
 };
 
-struct nvme_queue {
+#include <twz/driver/queue.h>
+
+struct nvme_request {
+	struct queue_entry_bio bio;
+};
+
+#include <mutex>
+#include <unordered_map>
+
+class nvme_queue
+{
+  public:
 	struct {
 		volatile uint32_t *tail_doorbell;
 		uint32_t head, tail;
@@ -194,10 +205,14 @@ struct nvme_queue {
 		bool phase;
 	} cmpq;
 	atomic_uint_least64_t *sps;
+	std::unordered_map<uint16_t, struct nvme_request *> reqs;
+	std::mutex reqs_lock;
 	uint32_t count;
 };
 
-struct nvme_controller {
+class nvme_controller
+{
+  public:
 	twzobj co;
 	twzobj qo;
 	int dstride;
