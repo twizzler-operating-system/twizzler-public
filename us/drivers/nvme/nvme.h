@@ -5,6 +5,16 @@
 #include <stdint.h>
 #include <twz/obj.h>
 
+#include <twz/__cpp_compat.h>
+
+#ifdef __cplusplus
+#include <atomic>
+using std::atomic_uint_least32_t;
+using std::atomic_uint_least64_t;
+#else /* not __cplusplus */
+#include <stdatomic.h>
+#endif /* __cplusplus */
+
 #define NVME_REG_CAP 0
 #define NVME_REG_VS 8
 #define NVME_REG_INTMS 0xC
@@ -76,15 +86,15 @@ struct nvme_namespace_ident {
 	uint32_t lbaf[16];
 } __attribute__((packed));
 
-_Static_assert(offsetof(struct nvme_controller_ident, sqes) == 512, "");
-_Static_assert(offsetof(struct nvme_namespace_ident, lbaf) == 128, "");
+static_assert(offsetof(struct nvme_controller_ident, sqes) == 512, "");
+static_assert(offsetof(struct nvme_namespace_ident, lbaf) == 128, "");
 
 // Scatter gather list
 struct nvme_sgl {
 	char data[16];
 };
 
-_Static_assert(sizeof(struct nvme_sgl) == 16, "");
+static_assert(sizeof(struct nvme_sgl) == 16, "");
 
 // Physical region pointer
 struct nvme_prp {
@@ -112,7 +122,7 @@ struct nvme_cmd_hdr {
 	union nvme_data_ptr dptr;
 };
 
-_Static_assert(sizeof(struct nvme_cmd_hdr) == 40, "");
+static_assert(sizeof(struct nvme_cmd_hdr) == 40, "");
 
 struct nvme_cmd {
 	struct nvme_cmd_hdr hdr;
@@ -151,14 +161,14 @@ enum nvme_queue_priority {
 #define NVME_CMD_CREATE_CQ_CDW11_INT_EN (1 << 1)
 #define NVME_CMD_CREATE_CQ_CDW11_PHYS_CONT (1 << 0)
 
-_Static_assert(sizeof(struct nvme_cmd) == 64, "");
+static_assert(sizeof(struct nvme_cmd) == 64, "");
 
 struct nvme_cmp {
 	// Command specific
 	uint32_t cmp_dword[4];
 };
 
-_Static_assert(sizeof(struct nvme_cmp) == 16, "");
+static_assert(sizeof(struct nvme_cmp) == 16, "");
 
 struct nvme_namespace {
 	uint64_t size;
@@ -183,7 +193,7 @@ struct nvme_queue {
 		volatile struct nvme_cmp *entries;
 		bool phase;
 	} cmpq;
-	_Atomic uint64_t *sps;
+	atomic_uint_least64_t *sps;
 	uint32_t count;
 };
 
@@ -196,7 +206,7 @@ struct nvme_controller {
 	int nrvec;
 	size_t page_size;
 	size_t max_queue_slots;
-	_Atomic uint64_t sp_error;
+	atomic_uint_least64_t sp_error;
 	struct nvme_queue admin_queue;
 	struct nvme_queue *queues;
 	size_t nr_queues;

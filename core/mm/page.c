@@ -546,6 +546,9 @@ size_t PG_ZERO_THRESH[] = {
 
 void page_idle_zero(void)
 {
+	_Atomic bool *recur_flag = per_cpu_get(page_recur_crit_flag);
+	bool rf = atomic_exchange(recur_flag, true);
+
 	struct page_group *crit = &_pg_level0_critical;
 	while(crit->avail < PG_CRITICAL_THRESH) {
 		if(processor_has_threads(current_processor))
@@ -579,15 +582,18 @@ void page_idle_zero(void)
 						break;
 					}
 				} else if(sp) {
+					*recur_flag = true;
 					if(!__do_page_split(group, true)) {
 						break;
 					}
+					*recur_flag = rf;
 					// printk("piz: %s: splitting page\n", group->name);
 				} else {
 					break;
 				}
 			}
 		} else if(!(group->flags & PAGE_ZERO) && sp) {
+			*recur_flag = true;
 			while(group->avail < PG_ZERO_THRESH[group->level]) {
 				if(processor_has_threads(current_processor))
 					break;
@@ -597,6 +603,9 @@ void page_idle_zero(void)
 				if(!__do_page_split(group, true))
 					break;
 			}
+			*recur_flag = rf;
 		}
 	}
+
+	*recur_flag = rf;
 }

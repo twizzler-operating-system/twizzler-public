@@ -17,12 +17,13 @@
 
 static void msix_configure(twzobj *co, struct pcie_msix_capability *m, int nrvecs)
 {
-	struct pcie_function_header *hdr = twz_device_getds(co);
+	struct pcie_function_header *hdr = (struct pcie_function_header *)twz_device_getds(co);
 	struct device_repr *repr = twz_device_getrepr(co);
 	uint8_t bir = m->table_offset_bir & 0x7;
 	uint32_t off = m->table_offset_bir & ~0x7;
 	volatile struct pcie_msix_table_entry *tbl =
-	  twz_object_lea(co, (void *)((long)hdr->bars[bir] + off));
+	  (volatile struct pcie_msix_table_entry *)twz_object_lea(
+	    co, (void *)((long)hdr->bars[bir] + off));
 	for(int i = 0; i < nrvecs; i++, tbl++) {
 		tbl->data = device_msi_data(repr->interrupts[i].vec, MSI_LEVEL);
 		tbl->addr = device_msi_addr(0);

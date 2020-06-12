@@ -2,6 +2,14 @@
 
 #include <twz/_kso.h>
 
+#ifdef __cplusplus
+#include <atomic>
+using std::atomic_uint_least32_t;
+using std::atomic_uint_least64_t;
+#else /* not __cplusplus */
+#include <stdatomic.h>
+#endif /* __cplusplus */
+
 enum device_sync { DEVICE_SYNC_READY, DEVICE_SYNC_ERROR, DEVICE_SYNC_IOV_FAULT, MAX_DEVICE_SYNCS };
 
 #define DEVICE_INPUT 1
@@ -13,7 +21,7 @@ enum device_sync { DEVICE_SYNC_READY, DEVICE_SYNC_ERROR, DEVICE_SYNC_IOV_FAULT, 
 #define DEVICE_ID_FRAMEBUFFER 3
 
 struct device_interrupt {
-	_Atomic uint64_t sp;
+	atomic_uint_least64_t sp;
 	uint32_t flags;
 	uint16_t resv;
 	uint16_t vec;
@@ -26,7 +34,7 @@ struct device_repr {
 	uint64_t device_type;
 	uint32_t device_bustype;
 	uint32_t device_id;
-	_Atomic uint64_t syncs[MAX_DEVICE_SYNCS];
+	atomic_uint_least64_t syncs[MAX_DEVICE_SYNCS];
 	struct device_interrupt interrupts[MAX_DEVICE_INTERRUPTS];
 };
 
@@ -45,7 +53,7 @@ struct device_repr {
 
 static inline struct device_repr *twz_device_getrepr(twzobj *obj)
 {
-	return twz_object_base(obj);
+	return (struct device_repr *)twz_object_base(obj);
 }
 
 static inline void *twz_device_getds(twzobj *obj)
