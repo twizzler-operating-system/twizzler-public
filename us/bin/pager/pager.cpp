@@ -247,6 +247,7 @@ void _cmpl_fn()
 			continue;
 		}
 
+		//	printf("completing " IDFMT " page %lx\n", IDPR(pqe->id), pqe->page);
 		pqe->result = PAGER_RESULT_DONE;
 		queue_complete(&kq, (struct queue_entry *)pqe, 0);
 

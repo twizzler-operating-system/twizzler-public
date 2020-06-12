@@ -185,7 +185,7 @@ int kernel_queue_pager_request_object(objid_t id)
 		//	printk("[kq] warning - no pager registered\n");
 		return -1;
 	}
-	// printk("[kq] pager request object " IDFMT "\n", IDPR(id));
+	//	printk("[kq] pager request object " IDFMT "\n", IDPR(id));
 	bool new = current_thread->pager_obj_req == 0;
 
 	if(!new) {

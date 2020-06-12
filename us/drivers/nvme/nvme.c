@@ -26,7 +26,7 @@
 static size_t nvme_get_ideal_nr_queues(void)
 {
 	/* TODO */
-	return 4;
+	return 1;
 }
 
 static void nvme_cmd_init_identify(struct nvme_cmd *cmd, uint8_t cns, uint32_t nsid, uint64_t addr)
@@ -293,7 +293,6 @@ int nvmec_init(struct nvme_controller *nc)
 	r = twz_object_ctl(&nc->qo, OCO_CACHE_MODE, 0, q_total_len, OC_CM_UC);
 	if(r)
 		return r;
-	twz_object_init_guid(&nc->qo, aq_id, FE_READ | FE_WRITE);
 
 	r = twz_device_map_object(&nc->co, &nc->qo, 0, q_total_len);
 	if(r)
@@ -420,6 +419,22 @@ int nvmec_create_queues(struct nvme_controller *nc, size_t nrqueues, size_t slot
 	  (void *)(NVME_ASQS * (sizeof(struct nvme_cmd) + sizeof(struct nvme_cmp))
 	           + slots * nrqueues * sizeof(struct nvme_cmd));
 	for(size_t i = 0; i < nrqueues; i++, squeue_start += slots, cqueue_start += slots) {
+		int r;
+
+		r = twz_object_ctl(&nc->qo,
+		  OCO_CACHE_MODE,
+		  squeue_start - OBJ_NULLPAGE_SIZE,
+		  slots * sizeof(struct nvme_cmd) + OBJ_NULLPAGE_SIZE,
+		  OC_CM_UC);
+		if(r)
+			return r;
+		r = twz_object_ctl(&nc->qo,
+		  OCO_CACHE_MODE,
+		  cqueue_start - OBJ_NULLPAGE_SIZE,
+		  slots * sizeof(struct nvme_cmp) + OBJ_NULLPAGE_SIZE,
+		  OC_CM_UC);
+		if(r)
+			return r;
 		nvmeq_init(&nc->queues[i],
 		  (void *)((uint64_t)twz_object_base(&nc->qo) + (uint64_t)squeue_start),
 		  (void *)((uint64_t)twz_object_base(&nc->qo) + (uint64_t)cqueue_start),
@@ -427,7 +442,6 @@ int nvmec_create_queues(struct nvme_controller *nc, size_t nrqueues, size_t slot
 		  nvmec_get_doorbell(nc, i + 1, false),
 		  nvmec_get_doorbell(nc, i + 1, true));
 
-		int r;
 		r = twz_device_map_object(
 		  &nc->co, &nc->qo, (uintptr_t)squeue_start, slots * sizeof(struct nvme_cmd));
 		if(r)
@@ -616,6 +630,7 @@ void nvmeq_cq_consume(struct nvme_queue *q, uint32_t c)
 	bool wr = head < q->cmpq.head;
 	q->cmpq.head = head;
 	q->cmpq.phase ^= wr;
+	*q->cmpq.head_doorbell = head;
 }
 
 #define NVME_CMP_DW2_HEAD(x) ((x)&0xffff)
@@ -640,8 +655,9 @@ void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
 		buf[i] = cmp;
 		i++;
 	}
-	if(i == 0)
+	if(i == 0) {
 		return;
+	}
 	if(i > 0) {
 		nvmeq_cq_consume(q, i);
 	}
@@ -649,6 +665,7 @@ void nvmeq_interrupt(struct nvme_controller *nc, struct nvme_queue *q)
 	for(uint32_t j = 0; j < i; j++) {
 		uint16_t cid = buf[j]->cmp_dword[3] & 0xffff;
 		uint64_t result = ((uint64_t)buf[j]->cmp_dword[0] << 32) | buf[j]->cmp_dword[3];
+		result |= NVME_CMP_DW3_PHASE;
 		q->sps[cid] = result;
 		twz_thread_sync_init(&sas[j], THREAD_SYNC_WAKE, &q->sps[cid], INT_MAX, NULL);
 	}
@@ -726,8 +743,8 @@ static void nvme_cmd_init_read(struct nvme_cmd *cmd,
 void *ptm(void *arg)
 {
 	struct nvme_controller *nc = arg;
-	nvmec_create_queues(nc, 4, nc->max_queue_slots);
-	nvmec_identify(nc);
+	nvmec_create_queues(nc, nvme_get_ideal_nr_queues(), nc->max_queue_slots);
+	// nvmec_identify(nc);
 
 	while(1) {
 		struct queue_entry_bio bio;
@@ -736,8 +753,7 @@ void *ptm(void *arg)
 		(void)r;
 
 #if 0
-		fprintf(stderr,
-		  "[nvme] nvme got bio: %d %ld :: %lx (" IDFMT ")\n",
+		debug_printf("[nvme] nvme got bio: %d %ld :: %lx (" IDFMT ")\n",
 		  bio.qe.info,
 		  bio.blockid,
 		  bio.linaddr,
@@ -746,7 +762,7 @@ void *ptm(void *arg)
 
 		twzobj tmpobj;
 		twz_object_init_guid(&tmpobj, bio.tmpobjid, FE_READ);
-		r = twz_device_map_object(&nc->co, &tmpobj, 0, 0x800000);
+		r = twz_device_map_object(&nc->co, &tmpobj, 0, 0x8000000);
 		if(r) {
 			fprintf(stderr, "[nvme]: :( :( %d\n", r);
 		}
@@ -756,8 +772,8 @@ void *ptm(void *arg)
 		uint32_t cres;
 		nvme_cmd_init_read(&cmd, bio.linaddr, 1, bio.blockid * 8, 8, 512, 4096);
 		// fprintf(stderr, "nvme performing read\n");
-		int res = nvmec_execute_cmd(nc, &cmd, &nc->queues[1], &status, &cres);
-		// fprintf(stderr, "nvme got %d %d %d\n", res, status, cres);
+		int res = nvmec_execute_cmd(nc, &cmd, &nc->queues[0], &status, &cres);
+		// debug_printf("nvme got %d %d %d\n", res, status, cres);
 
 		bio.result = status;
 
