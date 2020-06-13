@@ -937,9 +937,15 @@ long linux_sys_wait4(long pid, int *wstatus, int options, struct rusage *rusage)
 				thrd[c++] = &pds[i].thrd;
 			}
 		}
-		int r = twz_thread_wait(c, thrd, sps, event, info);
-		if(r < 0) {
-			return r;
+		if(c == 0 || (options & WNOHANG)) {
+			/* TODO */
+			return -ECHILD;
+		}
+		if(!(options & WNOHANG)) {
+			int r = twz_thread_wait(c, thrd, sps, event, info);
+			if(r < 0) {
+				return r;
+			}
 		}
 
 		for(unsigned int i = 0; i < c; i++) {
@@ -951,6 +957,9 @@ long linux_sys_wait4(long pid, int *wstatus, int options, struct rusage *rusage)
 				twz_thread_release(&pds[pids[i]].thrd);
 				return pids[i];
 			}
+		}
+		if(options & WNOHANG) {
+			return 0;
 		}
 	}
 }

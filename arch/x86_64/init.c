@@ -217,7 +217,7 @@ static size_t _load_initrd(char *start, size_t modlen)
 			case '7':
 				nl = strlen(name);
 				// printk("Loading object: %s\e[K\r", name);
-				if(!strncmp(name, "kc", 2) && nl == 2) {
+				if(!strncmp(name, "kc", 2)) {
 					kc_parse(data, len);
 				} else {
 					if(nl < 33) {

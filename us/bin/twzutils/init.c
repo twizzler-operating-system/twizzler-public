@@ -133,10 +133,9 @@ void start_stream_device(objid_t id)
 void start_terminal(char *input, char *output, char *pty)
 {
 	kso_set_name(NULL, "[instance] term");
-	execv(
-	  "/usr/bin/term", (char *[]){ "/usr/bin/term", "-i", input, "-o", output, "-p", pty, NULL });
+	execv("term", (char *[]){ "term", "-i", input, "-o", output, "-p", pty, NULL });
 	// EPRINTF("failed to exec '%s': %s\n", strerror(errno));
-	EPRINTF("failed to exec /usr/bin/term\n");
+	EPRINTF("failed to exec term\n");
 	exit(1);
 }
 
@@ -163,7 +162,7 @@ void start_login(void)
 
 	kso_set_name(NULL, "[instance] login");
 
-	r = execv("/usr/bin/login", (char *[]){ "/usr/bin/login", NULL });
+	r = execv("login", (char *[]){ "login", NULL });
 	EPRINTF("execv failed: %d\n", r);
 }
 

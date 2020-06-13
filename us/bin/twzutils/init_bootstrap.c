@@ -13,8 +13,10 @@ int main()
 	}
 	unsetenv("BSNAME");
 	setenv("TERM", "linux", 1);
-	setenv("PATH", "/bin:/usr/bin", 1);
+	setenv("PATH", "/bin:/usr/bin:/storage/bin:/storage/usr/bin", 1);
+	setenv("LD_LIBRARY_PATH", "/lib:/usr/lib:/storage/lib:/storage/usr/lib", 1);
 
 	execlp("/usr/bin/init", "init", NULL);
+	debug_printf("Failed to start init\n");
 	return -1;
 }

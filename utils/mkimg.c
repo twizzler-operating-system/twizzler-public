@@ -107,7 +107,6 @@ void add_object_page(objid_t id, size_t pg, void *data, size_t len)
 
 		if(cur_chain_page == 0 || cur_chain_idx >= (0x1000 / sizeof(struct bucket))) {
 			cur_chain_page = addr_to_pagenr(alloc_page());
-			printf(":: %ld\n", cur_chain_page);
 			cur_chain_idx = 0;
 			nr_chain_pages++;
 		}
@@ -309,10 +308,11 @@ int main(int argc, char **argv)
 	htlen = (totalsz / 0x1000) * 2;
 	outmm_sz =
 	  0x1000 /* sb */ + (((htlen * sizeof(struct bucket)) + (0x1000 - 1)) & ~(0x1000 - 1)) + 0x1000;
+	/*
 	printf("estimated htsz = %ld entries (%ld KB) %ld\n",
 	  htlen,
 	  (htlen * sizeof(struct bucket)) / 1024,
-	  outmm_sz / 0x1000);
+	  outmm_sz / 0x1000);*/
 
 	nextpg = outmm_sz - 0x1000;
 	ftruncate(mmfd, outmm_sz);

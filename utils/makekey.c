@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 	};
 	int fd = open(pu, O_CREAT | O_TRUNC | O_RDWR, 0644);
 	if(fd == -1) {
-		err(1, "open");
+		err(1, "open: %s", pu);
 	}
 
 	if(write(fd, &h, sizeof(h)) != sizeof(h))
@@ -104,7 +104,7 @@ int main(int argc, char **argv)
 
 	fd = open(pr, O_CREAT | O_TRUNC | O_RDWR, 0644);
 	if(fd == -1) {
-		err(1, "open");
+		err(1, "open: %s", pr);
 	}
 	int prfd = open(infile, O_RDONLY);
 	if(prfd == -1) {

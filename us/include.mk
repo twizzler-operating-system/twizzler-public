@@ -114,29 +114,15 @@ include us/bin/include.mk
 include us/drivers/include.mk
 include us/playground/include.mk
 
-#TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .obj,$(foreach x,$(PROGS),twzutils/$(x))))
-#TWZOBJS+=$(addprefix $(BUILDDIR)/us/,$(addsuffix .data.obj,$(foreach x,$(PROGS),twzutils/$(x))))
-
 $(BUILDDIR)/us/kc: $(BUILDDIR)/us/root-tmp.tar
 	@echo "init=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/objroot/usr_bin_init_bootstrap.obj)" >> $(BUILDDIR)/us/kc
 	@echo "name=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/objroot/__ns)" >> $(BUILDDIR)/us/kc
 
-#TWZOBJS+=$(BUILDDIR)/us/bsv.obj
+$(BUILDDIR)/us/kc-initrd: $(BUILDDIR)/us/initrd-tmp.tar
+	@echo "init=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/initrdroot/usr_bin_init_bootstrap.obj)" >> $(BUILDDIR)/us/kc-initrd
+	@echo "name=$$($(BUILDDIR)/utils/objstat -i $(BUILDDIR)/us/initrdroot/__ns)" >> $(BUILDDIR)/us/kc-initrd
 
 include us/users.mk
-
-#$(BUILDDIR)/us/sysroot/usr/bin/%.text.obj $(BUILDDIR)/us/sysroot/usr/bin/%.data.obj: $(BUILDDIR)/us/sysroot/usr/bin/% $(UTILS)
-#	@echo [split] $<
-#	@$(BUILDDIR)/utils/elfsplit $<
-#	@echo [obj] $<.data.obj
-#	@$(BUILDDIR)/utils/file2obj -i $<.data -o $<.data.obj -p rh
-#	@echo [obj] $<.text.obj
-#	@dataid=$$($(BUILDDIR)/utils/objstat -i $<.data.obj) ;\
-#	$(BUILDDIR)/utils/file2obj -i $<.text -o $<.text.obj -p rxh -f 1:rwd:$$dataid
-
-
-#TWZOBJS+=$(BUILDDIR)/us/sysroot/usr/bin/bash.text.obj
-#TWZOBJS+=$(BUILDDIR)/us/sysroot/usr/bin/bash.data.obj
 
 $(BUILDDIR)/us/objroot/__ns: $(shell find $(BUILDDIR)/us/sysroot) $(SYSROOT_FILES) $(KEYOBJS)
 	@echo "[GEN]     objroot"
@@ -150,6 +136,48 @@ $(BUILDDIR)/us/objroot/__ns: $(shell find $(BUILDDIR)/us/sysroot) $(SYSROOT_FILE
 	@-rm -r $(BUILDDIR)/us/objroot
 	@mkdir -p $(BUILDDIR)/us/objroot
 	@export PROJECT=$(PROJECT) && ./us/gen_root.sh | ./us/gen_root.py projects/x86_64/build/us/objroot/ | ./us/append_ns.sh >/dev/null
+
+$(BUILDDIR)/us/nvme.img: $(BUILDDIR)/us/objroot/__ns $(CTXOBJS) $(UTILS)
+	@for i in $(CTXOBJS); do \
+		ID=$$($(BUILDDIR)/utils/objstat -i $$i) ;\
+		ln $$i $(BUILDDIR)/us/objroot/$$ID ;\
+		echo "r $$ID $$(basename -s .obj $$i)" | $(BUILDDIR)/utils/hier -A | $(BUILDDIR)/utils/appendobj $(BUILDDIR)/us/objroot/__ns;\
+	done
+	@echo "[MKIMG]   $@"
+	@ID=$$(projects/x86_64/build/utils/objstat -i $(BUILDDIR)/us/objroot/__ns);\
+	./projects/x86_64/build/utils/mkimg $(BUILDDIR)/us/objroot -o $@ -n $$ID
+
+
+INITRD_FILES=usr/bin/init usr/bin/init_bootstrap usr/bin/init_bootstrap.data usr/lib/libtwz.so usr/lib/libtwix.so usr/lib/libc.so lib/ld64.so lib/ld64.so.1 usr/lib/libgcc_s.so usr/lib/libgcc_s.so.1 usr/lib/libstdc++.so usr/lib/libstdc++.so.6 usr/lib/libstdc++.so.6.0.27 usr/bin/pager usr/bin/nvme usr/bin/input usr/bin/keyboard usr/bin/serial usr/bin/twzdev usr/bin/login usr/bin/bash usr/lib/libbacktrace.so usr/lib/libbacktrace.so.0 usr/lib/libbacktrace.so.0.0.0
+$(BUILDDIR)/us/initrdroot/__ns: $(KEYOBJS) $(addprefix $(BUILDDIR)/us/sysroot/,$(INITRD_FILES)) us/include.mk
+	@echo "[GEN]     initrdroot"
+	@-rm -r $(BUILDDIR)/us/initrdfiles
+	@mkdir -p $(BUILDDIR)/us/initrdfiles
+	@for i in $(INITRD_FILES); do \
+		mkdir -p $$(dirname $(BUILDDIR)/us/initrdfiles/$$i);\
+		cp -a $(BUILDDIR)/us/sysroot/$$i $(BUILDDIR)/us/initrdfiles/$$i;\
+	done
+	@-rm -r $(BUILDDIR)/us/initrdroot
+	@mkdir -p $(BUILDDIR)/us/initrdroot
+	@export PROJECT=$(PROJECT) && ./us/gen_root_simple.sh $(BUILDDIR)/us/initrdfiles/ $(BUILDDIR)/us/initrdroot | ./us/gen_root.py $(BUILDDIR)/us/initrdroot | ./us/append_ns_simple.sh $(BUILDDIR)/us/initrdroot
+
+
+
+$(BUILDDIR)/us/initrd-tmp.tar: $(BUILDDIR)/us/initrdroot/__ns $(CTXOBJS) $(UTILS)
+	@mkdir -p $(BUILDDIR)/us/initrd-objroot
+	@for i in $(CTXOBJS); do \
+		ID=$$($(BUILDDIR)/utils/objstat -i $$i) ;\
+		ln $$i $(BUILDDIR)/us/initrdroot/$$ID ;\
+		echo "r $$ID $$(basename -s .obj $$i)" | $(BUILDDIR)/utils/hier -A | $(BUILDDIR)/utils/appendobj $(BUILDDIR)/us/initrdroot/__ns;\
+	done
+	@echo "[TAR]     $@"
+	@tar cf $(BUILDDIR)/us/initrd-tmp.tar -C $(BUILDDIR)/us/initrdroot --exclude='__ns*' --exclude='*.obj' --xform s:'./':: .
+
+$(BUILDDIR)/us/initrd.tar: $(BUILDDIR)/us/initrd-tmp.tar $(BUILDDIR)/us/kc-initrd
+	@cp $< $@
+	@echo "[TAR]     $@"
+	@tar rf $@ -C $(BUILDDIR)/us kc-initrd
+	@tar rf $@ -C $(BUILDDIR)/us/keyroot --exclude='*.obj' --xform s:'./':: .
 
 $(BUILDDIR)/us/root-tmp.tar: $(BUILDDIR)/us/objroot/__ns $(CTXOBJS) $(UTILS)
 	@for i in $(CTXOBJS); do \
@@ -188,6 +216,6 @@ $(BUILDDIR)/us/root-old.tar: $(TWZOBJS) $(SYSLIBS)
 	@echo "[TAR]     $@"
 	@tar cf $(BUILDDIR)/us/root.tar -C $(BUILDDIR)/us/root --xform s:'./':: .
 
-userspace: $(BUILDDIR)/us/root.tar
+userspace: $(BUILDDIR)/us/root.tar $(BUILDDIR)/us/initrd.tar
 
 

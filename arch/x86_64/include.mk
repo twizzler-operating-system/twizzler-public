@@ -46,7 +46,7 @@ bootiso: $(BUILDDIR)/kernel userspace
 	@mkdir -p $(BUILDDIR)/boot/boot/grub
 	@cp machine/pc/grub.cfg $(BUILDDIR)/boot/boot/grub
 	@-rm $(BUILDDIR)/boot.iso
-	cd $(BUILDDIR); grub-mkrescue -o boot.iso kernel us/root.tar boot
+	cd $(BUILDDIR); grub-mkrescue -o boot.iso kernel us/root.tar us/initrd.tar boot
 
 test-bochs: bootiso
 	bochs -f machine/pc/bochsrc.txt

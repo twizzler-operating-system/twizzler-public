@@ -208,6 +208,6 @@ int main()
 		exit(1);
 	}
 	// int status;
-//	wait(&status);
+	// wait(&status);
 #endif
 }
