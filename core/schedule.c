@@ -118,7 +118,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			pager_idle_task();
 			page_idle_zero();
 			spinlock_acquire(&proc->sched_lock);
-			if(!processor_has_threads(proc)) {
+			if(!processor_has_threads(proc) && !(proc->flags & PROCESSOR_HASWORK)) {
 				spinlock_release(&proc->sched_lock, 0);
 				arch_processor_halt(proc);
 				// printk("wokeup\n");
@@ -203,8 +203,11 @@ void thread_wake(struct thread *t)
 	if(old == THREADSTATE_BLOCKED) {
 		list_insert(&t->processor->runqueue, &t->rq_entry);
 		t->processor->stats.running++;
+		t->processor->flags |= PROCESSOR_HASWORK;
 		if(t->processor != current_processor) {
+			spinlock_release_restore(&t->processor->sched_lock);
 			arch_processor_scheduler_wakeup(t->processor);
+			return;
 		}
 	}
 	spinlock_release_restore(&t->processor->sched_lock);
@@ -298,6 +301,10 @@ struct thread *thread_create(void)
 static void __print_fault_info(struct thread *t, int fault, void *info)
 {
 	printk("unhandled fault: %ld: %d\n", t ? (long)t->id : -1, fault);
+	struct object *to = kso_get_obj(t->throbj, thr);
+	struct kso_hdr *kh = obj_get_kbase(to);
+	printk("   %s\n", kh->name);
+	obj_put(to);
 	// debug_print_backtrace();
 	switch(fault) {
 		struct fault_object_info *foi;

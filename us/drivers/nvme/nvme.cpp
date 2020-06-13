@@ -613,6 +613,7 @@ void nvmeq_interrupt(nvme_controller *nc, nvme_queue *q)
 		nvmeq_cq_consume(q, i);
 	}
 	struct sys_thread_sync_args sas[16];
+	size_t tsc = 0;
 	for(uint32_t j = 0; j < i; j++) {
 		uint16_t cid = buf[j]->cmp_dword[3] & 0xffff;
 		uint64_t result = ((uint64_t)buf[j]->cmp_dword[0] << 32) | buf[j]->cmp_dword[3];
@@ -620,6 +621,7 @@ void nvmeq_interrupt(nvme_controller *nc, nvme_queue *q)
 		{
 			std::unique_lock<std::mutex> lck(q->reqs_lock);
 			req = q->reqs[cid];
+			q->reqs[cid] = NULL;
 		}
 		if(req) {
 			uint32_t cr, _sr;
@@ -630,11 +632,11 @@ void nvmeq_interrupt(nvme_controller *nc, nvme_queue *q)
 			delete req;
 		} else {
 			q->sps[cid] = result;
-			twz_thread_sync_init(&sas[j], THREAD_SYNC_WAKE, &q->sps[cid], INT_MAX, NULL);
+			twz_thread_sync_init(&sas[tsc++], THREAD_SYNC_WAKE, &q->sps[cid], INT_MAX, NULL);
 		}
 	}
 	int r;
-	if((r = twz_thread_sync_multiple(i, sas)) < 0) {
+	if(tsc && (r = twz_thread_sync_multiple(tsc, sas)) < 0) {
 		fprintf(stderr, "nvme interrupt thread_sync %d failed: %d\n", i, r);
 		abort();
 	}
@@ -644,6 +646,7 @@ void nvmeq_interrupt(nvme_controller *nc, nvme_queue *q)
 
 void nvme_wait_for_event(nvme_controller *nc)
 {
+	kso_set_name(NULL, "nvme.event_handler");
 	struct device_repr *repr = twz_device_getrepr(&nc->co);
 	struct sys_thread_sync_args sa[MAX_DEVICE_INTERRUPTS + 1];
 	twz_thread_sync_init(&sa[0], THREAD_SYNC_SLEEP, &repr->syncs[DEVICE_SYNC_IOV_FAULT], 0, NULL);
@@ -700,6 +703,7 @@ void nvme_wait_for_event(nvme_controller *nc)
 
 void *ptm(void *arg)
 {
+	kso_set_name(NULL, "nvme.request-handler");
 	std::set<std::pair<objid_t, size_t>> mapped;
 	nvme_controller *nc = (nvme_controller *)arg;
 	nvmec_create_queues(nc, nvme_get_ideal_nr_queues(), nc->max_queue_slots);
@@ -713,10 +717,10 @@ void *ptm(void *arg)
 
 #if 0
 		debug_printf("[nvme] nvme got bio: %d %ld :: %lx (" IDFMT ")\n",
-		  bio.qe.info,
-		  bio.blockid,
-		  bio.linaddr,
-		  IDPR(bio.tmpobjid));
+		  req->bio.qe.info,
+		  req->bio.blockid,
+		  req->bio.linaddr,
+		  IDPR(req->bio.tmpobjid));
 #endif
 
 		if(mapped.find(std::make_pair(req->bio.tmpobjid, offset)) == mapped.end()) {

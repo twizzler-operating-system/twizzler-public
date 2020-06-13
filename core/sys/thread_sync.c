@@ -89,6 +89,7 @@ static int sp_sleep_prep(struct syncpoint *sp,
 	spinlock_acquire_save(&current_thread->lock);
 	thread_sleep(current_thread, 0, ns);
 	current_thread->sleep_entries[idx].thr = current_thread;
+	assert(current_thread->sleep_entries[idx].active == false);
 	current_thread->sleep_entries[idx].active = true;
 	current_thread->sleep_entries[idx].sp = sp;
 	list_insert(&sp->waiters, &current_thread->sleep_entries[idx].entry);

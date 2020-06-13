@@ -189,37 +189,47 @@ void tm()
 	printf("Write got %d\n", *p);
 }
 
+static void __submit_bio(struct queue_entry_pager *pqe, device *dev, size_t block)
+{
+	struct queue_entry_bio bio;
+	bio.qe.info = pqe->qe.info;
+	bio.tmpobjid = pqe->tmpobjid;
+	bio.blockid = block;
+	bio.linaddr = pqe->linaddr;
+
+	queue_submit(dev->req_queue, (struct queue_entry *)&bio, 0);
+}
+
 void handle_pager_req(twzobj *qobj, struct queue_entry_pager *pqe, device *dev)
 {
 	// printf("[pager] got request for object " IDFMT "\n", IDPR(pqe->id));
 	if(pqe->cmd == PAGER_CMD_OBJECT) {
 		ssize_t r = dev->page_lookup(pqe->id, 0);
-		if(r < 0)
-			printf("!!! [pager] %d page_lookup returned %ld\n", pqe->qe.info, r);
-		// r = -1;
-		pqe->result = r < 0 ? PAGER_RESULT_ERROR : PAGER_RESULT_DONE;
-		queue_complete(qobj, (struct queue_entry *)pqe, 0);
-		//	printf("[pager] complete!\n");
+		if(r < 0) {
+			pqe->result = PAGER_RESULT_ERROR;
+		} else {
+			pqe->result = PAGER_RESULT_DONE;
+			if(pqe->page) {
+				ssize_t r = dev->page_lookup(pqe->id, pqe->page);
+				if(r < 0) {
+					pqe->page = 0;
+					queue_complete(qobj, (struct queue_entry *)pqe, 0);
+				} else {
+					__submit_bio(pqe, dev, r);
+				}
+			} else {
+				queue_complete(qobj, (struct queue_entry *)pqe, 0);
+			}
+		}
 	} else if(pqe->cmd == PAGER_CMD_OBJECT_PAGE) {
 		ssize_t r = dev->page_lookup(pqe->id, pqe->page);
 		if(r <= 0) {
-			printf("!!!!! [pager] %d page_lookup returned %ld\n", pqe->qe.info, r);
+			//	printf("!!!!! [pager] %d page_lookup returned %ld\n", pqe->qe.info, r);
 			pqe->result = PAGER_RESULT_ZERO;
 			queue_complete(qobj, (struct queue_entry *)pqe, 0);
 			return;
 		}
-
-		struct queue_entry_bio bio;
-		bio.qe.info = pqe->qe.info;
-		bio.tmpobjid = pqe->tmpobjid;
-		bio.blockid = r;
-		bio.linaddr = pqe->linaddr;
-
-		queue_submit(dev->req_queue, (struct queue_entry *)&bio, 0);
-		//		queue_get_finished(dev->req_queue, (struct queue_entry *)&bio, 0);
-
-		//		pqe->result = PAGER_RESULT_DONE;
-		//		queue_complete(qobj, (struct queue_entry *)pqe, 0);
+		__submit_bio(pqe, dev, r);
 	}
 }
 
@@ -247,7 +257,7 @@ void _cmpl_fn()
 			continue;
 		}
 
-		//	printf("completing " IDFMT " page %lx\n", IDPR(pqe->id), pqe->page);
+		// printf("completing " IDFMT " page %lx\n", IDPR(pqe->id), pqe->page);
 		pqe->result = PAGER_RESULT_DONE;
 		queue_complete(&kq, (struct queue_entry *)pqe, 0);
 

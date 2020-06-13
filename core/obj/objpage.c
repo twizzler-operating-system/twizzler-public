@@ -353,8 +353,8 @@ static enum obj_get_page_result __obj_get_page(struct object *obj,
 				if(!(flags & OBJ_GET_PAGE_PAGEROK)) {
 					panic("tried to get a page from a paged object without PAGEROK");
 				}
-				kernel_queue_pager_request_page(obj, idx);
 				spinlock_release_restore(&obj->lock);
+				kernel_queue_pager_request_page(obj, idx);
 				res = GETPAGE_PAGER;
 			} else if(obj->sourced_from) {
 				struct objpage *sop;
@@ -402,9 +402,9 @@ static enum obj_get_page_result __obj_get_page(struct object *obj,
 			panic("tried to get a page from a paged object without PAGEROK");
 		}
 
-		kernel_queue_pager_request_page(obj, idx);
-		/* TODO: error ? */
 		spinlock_release_restore(&obj->lock);
+		/* TODO: error ? */
+		kernel_queue_pager_request_page(obj, idx);
 		return GETPAGE_PAGER;
 	}
 

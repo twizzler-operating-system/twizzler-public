@@ -3,6 +3,10 @@
 #include <stdint.h>
 #include <twz/_objid.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum kso_type {
 	KSO_NONE,
 	KSO_VIEW,
@@ -42,4 +46,8 @@ struct kso_root_repr {
 #ifndef __KERNEL__
 #include <twz/_types.h>
 int kso_set_name(twzobj *obj, const char *name, ...);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
