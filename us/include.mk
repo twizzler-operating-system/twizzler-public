@@ -138,11 +138,6 @@ $(BUILDDIR)/us/objroot/__ns: $(shell find $(BUILDDIR)/us/sysroot) $(SYSROOT_FILE
 	@export PROJECT=$(PROJECT) && ./us/gen_root.sh | ./us/gen_root.py projects/x86_64/build/us/objroot/ | ./us/append_ns.sh >/dev/null
 
 $(BUILDDIR)/us/nvme.img: $(BUILDDIR)/us/objroot/__ns $(CTXOBJS) $(UTILS)
-	@for i in $(CTXOBJS); do \
-		ID=$$($(BUILDDIR)/utils/objstat -i $$i) ;\
-		ln $$i $(BUILDDIR)/us/objroot/$$ID ;\
-		echo "r $$ID $$(basename -s .obj $$i)" | $(BUILDDIR)/utils/hier -A | $(BUILDDIR)/utils/appendobj $(BUILDDIR)/us/objroot/__ns;\
-	done
 	@echo "[MKIMG]   $@"
 	@ID=$$(projects/x86_64/build/utils/objstat -i $(BUILDDIR)/us/objroot/__ns);\
 	./projects/x86_64/build/utils/mkimg $(BUILDDIR)/us/objroot -o $@ -n $$ID
