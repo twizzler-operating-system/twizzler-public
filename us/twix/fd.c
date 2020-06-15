@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <twz/_slots.h>
+#include <twz/name.h>
 #include <twz/obj.h>
 #include <twz/view.h>
 
@@ -11,6 +12,19 @@ static struct file cur_dir;
 struct file *twix_get_cwd(void)
 {
 	return &cur_dir;
+}
+
+long linux_sys_chroot(char *path)
+{
+	twzobj nr;
+	int r;
+	if((r = twz_object_init_name(&nr, path, FE_READ))) {
+		return r;
+	}
+	twz_object_init_name(&cur_dir.obj, path, FE_READ);
+	twz_name_switch_root(&nr);
+	// twz_object_init_name(&cur_dir.obj, ".", FE_READ);
+	return 0;
 }
 
 static int __check_fd_valid(int fd)

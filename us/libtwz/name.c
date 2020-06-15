@@ -52,9 +52,9 @@ bool objid_parse(const char *name, size_t len, objid_t *id)
 }
 
 static twzobj nameobj;
+static const char *nameid = NULL;
 static bool __name_init(void)
 {
-	static const char *nameid = NULL;
 	if(!nameid)
 		nameid = getenv("TWZNAME");
 
@@ -67,6 +67,21 @@ static bool __name_init(void)
 	twz_object_init_guid(&nameobj, id, FE_READ);
 
 	return true;
+}
+
+int twz_name_switch_root(twzobj *obj)
+{
+	__name_init();
+	twz_object_release(&nameobj);
+
+	char name[128];
+	sprintf(name, IDFMT, IDPR(twz_object_guid(obj)));
+	setenv("TWZNAME", name, 1);
+	nameid = getenv("TWZNAME");
+
+	twz_object_init_guid(&nameobj, twz_object_guid(obj), FE_READ);
+
+	return 0;
 }
 
 #if 0

@@ -44,6 +44,7 @@ int twz_fot_indirect_resolve(twzobj *obj,
 #define TWZ_NAME_RESOLVER_SOFN (void *)1ul
 
 int twz_name_assign_namespace(objid_t id, const char *name);
+int twz_name_switch_root(twzobj *obj);
 #ifdef __cplusplus
 }
 #endif

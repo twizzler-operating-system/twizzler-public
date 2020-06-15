@@ -291,9 +291,9 @@ long syscall_ocreate(uint64_t kulo,
 	if(ksot >= KSO_MAX) {
 		return -1;
 	}
-	struct object *o;
+	struct object *o, *so = NULL;
 	if(srcid) {
-		struct object *so = obj_lookup(srcid, 0);
+		so = obj_lookup(srcid, 0);
 		if(!so) {
 			return -ENOENT;
 		}
@@ -301,8 +301,8 @@ long syscall_ocreate(uint64_t kulo,
 			obj_put(so);
 			return r;
 		}
-		o = obj_create_clone(0, srcid, ksot);
-		obj_put(so);
+		spinlock_acquire_save(&so->lock);
+		o = obj_create_clone(0, so, ksot);
 	} else {
 		o = obj_create(0, ksot);
 	}
@@ -335,11 +335,12 @@ long syscall_ocreate(uint64_t kulo,
 #endif
 
 	if(srcid) {
-		struct object *so = obj_lookup(srcid, 0);
 		struct derivation_info *di = kalloc(sizeof(*di));
 
 		//	printk("alloced derivation: %p\n", di);
-		spinlock_acquire_save(&so->lock);
+		//	spinlock_acquire_save(&so->lock);
+		krc_get(&so->refs);
+		o->sourced_from = so;
 		di->id = id;
 		list_insert(&so->derivations, &di->entry);
 		spinlock_release_restore(&so->lock);

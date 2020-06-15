@@ -250,14 +250,9 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		arch_object_map_page(o, &p);
 		spinlock_release_restore(&p.page->lock);
 	} else {
-		//	printk("P\n");
 		struct objpage *p;
 		enum obj_get_page_result gpr =
 		  obj_get_page(o, loaddr % OBJ_MAXSIZE, &p, OBJ_GET_PAGE_ALLOC | OBJ_GET_PAGE_PAGEROK);
-		if(o->id == bs) {
-			//			printk("::: gpr %d\n", gpr);
-		}
-		//		  (o->flags & OF_PAGER) ? 0 : OBJ_GET_PAGE_ALLOC);
 		switch(gpr) {
 			case GETPAGE_OK:
 				break;
@@ -271,121 +266,52 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			} break;
 		}
 		assert(p && p->page);
-		//	printk("P0\n");
-		if(!(o->flags & OF_KERNEL))
-			spinlock_acquire_save(&o->lock);
-		//	printk("P1\n");
-		if(!(o->flags & OF_KERNEL))
-			spinlock_acquire_save(&p->page->lock);
 
-#if 0
-		if(o->id == bs)
-			printk(":: ofl=%lx, opfl=%lx, pcc=%d, %ld %ld\n",
-			  o->flags,
-			  p->flags,
-			  p->page->cowcount,
-			  o->refs.count,
-			  o->mapcount.count);
-#endif
 		if(!(o->flags & OF_KERNEL)) {
+			spinlock_acquire_save(&p->lock);
+			//		spinlock_acquire_save(&o->lock);
+			//		spinlock_acquire_save(&p->page->lock);
 			if(p->page->cowcount <= 1 && (p->flags & OBJPAGE_COW)) {
 				p->flags &= ~(OBJPAGE_COW | OBJPAGE_MAPPED);
 				p->page->cowcount = 1;
-				//	printk("COW: reset %ld\n", p->idx);
 			}
 
 			if((p->flags & OBJPAGE_COW) && (flags & OBJSPACE_FAULT_WRITE)) {
 				uint32_t old_count = atomic_fetch_sub(&p->page->cowcount, 1);
-				//	printk("COW: copy %ld: %d\n", p->idx, old_count);
-
 				if(old_count > 1) {
-					struct page *np = page_alloc(p->page->type, 0, p->page->level);
-					assert(np->level == p->page->level);
-					np->cowcount = 1;
-					void *cs = mm_ptov_try(p->page->addr);
-					void *cd = mm_ptov_try(np->addr);
-
-					bool src_fast = !!cs;
-					bool dest_fast = !!cd;
-
-					if(!cs) {
-						cs = tmpmap_map_page(p->page);
-					}
-					if(!cd) {
-						cd = tmpmap_map_page(np);
-					}
-
-					memcpy(cd, cs, mm_page_size(p->page->level));
-
-					if(!dest_fast) {
-						tmpmap_unmap_page(cd);
-					}
-					if(!src_fast) {
-						tmpmap_unmap_page(cs);
-					}
-
-					assert(np->cowcount == 1);
-
-					if(!(o->flags & OF_KERNEL))
-						spinlock_release_restore(&p->page->lock);
-					p->page = np;
-					if(!(o->flags & OF_KERNEL))
-						spinlock_acquire_save(&p->page->lock);
+					objpage_do_cow_write(p);
 				} else {
 					p->page->cowcount = 1;
 				}
 
 				p->flags &= ~OBJPAGE_COW;
-				arch_object_map_page(o, p);
-				p->flags |= OBJPAGE_MAPPED;
-				// int x;
-				/* TODO: better invalidation scheme */
-				// asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
+				spinlock_release_restore(&p->lock);
 
-				// for(;;)
-				//	;
+				spinlock_acquire_save(&o->lock);
+				arch_object_map_page(o, p);
+				spinlock_release_restore(&o->lock);
+				p->flags |= OBJPAGE_MAPPED;
 			} else {
-				// printk("P: %p %lx %lx\n", p->page, p->page->addr, p->flags);
+				spinlock_release_restore(&p->lock);
 				if(!(p->flags & OBJPAGE_MAPPED)) {
 					arch_object_map_page(o, p);
 					p->flags |= OBJPAGE_MAPPED;
-					// int x;
-					/* TODO: better invalidation scheme */
-					// asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
 				}
 			}
-		} else {
-			// bool m = arch_object_getmap_slot_flags(NULL, slot, &existing_flags);
 
+			//		spinlock_release_restore(&p->page->lock);
+			objpage_release(p, 0);
+			//		spinlock_release_restore(&o->lock);
+		} else {
 			spinlock_acquire_save(&o->lock);
 			if(!(p->flags & OBJPAGE_MAPPED)) {
 				arch_object_map_page(o, p);
 				p->flags |= OBJPAGE_MAPPED;
-				// int x;
-				/* TODO: better invalidation scheme */
-				// asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
 			}
 			spinlock_release_restore(&o->lock);
 		}
-
-		//		int t = arch_object_getmap_slot_flags(NULL, slot, &existing_flags);
-		//		if(o->id == bs)
-		//			printk("----> %d %lx\n", t, existing_flags);
-		if(!(o->flags & OF_KERNEL))
-			spinlock_release_restore(&p->page->lock);
-		objpage_release(p, OBJPAGE_RELEASE_OBJLOCKED);
-		if(!(o->flags & OF_KERNEL))
-			spinlock_release_restore(&o->lock);
 	}
-	// printk("Mapped successfully\n");
-	//	do_map = false;
-	//}
-	/* TODO: put page? */
-
 done:
-
-	// asm volatile("mov %%rsp, %0" : "=r"(rsp));
-	// printk("---> %lx\n", rsp);
 	obj_put(o);
 	slot_release(slot);
 }

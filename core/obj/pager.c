@@ -253,8 +253,8 @@ int kernel_queue_pager_request_object(objid_t id)
 
 	if(!new) {
 		// printk("[kq] this is a redo!\n");
-		obj_put(qobj);
-		return -1;
+		//	obj_put(qobj);
+		//	return 0;
 	}
 
 	spinlock_acquire_save(&pager_lock);

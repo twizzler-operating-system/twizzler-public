@@ -299,27 +299,25 @@ int main()
 		return 1;
 	}
 
-	queue_init_hdr(&kq, 5, sizeof(struct queue_entry_pager), 5, sizeof(struct queue_entry_pager));
+	queue_init_hdr(&kq, 12, sizeof(struct queue_entry_pager), 12, sizeof(struct queue_entry_pager));
 
 	if((r = sys_kqueue(twz_object_guid(&kq), KQ_PAGER, 0))) {
 		fprintf(stderr, "failed to assign kqueue\n");
 		return 1;
 	}
+	//	twzobj *nvme_queue = (twzobj *)malloc(sizeof(&nvme_queue));
+	if(twz_object_init_name(&nvme_queue, "/dev/nvme-queue", FE_READ | FE_WRITE)) {
+		fprintf(stderr, "failed to open nvme queue\n");
+		return 1;
+	}
+
+	nvme_dev = new device(&nvme_queue);
+
+	nvme_dev->get_sb();
 
 	if(!fork()) {
-		//	twzobj *nvme_queue = (twzobj *)malloc(sizeof(&nvme_queue));
-		if(twz_object_init_name(&nvme_queue, "/dev/nvme-queue", FE_READ | FE_WRITE)) {
-			fprintf(stderr, "failed to open nvme queue\n");
-			return 1;
-		}
-
-		nvme_dev = new device(&nvme_queue);
-
-		nvme_dev->get_sb();
-
 		std::thread thr_incoming(_incom_fn);
 		std::thread thr_completing(_cmpl_fn);
-		// std::thread thr2(tm);
 
 		while(1) {
 			queue_entry_pager *pqe = new queue_entry_pager;

@@ -148,19 +148,14 @@ void obj_assign_id(struct object *obj, objid_t id)
 	spinlock_release_restore(&objlock);
 }
 
-struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot)
+struct object *obj_create_clone(uint128_t id, struct object *src, enum kso_type ksot)
 {
-	struct object *src = obj_lookup(srcid, 0);
-	if(src == NULL) {
-		return NULL;
-	}
+	assert(src->lock.data);
 	struct object *obj = __obj_alloc(ksot, id);
 
 	obj_clone_cow(src, obj);
 
 	// if(src->flags & OF_PAGER) {
-	krc_get(&src->refs);
-	obj->sourced_from = src;
 	//} else {
 	//	obj_put(src);
 	//}

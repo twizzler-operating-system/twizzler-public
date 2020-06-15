@@ -65,6 +65,7 @@ struct twix_register_frame {
 	uint64_t rsp;
 	uint64_t return_addr;
 };
+long linux_sys_chroot(char *path);
 
 long linux_sys_preadv2(int fd, const struct iovec *iov, int iovcnt, ssize_t off, int flags);
 long linux_sys_preadv(int fd, const struct iovec *iov, int iovcnt, size_t off);

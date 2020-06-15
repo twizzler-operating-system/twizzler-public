@@ -58,6 +58,7 @@
 #define LINUX_SYS_getppid 110
 #define LINUX_SYS_getpgid 121
 #define LINUX_SYS_arch_prctl 158
+#define LINUX_SYS_chroot 161
 #define LINUX_SYS_gettid 186
 
 #define LINUX_SYS_futex 202
@@ -149,6 +150,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_prlimit] = linux_sys_prlimit,
 	[LINUX_SYS_getpgid] = linux_sys_getpgid,
 	[LINUX_SYS_getrlimit] = linux_sys_getrlimit,
+	[LINUX_SYS_chroot] = linux_sys_chroot,
 };
 
 __attribute__((unused)) static const char *syscall_names[] = {

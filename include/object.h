@@ -160,7 +160,7 @@ void object_space_release_slot(struct slot *slot);
 struct object *obj_create(uint128_t id, enum kso_type);
 void obj_system_init(void);
 void obj_system_init_objpage(void);
-struct object *obj_create_clone(uint128_t id, objid_t srcid, enum kso_type ksot);
+struct object *obj_create_clone(uint128_t id, struct object *, enum kso_type ksot);
 
 #define OBJ_LOOKUP_HIDDEN 1
 struct object *obj_lookup(uint128_t id, int flags);
@@ -204,6 +204,7 @@ void objpage_release(struct objpage *op, int);
 void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr);
 void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val);
+void objpage_do_cow_write(struct objpage *p);
 bool obj_get_pflags(struct object *obj, uint32_t *pf);
 int obj_check_permission(struct object *obj, uint64_t flags);
 void obj_free_kaddr(struct object *obj);

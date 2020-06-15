@@ -18,6 +18,7 @@ static twzobj pids;
 static struct pcie_function *pcie_list = NULL;
 int create_pty_pair(char *server, char *client);
 
+#if 0
 static void pcie_print_function(struct pcie_function *pf, bool nums)
 {
 	static bool _init = false;
@@ -152,7 +153,7 @@ static void pcie_print_function(struct pcie_function *pf, bool nums)
 	(void)vname;
 #endif
 }
-
+#endif
 static int pcie_init_function(struct pcie_function *pf)
 {
 	uint64_t wc = 0;
@@ -265,7 +266,7 @@ void pcie_load_bus(twzobj *obj)
 	pcie_init_space(twz_bus_getbs(&pcie_cs_obj));
 
 	for(struct pcie_function *pf = pcie_list; pf; pf = pf->next) {
-		pcie_print_function(pf, false);
+		//	pcie_print_function(pf, false);
 		if(pcie_init_function(pf) == 0)
 			pcie_load_driver(pf);
 	}

@@ -181,6 +181,26 @@ int main()
 	}
 	wait(&status);
 
+	twzobj st;
+	if(twz_object_init_name(&st, "/storage", FE_READ | FE_WRITE) == 0) {
+		fprintf(stderr, "[init] switching name root to storage\n");
+		twzobj devdir;
+		if(twz_object_init_name(&devdir, "/dev", FE_READ) == 0) {
+			if(twz_name_assign_namespace(twz_object_guid(&devdir), "/storage/dev") == 0) {
+				if(chroot("/storage") == -1) {
+					fprintf(
+					  stderr, "[init] failed to chroot to new root; continuing from initrd\n");
+				}
+			} else {
+				fprintf(stderr, "[init] failed to link dev directory, continuing from initrd\n");
+			}
+		} else {
+			fprintf(stderr, "[init] failed to open dev directory, continuing from initrd\n");
+		}
+	} else {
+		fprintf(stderr, "[init] failed to switch to storage, continuing from initrd\n");
+	}
+
 	/* start the terminal program */
 	if(access("/dev/pty/pty0", F_OK) == 0) {
 		if(!fork()) {

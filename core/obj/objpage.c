@@ -7,6 +7,7 @@
 #include <pager.h>
 #include <processor.h>
 #include <slab.h>
+#include <tmpmap.h>
 
 #include <twz/_sys.h>
 
@@ -115,15 +116,25 @@ static struct objpage *objpage_clone(struct object *newobj, struct objpage *op, 
 
 void obj_clone_cow(struct object *src, struct object *nobj)
 {
-	spinlock_acquire_save(&src->lock);
+	assert(src->lock.data);
 	arch_object_remap_cow(src);
 	for(struct rbnode *node = rb_first(&src->pagecache_root); node; node = rb_next(node)) {
 		struct objpage *pg = rb_entry(node, struct objpage, node);
-		struct objpage *npg = objpage_clone(nobj, pg, 0);
-		rb_insert(&nobj->pagecache_root, npg, struct objpage, node, __objpage_compar);
-	}
+		// struct objpage *npg = objpage_clone(nobj, pg, 0);
+		// rb_insert(&nobj->pagecache_root, npg, struct objpage, node, __objpage_compar);
 
-	spinlock_release_restore(&src->lock);
+		struct objpage *new_op;
+		if(pg->page) {
+			new_op = objpage_clone(nobj, pg, 0);
+		} else {
+			new_op = objpage_alloc(nobj);
+			new_op->srcidx = pg->idx;
+			rb_insert(
+			  &nobj->idx_map, new_op, struct objpage, idx_map_node, __objpage_idxmap_compar);
+		}
+		new_op->idx = pg->idx;
+		rb_insert(&nobj->pagecache_root, new_op, struct objpage, node, __objpage_compar);
+	}
 }
 
 void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t soff, size_t len)
@@ -178,6 +189,10 @@ void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t
 		if(dnode) {
 			struct objpage *dp = rb_entry(dnode, struct objpage, node);
 			rb_delete(dnode, &dp->obj->pagecache_root);
+			if(dp->srcidx) {
+				dp->srcidx = 0;
+				rb_delete(&dp->idx_map_node, &dp->obj->idx_map);
+			}
 			objpage_release(dp, OBJPAGE_RELEASE_OBJLOCKED);
 		}
 
@@ -192,8 +207,8 @@ void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t
 			struct rbnode *node =
 			  rb_search(&src->pagecache_root, src_idx, struct objpage, node, __objpage_compar_key);
 			struct objpage *new_op;
-			if(node) {
-				struct objpage *pg = rb_entry(node, struct objpage, node);
+			struct objpage *pg = node ? rb_entry(node, struct objpage, node) : NULL;
+			if(node && pg->page) {
 				new_op = objpage_clone(dest, pg, 0);
 			} else {
 				new_op = objpage_alloc(dest);
@@ -202,10 +217,18 @@ void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t
 				  &dest->idx_map, new_op, struct objpage, idx_map_node, __objpage_idxmap_compar);
 			}
 			new_op->idx = dst_idx;
-			//		krc_get(&new_op->refs);
 			rb_insert(&dest->pagecache_root, new_op, struct objpage, node, __objpage_compar);
 		}
 	}
+#if 0
+	printk("copy pages::" IDFMT " => " IDFMT ": %lx -> %lx for %lx DONE\n",
+	  IDPR(src ? src->id : 0),
+	  IDPR(dest->id),
+	  soff / 0x1000,
+	  doff / 0x1000,
+	  len / 0x1000);
+#endif
+
 	spinlock_release_restore(&dest->lock);
 	if(src) {
 		spinlock_release_restore(&src->lock);
@@ -250,35 +273,23 @@ static void __obj_get_page_handle_derived(struct objpage *op)
 	 */
 
 	assert(op->page);
-	assert(!(op->flags & OBJPAGE_MAPPED));
 	struct object *obj = op->obj;
 	foreach(e, list, &obj->derivations) {
 		struct derivation_info *derived = list_entry(e, struct derivation_info, entry);
 
 		struct object *derived_obj = obj_lookup(derived->id, 0);
-		// printk("checking derivation object " IDFMT ": %d\n", IDPR(derived->id), !!derived_obj);
+#if 0
+		printk(":: " IDFMT ":%lx :: checking derivation object " IDFMT ": %d\n",
+		  IDPR(obj->id),
+		  op->idx,
+		  IDPR(derived->id),
+		  !!derived_obj);
+#endif
 		if(!derived_obj)
 			continue;
 
 		spinlock_acquire_save(&derived_obj->lock);
-		struct rbnode *node;
-#if 0
-		node = rb_search(
-		  &derived_obj->pagecache_root, op->idx, struct objpage, node, __objpage_compar_key);
-		// printk("  normal idx %lx returned %d\n", op->idx, !!node);
-		if(node && 0) {
-			struct objpage *dop = rb_entry(node, struct objpage, node);
-			if(dop->page == NULL) {
-				op->flags |= OBJPAGE_COW;
-				assert(op->page->cowcount > 0);
-				op->page->cowcount++;
-				dop->flags = OBJPAGE_COW;
-				dop->page = op->page;
-			}
-		}
-#endif
-
-		node = rb_search(&derived_obj->idx_map,
+		struct rbnode *node = rb_search(&derived_obj->idx_map,
 		  op->idx,
 		  struct objpage,
 		  idx_map_node,
@@ -287,13 +298,17 @@ static void __obj_get_page_handle_derived(struct objpage *op)
 		if(node) {
 			rb_delete(node, &derived_obj->idx_map);
 			struct objpage *dop = rb_entry(node, struct objpage, idx_map_node);
+			dop->srcidx = 0;
 			// printk("    :: %lx\n", dop->idx);
 			if(dop->page == NULL) {
+				spinlock_acquire_save(&op->lock);
 				op->flags |= OBJPAGE_COW;
 				assert(op->page->cowcount > 0);
 				op->page->cowcount++;
 				dop->flags = OBJPAGE_COW;
 				dop->page = op->page;
+				spinlock_release_restore(&op->lock);
+				__obj_get_page_handle_derived(dop);
 			}
 		}
 		spinlock_release_restore(&derived_obj->lock);
@@ -358,20 +373,38 @@ static enum obj_get_page_result __obj_get_page(struct object *obj,
 				res = GETPAGE_PAGER;
 			} else if(obj->sourced_from) {
 				struct objpage *sop;
+				assert(op->srcidx);
+				size_t srcidx = op->srcidx;
 				spinlock_release_restore(&obj->lock);
 
 #if 0
-				printk("%lx getting page %lx from source obj " IDFMT "\n",
+				printk("ogp: " IDFMT " %lx getting page %lx from source obj " IDFMT " :: %x\n",
+				  IDPR(obj->id),
 				  idx,
 				  op->srcidx,
-				  IDPR(obj->sourced_from->id));
+				  IDPR(obj->sourced_from->id),
+				  flags);
+
 #endif
 				/* TODO: we can probably pass flags & ~OBJ_GET_PAGE_ALLOC  and handle that. */
-				assert(op->srcidx);
-				res = obj_get_page(
-				  obj->sourced_from, op->srcidx ? op->srcidx * mm_page_size(0) : addr, &sop, flags);
+				//			assert(op->srcidx);
+				res = obj_get_page(obj->sourced_from, srcidx * mm_page_size(0), &sop, flags);
+				//			printk("    +> %d :: %p %p\n", res, sop ? sop->page : NULL, op->page);
 				if(res == GETPAGE_OK) {
 					struct objpage *oldres = *result;
+					if(op->page == NULL) {
+						struct rbnode *n = rb_search(&obj->idx_map,
+						  op->srcidx,
+						  struct objpage,
+						  idx_map_node,
+						  __objpage_idxmap_compar_key);
+
+						panic("oh shit here comes dat bug :: " IDFMT " %lx :: %p\n",
+						  IDPR(obj->id),
+						  idx,
+						  n);
+					}
+					assert(op->page);
 					res = obj_get_page(obj, addr, result, flags);
 					if(oldres) {
 						objpage_release(oldres, 0);
@@ -481,4 +514,37 @@ void obj_cache_page(struct object *obj, size_t addr, struct page *p)
 	// arch_object_map_page(obj, page->page, page->idx);
 	// page->flags |= OBJPAGE_MAPPED;
 	spinlock_release_restore(&obj->lock);
+}
+
+void objpage_do_cow_write(struct objpage *p)
+{
+	struct page *np = page_alloc(p->page->type, 0, p->page->level);
+	assert(np->level == p->page->level);
+	np->cowcount = 1;
+	void *cs = mm_ptov_try(p->page->addr);
+	void *cd = mm_ptov_try(np->addr);
+
+	bool src_fast = !!cs;
+	bool dest_fast = !!cd;
+
+	if(!cs) {
+		cs = tmpmap_map_page(p->page);
+	}
+	if(!cd) {
+		cd = tmpmap_map_page(np);
+	}
+
+	memcpy(cd, cs, mm_page_size(p->page->level));
+
+	if(!dest_fast) {
+		tmpmap_unmap_page(cd);
+	}
+	if(!src_fast) {
+		tmpmap_unmap_page(cs);
+	}
+
+	assert(np->cowcount == 1);
+
+	p->page = np;
+	//__obj_get_page_handle_derived(p);
 }
