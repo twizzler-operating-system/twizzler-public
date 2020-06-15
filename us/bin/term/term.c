@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <libgen.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -410,6 +411,8 @@ void fb_render(struct fb *fb, int c)
 			}
 			break;
 		default:
+			if(!isprint(c))
+				break;
 			glyph = fb->bold ? fb->bold_glyph_cache[c] : fb->glyph_cache[c];
 			if(!glyph) {
 				glyph = ssfn_render(fb->bold ? &fb->bold_ctx : &fb->ctx, c);
