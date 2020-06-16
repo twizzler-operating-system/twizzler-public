@@ -1,0 +1,30 @@
+#!/bin/sh
+
+NAME=gcc
+VERSION=9.2.0
+DEPS=
+desc="C and C++ compiler"
+
+DOWNLOADS=(https://bigsearcher.com/mirrors/gcc/releases/gcc-9.2.0/gcc-9.2.0.tar.xz)
+HASHES=(306d27c3465fa36862c206738d06d65fff5c3645)
+
+SPLITS=()
+
+function prepare() {
+	tar xf gcc-9.2.0.tar.xz
+	cd gcc-9.2.0
+	#sed -i 's/| sortix\*/| sortix\* | twizzler\*/g' support/config.sub
+	patch -p1 < ../../../../../../../tools/gcc-9.2.0-twizzler-hosted.patch
+	./configure --prefix=/usr --host=$TARGET --disable-nls --enable-shared --enable-languages=c,c++ --with-gmp=$SYSROOT/../opt-sysroot/usr --enable-host-shared --enable-shared enable_shared=yes --enable-languages=c,c++ --enable-lto --disable-nls --disable-werror --target=$TARGET --with-build-sysroot=$SYSROOT
+}
+
+function build() {
+	cd gcc-9.2.0
+	make $MAKEFLAGS all-gcc all-target-libgcc all-target-libstdc++-v3 all-target-libsanitizer
+}
+
+function install() {
+	cd gcc-9.2.0
+	make $MAKEFLAGS DESTDIR=$SYSROOT/../opt-sysroot install-gcc install-target-libgcc install-target-libstdc++-v3 install-target-libsanitizer
+}
+

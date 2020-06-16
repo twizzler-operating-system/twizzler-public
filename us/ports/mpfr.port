@@ -1,0 +1,31 @@
+#!/bin/sh
+
+NAME=mpfr
+VERSION=4.0.2
+DEPS=
+desc="GNU multiple precision floating point library"
+
+DOWNLOADS=(https://www.mpfr.org/mpfr-current/mpfr-4.0.2.tar.xz)
+HASHES=(52c1f2a4c9a202f46cf3275a8d46b562aa584208)
+
+SPLITS=()
+
+function prepare() {
+	tar xf mpfr-4.0.2.tar.xz
+	cd mpfr-4.0.2
+	cp ../../../../../../../us/ports/config.sub .
+	#sed -i 's/| -sortix\*/| -sortix\* | twizzler\*/g' config.sub
+	./configure --prefix=/usr --host=$TARGET --enable-shared CC=x86_64-pc-twizzler-musl-gcc --with-gmp=$SYSROOT/../opt-sysroot/usr
+}
+
+function build() {
+	cd mpfr-4.0.2
+	make $MAKEFLAGS
+}
+
+function install() {
+	cd mpfr-4.0.2
+	make $MAKEFLAGS DESTDIR=$SYSROOT/../opt-sysroot install
+	find $SYSROOT/../opt-sysroot/usr/lib -name '*.la' | xargs rm
+}
+

@@ -1,0 +1,31 @@
+#!/bin/sh
+
+NAME=mpc
+VERSION=1.1.0
+DEPS=
+desc="GNU multiple precision library"
+
+DOWNLOADS=(https://ftp.gnu.org/gnu/mpc/mpc-1.1.0.tar.gz)
+HASHES=(b019d9e1d27ec5fb99497159d43a3164995de2d0)
+
+SPLITS=()
+
+function prepare() {
+	tar xf mpc-1.1.0.tar.gz
+	cd mpc-1.1.0
+	chmod 0644 config.sub
+	cp ../../../../../../../us/ports/config.sub .
+	#sed -i 's/| -sortix\*/| -sortix\* | twizzler\*/g' config.sub
+	./configure --prefix=/usr --host=$TARGET --with-gmp=$SYSROOT/../opt-sysroot/usr --with-mpfr=$SYSROOT/../opt-sysroot/usr --enable-shared CC=x86_64-pc-twizzler-musl-gcc
+}
+
+function build() {
+	cd mpc-1.1.0
+	make $MAKEFLAGS
+}
+
+function install() {
+	cd mpc-1.1.0
+	make $MAKEFLAGS DESTDIR=$SYSROOT/../opt-sysroot install
+}
+

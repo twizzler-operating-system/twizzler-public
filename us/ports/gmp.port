@@ -1,0 +1,30 @@
+#!/bin/sh
+
+NAME=gmp
+VERSION=6.2.0
+DEPS=
+desc="GNU multiple precision library"
+
+DOWNLOADS=(https://gmplib.org/download/gmp/gmp-6.2.0.tar.lz)
+HASHES=(93450c3197ab93173bf8f21c4e48c12814f4e8a3)
+
+SPLITS=()
+
+function prepare() {
+	tar xf gmp-6.2.0.tar.lz
+	cd gmp-6.2.0
+	#sed -i 's/| sortix\*/| sortix\* | twizzler\*/g' support/config.sub
+	./configure --prefix=/usr --host=$TARGET --enable-shared
+}
+
+function build() {
+	cd gmp-6.2.0
+	make $MAKEFLAGS
+}
+
+function install() {
+	cd gmp-6.2.0
+	make $MAKEFLAGS DESTDIR=$SYSROOT/../opt-sysroot install
+	find $SYSROOT/../opt-sysroot/usr/lib -name '*.la' | xargs rm
+}
+
