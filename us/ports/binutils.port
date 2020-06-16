@@ -1,0 +1,31 @@
+#!/bin/sh
+
+NAME=binutils
+VERSION=2.32
+DEPS=
+desc="ELF tools, linker, assembler"
+
+DOWNLOADS=(https://ftp.gnu.org/gnu/binutils/binutils-2.32.tar.xz)
+HASHES=(cd45a512af1c8a508976c1beb4f5825b3bb89f4d)
+
+SPLITS=()
+
+function prepare() {
+	tar xf binutils-2.32.tar.xz
+	cd binutils-2.32
+	#sed -i 's/| sortix\*/| sortix\* | twizzler\*/g' support/config.sub
+	patch -p1 < ../../../../../../../tools/binutils-2.32-twizzler-hosted.patch
+	./configure --prefix=/usr --host=$TARGET --disable-nls --enable-shared
+}
+
+function build() {
+	cd binutils-2.32
+	make $MAKEFLAGS 
+}
+
+function install() {
+	cd binutils-2.32
+	make $MAKEFLAGS DESTDIR=$SYSROOT/../opt-sysroot install
+}
+
+
