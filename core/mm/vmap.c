@@ -404,6 +404,7 @@ void vm_context_fault(uintptr_t ip, uintptr_t addr, int flags)
 		return;
 	}
 	__do_map(current_thread->ctx, ip, addr, flags, true, false);
+	// printk("done pf\n");
 }
 
 int vm_context_wire(const void *p)

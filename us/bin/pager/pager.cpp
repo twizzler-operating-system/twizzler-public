@@ -207,6 +207,7 @@ void handle_pager_req(twzobj *qobj, struct queue_entry_pager *pqe, device *dev)
 		ssize_t r = dev->page_lookup(pqe->id, 0);
 		if(r < 0) {
 			pqe->result = PAGER_RESULT_ERROR;
+			queue_complete(qobj, (struct queue_entry *)pqe, 0);
 		} else {
 			pqe->result = PAGER_RESULT_DONE;
 			if(pqe->page) {

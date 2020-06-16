@@ -18,11 +18,9 @@ for ent in $(find projects/$PROJECT/build/us/sysroot | cut -d'/' -f6- | grep -v 
 			perms=rh
 		fi
 
-		#echo $ent >&2
 		if [[ -L $SYSROOT/$ent ]]; then
 			link=$(readlink $SYSROOT/$ent)
 			echo $ent'*SYM*'$link
-	#		echo $ent'*SYM*'$link >&2
 		else
 			if [[ -f $SYSROOT/$ent.data ]]; then
 				target_data=$OBJROOT/${ent//\//_}.data.obj

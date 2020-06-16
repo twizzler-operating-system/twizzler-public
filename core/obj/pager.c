@@ -165,7 +165,6 @@ static void __complete_object(struct pager_request *pr, struct queue_entry_pager
 		printk("[kq] warning - completion ID mismatch\n");
 		return;
 	}
-	// printk("complete object :: %d\n", pqe->result);
 	if(pqe->result == PAGER_RESULT_DONE) {
 		struct object *obj = obj_lookup(pqe->id, 0);
 		if(!obj) {
@@ -185,9 +184,9 @@ static void __complete_object(struct pager_request *pr, struct queue_entry_pager
 		}
 	} else {
 		pr->thread->pager_obj_req = 0;
-		// struct fault_object_info info =
-		//  twz_fault_build_object_info(pr->pqe.id, NULL /* TODO */, NULL, FAULT_OBJECT_EXIST);
-		// thread_queue_fault(pr->thread, FAULT_OBJECT, &info, sizeof(info));
+		struct fault_object_info info =
+		  twz_fault_build_object_info(pr->pqe.id, NULL /* TODO */, NULL, FAULT_OBJECT_EXIST);
+		thread_queue_fault(pr->thread, FAULT_OBJECT, &info, sizeof(info));
 	}
 
 	thread_wake(pr->thread);
@@ -248,7 +247,7 @@ int kernel_queue_pager_request_object(objid_t id)
 		//	printk("[kq] warning - no pager registered\n");
 		return -1;
 	}
-	//	printk("[kq] pager request object " IDFMT "\n", IDPR(id));
+	// printk("[kq] pager request object " IDFMT "\n", IDPR(id));
 	bool new = current_thread->pager_obj_req == 0;
 
 	if(!new) {

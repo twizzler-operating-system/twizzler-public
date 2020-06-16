@@ -44,6 +44,10 @@
 
 #define LINUX_SYS_uname 63
 
+#define LINUX_SYS_fsync 74
+
+#define LINUX_SYS_ftruncate 77
+
 #define LINUX_SYS_mkdir 83
 
 #define LINUX_SYS_readlink 89
@@ -90,6 +94,11 @@
 #include "syscalls.h"
 
 long linux_sys_set_thread_area()
+{
+	return 0;
+}
+
+long linux_sys_fsync()
 {
 	return 0;
 }
@@ -151,6 +160,8 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_getpgid] = linux_sys_getpgid,
 	[LINUX_SYS_getrlimit] = linux_sys_getrlimit,
 	[LINUX_SYS_chroot] = linux_sys_chroot,
+	[LINUX_SYS_fsync] = linux_sys_fsync,
+	[LINUX_SYS_ftruncate] = linux_sys_ftruncate,
 };
 
 __attribute__((unused)) static const char *syscall_names[] = {
@@ -507,7 +518,7 @@ long twix_syscall(long num, long a0, long a1, long a2, long a3, long a4, long a5
 		/* needs frame */
 		return -ENOSYS;
 	}
-	//	twix_log(":: %ld: %ld %d\n", num, a0, (int)a2);
+	// twix_log(":: %ld: %ld %d\n", num, a0, (int)a2);
 	long r = syscall_table[num](a0, a1, a2, a3, a4, a5);
 	// debug_printf("sc %ld(%s) ret %ld\n", num, syscall_names[num], r);
 	//	if(num != LINUX_SYS_write && num != LINUX_SYS_writev)

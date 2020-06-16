@@ -51,7 +51,7 @@ static void *alloc_page(void)
 	size_t next = nextpg;
 	nextpg += 0x1000;
 	if(nextpg > outmm_sz) {
-		size_t oldsz = outmm_sz;
+		// size_t oldsz = outmm_sz;
 		outmm_sz += 0x10000;
 		//	munmap(out_base, oldsz);
 		ftruncate(mmfd, outmm_sz);
@@ -275,11 +275,6 @@ int main(int argc, char **argv)
 		errx(1, "provide directory to use");
 	}
 
-	DIR *d = opendir(argv[optind]);
-	if(!d) {
-		err(1, "opendir");
-	}
-
 	if(!outf)
 		errx(1, "provide '-o outfile'");
 
@@ -287,22 +282,30 @@ int main(int argc, char **argv)
 	if(mmfd == -1)
 		err(1, "open");
 
-	struct dirent *ent;
 	size_t totalsz = 0;
-	while((ent = readdir(d))) {
-		objid_t id;
-		if(str_to_objid_try(ent->d_name, &id)) {
-			continue;
+	for(int i = optind; i < argc; i++) {
+		DIR *d = opendir(argv[i]);
+		if(!d) {
+			err(1, "opendir");
 		}
-		// printf(":: %s :: %lx:%lx\n", ent->d_name, (uint64_t)(id >> 64), (uint64_t)id);
-		char *filename;
-		asprintf(&filename, "%s/%s", argv[optind], ent->d_name);
-		struct stat st;
-		if(stat(filename, &st)) {
-			err(1, "stat");
+
+		struct dirent *ent;
+		while((ent = readdir(d))) {
+			objid_t id;
+			if(str_to_objid_try(ent->d_name, &id)) {
+				continue;
+			}
+			// printf(":: %s :: %lx:%lx\n", ent->d_name, (uint64_t)(id >> 64), (uint64_t)id);
+			char *filename;
+			asprintf(&filename, "%s/%s", argv[i], ent->d_name);
+			struct stat st;
+			if(stat(filename, &st)) {
+				err(1, "stat");
+			}
+			totalsz += st.st_size;
+			free(filename);
 		}
-		totalsz += st.st_size;
-		free(filename);
+		closedir(d);
 	}
 
 	htlen = (totalsz / 0x1000) * 2;
@@ -318,17 +321,24 @@ int main(int argc, char **argv)
 	ftruncate(mmfd, outmm_sz);
 	out_base = mmap(NULL, outmm_sz, PROT_READ | PROT_WRITE, MAP_SHARED, mmfd, 0);
 
-	rewinddir(d);
-	while((ent = readdir(d))) {
-		objid_t id;
-		if(str_to_objid_try(ent->d_name, &id)) {
-			continue;
+	for(int i = optind; i < argc; i++) {
+		DIR *d = opendir(argv[i]);
+		if(!d) {
+			err(1, "opendir");
 		}
-		//	printf(":: %s :: %lx:%lx\n", ent->d_name, (uint64_t)(id >> 64), (uint64_t)id);
-		char *filename;
-		asprintf(&filename, "%s/%s", argv[optind], ent->d_name);
-		process_object(filename, id);
-		free(filename);
+		struct dirent *ent;
+		while((ent = readdir(d))) {
+			objid_t id;
+			if(str_to_objid_try(ent->d_name, &id)) {
+				continue;
+			}
+			//	printf(":: %s :: %lx:%lx\n", ent->d_name, (uint64_t)(id >> 64), (uint64_t)id);
+			char *filename;
+			asprintf(&filename, "%s/%s", argv[i], ent->d_name);
+			process_object(filename, id);
+			free(filename);
+		}
+		closedir(d);
 	}
 
 	struct sb *sb = out_base;

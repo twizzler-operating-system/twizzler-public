@@ -116,6 +116,16 @@ long linux_sys_dup(int oldfd)
 	return internal_dup(oldfd, -1, 0, 1);
 }
 
+long linux_sys_ftruncate(int fd, off_t length)
+{
+	struct file *f = twix_get_fd(fd);
+	if(!f)
+		return -EBADF;
+
+	twz_object_setsz(&f->obj, TWZ_OSSM_ABSOLUTE, length);
+	return 0;
+}
+
 long linux_sys_lseek(int fd, off_t off, int whence)
 {
 	struct file *f = twix_get_fd(fd);

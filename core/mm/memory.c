@@ -53,6 +53,7 @@ void mm_register_region(struct memregion *reg)
 
 uintptr_t mm_vtoo(void *addr)
 {
+	/* TODO: replace these functions with functions that get an object page, etc */
 	uintptr_t phys;
 	int level;
 	if(!arch_vm_getmap(NULL, (uintptr_t)addr, &phys, &level, NULL))

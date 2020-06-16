@@ -79,6 +79,7 @@ long linux_sys_read(int fd, void *buf, size_t count);
 long linux_sys_write(int fd, void *buf, size_t count);
 long linux_sys_ioctl(int fd, unsigned long request, unsigned long arg);
 
+long linux_sys_ftruncate(int fd, off_t length);
 long linux_sys_select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds, struct timeval *timeout);
 long linux_sys_pselect6(int nfds,
   fd_set *readfds,

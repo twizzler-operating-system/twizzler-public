@@ -124,7 +124,7 @@ $(BUILDDIR)/us/kc-initrd: $(BUILDDIR)/us/initrd-tmp.tar
 
 include us/users.mk
 
-$(BUILDDIR)/us/objroot/__ns: $(shell find $(BUILDDIR)/us/sysroot) $(SYSROOT_FILES) $(KEYOBJS)
+$(BUILDDIR)/us/objroot/__ns: $(shell find $(BUILDDIR)/us/sysroot) $(SYSROOT_FILES) $(KEYOBJS) $(BUILDDIR)/us/opt-objroot/__ns
 	@echo "[GEN]     objroot"
 	@mv $(BUILDDIR)/us/sysroot/usr/share/terminfo/l/linux $(BUILDDIR)/us/sysroot/linux
 	@rm -rf $(BUILDDIR)/us/sysroot/usr/share/doc
@@ -136,11 +136,21 @@ $(BUILDDIR)/us/objroot/__ns: $(shell find $(BUILDDIR)/us/sysroot) $(SYSROOT_FILE
 	@-rm -r $(BUILDDIR)/us/objroot
 	@mkdir -p $(BUILDDIR)/us/objroot
 	@export PROJECT=$(PROJECT) && ./us/gen_root.sh | ./us/gen_root.py projects/x86_64/build/us/objroot/ | ./us/append_ns.sh >/dev/null
+	@ID=$$(projects/x86_64/build/utils/objstat -i $(BUILDDIR)/us/opt-objroot/__ns);\
+	echo "d $$ID opt" | $(BUILDDIR)/utils/hier -A | $(BUILDDIR)/utils/appendobj $(BUILDDIR)/us/objroot/__ns
 
-$(BUILDDIR)/us/nvme.img: $(BUILDDIR)/us/objroot/__ns $(CTXOBJS) $(UTILS)
+$(BUILDDIR)/us/opt-objroot/__ns: $(shell find $(BUILDDIR)/us/opt-sysroot)
+	@echo "[GEN]     opt-objroot"
+	@-rm -r $(BUILDDIR)/us/opt-objroot
+	@mkdir -p $(BUILDDIR)/us/opt-objroot
+	@export PROJECT=$(PROJECT) && ./us/gen_root_simple.sh $(BUILDDIR)/us/opt-sysroot/ $(BUILDDIR)/us/opt-objroot | ./us/gen_root.py $(BUILDDIR)/us/opt-objroot | ./us/append_ns_simple.sh $(BUILDDIR)/us/opt-objroot >/dev/null
+
+
+
+$(BUILDDIR)/us/nvme.img: $(BUILDDIR)/us/objroot/__ns $(CTXOBJS) $(UTILS) $(BUILDDIR)/us/opt-objroot/__ns
 	@echo "[MKIMG]   $@"
 	@ID=$$(projects/x86_64/build/utils/objstat -i $(BUILDDIR)/us/objroot/__ns);\
-	./projects/x86_64/build/utils/mkimg $(BUILDDIR)/us/objroot -o $@ -n $$ID
+	./projects/x86_64/build/utils/mkimg $(BUILDDIR)/us/objroot $(BUILDDIR)/us/opt-objroot -o $@ -n $$ID
 
 
 INITRD_FILES=usr/bin/init usr/bin/init_bootstrap usr/bin/init_bootstrap.data usr/lib/libtwz.so usr/lib/libtwix.so usr/lib/libc.so lib/ld64.so lib/ld64.so.1 usr/lib/libgcc_s.so usr/lib/libgcc_s.so.1 usr/lib/libstdc++.so usr/lib/libstdc++.so.6 usr/lib/libstdc++.so.6.0.27 usr/bin/pager usr/bin/nvme usr/bin/input usr/bin/keyboard usr/bin/serial usr/bin/twzdev usr/lib/libbacktrace.so usr/lib/libbacktrace.so.0 usr/lib/libbacktrace.so.0.0.0
@@ -154,7 +164,7 @@ $(BUILDDIR)/us/initrdroot/__ns: $(KEYOBJS) $(addprefix $(BUILDDIR)/us/sysroot/,$
 	done
 	@-rm -r $(BUILDDIR)/us/initrdroot
 	@mkdir -p $(BUILDDIR)/us/initrdroot
-	@export PROJECT=$(PROJECT) && ./us/gen_root_simple.sh $(BUILDDIR)/us/initrdfiles/ $(BUILDDIR)/us/initrdroot | ./us/gen_root.py $(BUILDDIR)/us/initrdroot | ./us/append_ns_simple.sh $(BUILDDIR)/us/initrdroot
+	@export PROJECT=$(PROJECT) && ./us/gen_root_simple.sh $(BUILDDIR)/us/initrdfiles/ $(BUILDDIR)/us/initrdroot | ./us/gen_root.py $(BUILDDIR)/us/initrdroot | ./us/append_ns_simple.sh $(BUILDDIR)/us/initrdroot > /dev/null
 
 
 

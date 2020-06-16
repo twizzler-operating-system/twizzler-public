@@ -31,6 +31,8 @@ int twix_openpathat(int dfd, const char *path, int flags, objid_t *id)
 	return 0;
 }
 
+#include <twz/fault.h>
+#include <twz/twztry.h>
 long linux_sys_stat(const char *path, struct stat *sb)
 {
 	twzobj obj;
@@ -60,12 +62,20 @@ long linux_sys_stat(const char *path, struct stat *sb)
 			break;
 	}
 
-	struct metainfo *mi = twz_object_meta(&obj);
-	sb->st_size = mi->sz;
-	sb->st_ino = (uint64_t)twz_object_guid(&obj);
-	sb->st_dev = (uint64_t)(twz_object_guid(&obj) >> 64);
-	sb->st_mode |= S_IXOTH | S_IROTH | S_IRWXU | S_IRGRP | S_IXGRP;
-	twz_object_release(&obj);
+	twztry
+	{
+		struct metainfo *mi = twz_object_meta(&obj);
+		sb->st_size = mi->sz;
+		sb->st_ino = (uint64_t)twz_object_guid(&obj);
+		sb->st_dev = (uint64_t)(twz_object_guid(&obj) >> 64);
+		sb->st_mode |= S_IXOTH | S_IROTH | S_IRWXU | S_IRGRP | S_IXGRP;
+		twz_object_release(&obj);
+	}
+	twzcatch(FAULT_OBJECT)
+	{
+		return -ENOENT;
+	}
+	twztry_end;
 	return 0;
 }
 
@@ -108,6 +118,7 @@ long linux_sys_fstat(int fd, struct stat *sb)
 	int io = 0;
 	if(twz_object_getext(&fi->obj, TWZIO_METAEXT_TAG))
 		io = 1;
+
 	struct metainfo *mi = twz_object_meta(&fi->obj);
 	memset(sb, 0, sizeof(*sb));
 	sb->st_size = mi->sz;
