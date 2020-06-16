@@ -38,6 +38,7 @@
 #define LINUX_SYS_getpid 39
 #define LINUX_SYS_clone 56
 #define LINUX_SYS_fork 57
+#define LINUX_SYS_vfork 58
 #define LINUX_SYS_execve 59
 #define LINUX_SYS_exit 60
 #define LINUX_SYS_wait4 61
@@ -162,6 +163,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_chroot] = linux_sys_chroot,
 	[LINUX_SYS_fsync] = linux_sys_fsync,
 	[LINUX_SYS_ftruncate] = linux_sys_ftruncate,
+	[LINUX_SYS_vfork] = linux_sys_fork, /* this is not a typo: we implement vfork as fork. */
 };
 
 __attribute__((unused)) static const char *syscall_names[] = {
