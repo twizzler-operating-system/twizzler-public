@@ -62,9 +62,6 @@ static void objpage_delete(struct objpage *op)
 {
 	if(op->page) {
 		if(op->flags & OBJPAGE_COW) {
-			//		printk(
-			//		  "COW rel: %d : " IDFMT " :: %lx\n", op->page->cowcount, IDPR(op->obj->id),
-			// op->idx);
 			if(op->page->cowcount-- <= 1) {
 				page_dealloc(op->page, 0);
 			}
@@ -120,8 +117,6 @@ void obj_clone_cow(struct object *src, struct object *nobj)
 	arch_object_remap_cow(src);
 	for(struct rbnode *node = rb_first(&src->pagecache_root); node; node = rb_next(node)) {
 		struct objpage *pg = rb_entry(node, struct objpage, node);
-		// struct objpage *npg = objpage_clone(nobj, pg, 0);
-		// rb_insert(&nobj->pagecache_root, npg, struct objpage, node, __objpage_compar);
 
 		struct objpage *new_op;
 		if(pg->page) {

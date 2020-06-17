@@ -28,8 +28,11 @@ struct nv_region {
 	uint64_t length;
 	struct rbnode node;
 	struct nv_interleave *ilinfo;
+	struct object *obj;
 	uint32_t id;
 	uint32_t flags;
+	uint64_t mono_id;
+	struct nv_device *dev;
 };
 
 void nv_register_region(struct nv_device *dev,

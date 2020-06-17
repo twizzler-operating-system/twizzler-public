@@ -24,3 +24,7 @@ struct memory_stats_header {
 	size_t nr_page_groups;
 	struct page_stats page_stats[];
 };
+
+struct nv_header {
+	int x;
+};

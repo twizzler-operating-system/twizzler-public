@@ -42,6 +42,7 @@ struct device_repr {
 #define DEVICE_BT_PCIE 1
 #define DEVICE_BT_USB 2
 #define DEVICE_BT_MISC 3
+#define DEVICE_BT_NV 4
 #define DEVICE_BT_SYSTEM 1024
 
 #define KACTION_CMD_DEVICE_SETUP_INTERRUPTS 1
