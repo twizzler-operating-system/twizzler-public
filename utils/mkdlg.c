@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 			char *as, *bs, *cs;
 			ssize_t f;
 			case 'd':
-				dlg.flags |= SCF_TYPE_DLG;
+				//			dlg.flags |= SCF_TYPE_DLG;
 				break;
 			case 't':
 				dlg.delegatee = str_to_objid(optarg);

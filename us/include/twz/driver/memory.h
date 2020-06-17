@@ -26,5 +26,6 @@ struct memory_stats_header {
 };
 
 struct nv_header {
-	int x;
+	uint64_t devid;
+	uint32_t regid;
 };

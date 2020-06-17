@@ -37,12 +37,27 @@ enum SC_ENC_FNS {
 #define SCP_DEL MIP_DFL_DEL
 #define SCP_CD 0x1000
 
-#define SCF_TYPE_DLG 1
+#define SCF_TYPE_REGRANT_MASK 2
 #define SCF_GATE 2
 #define SCF_REV 4
 
 #define SC_CAP_MAGIC 0xca55
 #define SC_DLG_MAGIC 0xdf55
+
+/* Effective permissions (EP) of an object are calculated as follows:
+ * P0 = ((obj.pflags & ~sc.gmask) | (obj.pflags & sc[obj].amask)) & ~sc[obj].mask
+ * EP = P0 | all-caps | all-dlgs
+ *
+ * Basically, the object's default permissions are masked by a global mask
+ * (a way to make the context a "granted only" context). Then an objects default permissions
+ * are masked by a per-object mask in the context (to "add back in" permissions per object).
+ * Finally, the permissions are masked by a per-object mask. The reasons for this:
+ *   - I may want a security context that gives access to object only via caps (hence, global mask).
+ *   - I may want a context that gives executable access via caps only, except I can also execute a
+ *     few other object that normally would be executable (since the per-object regranting mask).
+ *   - Finally, I may want to allow normal access to object, but prevent reading from a specific one
+ *     (since the final object mask).
+ */
 
 struct sccap {
 	objid_t target;
@@ -97,6 +112,8 @@ struct secctx {
 			size_t max;
 		} alloc;
 	};
+	uint32_t gmask;
+	uint32_t flags;
 	size_t nbuckets;
 	size_t nchain;
 	struct scbucket buckets[];

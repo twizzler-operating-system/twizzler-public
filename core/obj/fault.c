@@ -64,6 +64,7 @@ static bool __objspace_fault_calculate_perms(struct object *o,
   uint64_t *perms)
 {
 	/* optimization: just check if default permissions are enough */
+#if 0
 	uint32_t p_flags;
 	if(!obj_get_pflags(o, &p_flags)) {
 		struct fault_object_info info =
@@ -89,6 +90,9 @@ static bool __objspace_fault_calculate_perms(struct object *o,
 		*perms |= OBJSPACE_WRITE;
 	if(dfl & MIP_DFL_EXEC)
 		*perms |= OBJSPACE_EXEC_U;
+#else
+	bool ok = false;
+#endif
 	if(!ok) {
 		*perms = 0;
 		uint32_t res;

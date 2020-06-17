@@ -8,6 +8,7 @@
 
 #include <twz/driver/bus.h>
 #include <twz/driver/device.h>
+#include <twz/driver/memory.h>
 
 RB_DECLARE_STANDARD_COMPARISONS(nv_device, uint64_t, id);
 
@@ -85,6 +86,10 @@ static void __init_nv_objects(void *_a __unused)
 
 			snprintf(name, 128, "NVDIMM Region %d:%d", reg->dev->id, reg->id);
 			kso_setname(reg->obj, name);
+
+			struct nv_header *hdr = device_get_devspecific(reg->obj);
+			hdr->devid = reg->dev->id;
+			hdr->regid = reg->id;
 
 			kso_attach(nv_bus, reg->obj, reg->mono_id);
 		}

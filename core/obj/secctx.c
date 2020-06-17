@@ -496,6 +496,8 @@ static void __lookup_perms(struct sctx *sc,
 	size_t slot = target->id % ctx->nbuckets;
 	struct scgates *gatelist = NULL;
 	size_t gatecount = 0, gatepos = 0;
+
+	uint32_t dfl_mask = 0, dfl_remask = 0;
 	do {
 		struct scbucket *b;
 		b = (void *)(kbase + sizeof(*ctx) + sizeof(*b) * slot);
@@ -508,7 +510,15 @@ static void __lookup_perms(struct sctx *sc,
 			struct scgates gs = { .offset = 0, .length = ~0, .align = 0 };
 			/* get this entry's perm, masked with this buckets mask. Then, if we're gating,
 			 * check the gates. */
-			perms |= __lookup_perm_bucket(sc->obj, b, &gs, target) & b->pmask;
+			if(b->data) {
+				perms |= __lookup_perm_bucket(sc->obj, b, &gs, target) & b->pmask;
+			} else {
+				if(b->flags & SCF_TYPE_REGRANT_MASK) {
+					dfl_remask |= b->pmask;
+				} else {
+					dfl_mask |= b->pmask;
+				}
+			}
 			/* TODO: only do this if the gate is meaningful */
 			//		printk("have gate: %x %x %x\n", gs.offset, gs.length, gs.align);
 			if(b->flags & SCF_GATE) {
@@ -535,6 +545,9 @@ static void __lookup_perms(struct sctx *sc,
 	dfl |= (p_flags & MIP_DFL_READ) ? SCP_READ : 0;
 	dfl |= (p_flags & MIP_DFL_WRITE) ? SCP_WRITE : 0;
 	dfl |= (p_flags & MIP_DFL_EXEC) ? SCP_EXEC : 0;
+
+	dfl = ((dfl & ~ctx->gmask) | (dfl & dfl_remask)) & ~dfl_mask;
+
 	if(p) {
 		*p = perms | dfl;
 	}
@@ -551,6 +564,37 @@ static void __lookup_perms(struct sctx *sc,
 
 	obj_release_kaddr(sc->obj);
 }
+
+#if 0
+int secctx_check_default_perms(struct object *target, uint32_t needed, uint32_t *perms)
+{
+	uint32_t p_flags;
+	if(!obj_get_pflags(o, &p_flags)) {
+		struct fault_object_info info =
+		  twz_fault_build_object_info(o->id, (void *)ip, (void *)vaddr, FAULT_OBJECT_INVALID);
+		thread_raise_fault(current_thread, FAULT_OBJECT, &info, sizeof(info));
+
+		return false;
+	}
+	uint32_t dfl = p_flags & (MIP_DFL_READ | MIP_DFL_WRITE | MIP_DFL_EXEC | MIP_DFL_USE);
+	bool ok = true;
+	if(flags & OBJSPACE_FAULT_READ) {
+		ok = ok && (dfl & MIP_DFL_READ);
+	}
+	if(flags & OBJSPACE_FAULT_WRITE) {
+		ok = ok && (dfl & MIP_DFL_WRITE);
+	}
+	if(flags & OBJSPACE_FAULT_EXEC) {
+		ok = ok && (dfl & MIP_DFL_EXEC);
+	}
+	if(dfl & MIP_DFL_READ)
+		*perms |= OBJSPACE_READ;
+	if(dfl & MIP_DFL_WRITE)
+		*perms |= OBJSPACE_WRITE;
+	if(dfl & MIP_DFL_EXEC)
+		*perms |= OBJSPACE_EXEC_U;
+}
+#endif
 
 static int check_if_valid(struct sctx *sc,
   void *ip,
@@ -634,6 +678,20 @@ int secctx_fault_resolve(void *ip,
 
 	/* we have a "temporary" context with no actual backing. Thus there are no permissions. */
 	if(current_thread->active_sc->obj == NULL) {
+		spinlock_release_restore(&current_thread->sc_lock);
+		uint32_t dfl = 0;
+		uint32_t p_flags = 0;
+		obj_get_pflags(target, &p_flags);
+		dfl |= (p_flags & MIP_DFL_READ) ? SCP_READ : 0;
+		dfl |= (p_flags & MIP_DFL_WRITE) ? SCP_WRITE : 0;
+		dfl |= (p_flags & MIP_DFL_EXEC) ? SCP_EXEC : 0;
+
+		if((dfl & needed) == needed) {
+			if(perms)
+				*perms = dfl;
+			return 0;
+		}
+
 		goto fault_noperm;
 	}
 

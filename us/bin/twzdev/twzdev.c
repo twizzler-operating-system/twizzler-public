@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
 #include <twz/bstream.h>
 #include <twz/driver/bus.h>
 #include <twz/driver/device.h>
+#include <twz/driver/memory.h>
 #include <twz/driver/queue.h>
 #include <twz/name.h>
 #include <twz/obj.h>
@@ -178,6 +180,19 @@ int main()
 					}
 				} else if(br->bus_type == DEVICE_BT_SYSTEM) {
 					/* nothing */
+				} else if(br->bus_type == DEVICE_BT_NV) {
+					mkdir("/dev/nv", 0755);
+					for(size_t i = 0; i < br->max_children; i++) {
+						struct kso_attachment *k = twz_object_lea(&dobj, &br->children[i]);
+						if(k->id == 0)
+							continue;
+						twzobj nvobj;
+						twz_object_init_guid(&nvobj, k->id, FE_READ);
+						struct nv_header *hdr = twz_device_getds(&nvobj);
+						char name[128];
+						sprintf(name, "/dev/nv/nvr%lx:%x", hdr->devid, hdr->regid);
+						twz_name_assign(k->id, name);
+					}
 				} else {
 					fprintf(stderr, "unknown bus_type: %d\n", br->bus_type);
 				}
