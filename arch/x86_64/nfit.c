@@ -1,6 +1,10 @@
 #include <arch/x86_64-acpi.h>
 #include <debug.h>
+#include <kalloc.h>
+#include <lib/iter.h>
+#include <lib/list.h>
 #include <memory.h>
+#include <nvdimm.h>
 #include <pmap.h>
 #include <system.h>
 
@@ -76,6 +80,20 @@ struct __packed nfit_desc {
 
 static struct nfit_desc *nfit;
 
+struct spa {
+	struct list entry, regions;
+	struct nfit_entry *nfit;
+};
+
+struct region {
+	struct list entry, spa_entry;
+	struct spa *spa;
+	struct nfit_entry *nfit;
+};
+
+static DECLARE_LIST(spa_list);
+static DECLARE_LIST(region_list);
+
 __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void nfit_init(void)
 {
 	if(!(nfit = acpi_find_table("NFIT"))) {
@@ -86,31 +104,49 @@ __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void nfit_in
 	char *ptr = start;
 	while(ptr < start + nfit->header.length) {
 		struct nfit_entry *nfit_entry = (struct nfit_entry *)ptr;
-		printk("nfit: %d\n", nfit_entry->type);
 		if(nfit_entry->type == NFIT_TYPE_SPA) {
-			printk(":: nfit spa: base = %lx, length = %lx; flags = %x, attrs = %lx, index = %d\n",
-			  nfit_entry->spa.base,
-			  nfit_entry->spa.length,
-			  nfit_entry->spa.flags,
-			  nfit_entry->spa.attrs,
-			  nfit_entry->spa.idx);
-			printk("           : guid: %x %x %x ",
-			  nfit_entry->spa.art_guid.a,
-			  nfit_entry->spa.art_guid.b,
-			  nfit_entry->spa.art_guid.c);
-			for(int i = 0; i < 8; i++) {
-				printk("%x ", nfit_entry->spa.art_guid.d[i]);
-			}
-			printk("\n");
+			struct spa *s = kalloc(sizeof(*s));
+			list_init(&s->regions);
+			s->nfit = nfit_entry;
+			list_insert(&spa_list, &s->entry);
 		} else if(nfit_entry->type == NFIT_TYPE_REGION) {
-			printk(
-			  ":: nfit reg: base = %lx, spa_idx = %d, offset = %lx, length = %lx, state = %x\n",
-			  nfit_entry->region.phys_base,
-			  nfit_entry->region.spa_range_idx,
-			  nfit_entry->region.offset,
-			  nfit_entry->region.length,
-			  nfit_entry->region.state);
+			struct region *r = kalloc(sizeof(*r));
+			r->spa = NULL;
+			r->nfit = nfit_entry;
+			foreach(e, list, &spa_list) {
+				struct spa *s = list_entry(e, struct spa, entry);
+				if(s->nfit->spa.idx == nfit_entry->region.spa_range_idx) {
+					r->spa = s;
+					list_insert(&s->regions, &r->spa_entry);
+					break;
+				}
+			}
+			if(r->spa == NULL) {
+				printk("[nfit] warning - unable to locate SPA %d for region %d:%d:%d\n",
+				  nfit_entry->region.spa_range_idx,
+				  nfit_entry->region.dev_handle,
+				  nfit_entry->region.phys_id,
+				  nfit_entry->region.region_id);
+			} else {
+				list_insert(&region_list, &r->entry);
+			}
 		}
 		ptr += nfit_entry->length;
+	}
+
+	foreach(e, list, &region_list) {
+		struct region *r = list_entry(e, struct region, entry);
+		struct nv_device *dev = nv_lookup_device(r->nfit->region.dev_handle);
+		if(!dev) {
+			nv_register_device(r->nfit->region.dev_handle, NULL);
+			dev = nv_lookup_device(r->nfit->region.dev_handle);
+		}
+
+		nv_register_region(dev,
+		  r->nfit->region.region_id,
+		  r->nfit->region.offset + r->spa->nfit->spa.base,
+		  r->nfit->region.length,
+		  NULL,
+		  0);
 	}
 }

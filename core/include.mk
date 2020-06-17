@@ -1,4 +1,4 @@
-C_SOURCES+=$(addprefix core/,main.c panic.c spinlock.c debug.c interrupt.c processor.c syscall.c timer.c unwind.c ksymbol.c ksymbol_weak.c schedule.c clksrc.c kc.c rand.c csprng.c)
+C_SOURCES+=$(addprefix core/,main.c panic.c spinlock.c debug.c interrupt.c processor.c syscall.c timer.c unwind.c ksymbol.c ksymbol_weak.c schedule.c clksrc.c kc.c rand.c csprng.c nvdimm.c) 
 
 CFLAGS_core_ubsan.c=-Wno-missing-prototypes
 CFLAGS_core_mm_dlmalloc.c=-Wno-sign-compare

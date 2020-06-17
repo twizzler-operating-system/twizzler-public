@@ -68,3 +68,18 @@ void __rb_insert(struct rbnode *node, struct rbroot *root);
 		}                                                                                          \
 		_res;                                                                                      \
 	})
+
+/* TODO: roll this out mode widely */
+#define RB_DECLARE_STANDARD_COMPARISONS(t, it, i)                                                  \
+	static int __##t##_compar_key(struct t *a, it b)                                               \
+	{                                                                                              \
+		if(a->i > b)                                                                               \
+			return 1;                                                                              \
+		else if(a->i < b)                                                                          \
+			return -1;                                                                             \
+		return 0;                                                                                  \
+	}                                                                                              \
+	static int __##t##_compar(struct t *a, struct t *b)                                            \
+	{                                                                                              \
+		return __##t##_compar_key(a, b->i);                                                        \
+	}
