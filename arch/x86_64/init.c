@@ -416,6 +416,10 @@ void x86_64_init(uint32_t magic, struct multiboot *mth)
 			struct multiboot_mmap_entry *entry =
 			  (void *)((char *)mmap_tag->entries + i * mmap_tag->entry_size);
 
+			if(entry->type == MULTIBOOT_MEMORY_PERSISTENT) {
+				/* we parse the ACPI NFIT table for this */
+				continue;
+			}
 			size_t processed_len;
 			for(size_t off = 0; off < entry->len; off += processed_len) {
 				processed_len = entry->len - off;

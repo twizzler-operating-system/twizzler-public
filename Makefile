@@ -100,7 +100,7 @@ test: $(BUILDDIR)/kernel $(BUILDDIR)/us/root.tar bootiso $(BUILDDIR)/us/nvme.img
 	#@touch nvme.img
 	#@truncate -s 1G nvme.img
 	$(QEMU) $(QEMU_FLAGS) -cdrom $(BUILDDIR)/boot.iso -drive file=$(BUILDDIR)/us/nvme.img,if=none,id=D22 \
-		-device nvme,drive=D22,serial=1234 -serial stdio # | tee serial.txt
+		-device nvme,drive=D22,serial=1234 -serial stdio
 
 export TOOLCHAIN_PREFIX
 export BUILDDIR

@@ -8,9 +8,11 @@ ARCH_KERNEL_SUPPORT=FEATURE_SUPPORTED_UNWIND
 CORE_CFLAGS+=-mno-red-zone -mno-sse -mcmodel=kernel -mno-avx
 LDFLAGS+=-mcmodel=kernel -Wl,-z,max-page-size=4096 -Wl,-z,common-page-size=4096
 
-QEMU=qemu-system-x86_64 -cpu host,migratable=false,host-cache-info=true,host-phys-bits -machine q35,kernel-irqchip=split -device intel-iommu,intremap=on,aw-bits=48,x-scalable-mode=true  -m 1024 # -kernel #$(BUILDDIR)/kernel # -initrd $(BUILDDIR)/initrd.tar -cpu host
+QEMU=qemu-system-x86_64 -cpu host,migratable=false,host-cache-info=true,host-phys-bits -machine q35,nvdimm,kernel-irqchip=split -device intel-iommu,intremap=on,aw-bits=48,x-scalable-mode=true -m 1024,slots=2,maxmem=8G -object memory-backend-file,id=mem1,share=on,mem-path=$(BUILDDIR)/pmem.img,size=4G -device nvdimm,id=nvdimm1,memdev=mem1
 
-C_SOURCES+=$(addprefix arch/$(ARCH)/,init.c processor.c memory.c debug.c pit.c ioapic.c acpi.c madt.c idt.c entry.c vmx.c virtmem.c hpet.c thread.c rdrand.c object.c intel_iommu.c x2apic.c kconf.c)
+
+
+C_SOURCES+=$(addprefix arch/$(ARCH)/,init.c processor.c memory.c debug.c pit.c ioapic.c acpi.c madt.c idt.c entry.c vmx.c virtmem.c hpet.c thread.c rdrand.c object.c intel_iommu.c x2apic.c kconf.c nfit.c)
 
 ASM_SOURCES+=$(addprefix arch/$(ARCH)/,start.S ctx.S trampoline.S interrupt.S gate.S)
 
