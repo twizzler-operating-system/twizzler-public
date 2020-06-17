@@ -138,7 +138,15 @@ __orderedinitializer(__orderedafter(ACPI_INITIALIZER_ORDER)) static void nfit_in
 		struct region *r = list_entry(e, struct region, entry);
 		struct nv_device *dev = nv_lookup_device(r->nfit->region.dev_handle);
 		if(!dev) {
-			nv_register_device(r->nfit->region.dev_handle, NULL);
+			struct nv_topology topinfo = {
+				.dimm_nr = r->nfit->region.dev_handle & 0xf,
+				.chan_nr = (r->nfit->region.dev_handle >> 4) & 0xf,
+				.ctrl_nr = (r->nfit->region.dev_handle >> 8) & 0xf,
+				.sock_nr = (r->nfit->region.dev_handle >> 12) & 0xf,
+				.node_nr = (r->nfit->region.dev_handle >> 16) & 0x1fff,
+			};
+
+			nv_register_device(r->nfit->region.dev_handle, &topinfo);
 			dev = nv_lookup_device(r->nfit->region.dev_handle);
 		}
 

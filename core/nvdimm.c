@@ -26,7 +26,10 @@ void nv_register_device(uint64_t id, struct nv_topology *topinfo)
 {
 	struct nv_device *dev = kalloc(sizeof(*dev));
 	dev->id = id;
-	dev->topinfo = topinfo;
+	if(topinfo) {
+		dev->topinfo = *topinfo;
+		dev->flags |= NV_DEVICE_TOPINFO;
+	}
 	dev->regions_root = RBINIT;
 	rb_insert(&device_root, dev, struct nv_device, node, __nv_device_compar);
 	printk("[nv] registered device %ld\n", id);

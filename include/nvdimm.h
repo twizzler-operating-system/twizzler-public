@@ -5,20 +5,22 @@ struct nv_topology {
 	uint8_t chan_nr;
 	uint8_t ctrl_nr;
 	uint8_t sock_nr;
-	uint8_t node_nr;
-	uint8_t flags;
-	uint16_t resv;
+	uint16_t node_nr;
+	uint16_t flags;
 };
 
 struct nv_interleave {
 	uint32_t nr_regions;
 };
 
+#define NV_DEVICE_TOPINFO 1
+
 struct nv_device {
 	struct rbnode node;
 	uint64_t id;
-	struct nv_topology *topinfo;
+	struct nv_topology topinfo;
 	struct rbroot regions_root;
+	uint32_t flags;
 };
 
 struct nv_region {
