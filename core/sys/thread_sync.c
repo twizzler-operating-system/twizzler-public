@@ -336,7 +336,6 @@ long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args, struct
 		if(args[i].op == THREAD_SYNC_SLEEP && timeout && !armed_sleep) {
 			armed_sleep = true;
 			uint64_t timeout_nsec = timeout->tv_nsec + timeout->tv_sec * 1000000000ul;
-			printk("SLEEPING: %ld\n", timeout_nsec);
 			timer_add(
 			  &current_thread->sleep_timer, timeout_nsec, __thread_sync_timer, current_thread);
 		}
@@ -352,8 +351,6 @@ long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args, struct
 		if(args[i].op == THREAD_SYNC_SLEEP && r == 0)
 			wake = true;
 	}
-	if(timeout)
-		printk("ok, here: %d\n", wake);
 	if(wake) {
 		for(size_t i = 0; i < count; i++) {
 			if(args[i].op == THREAD_SYNC_SLEEP)

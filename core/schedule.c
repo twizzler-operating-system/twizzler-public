@@ -136,6 +136,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 				arch_processor_halt(proc);
 				// printk("wokeup\n");
 			} else {
+#warning "fix this! we should be able to clear the work flag?"
 				// proc->flags &= ~PROCESSOR_HASWORK;
 				spinlock_release(&proc->sched_lock, 1);
 			}
@@ -252,6 +253,7 @@ static void __thread_finish_cleanup(void *_t)
 
 void thread_exit(void)
 {
+	timer_remove(&current_thread->sleep_timer);
 	list_remove(&current_thread->rq_entry);
 	current_thread->processor->stats.running--;
 	current_thread->state = THREADSTATE_EXITED;

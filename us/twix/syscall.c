@@ -111,7 +111,6 @@ long linux_sys_fsync()
 long linux_sys_nanosleep(struct timespec *spec)
 {
 	int x = 0;
-	twix_log("performing nanosleep\n");
 	return twz_thread_sync32(THREAD_SYNC_SLEEP, (_Atomic unsigned int *)&x, 0, spec);
 }
 
