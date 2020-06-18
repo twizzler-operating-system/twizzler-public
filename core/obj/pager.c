@@ -192,13 +192,15 @@ static void __complete_object(struct pager_request *pr, struct queue_entry_pager
 	thread_wake(pr->thread);
 }
 
-static void _pager_fn(void)
+static int _pager_fn(void)
 {
 	struct queue_hdr *hdr = kernel_queue_get_hdr(KQ_PAGER);
 	struct object *qobj = kernel_queue_get_object(KQ_PAGER);
 	spinlock_acquire_save(&pager_lock);
 
+	int ret = 0;
 	struct queue_entry_pager pqe;
+again:
 	if(kernel_queue_get_cmpls(qobj, hdr, (struct queue_entry *)&pqe) == 0) {
 		struct rbnode *node =
 		  rb_search(&root, pqe.qe.info, struct pager_request, node_id, __pr_compar_key);
@@ -217,6 +219,11 @@ static void _pager_fn(void)
 			__complete_page(pr, &pqe, false);
 		}
 		reclaim_pr(pr);
+		ret = 1;
+		if(!(current_processor->flags & PROCESSOR_HASWORK)
+		   && !processor_has_threads(current_processor)) {
+			goto again;
+		}
 	}
 
 done:
@@ -230,13 +237,15 @@ done:
 			do_reclaim();
 		spinlock_release_restore(&pager_lock);
 	}
+	return ret;
 }
 
-void pager_idle_task(void)
+int pager_idle_task(void)
 {
 	if(kernel_queue_get_hdr(KQ_PAGER)) {
-		_pager_fn();
+		return _pager_fn();
 	}
+	return 0;
 }
 
 int kernel_queue_pager_request_object(objid_t id)

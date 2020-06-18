@@ -38,10 +38,10 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 		x86_64_wrmsr(0xe8, 0, 0);
 	}
 
-	pager_idle_task();
-	workqueue_dowork(&proc->wq);
-	uint64_t rem_time = timer_check_timers();
 	while(true) {
+		pager_idle_task();
+		workqueue_dowork(&proc->wq);
+		uint64_t rem_time = timer_check_timers();
 		/* TODO (major): allow current thread to run again */
 		spinlock_acquire(&proc->sched_lock);
 
@@ -120,11 +120,14 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			timeout = min(timeout, rem_time);
 			thread_resume(next, empty ? rem_time : timeout);
 		} else {
+			proc->flags &= ~PROCESSOR_HASWORK;
 			spinlock_release(&proc->sched_lock, 1);
 			/* we're halting here, but the arch_processor_halt function will return
 			 * after an interrupt is fired. Since we're in kernel-space, any interrupt
 			 * we get will not invoke the scheduler. */
-			pager_idle_task();
+			if(pager_idle_task()) {
+				proc->flags |= PROCESSOR_HASWORK;
+			}
 			page_idle_zero();
 			rem_time = timer_check_timers();
 			spinlock_acquire(&proc->sched_lock);
@@ -137,7 +140,6 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 				// printk("wokeup\n");
 			} else {
 #warning "fix this! we should be able to clear the work flag?"
-				// proc->flags &= ~PROCESSOR_HASWORK;
 				spinlock_release(&proc->sched_lock, 1);
 			}
 		}
