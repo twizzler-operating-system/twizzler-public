@@ -6,6 +6,9 @@
 #include <sys/mman.h>
 #include <twz/_sctx.h>
 #include <unistd.h>
+
+#include "common.h"
+
 /*
  * mkcap ... | sctx ctx.obj
  */
@@ -20,7 +23,7 @@ objid_t get_target(char *data)
 	return cap->target;
 }
 
-void add_hash(struct secctx *ctx, objid_t target, char *ptr)
+void add_hash(struct secctx *ctx, objid_t target, char *ptr, uint32_t mask, uint64_t flags)
 {
 	// fprintf(stderr, "adding perm object for " IDFMT " %p\n", IDPR(target), ptr);
 	size_t slot = target % ctx->nbuckets;
@@ -29,9 +32,9 @@ void add_hash(struct secctx *ctx, objid_t target, char *ptr)
 		if(b->target == 0) {
 			b->target = target;
 			b->data = ptr;
-			b->flags = 0;
+			b->flags = flags;
 			b->gatemask = (struct scgates){ 0 };
-			b->pmask = ~0;
+			b->pmask = mask;
 			break;
 		}
 		slot = b->chain;
@@ -51,15 +54,65 @@ void add_hash(struct secctx *ctx, objid_t target, char *ptr)
 	}
 }
 
+static uint32_t parse_mask(char *s)
+{
+	uint32_t m = 0;
+	while(*s) {
+		switch(*s) {
+			case 'r':
+			case 'R':
+				m |= SCP_READ;
+				break;
+			case 'w':
+			case 'W':
+				m |= SCP_WRITE;
+				break;
+			case 'x':
+			case 'X':
+				m |= SCP_EXEC;
+				break;
+			case 'u':
+			case 'U':
+				m |= SCP_USE;
+				break;
+			case 'd':
+			case 'D':
+				m |= SCP_DEL;
+				break;
+			default:
+				errx(1, "invalid mask character %c\n", *s);
+		}
+		s++;
+	}
+	return m;
+}
+
+struct ad {
+	struct ad *next;
+	char *data;
+};
+
 int main(int argc, char **argv)
 {
 	int c;
 	char *name = NULL;
-	while((c = getopt(argc, argv, "hn:")) != EOF) {
+	uint32_t gmask = 0;
+
+	struct ad *ad = NULL;
+	while((c = getopt(argc, argv, "hn:a:")) != EOF) {
 		switch(c) {
 			case 'n':
 				name = optarg;
 				break;
+			case 'g':
+				gmask = parse_mask(optarg);
+				break;
+			case 'a': {
+				struct ad *a = malloc(sizeof(*a));
+				a->data = strdup(optarg);
+				a->next = ad;
+				ad = a;
+			} break;
 			default:
 				fprintf(stderr, "invalid option %c\n", c);
 				exit(1);
@@ -87,6 +140,7 @@ int main(int argc, char **argv)
 
 	ctx->nbuckets = 1024;
 	ctx->nchain = 4096;
+	ctx->gmask = gmask;
 	size_t max = sizeof(*ctx) + sizeof(struct scbucket) * (ctx->nbuckets + ctx->nchain);
 	max = ((max - 1) & ~15) + 16;
 	char *end = (char *)ctx + max;
@@ -151,8 +205,22 @@ int main(int argc, char **argv)
 		end += inc;
 
 		objid_t target = get_target(ptr);
-		add_hash(ctx, target, (char *)((ptr - (char *)ctx) + OBJ_NULLPAGE_SIZE));
+		add_hash(ctx, target, (char *)((ptr - (char *)ctx) + OBJ_NULLPAGE_SIZE), ~0, 0);
 	}
+
+	for(struct ad *a = ad; a; a = a->next) {
+		char type = a->data[0];
+		char *ids = a->data + 2;
+		char *mask = strchr(ids, ':');
+		*mask = 0;
+		mask++;
+
+		objid_t id = str_to_objid(ids);
+		uint32_t m = parse_mask(mask);
+
+		add_hash(ctx, id, NULL, ~m, type == 'r' ? SCF_TYPE_REGRANT_MASK : 0);
+	}
+
 	/* TODO: truncate file to right max len */
 	size_t l = end - (char *)ctx;
 	munmap(ctx, OBJ_MAXSIZE - (OBJ_METAPAGE_SIZE + OBJ_NULLPAGE_SIZE));
