@@ -210,6 +210,12 @@ int main()
 		fprintf(stderr, "no supported framebuffer found; skipping starting terminal: %d\n", errno);
 	}
 
+	setenv("PATH", "/bin:/usr/bin:/usr/local/bin:/opt/usr/bin", 1);
+
+	fprintf(stderr, "USLEEP\n");
+	usleep(1000000);
+	fprintf(stderr, "USLEEP DONE\n");
+
 	/* start a login on the serial port and the terminal */
 	if(access("/dev/pty/ptyc0", F_OK) == 0) {
 		if(!fork()) {

@@ -302,7 +302,7 @@ long thread_sync_single(int operation, long *addr, long arg, struct timespec *sp
 	return -1;
 }
 
-long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args)
+long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args, struct timespec *timeout)
 {
 	bool ok = false;
 	bool wake = false;
@@ -313,7 +313,7 @@ long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args)
 		int r = thread_sync_single_norestore(args[i].op,
 		  (long *)args[i].addr,
 		  args[i].arg,
-		  (args[i].flags & THREAD_SYNC_TIMEOUT) ? args[i].spec : NULL,
+		  NULL,
 		  i,
 		  false,
 		  !!(args[i].flags & THREAD_SYNC_32BIT));

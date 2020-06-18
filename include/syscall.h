@@ -20,7 +20,7 @@ struct timespec {
 	uint64_t tv_nsec;
 };
 
-long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args);
+long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args, struct timespec *);
 
 long syscall_otie(uint64_t pidlo, uint64_t pidhi, uint64_t cidlo, uint64_t cidhi, int flags);
 long syscall_vmap(const void *restrict p, int cmd, long arg);

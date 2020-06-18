@@ -193,7 +193,7 @@ ssize_t twz_thread_wait(size_t count,
 		for(size_t i = 0; i < count; i++) {
 			struct twzthread_repr *r = twz_object_base(&threads[i]->obj);
 
-			twz_thread_sync_init(&args[i], THREAD_SYNC_SLEEP, &r->syncs[syncpoints[i]], 0, NULL);
+			twz_thread_sync_init(&args[i], THREAD_SYNC_SLEEP, &r->syncs[syncpoints[i]], 0);
 			/* check each one before calling thread_sync to wait on them */
 			if(r->syncs[syncpoints[i]]) {
 				if(event) {
@@ -207,7 +207,7 @@ ssize_t twz_thread_wait(size_t count,
 		}
 		/* no threads were "ready" according to our definition, so wait for one of them */
 		if(!ready) {
-			r = sys_thread_sync(count, args);
+			r = sys_thread_sync(count, args, NULL);
 			if(r < 0)
 				break;
 		}
@@ -241,24 +241,19 @@ int twz_thread_ready(struct thread *thread, int sp, uint64_t info)
 		.addr = (uint64_t *)&repr->syncs[sp],
 		.arg = UINT64_MAX,
 	};
-	return sys_thread_sync(1, &args);
+	return sys_thread_sync(1, &args, NULL);
 }
 
 void twz_thread_sync_init(struct sys_thread_sync_args *args,
   int op,
   _Atomic uint64_t *addr,
-  uint64_t val,
-  struct timespec *timeout)
+  uint64_t val)
 {
 	*args = (struct sys_thread_sync_args){
 		.op = op,
 		.addr = (uint64_t *)addr,
 		.arg = val,
-		.spec = timeout,
 	};
-	if(timeout) {
-		args->flags |= THREAD_SYNC_TIMEOUT;
-	}
 }
 
 int twz_thread_sync(int op, _Atomic uint64_t *addr, uint64_t val, struct timespec *timeout)
@@ -267,11 +262,8 @@ int twz_thread_sync(int op, _Atomic uint64_t *addr, uint64_t val, struct timespe
 		.op = op,
 		.addr = (uint64_t *)addr,
 		.arg = val,
-		.spec = timeout,
 	};
-	if(timeout)
-		args.flags |= THREAD_SYNC_TIMEOUT;
-	return sys_thread_sync(1, &args);
+	return sys_thread_sync(1, &args, timeout);
 }
 
 int twz_thread_sync32(int op, _Atomic uint32_t *addr, uint32_t val, struct timespec *timeout)
@@ -280,17 +272,14 @@ int twz_thread_sync32(int op, _Atomic uint32_t *addr, uint32_t val, struct times
 		.op = op,
 		.addr = (uint64_t *)addr,
 		.arg = val,
-		.spec = timeout,
 	};
-	if(timeout)
-		args.flags |= THREAD_SYNC_TIMEOUT;
 	args.flags |= THREAD_SYNC_32BIT;
-	return sys_thread_sync(1, &args);
+	return sys_thread_sync(1, &args, timeout);
 }
 
-int twz_thread_sync_multiple(size_t c, struct sys_thread_sync_args *args)
+int twz_thread_sync_multiple(size_t c, struct sys_thread_sync_args *args, struct timespec *timeout)
 {
-	return sys_thread_sync(c, args);
+	return sys_thread_sync(c, args, timeout);
 }
 
 uint64_t twz_thread_cword_consume(_Atomic uint64_t *w, uint64_t reset)

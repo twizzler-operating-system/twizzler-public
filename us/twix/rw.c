@@ -238,9 +238,6 @@ long linux_sys_pselect6(int nfds,
 					result = ret;
 					goto done;
 				}
-				if(timeout) {
-					event_add_timeout(&evs[count], timeout);
-				}
 				count++;
 				if(ret > 0) {
 					ready += 1;
@@ -252,9 +249,6 @@ long linux_sys_pselect6(int nfds,
 				if(ret < 0) {
 					result = ret;
 					goto done;
-				}
-				if(timeout) {
-					event_add_timeout(&evs[count], timeout);
 				}
 				count++;
 				if(ret > 0) {
@@ -275,7 +269,7 @@ long linux_sys_pselect6(int nfds,
 		//		  evs[i].events,
 		//		  IDPR(twz_object_guid(&o)));
 		//	}
-		event_wait(count, evs);
+		event_wait(count, evs, timeout);
 		//	twix_log("WAKE SELECT\n");
 	}
 

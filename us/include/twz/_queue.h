@@ -391,7 +391,7 @@ static inline ssize_t queue_sub_dequeue_multiple(size_t count,
 		if(is_empty(b, t) || !is_turn(hdr, specs[i].sq, t, entry)) {
 			specs[i].ret = 0;
 			twz_thread_sync_init(
-			  &tsa[sleep_count++], THREAD_SYNC_SLEEP, &hdr->subqueue[specs[i].sq].bell, b, NULL);
+			  &tsa[sleep_count++], THREAD_SYNC_SLEEP, &hdr->subqueue[specs[i].sq].bell, b);
 		} else {
 			queue_sub_dequeue(specs[i].obj, hdr, specs[i].sq, specs[i].result, true);
 			specs[i].ret = 1;
@@ -399,7 +399,7 @@ static inline ssize_t queue_sub_dequeue_multiple(size_t count,
 	}
 
 	if(sleep_count == count) {
-		int r = twz_thread_sync_multiple(sleep_count, tsa);
+		int r = twz_thread_sync_multiple(sleep_count, tsa, NULL);
 		/* TODO: errors */
 		return queue_sub_dequeue_multiple(count, specs);
 	}

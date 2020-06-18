@@ -83,9 +83,12 @@ __must_check static inline long sys_invalidate(struct sys_invalidate_op *invl, s
 	return __syscall6(SYS_INVL_KSO, (long)invl, count, 0, 0, 0, 0);
 }
 
-__must_check static inline long sys_thread_sync(size_t count, struct sys_thread_sync_args *args)
+struct timespec;
+__must_check static inline long sys_thread_sync(size_t count,
+  struct sys_thread_sync_args *args,
+  struct timespec *timeout)
 {
-	return __syscall6(SYS_THRD_SYNC, count, (long)args, 0, 0, 0, 0);
+	return __syscall6(SYS_THRD_SYNC, count, (long)args, (long)timeout, 0, 0, 0);
 }
 
 __must_check static inline long sys_thrd_spawn(objid_t tid,

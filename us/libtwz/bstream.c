@@ -34,8 +34,8 @@ ssize_t bstream_hdr_read(twzobj *obj,
 				}
 				mutex_release(&hdr->lock);
 				struct event e;
-				event_init(&e, &hdr->ev, TWZIO_EVENT_READ, NULL);
-				event_wait(1, &e);
+				event_init(&e, &hdr->ev, TWZIO_EVENT_READ);
+				event_wait(1, &e, NULL);
 				mutex_acquire(&hdr->lock);
 				continue;
 			}
@@ -75,8 +75,8 @@ ssize_t bstream_hdr_write(twzobj *obj,
 				}
 				mutex_release(&hdr->lock);
 				struct event e;
-				event_init(&e, &hdr->ev, TWZIO_EVENT_WRITE, NULL);
-				event_wait(1, &e);
+				event_init(&e, &hdr->ev, TWZIO_EVENT_WRITE);
+				event_wait(1, &e, NULL);
 				mutex_acquire(&hdr->lock);
 				continue;
 			}
@@ -99,7 +99,7 @@ int bstream_hdr_poll(twzobj *obj, struct bstream_hdr *hdr, uint64_t type, struct
 {
 	(void)obj;
 	if(event) {
-		event_init(event, &hdr->ev, type, NULL);
+		event_init(event, &hdr->ev, type);
 	}
 	// debug_printf(
 	//"bstream_hdr_poll %p:  %p %p:  %p: %lx\n", hdr, event, &hdr->ev, event->hdr, hdr->ev.point);

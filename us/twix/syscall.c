@@ -35,6 +35,8 @@
 #define LINUX_SYS_dup 32
 #define LINUX_SYS_dup2 33
 
+#define LINUX_SYS_nanosleep 35
+
 #define LINUX_SYS_getpid 39
 #define LINUX_SYS_clone 56
 #define LINUX_SYS_fork 57
@@ -104,6 +106,16 @@ long linux_sys_fsync()
 	return 0;
 }
 
+#include <twz/sys.h>
+#include <twz/thread.h>
+long linux_sys_nanosleep(struct timespec *spec)
+{
+	return -ENOSYS;
+	int x = 0;
+	twix_log("performing nanosleep\n");
+	// return twz_thread_sync32(THREAD_SYNC_WAKE, (_Atomic unsigned int *)&x, 0, spec);
+}
+
 static long (*syscall_table[])() = {
 	[LINUX_SYS_arch_prctl] = linux_sys_arch_prctl,
 	[LINUX_SYS_set_tid_address] = linux_sys_set_tid_address,
@@ -164,6 +176,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_fsync] = linux_sys_fsync,
 	[LINUX_SYS_ftruncate] = linux_sys_ftruncate,
 	[LINUX_SYS_vfork] = linux_sys_fork, /* this is not a typo: we implement vfork as fork. */
+	[LINUX_SYS_nanosleep] = linux_sys_nanosleep,
 };
 
 __attribute__((unused)) static const char *syscall_names[] = {

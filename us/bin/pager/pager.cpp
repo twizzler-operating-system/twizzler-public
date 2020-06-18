@@ -168,27 +168,6 @@ class device
 
 struct device *nvme_dev;
 
-void tm()
-{
-	printf("hello world from pager thread\n");
-
-	//	7ca09742a7f167ec:9d3e739c2cf7a9e5
-	//	baa8a8f8dc8eff5d:cf280ad70a6600e2
-	//	//d8818bc65aac0192:213f58281bf6df12
-	objid_t id = ((objid_t)0xd8818bc65aac0192ul << 64) | 0x213f58281bf6df12ul;
-	twzobj obj;
-	twz_object_init_guid(&obj, id, FE_READ | FE_WRITE);
-
-	int *p = (int *)twz_object_base(&obj);
-
-	debug_printf("[pager] p = %p\n", p);
-	printf("Doing read!\n");
-	printf("::: %d\n", *p);
-	printf("Doing write!\n");
-	*p = 4;
-	printf("Write got %d\n", *p);
-}
-
 static void __submit_bio(struct queue_entry_pager *pqe, device *dev, size_t block)
 {
 	struct queue_entry_bio bio;

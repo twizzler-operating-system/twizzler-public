@@ -10,28 +10,20 @@ struct evhdr {
 	_Atomic uint64_t point;
 };
 
-#define EV_TIMEOUT 1
-
 struct event {
 	struct evhdr *hdr;
 	uint64_t events;
 	uint64_t result;
-	struct timespec timeout;
+	uint64_t __resv[2];
 	uint64_t flags;
 };
 
 void event_obj_init(twzobj *obj, struct evhdr *hdr);
-void event_init(struct event *ev, struct evhdr *hdr, uint64_t events, struct timespec *timeout);
-int event_wait(size_t count, struct event *ev);
+void event_init(struct event *ev, struct evhdr *hdr, uint64_t events);
+int event_wait(size_t count, struct event *ev, const struct timespec *);
 int event_wake(struct evhdr *ev, uint64_t events, long wcount);
 uint64_t event_clear(struct evhdr *hdr, uint64_t events);
 void event_obj_init(twzobj *obj, struct evhdr *hdr);
-
-static inline void event_add_timeout(struct event *ev, const struct timespec *timeout)
-{
-	ev->timeout = *timeout;
-	ev->flags |= EV_TIMEOUT;
-}
 
 static inline uint64_t event_poll(const struct evhdr *hdr, uint64_t events)
 {

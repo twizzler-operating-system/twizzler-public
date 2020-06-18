@@ -61,11 +61,13 @@ struct sys_thread_sync_args;
 void twz_thread_sync_init(struct sys_thread_sync_args *args,
   int op,
   atomic_ulong *addr,
-  unsigned long val,
-  struct timespec *timeout);
+  unsigned long val);
+
 int twz_thread_sync32(int op, atomic_uint_least32_t *addr, uint32_t val, struct timespec *timeout);
 
-__must_check int twz_thread_sync_multiple(size_t count, struct sys_thread_sync_args *);
+__must_check int twz_thread_sync_multiple(size_t count,
+  struct sys_thread_sync_args *,
+  struct timespec *);
 
 /* TODO: get rid of these from the standard library */
 int twz_exec(objid_t id, char const *const *argv, char *const *env);

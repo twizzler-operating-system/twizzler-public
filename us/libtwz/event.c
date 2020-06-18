@@ -22,15 +22,11 @@ static _Atomic uint64_t *__event_point(struct event *ev)
 	return &ev->hdr->point;
 }
 
-void event_init(struct event *ev, struct evhdr *hdr, uint64_t events, struct timespec *timeout)
+void event_init(struct event *ev, struct evhdr *hdr, uint64_t events)
 {
 	ev->hdr = hdr;
 	ev->events = events;
 	ev->flags = 0;
-	if(timeout) {
-		ev->timeout = *timeout;
-		ev->flags |= EV_TIMEOUT;
-	}
 }
 
 uint64_t event_clear(struct evhdr *hdr, uint64_t events)
@@ -39,7 +35,7 @@ uint64_t event_clear(struct evhdr *hdr, uint64_t events)
 	return old & events;
 }
 
-int event_wait(size_t count, struct event *ev)
+int event_wait(size_t count, struct event *ev, const struct timespec *timeout)
 {
 	if(count > 4096)
 		return -EINVAL; // TODO
@@ -51,12 +47,6 @@ int event_wait(size_t count, struct event *ev)
 			args[i].arg = *point;
 			args[i].addr = (uint64_t *)point;
 			args[i].op = THREAD_SYNC_SLEEP;
-			if(ev->flags & EV_TIMEOUT) {
-				args[i].spec = &ev->timeout;
-				args[i].flags = THREAD_SYNC_TIMEOUT;
-			} else {
-				args[i].flags = 0;
-			}
 			ev->result = args[i].arg & ev->events;
 			if(ev->result) {
 				ready++;
@@ -65,7 +55,8 @@ int event_wait(size_t count, struct event *ev)
 		if(ready > 0)
 			return ready;
 
-		int r = sys_thread_sync(count, args);
+		struct timespec ts = timeout ? *timeout : (struct timespec){};
+		int r = sys_thread_sync(count, args, timeout ? &ts : NULL);
 		if(r < 0)
 			return r;
 	}
@@ -80,7 +71,7 @@ int event_wake(struct evhdr *ev, uint64_t events, long wcount)
 			.addr = (uint64_t *)&ev->point,
 			.arg = wcount,
 		};
-		return sys_thread_sync(1, &args);
+		return sys_thread_sync(1, &args, NULL);
 	}
 	return 0;
 }

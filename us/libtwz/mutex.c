@@ -45,7 +45,7 @@ void mutex_acquire(struct mutex *m)
 
 	/* actually sleep for the lock */
 	while(v) {
-		if(sys_thread_sync(1, &args) < 0) {
+		if(sys_thread_sync(1, &args, NULL) < 0) {
 			libtwz_panic("mutex_acquire thread sync error");
 		}
 
@@ -77,7 +77,7 @@ void mutex_release(struct mutex *m)
 		.addr = (uint64_t *)&m->sleep,
 		.arg = 1,
 	};
-	if(sys_thread_sync(1, &args) < 0) {
+	if(sys_thread_sync(1, &args, NULL) < 0) {
 		libtwz_panic("mutex_acquire thread sync error");
 	}
 }

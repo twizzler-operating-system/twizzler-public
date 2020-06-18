@@ -7,6 +7,7 @@
 #include <pager.h>
 #include <processor.h>
 #include <thread.h>
+#include <time.h>
 
 #define TIMESLICE_MIN 50000000
 #define TIMESLICE_GIVEUP 10000
@@ -37,6 +38,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 
 	pager_idle_task();
 	workqueue_dowork(&proc->wq);
+	timer_check_timers();
 	while(true) {
 		/* TODO (major): allow current thread to run again */
 		spinlock_acquire(&proc->sched_lock);
