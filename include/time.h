@@ -14,4 +14,4 @@ struct timer {
 
 void timer_add(struct timer *t, dur_nsec time, void (*fn)(void *), void *data);
 void timer_remove(struct timer *t);
-void timer_check_timers(void);
+uint64_t timer_check_timers(void);

@@ -20,6 +20,8 @@ static void thread_resume(struct thread *thr, uint64_t timeout)
 	arch_thread_resume(thr, timeout);
 }
 
+#define min(a, b) ({ ((a) < (b) ? (a) : (b)); })
+
 __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 {
 	uint64_t ji = clksrc_get_nanoseconds();
@@ -38,7 +40,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 
 	pager_idle_task();
 	workqueue_dowork(&proc->wq);
-	timer_check_timers();
+	uint64_t rem_time = timer_check_timers();
 	while(true) {
 		/* TODO (major): allow current thread to run again */
 		spinlock_acquire(&proc->sched_lock);
@@ -53,7 +55,9 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			spinlock_release(&proc->sched_lock, 0);
 			// clksrc_set_interrupt_countdown(current_thread->timeslice_expire - ji, false);
 
-			thread_resume(current_thread, current_thread->timeslice_expire - ji);
+			uint64_t timeout = current_thread->timeslice_expire - ji;
+			timeout = min(timeout, rem_time);
+			thread_resume(current_thread, timeout);
 		}
 		if(current_thread && current_thread->timeslice_expire <= ji) {
 #if 0
@@ -111,7 +115,10 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			if(next != current_thread) {
 				proc->stats.thr_switch++;
 			}
-			thread_resume(next, empty ? 0 : next->timeslice_expire - ji);
+
+			uint64_t timeout = next->timeslice_expire - ji;
+			timeout = min(timeout, rem_time);
+			thread_resume(next, empty ? rem_time : timeout);
 		} else {
 			spinlock_release(&proc->sched_lock, 1);
 			/* we're halting here, but the arch_processor_halt function will return
@@ -119,12 +126,17 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 			 * we get will not invoke the scheduler. */
 			pager_idle_task();
 			page_idle_zero();
+			rem_time = timer_check_timers();
 			spinlock_acquire(&proc->sched_lock);
 			if(!processor_has_threads(proc) && !(proc->flags & PROCESSOR_HASWORK)) {
 				spinlock_release(&proc->sched_lock, 0);
+				if(rem_time > 0) {
+					clksrc_set_interrupt_countdown(rem_time, false);
+				}
 				arch_processor_halt(proc);
 				// printk("wokeup\n");
 			} else {
+				// proc->flags &= ~PROCESSOR_HASWORK;
 				spinlock_release(&proc->sched_lock, 1);
 			}
 		}

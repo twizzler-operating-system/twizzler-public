@@ -632,11 +632,11 @@ void nvmeq_interrupt(nvme_controller *nc, nvme_queue *q)
 			delete req;
 		} else {
 			q->sps[cid] = result;
-			twz_thread_sync_init(&sas[tsc++], THREAD_SYNC_WAKE, &q->sps[cid], INT_MAX, NULL);
+			twz_thread_sync_init(&sas[tsc++], THREAD_SYNC_WAKE, &q->sps[cid], INT_MAX);
 		}
 	}
 	int r;
-	if(tsc && (r = twz_thread_sync_multiple(tsc, sas)) < 0) {
+	if(tsc && (r = twz_thread_sync_multiple(tsc, sas, NULL)) < 0) {
 		fprintf(stderr, "nvme interrupt thread_sync %d failed: %d\n", i, r);
 		abort();
 	}
@@ -649,9 +649,9 @@ void nvme_wait_for_event(nvme_controller *nc)
 	kso_set_name(NULL, "nvme.event_handler");
 	struct device_repr *repr = twz_device_getrepr(&nc->co);
 	struct sys_thread_sync_args sa[MAX_DEVICE_INTERRUPTS + 1];
-	twz_thread_sync_init(&sa[0], THREAD_SYNC_SLEEP, &repr->syncs[DEVICE_SYNC_IOV_FAULT], 0, NULL);
+	twz_thread_sync_init(&sa[0], THREAD_SYNC_SLEEP, &repr->syncs[DEVICE_SYNC_IOV_FAULT], 0);
 	for(int i = 1; i <= nc->nrvec; i++) {
-		twz_thread_sync_init(&sa[i], THREAD_SYNC_SLEEP, &repr->interrupts[i - 1].sp, 0, NULL);
+		twz_thread_sync_init(&sa[i], THREAD_SYNC_SLEEP, &repr->interrupts[i - 1].sp, 0);
 	}
 	for(;;) {
 		uint64_t iovf = atomic_exchange(&repr->syncs[DEVICE_SYNC_IOV_FAULT], 0);
@@ -685,7 +685,7 @@ void nvme_wait_for_event(nvme_controller *nc)
 			}
 		}
 		if(!iovf && !worked) {
-			int r = twz_thread_sync_multiple(nc->nrvec + 1, sa);
+			int r = twz_thread_sync_multiple(nc->nrvec + 1, sa, NULL);
 			if(r < 0) {
 				fprintf(stderr, "[nvme] thread_sync error: %d\n", r);
 				return;

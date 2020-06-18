@@ -52,8 +52,9 @@ void timer_remove(struct timer *t)
 	spinlock_release_restore(timer_lock);
 }
 
-void timer_check_timers(void)
+uint64_t timer_check_timers(void)
 {
+	uint64_t ret = 0;
 	struct rbroot *timer_root = per_cpu_get(timer_root);
 	struct spinlock *timer_lock = per_cpu_get(timer_lock);
 	spinlock_acquire_save(timer_lock);
@@ -61,13 +62,19 @@ void timer_check_timers(void)
 	if(node) {
 		struct timer *t = rb_entry(node, struct timer, node);
 		assert(t->active);
-		rb_delete(&t->node, timer_root);
-		t->active = false;
-		t->fn(t->data);
+		uint64_t now = clksrc_get_nanoseconds();
+		if(now >= t->time) {
+			rb_delete(&t->node, timer_root);
+			t->active = false;
+			t->fn(t->data);
+		} else {
+			ret = t->time - now;
+		}
 		spinlock_release_restore(timer_lock);
 	} else {
 		spinlock_release_restore(timer_lock);
 	}
+	return ret;
 }
 
 #if 0

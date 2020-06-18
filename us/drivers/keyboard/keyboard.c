@@ -26,7 +26,7 @@ ssize_t get_input(char *buf, size_t len)
 				.addr = (uint64_t *)&dr->syncs[0],
 			};
 
-			int r = sys_thread_sync(1, &args);
+			int r = sys_thread_sync(1, &args, NULL);
 			if(r)
 				return r;
 		} else {

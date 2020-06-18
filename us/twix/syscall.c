@@ -110,10 +110,9 @@ long linux_sys_fsync()
 #include <twz/thread.h>
 long linux_sys_nanosleep(struct timespec *spec)
 {
-	return -ENOSYS;
 	int x = 0;
 	twix_log("performing nanosleep\n");
-	// return twz_thread_sync32(THREAD_SYNC_WAKE, (_Atomic unsigned int *)&x, 0, spec);
+	return twz_thread_sync32(THREAD_SYNC_SLEEP, (_Atomic unsigned int *)&x, 0, spec);
 }
 
 static long (*syscall_table[])() = {

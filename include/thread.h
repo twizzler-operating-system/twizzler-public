@@ -5,6 +5,7 @@
 #include <lib/list.h>
 #include <memory.h>
 #include <thread-bits.h>
+#include <time.h>
 #include <workqueue.h>
 
 #include <twz/_fault.h>
@@ -68,6 +69,7 @@ struct thread {
 	void *pending_fault_info;
 	int pending_fault;
 	size_t pending_fault_infolen;
+	struct timer sleep_timer;
 };
 
 struct arch_syscall_become_args;

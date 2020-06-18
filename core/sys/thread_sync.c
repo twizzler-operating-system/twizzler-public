@@ -302,6 +302,28 @@ long thread_sync_single(int operation, long *addr, long arg, struct timespec *sp
 	return -1;
 }
 
+static void __thread_sync_timer(void *a)
+{
+	struct thread *thr = a;
+	spinlock_acquire_save(&thr->lock);
+
+	// list_remove(&se->entry);
+	// se->active = false;
+	for(size_t i = 0; i < thr->sleep_count; i++) {
+		if(thr->sleep_entries[i].active) {
+			struct syncpoint *op = thr->sleep_entries[i].sp;
+			spinlock_acquire_save(&op->lock);
+			list_remove(&thr->sleep_entries[i].entry);
+			thr->sleep_entries[i].active = false;
+			spinlock_release_restore(&op->lock);
+			krc_put_call(op, refs, _sp_release);
+		}
+	}
+
+	thread_wake(thr);
+	spinlock_release_restore(&thr->lock);
+}
+
 long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args, struct timespec *timeout)
 {
 	bool ok = false;
@@ -309,7 +331,15 @@ long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args, struct
 	if(count > MAX_SLEEPS)
 		return -EINVAL;
 	__thread_init_sync(count);
+	bool armed_sleep = false;
 	for(size_t i = 0; i < count; i++) {
+		if(args[i].op == THREAD_SYNC_SLEEP && timeout && !armed_sleep) {
+			armed_sleep = true;
+			uint64_t timeout_nsec = timeout->tv_nsec + timeout->tv_sec * 1000000000ul;
+			printk("SLEEPING: %ld\n", timeout_nsec);
+			timer_add(
+			  &current_thread->sleep_timer, timeout_nsec, __thread_sync_timer, current_thread);
+		}
 		int r = thread_sync_single_norestore(args[i].op,
 		  (long *)args[i].addr,
 		  args[i].arg,
@@ -322,11 +352,14 @@ long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args, struct
 		if(args[i].op == THREAD_SYNC_SLEEP && r == 0)
 			wake = true;
 	}
+	if(timeout)
+		printk("ok, here: %d\n", wake);
 	if(wake) {
 		for(size_t i = 0; i < count; i++) {
 			if(args[i].op == THREAD_SYNC_SLEEP)
 				thread_sync_sleep_wakeup((long *)args[i].addr, i);
 		}
+		timer_remove(&current_thread->sleep_timer);
 	}
 	return ok ? 0 : -1;
 }

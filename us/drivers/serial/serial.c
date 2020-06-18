@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #include <pthread.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <twz/bstream.h>
@@ -186,7 +186,7 @@ ssize_t get_input(char *buf, size_t len)
 				.addr = (uint64_t *)&dr->syncs[0],
 			};
 
-			int r = sys_thread_sync(1, &args);
+			int r = sys_thread_sync(1, &args, NULL);
 			if(r < 0) {
 				return r;
 			}
