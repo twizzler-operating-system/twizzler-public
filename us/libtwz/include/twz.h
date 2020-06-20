@@ -10,4 +10,5 @@ static inline struct fotentry *_twz_object_get_fote(twzobj *obj, size_t e)
 
 #define TWZ_OBJ_VALID 1
 #define TWZ_OBJ_NORELEASE 2
+#define TWZ_OBJ_ID 4
 #define TWZ_OBJ_CACHE 64

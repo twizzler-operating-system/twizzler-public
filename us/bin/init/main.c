@@ -112,6 +112,7 @@ int main()
 			return 1;
 		}
 	}
+	mkdir("/tmp", 0777);
 
 	twzobj lobj;
 	if((r = twz_object_new(&lobj,
@@ -191,6 +192,7 @@ int main()
 					fprintf(
 					  stderr, "[init] failed to chroot to new root; continuing from initrd\n");
 				}
+				mkdir("/tmp", 0777);
 			} else {
 				fprintf(stderr, "[init] failed to link dev directory, continuing from initrd\n");
 			}

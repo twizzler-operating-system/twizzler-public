@@ -597,6 +597,7 @@ void process_esc(struct fb *fb, int c)
 	fprintf(stderr, " -- unhandled ESC %c\n", c);
 }
 
+void sendescstr(twzobj *out_obj, char *str);
 #include <ctype.h>
 void process_csi(struct fb *fb, int c)
 {
@@ -609,6 +610,11 @@ void process_csi(struct fb *fb, int c)
 		fb->esc_argc++;
 		// fprintf(stderr, "CSI seq %c (%d %d)\n", c, fb->esc_args[0], fb->esc_args[1]);
 		switch(c) {
+			case 'l':
+			case 'h':
+			case 'c':
+				//			sendescstr(&ptyobj, "\e[?6c");
+				break;
 			case 'P':
 				fb_del_chars(fb, fb->esc_args[0]);
 				break;

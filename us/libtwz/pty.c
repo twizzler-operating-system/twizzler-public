@@ -81,7 +81,6 @@ static void flush_input(twzobj *obj, struct pty_hdr *hdr)
 	while(c < hdr->bufpos) {
 		r = bstream_hdr_write(
 		  obj, twz_object_lea(obj, hdr->stoc), hdr->buffer + c, hdr->bufpos - c, 0);
-		/* TODO: what to do on error? */
 		if(r < 0)
 			break;
 		c += r;

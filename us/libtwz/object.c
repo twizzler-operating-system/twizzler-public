@@ -236,9 +236,9 @@ int twz_object_init_guid(twzobj *obj, objid_t id, int flags)
 EXTERNAL
 objid_t twz_object_guid(twzobj *o)
 {
-	/* TODO: 128bit ATOMIC */
-	if(o->_int_id)
+	if(o->_int_flags & TWZ_OBJ_ID) {
 		return o->_int_id;
+	}
 	objid_t id = 0;
 	if(twz_vaddr_to_obj(o->_int_base, &id, NULL)) {
 		struct fault_object_info fi = twz_fault_build_object_info(0,
@@ -248,7 +248,9 @@ objid_t twz_object_guid(twzobj *o)
 		twz_fault_raise(FAULT_OBJECT, &fi);
 		return twz_object_guid(o);
 	}
-	return (o->_int_id = id);
+	o->_int_id = id;
+	o->_int_flags |= TWZ_OBJ_ID;
+	return id;
 }
 
 EXTERNAL
@@ -479,7 +481,6 @@ ssize_t twz_object_addfot(twzobj *obj, objid_t id, uint64_t flags)
 	flags &= ~_FE_VALID;
 	while(1) {
 		uint32_t i = atomic_fetch_add(&mi->fotentries, 1);
-		/* TODO: is this safe? */
 		if(i == 0)
 			i = atomic_fetch_add(&mi->fotentries, 1);
 		if(i == OBJ_MAXFOTE)
@@ -548,7 +549,6 @@ int __twz_ptr_store_fote(twzobj *obj, const void **res, struct fotentry *f, cons
 	return 0;
 }
 
-/* TODO: if target is the same as obj, just store a local pointer */
 EXTERNAL
 void *__twz_ptr_swizzle(twzobj *obj, const void *p, uint64_t flags)
 {
@@ -561,6 +561,10 @@ void *__twz_ptr_swizzle(twzobj *obj, const void *p, uint64_t flags)
 		  FAULT_PPTR_INVALID,
 		  r);
 		return NULL;
+	}
+
+	if(twz_object_guid(obj) == target) {
+		return twz_ptr_local((void *)p);
 	}
 
 	ssize_t fe = twz_object_addfot(obj, target, flags);

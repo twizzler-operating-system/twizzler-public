@@ -6,6 +6,12 @@
 #include <twz/_slots.h>
 
 #include <stddef.h>
+#ifdef __cplusplus
+#include <atomic>
+using std::atomic_uint_least64_t;
+#else /* not __cplusplus */
+#include <stdatomic.h>
+#endif /* __cplusplus */
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,7 +20,7 @@ extern "C" {
 #define TWZ_OBJ_CACHE_SIZE 16
 typedef struct _twz_object {
 	void *_int_base;
-	uint64_t _int_flags;
+	atomic_uint_least64_t _int_flags;
 	objid_t _int_id;
 	uint32_t _int_vf;
 	uint32_t pad;

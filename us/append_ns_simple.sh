@@ -14,7 +14,7 @@ done
 
 for nd in $(find $1 -name '__ns*.dat'); do
 	ns=${nd/.dat/}
-	echo processing $ns '<-' $nd >&2
+	#echo processing $ns '<-' $nd >&2
 	projects/$PROJECT/build/utils/appendobj $ns < $nd
 	rm $nd
 	id=$(projects/$PROJECT/build/utils/objstat -i $ns)

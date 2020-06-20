@@ -8,9 +8,6 @@
 #include <twz/obj.h>
 #include <twz/sys.h>
 
-/* TODO: update kernel API to allow rechecking value instead of returning whenever woken up? or just
- * update api so that we can sleep on a bitwise level (sleep if this bit is set), etc */
-
 void event_obj_init(twzobj *obj, struct evhdr *hdr)
 {
 	(void)obj;
@@ -37,8 +34,9 @@ uint64_t event_clear(struct evhdr *hdr, uint64_t events)
 
 int event_wait(size_t count, struct event *ev, const struct timespec *timeout)
 {
-	if(count > 4096)
-		return -EINVAL; // TODO
+	if(count > 4096) {
+		return -EINVAL;
+	}
 	while(true) {
 		struct sys_thread_sync_args args[count];
 		size_t ready = 0;

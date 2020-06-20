@@ -29,11 +29,18 @@ int twz_sctx_init(twzobj *obj, const char *name)
 	return 0;
 }
 
+void twz_sctx_set_gmask(twzobj *obj, uint32_t gmask)
+{
+	struct secctx *sc = twz_object_base(obj);
+	sc->gmask = gmask;
+}
+
 static int __sctx_add_bucket(struct secctx *sc,
   objid_t target,
   void *ptr,
   uint32_t pmask,
-  struct scgates *gatemask)
+  struct scgates *gatemask,
+  uint64_t flags)
 {
 	size_t slot = target % sc->nbuckets;
 	while(1) {
@@ -41,7 +48,7 @@ static int __sctx_add_bucket(struct secctx *sc,
 		if(b->target == 0) {
 			b->target = target;
 			b->data = twz_ptr_local(ptr);
-			b->flags = gatemask ? SCF_GATE : 0;
+			b->flags = (gatemask ? SCF_GATE : 0) | (flags & ~SCF_GATE);
 			b->gatemask = gatemask ? *gatemask : (struct scgates){ 0 };
 			b->pmask = pmask;
 			break;
@@ -63,6 +70,16 @@ static int __sctx_add_bucket(struct secctx *sc,
 	return 0;
 }
 
+int twz_sctx_add_dfl(twzobj *obj,
+  objid_t target,
+  uint32_t mask,
+  struct scgates *gatemask,
+  uint64_t flags)
+{
+	struct secctx *sc = twz_object_base(obj);
+	return __sctx_add_bucket(sc, target, NULL, mask, gatemask, flags);
+}
+
 int twz_sctx_add(twzobj *obj,
   objid_t target,
   void *item,
@@ -79,7 +96,7 @@ int twz_sctx_add(twzobj *obj,
 	data = twz_object_lea(obj, data);
 	memcpy(data, item, itemlen);
 
-	int r = __sctx_add_bucket(sc, target, data, pmask, gatemask);
+	int r = __sctx_add_bucket(sc, target, data, pmask, gatemask, 0);
 	if(r) {
 		/* TODO: twz_ptr_local for free? */
 		oa_hdr_free(obj, oa, twz_ptr_local(data));

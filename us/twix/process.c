@@ -389,6 +389,29 @@ static long __internal_execve_view_interp(twzobj *view,
 	  view, interp_entry, argv, env, interp_base, phdr, hdr->e_phnum, hdr->e_phentsize, exe_entry);
 	return -1;
 }
+static int __twz_exec_create_view(twzobj *view, objid_t id, objid_t *vid)
+{
+	int r;
+	if((r = twz_object_create(TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE, 0, 0, vid))) {
+		return r;
+	}
+	if((r = twz_object_init_guid(view, *vid, FE_READ | FE_WRITE))) {
+		return r;
+	}
+
+	twz_view_set(view, TWZSLOT_CVIEW, *vid, VE_READ | VE_WRITE);
+
+	twz_view_set(view, 0, id, VE_READ | VE_EXEC);
+
+	if((r = twz_object_wire(NULL, view)))
+		return r;
+	if((r = twz_object_delete(view, 0)))
+		return r;
+
+	struct twzview_repr *vr = twz_object_base(view);
+	vr->exec_id = id;
+	return 0;
+}
 
 long linux_sys_execve(const char *path, const char *const *argv, char *const *env)
 {
@@ -400,7 +423,7 @@ long linux_sys_execve(const char *path, const char *const *argv, char *const *en
 
 	objid_t vid;
 	twzobj view;
-	if((r = twz_exec_create_view(&view, id, &vid)) < 0) {
+	if((r = __twz_exec_create_view(&view, id, &vid)) < 0) {
 		return r;
 	}
 
@@ -421,9 +444,10 @@ long linux_sys_execve(const char *path, const char *const *argv, char *const *en
 		}
 	}
 
-	r = twz_exec_view(&view, vid, hdr->e_entry, argv, env);
+	return -ENOTSUP;
+	// r = twz_exec_view(&view, vid, hdr->e_entry, argv, env);
 
-	return r;
+	// return r;
 }
 
 asm(".global __return_from_clone\n"
