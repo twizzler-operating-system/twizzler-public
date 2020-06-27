@@ -99,8 +99,6 @@ static inline void __tx_cleanup(twzobj *obj, struct twz_tx *tx, _Bool abort)
 			memcpy(vp, entry->value, entry->len);
 		}
 
-#if 1
-		/* TODO: verify correctness */
 		char *l = vp;
 		char *last_l = last_vp;
 		long long rem = entry->len;
@@ -117,9 +115,6 @@ static inline void __tx_cleanup(twzobj *obj, struct twz_tx *tx, _Bool abort)
 
 		last_len = entry->len;
 		last_vp = vp;
-#else
-		_clwb_len(vp, entry->len);
-#endif
 		e += entry->next;
 	}
 

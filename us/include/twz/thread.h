@@ -69,15 +69,6 @@ __must_check int twz_thread_sync_multiple(size_t count,
   struct sys_thread_sync_args *,
   struct timespec *);
 
-/* TODO: get rid of these from the standard library */
-int twz_exec(objid_t id, char const *const *argv, char *const *env);
-int twz_exec_create_view(twzobj *view, objid_t id, objid_t *vid);
-int twz_exec_view(twzobj *view,
-  objid_t vid,
-  size_t entry,
-  char const *const *argv,
-  char *const *env);
-
 #ifndef __KERNEL__
 void twz_thread_cword_wake(atomic_uint_least64_t *w, uint64_t val);
 uint64_t twz_thread_cword_consume(atomic_uint_least64_t *w, uint64_t reset);

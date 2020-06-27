@@ -80,8 +80,6 @@ using std::atomic_uint_least64_t;
  *
  */
 
-/* TODO: get rid of multiples and divides */
-
 struct queue_entry {
 	atomic_uint_least32_t cmd_id; // top bit is turn bit.
 	uint32_t info;                // some user-defined info
@@ -170,16 +168,13 @@ static inline int __wait_on(void *o, atomic_uint_least64_t *p, uint64_t v, int d
 {
 	(void)o;
 	twz_thread_sync(THREAD_SYNC_SLEEP, p, v, NULL);
-	/* TODO: errors */
 	return 0;
 }
 
 static inline int __wake_up(void *o, atomic_uint_least64_t *p, uint64_t v, int dq)
 {
 	(void)o;
-	// printf("wake: %d\n", dq);
 	twz_thread_sync(THREAD_SYNC_WAKE, p, v, NULL);
-	/* TODO: errors */
 	return 0;
 }
 

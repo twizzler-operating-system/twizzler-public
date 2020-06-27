@@ -3,6 +3,9 @@
 #define __packed __attribute__((packed))
 #endif
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <twz/_kso.h>
 
 #define PCIE_BUS_HEADER_MAGIC 0x88582323
@@ -247,24 +250,13 @@ struct __packed pcie_msix_table_entry {
 #define MEMORY_BAR_PREFETCH(m) (m & (1 << 3))
 
 #ifndef __KERNEL__
-#include <twz/obj.h>
-static inline bool pcief_capability_get(struct pcie_function_header *pf,
-  int id,
-  union pcie_capability_ptr *cap)
-{
-	twzobj pf_obj = twz_object_from_ptr(pf);
-	struct pcie_config_space *space = twz_object_lea(&pf_obj, pf->space);
-	if(space->device.cap_ptr) {
-		size_t offset = space->device.cap_ptr;
-		do {
-			cap->header = (struct pcie_capability_header *)((char *)space + offset);
 
-			if(cap->header->capid == id)
-				return true;
-			offset = cap->header->next;
-		} while(offset != 0);
-	}
-	/* TODO: pcie extended caps? */
-	return false;
+#ifdef __cplusplus
+extern "C" {
+#endif
+bool pcief_capability_get(struct pcie_function_header *pf, int id, union pcie_capability_ptr *cap);
+#ifdef __cplusplus
 }
+#endif
+
 #endif
