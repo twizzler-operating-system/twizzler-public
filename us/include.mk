@@ -70,6 +70,12 @@ $(BUILDDIR)/us/sysroot/usr/lib/crt1.o: $(MUSL_SRCS) $(MUSL_HDRS) $(BUILDDIR)/us/
 	@cp -a $(TOOLCHAIN_PATH)/x86_64-pc-twizzler-musl/lib/libgcc_s.so.1 $(BUILDDIR)/us/sysroot/usr/lib
 	@rm $(BUILDDIR)/us/sysroot/lib/ld-musl-x86_64.so.1
 
+$(BUILDDIR)/us/sysroot/lib/ld64.so:
+	@ln -s ../usr/lib/libc.so $(BUILDDIR)/us/sysroot/lib/ld64.so
+
+
+$(BUILDDIR)/us/sysroot/lib/ld64.so.1:
+	@ln -s ../usr/lib/libc.so $(BUILDDIR)/us/sysroot/lib/ld64.so.1
 
 SYSROOT_READY=$(BUILDDIR)/us/sysroot/usr/lib/crt1.o
 
