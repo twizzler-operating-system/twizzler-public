@@ -159,7 +159,7 @@ $(BUILDDIR)/us/nvme.img: $(BUILDDIR)/us/objroot/__ns $(CTXOBJS) $(UTILS) $(BUILD
 	./projects/x86_64/build/utils/mkimg $(BUILDDIR)/us/objroot $(BUILDDIR)/us/opt-objroot -o $@ -n $$ID
 
 
-INITRD_FILES=usr/bin/init usr/bin/init_bootstrap usr/bin/init_bootstrap.data usr/lib/libtwz.so usr/lib/libtwix.so usr/lib/libc.so lib/ld64.so lib/ld64.so.1 usr/lib/libgcc_s.so usr/lib/libgcc_s.so.1 usr/lib/libstdc++.so usr/lib/libstdc++.so.6 usr/lib/libstdc++.so.6.0.27 usr/bin/pager usr/bin/nvme usr/bin/input usr/bin/keyboard usr/bin/serial usr/bin/twzdev usr/lib/libbacktrace.so usr/lib/libbacktrace.so.0 usr/lib/libbacktrace.so.0.0.0
+INITRD_FILES=usr/bin/init usr/bin/init_bootstrap usr/bin/init_bootstrap.data usr/lib/libtwz.so usr/lib/libtwix.so usr/lib/libc.so lib/ld64.so lib/ld64.so.1 usr/lib/libgcc_s.so usr/lib/libgcc_s.so.1 usr/lib/libstdc++.so usr/lib/libstdc++.so.6 usr/lib/libstdc++.so.6.0.27 usr/bin/pager usr/bin/nvme usr/bin/keyboard usr/bin/serial usr/bin/twzdev usr/lib/libbacktrace.so usr/lib/libbacktrace.so.0 usr/lib/libbacktrace.so.0.0.0
 $(BUILDDIR)/us/initrdroot/__ns: $(KEYOBJS) $(addprefix $(BUILDDIR)/us/sysroot/,$(INITRD_FILES)) us/include.mk
 	@echo "[GEN]     initrdroot"
 	@-rm -r $(BUILDDIR)/us/initrdfiles
