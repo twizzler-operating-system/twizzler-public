@@ -21,7 +21,7 @@ CONFIG_PRINT_SYSCALLS=n
 CONFIG_DEBUG_LOCKS=n
 
 # set this to your toolchain path
-TOOLCHAIN_PATH=/home/dbittman/code/twizzler/.tc
+TOOLCHAIN_PATH=
 #/home/dbittman/code/twizzler-kernel/.tc
 
 QEMU_FLAGS+="-enable-kvm"
