@@ -16,8 +16,8 @@ void x86_64_ipi_tlb_shootdown(void)
 	/* TODO: better invalidation scheme */
 	/* TODO: separate IPI for this? */
 	asm volatile("invept %0, %%rax" ::"m"(x), "r"(0));
-	if(current_thread)
-		current_thread->processor->stats.shootdowns++;
+	if(current_processor)
+		current_processor->stats.shootdowns++;
 	processor_ipi_finish();
 }
 
