@@ -4,6 +4,7 @@
 #include <lib/rb.h>
 #include <nvdimm.h>
 #include <object.h>
+#include <page.h>
 #include <string.h>
 
 #include <twz/driver/bus.h>
@@ -67,6 +68,27 @@ void nv_register_region(struct nv_device *dev,
 	  dev->id);
 }
 
+struct nvdimm_region_header {
+	uint32_t magic;
+};
+
+static void nv_init_region(struct nv_region *reg)
+{
+	/* TODO: actual ID allocation for system objects */
+	reg->metaobj = obj_create(reg->mono_id | 0x800000000, 0);
+	reg->metaobj->flags |= OF_KERNEL;
+	struct page *pg = page_alloc_nophys();
+	pg->addr = reg->start;
+	pg->level = 0;
+	pg->type = PAGE_TYPE_MMIO;
+	pg->flags |= PAGE_CACHE_WB;
+	obj_cache_page(reg->metaobj, OBJ_NULLPAGE_SIZE, pg);
+
+	struct nvdimm_region_header *hdr = obj_get_kbase(reg->metaobj);
+	printk("HDR: %d\n", hdr->magic);
+	hdr->magic = 12345678;
+}
+
 static struct object *nv_bus;
 
 static void __init_nv_objects(void *_a __unused)
@@ -92,6 +114,7 @@ static void __init_nv_objects(void *_a __unused)
 			hdr->regid = reg->id;
 
 			kso_attach(nv_bus, reg->obj, reg->mono_id);
+			nv_init_region(reg);
 		}
 	}
 }

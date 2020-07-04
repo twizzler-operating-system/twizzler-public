@@ -163,7 +163,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			current_thread->_last_count = 0;
 		} else {
 			current_thread->_last_count++;
-			if(current_thread->_last_count > 500) {
+			if(current_thread->_last_count > 5000) {
 				panic("DOUBLE OADDR FAULT :: " IDFMT "; %lx %lx %x\n",
 				  IDPR(o ? o->id : 0),
 				  ip,

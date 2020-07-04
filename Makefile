@@ -169,6 +169,7 @@ tools-build2:
 	@$(MAKE) clean-musl
 	@$(MAKE) $(SYSROOT_READY)
 	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace-libs2.sh 
+	@touch us/include/twz/*
 
 tools-rebuild1:
 	@cd tools && PREFIX=$(TOOLCHAIN_PATH) ARCH=$(CONFIG_ARCH) PROJECT=$(PROJECT) ./toolchain-userspace.sh 

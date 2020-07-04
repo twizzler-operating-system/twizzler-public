@@ -23,12 +23,13 @@ struct nv_device {
 	uint32_t flags;
 };
 
+struct object;
 struct nv_region {
 	uintptr_t start;
 	uint64_t length;
 	struct rbnode node;
 	struct nv_interleave *ilinfo;
-	struct object *obj;
+	struct object *obj, *metaobj;
 	uint32_t id;
 	uint32_t flags;
 	uint64_t mono_id;
