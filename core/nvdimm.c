@@ -2,6 +2,7 @@
 #include <init.h>
 #include <kalloc.h>
 #include <lib/rb.h>
+#include <memory.h>
 #include <nvdimm.h>
 #include <object.h>
 #include <page.h>
@@ -68,25 +69,107 @@ void nv_register_region(struct nv_device *dev,
 	  dev->id);
 }
 
+/* a region is broken down into page groups. The page groups start with 2 meta data pages, followed
+ * by data pages. The first metadata page is unused unless it's the first page group, in which case
+ * it contains the superpage. The second metadata page is a bitmap indicating which blocks are
+ * allocated. This bitmap includes the two metadata pages, thus they are always marked as allocated.
+ */
+
+#define NVD_HDR_MAGIC 0x12345678
+
 struct nvdimm_region_header {
 	uint32_t magic;
+	uint32_t version;
+	uint64_t flags;
+
+	uint64_t metaobj_root;
+	uint64_t pad;
+
+	uint32_t pg_used_num[];
 };
+
+#define PGGRP_LEN ({ (mm_page_size(0) * 8) * mm_page_size(0); })
+
+#define PGGRP_ALLOC_PAGE(reg, i)                                                                   \
+	({                                                                                             \
+		(uint8_t *)((char *)obj_get_kbase(reg->metaobj) + mm_page_size(0) * i * 2                  \
+		            + mm_page_size(0));                                                            \
+	})
+
+static uint64_t nv_region_alloc_page(struct nv_region *reg)
+{
+	struct nvdimm_region_header *hdr = obj_get_kbase(reg->metaobj);
+	spinlock_acquire_save(&reg->lock);
+
+	size_t nr = reg->length / PGGRP_LEN;
+
+	for(size_t i = 0; i < nr; i++) {
+		if(hdr->pg_used_num[i] < PGGRP_LEN / mm_page_size(0)) {
+			hdr->pg_used_num[i]++;
+
+			uint8_t *bm = PGGRP_ALLOC_PAGE(reg, i);
+			for(size_t j = 0; j < PGGRP_LEN / mm_page_size(0); j++) {
+				if(!(bm[j / 8] & (1 << (j % 8)))) {
+					bm[j / 8] |= (1 << (j % 8));
+					spinlock_release_restore(&reg->lock);
+					return i * PGGRP_LEN + j * mm_page_size(0);
+				}
+			}
+		}
+	}
+	spinlock_release_restore(&reg->lock);
+	return 0;
+}
+
+static void nv_init_region_contents(struct nv_region *reg)
+{
+	struct nvdimm_region_header *hdr = obj_get_kbase(reg->metaobj);
+
+	hdr->version = 0;
+	hdr->flags = 0;
+	size_t nr = reg->length / PGGRP_LEN;
+	printk("[nv]   init %ld pagegroups\n", nr);
+	for(size_t i = 0; i < nr; i++) {
+		uint8_t *bm = PGGRP_ALLOC_PAGE(reg, i);
+		memset(bm, 0, mm_page_size(0));
+		bm[0] |= 3;
+		hdr->pg_used_num[i] = 2;
+	}
+
+	uint64_t p = nv_region_alloc_page(reg);
+	printk("Alloced page %lx\n", p);
+}
 
 static void nv_init_region(struct nv_region *reg)
 {
 	/* TODO: actual ID allocation for system objects */
 	reg->metaobj = obj_create(reg->mono_id | 0x800000000, 0);
 	reg->metaobj->flags |= OF_KERNEL;
-	struct page *pg = page_alloc_nophys();
-	pg->addr = reg->start;
-	pg->level = 0;
-	pg->type = PAGE_TYPE_MMIO;
-	pg->flags |= PAGE_CACHE_WB;
-	obj_cache_page(reg->metaobj, OBJ_NULLPAGE_SIZE, pg);
+	reg->lock = SPINLOCK_INIT;
+
+	size_t nr = reg->length / PGGRP_LEN;
+	for(size_t i = 0; i < nr; i++) {
+		struct page *pg = page_alloc_nophys();
+		pg->addr = reg->start + PGGRP_LEN * i;
+		pg->level = 0;
+		pg->type = PAGE_TYPE_PERSIST;
+		pg->flags |= PAGE_CACHE_WB;
+		obj_cache_page(reg->metaobj, OBJ_NULLPAGE_SIZE + mm_page_size(0) * i * 2, pg);
+
+		pg = page_alloc_nophys();
+		pg->addr = reg->start + PGGRP_LEN * i + mm_page_size(0);
+		pg->level = 0;
+		pg->type = PAGE_TYPE_PERSIST;
+		pg->flags |= PAGE_CACHE_WB;
+		obj_cache_page(
+		  reg->metaobj, OBJ_NULLPAGE_SIZE + mm_page_size(0) * i * 2 + mm_page_size(0), pg);
+	}
 
 	struct nvdimm_region_header *hdr = obj_get_kbase(reg->metaobj);
-	printk("HDR: %d\n", hdr->magic);
-	hdr->magic = 12345678;
+	if(hdr->magic != NVD_HDR_MAGIC) {
+		printk("[nv] initializing contents of region %ld\n", reg->mono_id);
+		nv_init_region_contents(reg);
+	}
 }
 
 static struct object *nv_bus;

@@ -907,10 +907,10 @@ long linux_sys_fork(struct twix_register_frame *frame)
 	// twz_object_wire(NULL, &stack);
 	// twz_object_delete(&stack, 0);
 
-	size_t soff = (uint64_t)twz_ptr_local(frame) - 1024;
-	void *childstack = twz_object_lea(&stack, (void *)soff);
+	// size_t soff = (uint64_t)twz_ptr_local(frame) - 1024;
+	// void *childstack = twz_object_lea(&stack, (void *)soff);
 
-	memcpy(childstack, frame, sizeof(struct twix_register_frame));
+	// memcpy(childstack, frame, sizeof(struct twix_register_frame));
 
 	uint64_t fs;
 	asm volatile("rdfsbase %%rax" : "=a"(fs));
@@ -919,7 +919,7 @@ long linux_sys_fork(struct twix_register_frame *frame)
 		.target_view = vid,
 		.start_func = (void *)__return_from_fork,
 		.arg = NULL,
-		.stack_base = (void *)twz_ptr_rebase(TWZSLOT_STACK, soff),
+		.stack_base = (void *)frame, // twz_ptr_rebase(TWZSLOT_STACK, soff),
 		.stack_size = 8,
 		.tls_base = (void *)fs,
 		.thrd_ctrl = TWZSLOT_THRD,

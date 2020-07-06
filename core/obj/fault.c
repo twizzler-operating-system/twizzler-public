@@ -139,6 +139,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 	__c++;
 	size_t idx = (loaddr % mm_page_size(MAX_PGLEVEL)) / mm_page_size(0);
 	if(idx == 0 && !VADDR_IS_KERNEL(vaddr)) {
+		printk("NULL FAULT: %lx %lx %lx %x\n", ip, loaddr, vaddr, flags);
 		struct fault_null_info info = twz_fault_build_null_info((void *)ip, (void *)vaddr);
 		thread_raise_fault(current_thread, FAULT_NULL, &info, sizeof(info));
 		return;

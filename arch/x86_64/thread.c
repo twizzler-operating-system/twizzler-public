@@ -123,6 +123,13 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 		return;
 	}
 
+	if(stack < OBJ_NULLPAGE_SIZE) {
+		printk("thread %ld has invalid stack\n", t->id);
+		panic("A");
+		thread_exit();
+		return;
+	}
+
 	/* TODO: validate that stack is in a reasonable object */
 	if(((unsigned long)stack & 0xFFFFFFFFFFFFFFF0) != (unsigned long)stack) {
 		//	panic("NI");

@@ -34,6 +34,7 @@ struct nv_region {
 	uint32_t flags;
 	uint64_t mono_id;
 	struct nv_device *dev;
+	struct spinlock lock;
 };
 
 void nv_register_region(struct nv_device *dev,
