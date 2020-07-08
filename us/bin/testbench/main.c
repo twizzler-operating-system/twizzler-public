@@ -104,10 +104,34 @@ static void _queue_st(struct test *test)
 #endif
 }
 
+static void _nv_create(struct test *test)
+{
+	twzobj obj;
+	int r =
+	  twz_object_new(&obj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_SYS_OC_PERSIST_);
+	TEST_CHECK_EQ(test, r, 0);
+
+	printf(":: %d : " IDFMT "\n", r, IDPR(twz_object_guid(&obj)));
+	int *base = twz_object_base(&obj);
+	*base = 1234;
+}
+
+static void _nv_use(struct test *test)
+{
+	twzobj obj;
+	twz_object_init_guid(
+	  &obj, (((objid_t)0x8953c877d1acd2e8ul) << 64) | (objid_t)0xce4724ecaf5b3b1eul, FE_READ);
+
+	int *base = twz_object_base(&obj);
+	TEST_CHECK_EQ(test, *base, 1234);
+}
+
 struct test tests[] = {
 	TEST_DECL("test-test", _test_test),
 	TEST_DECL("foo-bar", _foo_bar),
 	TEST_DECL("queue-st", _queue_st),
+	TEST_DECL("nv-c", _nv_create),
+	TEST_DECL("nv-u", _nv_use),
 };
 
 static const size_t nr_tests = sizeof(tests) / sizeof(tests[0]);

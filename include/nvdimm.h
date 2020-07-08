@@ -1,5 +1,10 @@
 #pragma once
 
+#include <lib/list.h>
+#include <lib/rb.h>
+#include <object.h>
+#include <spinlock.h>
+
 struct nv_topology {
 	uint8_t dimm_nr;
 	uint8_t chan_nr;
@@ -35,6 +40,8 @@ struct nv_region {
 	uint64_t mono_id;
 	struct nv_device *dev;
 	struct spinlock lock;
+
+	struct list entry;
 };
 
 void nv_register_region(struct nv_device *dev,
@@ -47,3 +54,8 @@ void nv_register_region(struct nv_device *dev,
 void nv_register_device(uint64_t id, struct nv_topology *topinfo);
 struct nv_device *nv_lookup_device(uint64_t id);
 struct nv_region *nv_lookup_region(struct nv_device *dev, uint32_t id);
+
+struct page *nv_region_pagein(struct object *, size_t idx);
+struct nv_region *nv_region_select(void);
+int nv_region_persist_obj_meta(struct object *obj);
+struct nv_region *nv_region_lookup_object(objid_t id);

@@ -1,4 +1,5 @@
 #include <kalloc.h>
+#include <nvdimm.h>
 #include <object.h>
 #include <processor.h>
 #include <rand.h>
@@ -292,6 +293,9 @@ long syscall_ocreate(uint64_t kulo,
 		return -1;
 	}
 	struct object *o, *so = NULL;
+	if(srcid && (flags & TWZ_SYS_OC_PERSIST_)) {
+		return -ENOTSUP;
+	}
 	if(srcid) {
 		so = obj_lookup(srcid, 0);
 		if(!so) {
@@ -305,6 +309,15 @@ long syscall_ocreate(uint64_t kulo,
 		o = obj_create_clone(0, so, ksot);
 	} else {
 		o = obj_create(0, ksot);
+	}
+
+	if(flags & TWZ_SYS_OC_PERSIST_) {
+		o->flags |= OF_PERSIST;
+		o->preg = nv_region_select();
+		if(!o->preg) {
+			/* TODO: cleanup */
+			return -ENOSPC;
+		}
 	}
 
 	struct metainfo mi = {
@@ -324,9 +337,11 @@ long syscall_ocreate(uint64_t kulo,
 
 	objid_t id = obj_compute_id(o);
 	obj_assign_id(o, id);
-	if(flags & TWZ_SYS_OC_PERSIST_) {
-		o->flags |= OF_PERSIST;
+
+	if(o->flags & OF_PERSIST) {
+		nv_region_persist_obj_meta(o);
 	}
+
 #if CONFIG_DEBUG_OBJECT_LIFE
 	if(srcid)
 		printk("CREATE OBJECT: " IDFMT " from srcobj " IDFMT "\n", IDPR(id), IDPR(srcid));

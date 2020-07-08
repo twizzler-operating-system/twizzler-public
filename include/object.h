@@ -83,6 +83,7 @@ struct derivation_info {
 	struct list entry;
 };
 
+struct nv_region;
 struct object {
 	uint128_t id;
 	struct arch_object arch;
@@ -132,6 +133,8 @@ struct object {
 	struct object *sourced_from;
 	struct list derivations;
 	struct rbroot idx_map;
+
+	struct nv_region *preg;
 };
 
 #define obj_get_kbase(obj) ({ (void *)((char *)obj_get_kaddr(obj) + OBJ_NULLPAGE_SIZE); })

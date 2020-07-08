@@ -4,6 +4,7 @@
 #include <lib/iter.h>
 #include <lib/rb.h>
 #include <memory.h>
+#include <nvdimm.h>
 #include <object.h>
 #include <page.h>
 #include <pager.h>
@@ -64,6 +65,7 @@ void obj_init(struct object *obj)
 	krc_init_zero(&obj->mapcount);
 	arch_object_init(obj);
 	obj->ties_root = RBINIT;
+	obj->preg = NULL;
 	obj->idx_map = RBINIT;
 	list_init(&obj->derivations);
 }
@@ -187,6 +189,22 @@ struct object *obj_lookup(uint128_t id, int flags)
 		spinlock_release_restore(&obj->lock);
 	} else {
 		spinlock_release_restore(&objlock);
+		struct nv_region *reg = nv_region_lookup_object(id);
+		if(reg) {
+			obj = obj_create(0, 0);
+			spinlock_acquire_save(&objlock);
+			node = rb_search(&obj_tree, id, struct object, node, __obj_compar_key);
+			if(!node) {
+				obj->preg = reg;
+				obj->flags |= OF_PERSIST;
+				obj->id = id;
+				rb_insert(&obj_tree, obj, struct object, node, __obj_compar);
+			} else {
+				/* TODO: free the object we prematurely allocated */
+				obj = rb_entry(node, struct object, node);
+			}
+			spinlock_release_restore(&objlock);
+		}
 	}
 	return obj;
 }

@@ -1,12 +1,15 @@
 #include <device.h>
 #include <init.h>
 #include <kalloc.h>
+#include <lib/iter.h>
 #include <lib/rb.h>
 #include <memory.h>
 #include <nvdimm.h>
 #include <object.h>
 #include <page.h>
+#include <processor.h>
 #include <string.h>
+#include <tmpmap.h>
 
 #include <twz/driver/bus.h>
 #include <twz/driver/device.h>
@@ -17,6 +20,8 @@ RB_DECLARE_STANDARD_COMPARISONS(nv_device, uint64_t, id);
 RB_DECLARE_STANDARD_COMPARISONS(nv_region, uint32_t, id);
 
 static struct rbroot device_root = RBINIT;
+
+static DECLARE_LIST(reg_list);
 
 struct nv_region *nv_lookup_region(struct nv_device *dev, uint32_t id)
 {
@@ -69,75 +74,255 @@ void nv_register_region(struct nv_device *dev,
 	  dev->id);
 }
 
-/* a region is broken down into page groups. The page groups start with 2 meta data pages, followed
+/* a region is broken down into page groups. The page groups start with meta data pages, followed
  * by data pages. The first metadata page is unused unless it's the first page group, in which case
  * it contains the superpage. The second metadata page is a bitmap indicating which blocks are
- * allocated. This bitmap includes the two metadata pages, thus they are always marked as allocated.
+ * allocated. The rest of the metadata pages contain hash buckets for lookups of (id, pgnr).
+ * The allocation bitmap includes the metadata pages, thus they are always marked as allocated.
+ * TODO: take this into account in page allocation.
  */
 
 #define NVD_HDR_MAGIC 0x12345678
+
+struct nvdimm_bucket {
+	objid_t id;
+	uint64_t reg_page;
+	uint32_t obj_page;
+	uint32_t flags;
+};
+
+struct nvdimm_pggrp {
+	uint8_t sb[4096];
+	uint8_t bm[4096];
+	struct nvdimm_bucket buckets[];
+};
 
 struct nvdimm_region_header {
 	uint32_t magic;
 	uint32_t version;
 	uint64_t flags;
 
-	uint64_t metaobj_root;
-	uint64_t pad;
+	uint64_t total_pages;
+	uint64_t used_pages;
 
 	uint32_t pg_used_num[];
 };
 
 #define PGGRP_LEN ({ (mm_page_size(0) * 8) * mm_page_size(0); })
 
-#define PGGRP_ALLOC_PAGE(reg, i)                                                                   \
-	({                                                                                             \
-		(uint8_t *)((char *)obj_get_kbase(reg->metaobj) + mm_page_size(0) * i * 2                  \
-		            + mm_page_size(0));                                                            \
-	})
+#define BUCKETS_PER_GROUP ({ (PGGRP_LEN / mm_page_size(0)) * 2; })
 
-static uint64_t nv_region_alloc_page(struct nv_region *reg)
+#define META_GROUP_LEN ({ mm_page_size(0) * 2 + BUCKETS_PER_GROUP * sizeof(struct nvdimm_bucket); })
+
+#define PGGRP_META(reg, i)                                                                         \
+	({ (struct nvdimm_pggrp *)((char *)obj_get_kbase(reg->metaobj) + i * META_GROUP_LEN); })
+
+static uint64_t __nv_region_alloc_page(struct nv_region *reg)
 {
 	struct nvdimm_region_header *hdr = obj_get_kbase(reg->metaobj);
-	spinlock_acquire_save(&reg->lock);
 
 	size_t nr = reg->length / PGGRP_LEN;
 
 	for(size_t i = 0; i < nr; i++) {
 		if(hdr->pg_used_num[i] < PGGRP_LEN / mm_page_size(0)) {
 			hdr->pg_used_num[i]++;
+			hdr->used_pages++;
+			arch_processor_clwb(hdr->pg_used_num[i]);
+			arch_processor_clwb(hdr->used_pages);
 
-			uint8_t *bm = PGGRP_ALLOC_PAGE(reg, i);
+			struct nvdimm_pggrp *pgg = PGGRP_META(reg, i);
 			for(size_t j = 0; j < PGGRP_LEN / mm_page_size(0); j++) {
-				if(!(bm[j / 8] & (1 << (j % 8)))) {
-					bm[j / 8] |= (1 << (j % 8));
-					spinlock_release_restore(&reg->lock);
+				if(!(pgg->bm[j / 8] & (1 << (j % 8)))) {
+					pgg->bm[j / 8] |= (1 << (j % 8));
+					arch_processor_clwb(pgg->bm[j / 8]);
 					return i * PGGRP_LEN + j * mm_page_size(0);
 				}
 			}
 		}
 	}
-	spinlock_release_restore(&reg->lock);
 	return 0;
+}
+
+static uint64_t __hash(objid_t id, uint32_t pgnr, uint64_t mod)
+{
+	objid_t _p = pgnr;
+	objid_t tmp = ((id ^ _p) ^ (id >> (uint64_t)(pgnr % 64u)));
+	return (uint64_t)tmp % mod;
+}
+
+static uint64_t __nv_region_lookup_group(struct nv_region *reg,
+  size_t group,
+  objid_t id,
+  uint32_t pgnr)
+{
+	struct nvdimm_pggrp *pgg = PGGRP_META(reg, group);
+
+	size_t b = __hash(id, pgnr, BUCKETS_PER_GROUP);
+	size_t i = b;
+	do {
+		struct nvdimm_bucket *bucket = &pgg->buckets[i];
+		if(bucket->id == id && bucket->obj_page) {
+			return bucket->reg_page;
+		}
+		if(bucket->flags == 0) {
+			return 0;
+		}
+		i = (i + 1) % BUCKETS_PER_GROUP;
+	} while(i != b);
+	return 1;
+}
+
+static uint64_t __nv_region_lookup(struct nv_region *reg, objid_t id, uint32_t pgnr)
+{
+	size_t gnr = reg->length / PGGRP_LEN;
+	size_t b = __hash(id, pgnr, gnr);
+
+	size_t i = b;
+	do {
+		uint64_t ret = __nv_region_lookup_group(reg, i, id, pgnr);
+		if(ret == 0) {
+			return 0;
+		}
+		if(ret != 1) {
+			return ret;
+		}
+		i = (i + 1) % gnr;
+	} while(i != b);
+	return 0;
+}
+
+static int __nv_region_insert_group(struct nv_region *reg,
+  size_t group,
+  objid_t id,
+  uint32_t pgnr,
+  uint64_t regpage)
+{
+	struct nvdimm_pggrp *pgg = PGGRP_META(reg, group);
+
+	size_t b = __hash(id, pgnr, BUCKETS_PER_GROUP);
+	size_t i = b;
+	do {
+		struct nvdimm_bucket *bucket = &pgg->buckets[i];
+		if(bucket->id == 0) {
+			bucket->obj_page = pgnr;
+			bucket->reg_page = regpage;
+			arch_processor_clwb(bucket->obj_page);
+			arch_processor_clwb(bucket->reg_page);
+			bucket->id = id;
+			arch_processor_clwb(bucket->id);
+			return 0;
+		}
+		i = (i + 1) % BUCKETS_PER_GROUP;
+	} while(i != b);
+	return -ENOSPC;
+}
+
+static int __nv_region_insert(struct nv_region *reg, objid_t id, uint32_t pgnr, uint64_t regpage)
+{
+	size_t gnr = reg->length / PGGRP_LEN;
+	size_t b = __hash(id, pgnr, gnr);
+
+	size_t i = b;
+	do {
+		if(__nv_region_insert_group(reg, i, id, pgnr, regpage) == 0) {
+			return 0;
+		}
+		i = (i + 1) % gnr;
+	} while(i != b);
+	return -ENOSPC;
+}
+
+static void __zero(struct nv_region *reg, uint64_t p)
+{
+	struct page page;
+	page.addr = p + reg->start;
+	page.level = 0;
+	void *s = tmpmap_map_page(&page);
+	memset(s, 0, mm_page_size(0));
+	tmpmap_unmap_page(s);
+}
+
+static uint64_t nv_region_lookup_or_create(struct nv_region *reg, objid_t id, uint32_t pgnr)
+{
+	spinlock_acquire_save(&reg->lock);
+	if(id == 0) {
+		uint64_t p = __nv_region_alloc_page(reg);
+		spinlock_release_restore(&reg->lock);
+		__zero(reg, p);
+		return p;
+	}
+	uint64_t p = __nv_region_lookup(reg, id, pgnr);
+	if(p == 0) {
+		p = __nv_region_alloc_page(reg);
+		__zero(reg, p); // TODO: try to move this out of the lock
+		if(__nv_region_insert(reg, id, pgnr, p)) {
+			panic("TODO: out of space in region");
+		}
+	}
+	spinlock_release_restore(&reg->lock);
+	return p;
+}
+
+int nv_region_persist_obj_meta(struct object *obj)
+{
+	struct objpage *p;
+	enum obj_get_page_result gpr = obj_get_page(obj, OBJ_MAXSIZE - mm_page_size(0), &p, 0);
+	if(gpr != GETPAGE_OK) {
+		panic(
+		  "failed to get meta page %ld when persisting object", OBJ_MAXSIZE / mm_page_size(0) - 1);
+	}
+
+	spinlock_acquire_save(&obj->preg->lock);
+
+	if(__nv_region_insert(obj->preg, obj->id, p->idx, p->page->addr - obj->preg->start)) {
+		panic("TODO: out of space in region");
+	}
+	spinlock_release_restore(&obj->preg->lock);
+	return 0;
+}
+
+struct page *nv_region_pagein(struct object *obj, size_t idx)
+{
+	printk("[nv] pagein " IDFMT " :: %ld\n", IDPR(obj->id), idx);
+	struct page *pg = page_alloc_nophys();
+	pg->addr = obj->preg->start + nv_region_lookup_or_create(obj->preg, obj->id, idx);
+	pg->level = 0;
+	pg->type = PAGE_TYPE_PERSIST;
+	pg->flags |= PAGE_CACHE_WB;
+	return pg;
 }
 
 static void nv_init_region_contents(struct nv_region *reg)
 {
 	struct nvdimm_region_header *hdr = obj_get_kbase(reg->metaobj);
 
-	hdr->version = 0;
-	hdr->flags = 0;
 	size_t nr = reg->length / PGGRP_LEN;
-	printk("[nv]   init %ld pagegroups\n", nr);
 	for(size_t i = 0; i < nr; i++) {
-		uint8_t *bm = PGGRP_ALLOC_PAGE(reg, i);
-		memset(bm, 0, mm_page_size(0));
-		bm[0] |= 3;
-		hdr->pg_used_num[i] = 2;
+		struct nvdimm_pggrp *pgg = PGGRP_META(reg, i);
+		memset(pgg, 0, META_GROUP_LEN);
+		for(size_t p = 0; p < META_GROUP_LEN / mm_page_size(0); p++) {
+			pgg->bm[p / 8] |= (1 << (p % 8));
+			arch_processor_clwb(pgg->bm[p / 8]);
+		}
+		hdr->pg_used_num[i] = META_GROUP_LEN / mm_page_size(0);
+		arch_processor_clwb(hdr->pg_used_num[i]);
 	}
 
-	uint64_t p = nv_region_alloc_page(reg);
-	printk("Alloced page %lx\n", p);
+	hdr->version = 0;
+	hdr->flags = 0;
+	hdr->total_pages = (reg->length - META_GROUP_LEN * nr) / mm_page_size(0);
+	hdr->used_pages = 0;
+	arch_processor_clwb(hdr->version);
+	arch_processor_clwb(hdr->flags);
+	arch_processor_clwb(hdr->total_pages);
+	arch_processor_clwb(hdr->used_pages);
+	printk("[nv]   init %ld pagegroups\n", nr);
+	printk("[nv]   mgl = %ld-ish MB\n", META_GROUP_LEN / (1024 * 1024));
+	printk("[nv]   total pages: %ld (%ld MB)\n",
+	  hdr->total_pages,
+	  (mm_page_size(0) * hdr->total_pages) / (1024 * 1024));
+	hdr->magic = NVD_HDR_MAGIC;
+	arch_processor_clwb(hdr->magic);
 }
 
 static void nv_init_region(struct nv_region *reg)
@@ -148,28 +333,59 @@ static void nv_init_region(struct nv_region *reg)
 	reg->lock = SPINLOCK_INIT;
 
 	size_t nr = reg->length / PGGRP_LEN;
+	if(nr * META_GROUP_LEN + OBJ_NULLPAGE_SIZE >= OBJ_MAXSIZE) {
+		panic("TODO: large NVDIMM region");
+	}
 	for(size_t i = 0; i < nr; i++) {
-		struct page *pg = page_alloc_nophys();
-		pg->addr = reg->start + PGGRP_LEN * i;
-		pg->level = 0;
-		pg->type = PAGE_TYPE_PERSIST;
-		pg->flags |= PAGE_CACHE_WB;
-		obj_cache_page(reg->metaobj, OBJ_NULLPAGE_SIZE + mm_page_size(0) * i * 2, pg);
-
-		pg = page_alloc_nophys();
-		pg->addr = reg->start + PGGRP_LEN * i + mm_page_size(0);
-		pg->level = 0;
-		pg->type = PAGE_TYPE_PERSIST;
-		pg->flags |= PAGE_CACHE_WB;
-		obj_cache_page(
-		  reg->metaobj, OBJ_NULLPAGE_SIZE + mm_page_size(0) * i * 2 + mm_page_size(0), pg);
+		for(size_t p = 0; p < META_GROUP_LEN / mm_page_size(0); p++) {
+			struct page *pg = page_alloc_nophys();
+			pg->addr = reg->start + PGGRP_LEN * i + p * mm_page_size(0);
+			pg->level = 0;
+			pg->type = PAGE_TYPE_PERSIST;
+			pg->flags |= PAGE_CACHE_WB;
+			obj_cache_page(
+			  reg->metaobj, OBJ_NULLPAGE_SIZE + META_GROUP_LEN * i + p * mm_page_size(0), pg);
+		}
 	}
 
 	struct nvdimm_region_header *hdr = obj_get_kbase(reg->metaobj);
-	if(hdr->magic != NVD_HDR_MAGIC) {
+	if(hdr->magic != NVD_HDR_MAGIC || 0) {
 		printk("[nv] initializing contents of region %ld\n", reg->mono_id);
 		nv_init_region_contents(reg);
 	}
+
+	list_insert(&reg_list, &reg->entry);
+}
+
+struct nv_region *nv_region_lookup_object(objid_t id)
+{
+	foreach(e, list, &reg_list) {
+		struct nv_region *reg = list_entry(e, struct nv_region, entry);
+		spinlock_acquire_save(&reg->lock);
+		bool found =
+		  !!__nv_region_lookup(reg, id, (OBJ_MAXSIZE - mm_page_size(0)) / mm_page_size(0));
+		if(found) {
+			spinlock_release_restore(&reg->lock);
+			return reg;
+		}
+		spinlock_release_restore(&reg->lock);
+	}
+
+	return NULL;
+}
+
+struct nv_region *nv_region_select(void)
+{
+	foreach(e, list, &reg_list) {
+		struct nv_region *reg = list_entry(e, struct nv_region, entry);
+		struct nvdimm_region_header *hdr = obj_get_kbase(reg->metaobj);
+		if(hdr->total_pages > (hdr->used_pages + 4096)) {
+			/* try this region */
+			return reg;
+		}
+	}
+
+	return NULL;
 }
 
 static struct object *nv_bus;

@@ -2,6 +2,7 @@
 #include <lib/iter.h>
 #include <lib/list.h>
 #include <lib/rb.h>
+#include <nvdimm.h>
 #include <object.h>
 #include <page.h>
 #include <pager.h>
@@ -246,8 +247,15 @@ static struct objpage *__obj_get_large_page(struct object *obj, size_t addr)
 
 static void __obj_get_page_alloc_page(struct objpage *op)
 {
-	struct page *pp = page_alloc(
-	  (op->obj->flags & OF_PERSIST) ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, 0);
+	struct page *pp;
+	if(op->obj->flags & OF_PERSIST) {
+		assert(op->obj->preg);
+		pp = nv_region_pagein(op->obj, op->idx);
+	} else {
+		pp = page_alloc(PAGE_TYPE_VOLATILE, PAGE_ZERO, 0);
+	}
+	//	struct page *pp = page_alloc(
+	//	  (op->obj->flags & OF_PERSIST) ? PAGE_TYPE_PERSIST : PAGE_TYPE_VOLATILE, PAGE_ZERO, 0);
 	pp->cowcount = 1;
 	op->flags = 0;
 	op->page = pp;
