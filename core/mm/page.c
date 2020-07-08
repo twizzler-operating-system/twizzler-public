@@ -528,7 +528,11 @@ done:
 
 struct page *page_alloc_nophys(void)
 {
+	_Atomic bool *recur_flag = per_cpu_get(page_recur_crit_flag);
+	bool old = *recur_flag;
+	*recur_flag = true;
 	struct page *page = arena_allocate(&page_arena, sizeof(struct page));
+	*recur_flag = old;
 #if DO_PAGE_MAGIC
 	page->page_magic = PAGE_MAGIC;
 #endif
