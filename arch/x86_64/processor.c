@@ -1,6 +1,10 @@
 #include <arch/x86_64-msr.h>
 #include <clksrc.h>
 #include <processor.h>
+void arch_processor_reset_current_thread(struct processor *proc)
+{
+	proc->arch.curr = NULL;
+}
 
 void arch_processor_enumerate()
 {

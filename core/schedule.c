@@ -38,6 +38,10 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 		x86_64_wrmsr(0xe8, 0, 0);
 	}
 
+	if(current_thread && current_thread->state == THREADSTATE_EXITED) {
+		arch_processor_reset_current_thread(proc);
+	}
+
 	while(true) {
 		pager_idle_task();
 		workqueue_dowork(&proc->wq);

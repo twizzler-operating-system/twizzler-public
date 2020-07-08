@@ -117,6 +117,9 @@ __attribute__((const, always_inline)) static inline struct thread *__x86_64_get_
 	return (void *)tmp;
 }
 
+struct processor;
+void arch_processor_reset_current_thread(struct processor *proc);
+
 #define current_thread __x86_64_get_current_thread()
 
 /* TODO: use clwb if we can */
