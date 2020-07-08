@@ -258,6 +258,10 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		struct objpage *p;
 		enum obj_get_page_result gpr =
 		  obj_get_page(o, loaddr % OBJ_MAXSIZE, &p, OBJ_GET_PAGE_ALLOC | OBJ_GET_PAGE_PAGEROK);
+		if(current_thread && current_thread->_last_count > 1000) {
+			printk(
+			  ":::: %d %lx %p %p %lx %d\n", gpr, o->flags, p, p->page, p->flags, p->page->cowcount);
+		}
 		switch(gpr) {
 			case GETPAGE_OK:
 				break;
@@ -298,10 +302,12 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 				p->flags |= OBJPAGE_MAPPED;
 			} else {
 				spinlock_release_restore(&p->lock);
+				spinlock_acquire_save(&o->lock);
 				if(!(p->flags & OBJPAGE_MAPPED)) {
 					arch_object_map_page(o, p);
 					p->flags |= OBJPAGE_MAPPED;
 				}
+				spinlock_release_restore(&o->lock);
 			}
 
 			//		spinlock_release_restore(&p->page->lock);

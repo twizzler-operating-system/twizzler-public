@@ -144,7 +144,7 @@ struct page;
 #define OBJPAGE_COW 2
 struct objpage {
 	size_t idx, srcidx;
-	uint64_t flags;
+	_Atomic uint64_t flags;
 	struct page *page;
 	struct krc refs;
 	struct rbnode node, idx_map_node;
