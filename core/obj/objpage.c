@@ -64,10 +64,14 @@ static void objpage_delete(struct objpage *op)
 	if(op->page) {
 		if(op->flags & OBJPAGE_COW) {
 			if(op->page->cowcount-- <= 1) {
-				page_dealloc(op->page, 0);
+				if(op->page->type == PAGE_TYPE_VOLATILE) {
+					page_dealloc(op->page, 0);
+				}
 			}
 		} else {
-			page_dealloc(op->page, 0);
+			if(op->page->type == PAGE_TYPE_VOLATILE) {
+				page_dealloc(op->page, 0);
+			}
 		}
 		op->page = NULL;
 	}
