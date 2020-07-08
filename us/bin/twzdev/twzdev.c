@@ -222,6 +222,7 @@ int main()
 		fprintf(stderr, "failed to start nvme driver\n");
 		exit(1);
 	}
+
 	// int status;
 	// wait(&status);
 #endif

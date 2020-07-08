@@ -203,6 +203,13 @@ int main()
 		fprintf(stderr, "[init] failed to switch to storage, continuing from initrd\n");
 	}
 
+	if(!fork()) {
+		kso_set_name(NULL, "[instance] e1000-driver");
+		execvp("e1000", (char *[]){ "e1000", "/dev/e1000", "/dev/e1000-queue", NULL });
+		fprintf(stderr, "failed to start e1000 driver: %d\n", errno);
+		exit(1);
+	}
+
 	/* start the terminal program */
 	if(access("/dev/pty/pty0", F_OK) == 0) {
 		if(!fork()) {

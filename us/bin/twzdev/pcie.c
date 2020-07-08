@@ -258,6 +258,9 @@ static void pcie_load_driver(struct pcie_function *pf)
 		twz_name_assign(pf->cid, "/dev/nvme");
 		return;
 	}
+	if(hdr->vendorid == 0x8086 && hdr->deviceid == 0x10d3) {
+		twz_name_assign(pf->cid, "/dev/e1000");
+	}
 }
 
 void pcie_load_bus(twzobj *obj)
