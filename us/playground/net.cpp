@@ -48,6 +48,6 @@ int main(int arg, char **argv)
 	queue_submit(&txqueue_obj, (struct queue_entry *)&p, 0);
 	fprintf(stderr, "submitted: %d\n", p.qe.info);
 
-	queue_complete(&txqueue_obj, (struct queue_entry *)&p, 0);
+	queue_get_finished(&txqueue_obj, (struct queue_entry *)&p, 0);
 	fprintf(stderr, "completed: %d\n", p.qe.info);
 }

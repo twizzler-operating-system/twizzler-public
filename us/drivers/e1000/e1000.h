@@ -45,6 +45,9 @@ using std::atomic_uint_least64_t;
 #define REG_RADV 0x282C   // RX Int. Absolute Delay Timer
 #define REG_RSRPD 0x2C00  // RX Small Packet Detect Interrupt
 
+#define REG_RAL 0x5400
+#define REG_RAH 0x5404
+
 #define REG_TIPG 0x0410 // Transmit Inter Packet Gap
 
 #define RCTL_EN (1 << 1)            // Receiver Enable
@@ -167,6 +170,8 @@ class e1000_controller
 
 	std::mutex mtx;
 	std::vector<tx_request *> txs;
+
+	uint8_t mac[6];
 
 	uint32_t cur_tx, head_tx;
 	bool init;

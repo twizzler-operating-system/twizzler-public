@@ -33,6 +33,12 @@ void *e1000_co_get_regs(twzobj *co, int bar)
 	return twz_object_lea(co, (void *)hdr->bars[bar]);
 }
 
+uint8_t e1000_reg_read8(e1000_controller *nc, int r, int bar)
+{
+	void *regs = e1000_co_get_regs(&nc->ctrl_obj, bar);
+	return *(volatile uint8_t *)((char *)regs + r);
+}
+
 uint32_t e1000_reg_read32(e1000_controller *nc, int r, int bar)
 {
 	void *regs = e1000_co_get_regs(&nc->ctrl_obj, bar);
@@ -100,6 +106,14 @@ int e1000c_pcie_init(e1000_controller *nc)
 
 int e1000c_init(e1000_controller *nc)
 {
+	uint32_t rah = e1000_reg_read32(nc, REG_RAH, BAR_MEMORY);
+	uint32_t ral = e1000_reg_read32(nc, REG_RAL, BAR_MEMORY);
+	nc->mac[0] = ral & 0xff;
+	nc->mac[1] = (ral >> 8) & 0xff;
+	nc->mac[2] = (ral >> 16) & 0xff;
+	nc->mac[3] = (ral >> 24) & 0xff;
+	nc->mac[4] = rah & 0xff;
+	nc->mac[5] = (rah >> 8) & 0xff;
 	e1000_reg_write32(nc, REG_CTRL, BAR_MEMORY, CTRL_FD | CTRL_ASDE);
 
 	if(twz_object_new(&nc->buf_obj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE))
@@ -157,7 +171,13 @@ int e1000c_init(e1000_controller *nc)
 	e1000_reg_write32(nc, REG_CTRL, BAR_MEMORY, CTRL_FD | CTRL_ASDE | CTRL_SLU);
 	e1000_reg_write32(nc, REG_CTRL_EXT, BAR_MEMORY, ECTRL_DRV_LOAD);
 	fprintf(stderr,
-	  "[e1000] init controlled with %ld rx descriptors and %ld tx descriptors\n",
+	  "[e1000] init controller for MAC %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x, %ld,%ld rx,tx descs\n",
+	  nc->mac[0],
+	  nc->mac[1],
+	  nc->mac[2],
+	  nc->mac[3],
+	  nc->mac[4],
+	  nc->mac[5],
 	  nc->nr_rx_desc,
 	  nc->nr_tx_desc);
 	return 0;
