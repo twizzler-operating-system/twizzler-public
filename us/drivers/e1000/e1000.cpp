@@ -18,6 +18,8 @@
 
 #include <unistd.h>
 
+#include <thread>
+
 #define LOG2(X) ((unsigned)(8 * sizeof(unsigned long long) - __builtin_clzll((X)) - 1))
 #define MIN(a, b) ({ (a) < (b) ? (a) : (b); })
 
@@ -121,6 +123,9 @@ int e1000c_init(e1000_controller *nc)
 	e1000_reg_write32(nc, REG_RXDESCLO, BAR_MEMORY, (uint32_t)((nc->buf_pin + 0x1000)));
 	e1000_reg_write32(nc, REG_RXDESCHI, BAR_MEMORY, (uint32_t)((nc->buf_pin + 0x1000) >> 32));
 
+	nc->tx_ring = (struct e1000_tx_desc *)twz_object_base(&nc->buf_obj);
+	nc->rx_ring = (struct e1000_rx_desc *)((char *)nc->tx_ring + 0x1000);
+
 	e1000_reg_write32(nc, REG_TXDESCLEN, BAR_MEMORY, 0x1000);
 	e1000_reg_write32(nc, REG_RXDESCLEN, BAR_MEMORY, 0x1000);
 
@@ -129,7 +134,14 @@ int e1000c_init(e1000_controller *nc)
 	e1000_reg_write32(nc, REG_RXDESCHEAD, BAR_MEMORY, 0);
 	e1000_reg_write32(nc, REG_RXDESCTAIL, BAR_MEMORY, nc->nr_rx_desc - 1);
 
-	e1000_reg_write32(nc, REG_IVAR, BAR_MEMORY, 0);
+	e1000_reg_write32(nc,
+	  REG_IVAR,
+	  BAR_MEMORY,
+	  IVAR_EN_RxQ0 | IVAR_EN_RxQ1 | IVAR_EN_TxQ0 | IVAR_EN_TxQ1 | IVAR_EN_OTHER);
+	e1000_reg_write32(nc, REG_IAM, BAR_MEMORY, 0);
+	e1000_reg_write32(nc, REG_IMC, BAR_MEMORY, 0xffffffff);
+	e1000_reg_write32(
+	  nc, REG_IMS, BAR_MEMORY, ICR_LSC | ICR_RXO | ICR_RxQ0 | ICR_RxQ1 | ICR_TxQ0 | ICR_TxQ1);
 
 	e1000_reg_write32(nc,
 	  REG_RCTRL,
@@ -144,13 +156,168 @@ int e1000c_init(e1000_controller *nc)
 
 	e1000_reg_write32(nc, REG_CTRL, BAR_MEMORY, CTRL_FD | CTRL_ASDE | CTRL_SLU);
 	e1000_reg_write32(nc, REG_CTRL_EXT, BAR_MEMORY, ECTRL_DRV_LOAD);
+	fprintf(stderr,
+	  "[e1000] init controlled with %ld rx descriptors and %ld tx descriptors\n",
+	  nc->nr_rx_desc,
+	  nc->nr_tx_desc);
 	return 0;
+}
+
+void e1000_tx_desc_init(struct e1000_tx_desc *desc, uint64_t p, size_t len)
+{
+	desc->addr = p;
+	desc->length = len;
+	/* TODO: do we need to report status, etc? */
+	desc->cmd = CMD_EOP | CMD_IFCS | CMD_RS | CMD_RPS;
+	desc->status = 0;
+}
+
+int32_t e1000c_send_packet(e1000_controller *nc, uint64_t pdata, size_t len)
+{
+	if((nc->cur_tx + 1) % nc->nr_tx_desc == nc->head_tx) {
+		return -EAGAIN;
+	}
+
+	uint32_t num = nc->cur_tx;
+	struct e1000_tx_desc *desc = &nc->tx_ring[nc->cur_tx];
+	e1000_tx_desc_init(desc, pdata, len);
+
+	nc->cur_tx = (nc->cur_tx + 1) % nc->nr_tx_desc;
+	e1000_reg_write32(nc, REG_TXDESCTAIL, BAR_MEMORY, nc->cur_tx);
+	return num;
+}
+
+void e1000c_interrupt_recv(e1000_controller *nc, int q)
+{
+	if(q) {
+		fprintf(stderr, "[e1000] got activity on RxQ1\n");
+		return;
+	}
+}
+
+void e1000c_interrupt_send(e1000_controller *nc, int q)
+{
+	if(q) {
+		fprintf(stderr, "[e1000] got activity on TxQ1\n");
+		return;
+	}
+	uint32_t head = e1000_reg_read32(nc, REG_TXDESCHEAD, BAR_MEMORY);
+	while(nc->head_tx != head) {
+		struct e1000_tx_desc *desc = &nc->tx_ring[nc->head_tx];
+		while(!(desc->status & STAT_DD)) {
+			asm("pause");
+		}
+
+		tx_request *req = nullptr;
+		{
+			std::unique_lock<std::mutex> lck(nc->mtx);
+			req = nc->txs[nc->head_tx];
+			nc->txs[nc->head_tx] = nullptr;
+		}
+
+		if(req) {
+			fprintf(stderr, "found packet: %d -> %d\n", nc->head_tx, req->packet.qe.info);
+			queue_complete(&nc->txqueue_obj, (struct queue_entry *)&req->packet, 0);
+			delete req;
+		}
+
+		nc->head_tx = (nc->head_tx + 1) % nc->nr_tx_desc;
+	}
+}
+
+void e1000c_interrupt(e1000_controller *nc)
+{
+	uint32_t icr = e1000_reg_read32(nc, REG_ICR, BAR_MEMORY);
+	e1000_reg_write32(nc, REG_ICR, BAR_MEMORY, icr);
+
+	if(icr & ICR_LSC) {
+		/* TODO */
+		e1000_reg_write32(nc, REG_CTRL, BAR_MEMORY, CTRL_FD | CTRL_ASDE | CTRL_SLU);
+	}
+	if(icr & ICR_RXO) {
+		fprintf(stderr, "[e1000] warning - recv queues overrun\n");
+	}
+	if(icr & ICR_RxQ0) {
+		e1000c_interrupt_recv(nc, 0);
+	}
+	if(icr & ICR_RxQ1) {
+		e1000c_interrupt_recv(nc, 1);
+	}
+	if(icr & ICR_TxQ0) {
+		e1000c_interrupt_send(nc, 0);
+	}
+	if(icr & ICR_TxQ1) {
+		e1000c_interrupt_send(nc, 1);
+	}
+}
+
+void e1000_wait_for_event(e1000_controller *nc)
+{
+	kso_set_name(NULL, "e1000.event_handler");
+	struct device_repr *repr = twz_device_getrepr(&nc->ctrl_obj);
+	struct sys_thread_sync_args sa[MAX_DEVICE_INTERRUPTS + 1];
+	twz_thread_sync_init(&sa[0], THREAD_SYNC_SLEEP, &repr->syncs[DEVICE_SYNC_IOV_FAULT], 0);
+	twz_thread_sync_init(&sa[1], THREAD_SYNC_SLEEP, &repr->interrupts[0].sp, 0);
+	for(;;) {
+		uint64_t iovf = atomic_exchange(&repr->syncs[DEVICE_SYNC_IOV_FAULT], 0);
+		if(iovf & 1) {
+			fprintf(stderr, "[nvme] unhandled IOMMU error!\n");
+			exit(1);
+		}
+		bool worked = false;
+		uint64_t irq = atomic_exchange(&repr->interrupts[0].sp, 0);
+		if(irq) {
+			worked = true;
+			e1000c_interrupt(nc);
+		}
+		if(!iovf && !worked) {
+			int r = twz_thread_sync_multiple(2, sa, NULL);
+			if(r < 0) {
+				fprintf(stderr, "[nvme] thread_sync error: %d\n", r);
+				return;
+			}
+		}
+	}
+}
+
+#include <set>
+
+void e1000_tx_queue(e1000_controller *nc)
+{
+	std::set<std::pair<objid_t, size_t>> mapped;
+	while(1) {
+		tx_request *req = new tx_request;
+		queue_receive(&nc->txqueue_obj, (struct queue_entry *)&req->packet, 0);
+
+		size_t offset = req->packet.pdata % OBJ_MAXSIZE;
+		offset -= OBJ_NULLPAGE_SIZE;
+		if(mapped.find(std::make_pair(req->packet.objid, offset)) == mapped.end()) {
+			twzobj tmpobj;
+			twz_object_init_guid(&tmpobj, req->packet.objid, FE_READ);
+			int nr_prep = 128;
+			twz_device_map_object(&nc->ctrl_obj, &tmpobj, offset, 0x1000 * nr_prep);
+			for(int i = 0; i < nr_prep; i++) {
+				mapped.insert(std::make_pair(req->packet.objid, offset + 0x1000 * i));
+			}
+		}
+
+		{
+			std::unique_lock<std::mutex> lck(nc->mtx);
+			int32_t pn = e1000c_send_packet(nc, req->packet.pdata, req->packet.len);
+			if(pn < 0) {
+				fprintf(stderr, "TODO: dropped packet\n");
+			} else {
+				nc->txs.reserve(pn + 1);
+				nc->txs[pn] = req;
+			}
+		}
+	}
 }
 
 int main(int argc, char **argv)
 {
-	if(!argv[1] || argc < 2) {
-		fprintf(stderr, "usage: e1000 controller-name queue-name\n");
+	if(!argv[1] || argc < 4) {
+		fprintf(stderr, "usage: e1000 controller-name tx-queue-name rx-queue-name\n");
 		return 1;
 	}
 
@@ -160,11 +327,18 @@ int main(int argc, char **argv)
 		fprintf(stderr, "e1000: failed to open controller %s: %d\n", argv[1], r);
 		return 1;
 	}
-	// r = twz_object_init_name(&nc.ext_qobj, argv[2], FE_READ | FE_WRITE);
-	// if(r) {
-	//		fprintf(stderr, "e1000: failed to open queue\n");
-	//		return 1;
-	//	}
+
+	r = twz_object_init_name(&nc.txqueue_obj, argv[2], FE_READ | FE_WRITE);
+	if(r) {
+		fprintf(stderr, "e1000: failed to open txqueue\n");
+		return 1;
+	}
+
+	r = twz_object_init_name(&nc.rxqueue_obj, argv[3], FE_READ | FE_WRITE);
+	if(r) {
+		fprintf(stderr, "e1000: failed to open rxqueue\n");
+		return 1;
+	}
 
 	printf("[e1000] starting e1000 controller %s\n", argv[1]);
 
@@ -177,12 +351,12 @@ int main(int argc, char **argv)
 	if(e1000c_init(&nc))
 		return -1;
 
-	// if(e1000c_wait_for_ready(&nc))
-	//	return -1;
 	nc.init = true;
 
-	//	std::thread thr(ptm, &nc);
+	e1000c_interrupt(&nc);
 
-	//	e1000_wait_for_event(&nc);
+	std::thread thr(e1000_tx_queue, &nc);
+
+	e1000_wait_for_event(&nc);
 	return 0;
 }

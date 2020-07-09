@@ -19,13 +19,19 @@ using std::atomic_uint_least64_t;
 #define REG_STATUS 0x0008
 #define REG_EEPROM 0x0014
 #define REG_CTRL_EXT 0x0018
-#define REG_IMASK 0x00D0
 #define REG_RCTRL 0x0100
 #define REG_RXDESCLO 0x2800
 #define REG_RXDESCHI 0x2804
 #define REG_RXDESCLEN 0x2808
 #define REG_RXDESCHEAD 0x2810
 #define REG_RXDESCTAIL 0x2818
+
+#define REG_ICR 0xc0
+#define REG_ICS 0xc8
+#define REG_IMS 0xd0
+#define REG_IMC 0xd8
+#define REG_IAM 0xe0
+#define REG_IVAR 0xE4
 
 #define REG_TCTRL 0x0400
 #define REG_TXDESCLO 0x3800
@@ -38,8 +44,6 @@ using std::atomic_uint_least64_t;
 #define REG_RXDCTL 0x3828 // RX Descriptor Control
 #define REG_RADV 0x282C   // RX Int. Absolute Delay Timer
 #define REG_RSRPD 0x2C00  // RX Small Packet Detect Interrupt
-
-#define REG_IVAR 0xE4
 
 #define REG_TIPG 0x0410 // Transmit Inter Packet Gap
 
@@ -84,6 +88,8 @@ using std::atomic_uint_least64_t;
 #define CMD_VLE (1 << 6)  // VLAN Packet Enable
 #define CMD_IDE (1 << 7)  // Interrupt Delay Enable
 
+#define STAT_DD 1 // descriptor done
+
 #define CTRL_FD (1 << 0)      // full duplex
 #define CTRL_ASDE (1 << 5)    // auto speed detect enable
 #define CTRL_SLU (1 << 6)     // set link up
@@ -91,6 +97,7 @@ using std::atomic_uint_least64_t;
 #define CTRL_PHY_RST (1 << 0) // PHY reset
 
 #define ECTRL_DRV_LOAD (1 << 28) // driver loaded
+#define ECTRL_IAME (1 << 24)     // int ack auto-mask enable
 
 // TCTL Register
 
@@ -106,8 +113,19 @@ using std::atomic_uint_least64_t;
 #define TSTA_LC (1 << 2) // Late Collision
 #define LSTA_TU (1 << 3) // Transmit Underrun
 
-#define E1000_NUM_RX_DESC 32
-#define E1000_NUM_TX_DESC 8
+// ICR
+#define ICR_LSC (1 << 2)   // link status change
+#define ICR_RXO (1 << 6)   // recv overrun
+#define ICR_RxQ0 (1 << 20) // recv q 0
+#define ICR_RxQ1 (1 << 21) // recv q 1
+#define ICR_TxQ0 (1 << 22) // send q 0
+#define ICR_TxQ1 (1 << 23) // send q 1
+
+#define IVAR_EN_RxQ0 (1 << 3)
+#define IVAR_EN_RxQ1 (1 << 7)
+#define IVAR_EN_TxQ0 (1 << 11)
+#define IVAR_EN_TxQ1 (1 << 15)
+#define IVAR_EN_OTHER (1 << 19)
 
 struct e1000_rx_desc {
 	volatile uint64_t addr;
@@ -128,11 +146,28 @@ struct e1000_tx_desc {
 	volatile uint16_t special;
 } __attribute__((packed));
 
+#include <mutex>
+#include <vector>
+
+#include <twz/driver/queue.h>
+
+class tx_request
+{
+  public:
+	struct queue_entry_packet packet;
+};
 class e1000_controller
 {
   public:
-	twzobj ctrl_obj, buf_obj;
+	twzobj ctrl_obj, buf_obj, txqueue_obj, rxqueue_obj;
 	uint64_t buf_pin;
 	size_t nr_tx_desc, nr_rx_desc;
+	struct e1000_tx_desc *tx_ring;
+	struct e1000_rx_desc *rx_ring;
+
+	std::mutex mtx;
+	std::vector<tx_request *> txs;
+
+	uint32_t cur_tx, head_tx;
 	bool init;
 };

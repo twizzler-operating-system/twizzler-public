@@ -1,4 +1,4 @@
-PLAYGROUND_PROGS=example queue
+PLAYGROUND_PROGS=example queue net
 
 PLAYGROUND_LIBS=-Wl,--whole-archive -lbacktrace -Wl,--no-whole-archive
 

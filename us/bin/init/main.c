@@ -88,6 +88,8 @@ void reopen(const char *in, const char *out, const char *err)
 		EPRINTF("failed to open `%s' as stderr\n", err);
 }
 
+#include <twz/driver/queue.h>
+#include <twz/queue.h>
 int main()
 {
 	int r;
@@ -203,10 +205,34 @@ int main()
 		fprintf(stderr, "[init] failed to switch to storage, continuing from initrd\n");
 	}
 
+	twzobj rxqobj;
+	twzobj txqobj;
+	if(twz_object_new(&txqobj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_TIED_NONE)
+	   < 0)
+		abort();
+	if(twz_object_new(&rxqobj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_TIED_NONE)
+	   < 0)
+		abort();
+	queue_init_hdr(
+	  &txqobj, 5, sizeof(struct queue_entry_packet), 5, sizeof(struct queue_entry_packet));
+	queue_init_hdr(
+	  &rxqobj, 5, sizeof(struct queue_entry_packet), 5, sizeof(struct queue_entry_packet));
+
+	twz_name_assign(twz_object_guid(&txqobj), "/dev/e1000-rxqueue");
+	twz_name_assign(twz_object_guid(&rxqobj), "/dev/e1000-txqueue");
+
 	if(!fork()) {
 		kso_set_name(NULL, "[instance] e1000-driver");
-		execvp("e1000", (char *[]){ "e1000", "/dev/e1000", "/dev/e1000-queue", NULL });
+		execvp("e1000",
+		  (char *[]){ "e1000", "/dev/e1000", "/dev/e1000-txqueue", "/dev/e1000-rxqueue", NULL });
 		fprintf(stderr, "failed to start e1000 driver: %d\n", errno);
+		exit(1);
+	}
+
+	if(!fork()) {
+		kso_set_name(NULL, "[instance] net *test*");
+		execvp("net", (char *[]){ "net", "/dev/e1000-txqueue", "/dev/e1000-txqueue", NULL });
+		fprintf(stderr, "failed to start net test\n");
 		exit(1);
 	}
 
