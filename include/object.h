@@ -12,6 +12,8 @@
 void obj_print_stats(void);
 
 struct kso_view {
+	struct list contexts;
+	int init;
 };
 
 struct kso_throbj {

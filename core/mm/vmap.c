@@ -1,4 +1,6 @@
-#include <lib/inthash.h>
+#include <lib/iter.h>
+#include <lib/list.h>
+#include <lib/rb.h>
 #include <memory.h>
 #include <object.h>
 #include <pager.h>
@@ -70,8 +72,13 @@ static void __vm_context_finish_destroy(void *_v)
 
 void vm_context_destroy(struct vm_context *v)
 {
-	/* TODO (major): unmap things? */
+	struct object *obj = kso_get_obj(v->view, view);
+	spinlock_acquire_save(&obj->lock);
+	list_remove(&v->entry);
+	spinlock_release_restore(&obj->lock);
+
 	struct rbnode *next;
+	spinlock_acquire_save(&v->lock);
 	for(struct rbnode *node = rb_first(&v->root); node; node = next) {
 		struct vmap *map = rb_entry(node, struct vmap, node);
 #if CONFIG_DEBUG_OBJECT_SLOT
@@ -84,9 +91,8 @@ void vm_context_destroy(struct vm_context *v)
 		next = rb_next(node);
 		vm_map_disestablish(v, map);
 	}
+	spinlock_release_restore(&v->lock);
 
-	/* TODO: does this work for all contexts? */
-	struct object *obj = kso_get_obj(v->view, view);
 #if CONFIG_DEBUG_OBJECT_SLOT
 	printk("VM_CONTEXT_DESTROY OBJ: " IDFMT "\n", IDPR(obj->id));
 #endif
@@ -151,8 +157,6 @@ void kso_view_write(struct object *obj, size_t slot, struct viewentry *v)
 static struct viewentry kso_view_lookup(struct vm_context *ctx, size_t slot)
 {
 	struct viewentry v;
-	/* TODO: make sure these reads aren't too costly. These are to KSO objects, so they should be
-	 * okay. */
 	struct object *obj = kso_get_obj(ctx->view, view);
 	obj_read_data(obj, __VE_OFFSET + slot * sizeof(struct viewentry), sizeof(struct viewentry), &v);
 	obj_put(obj);
@@ -204,49 +208,70 @@ bool vm_vaddr_lookup(void *addr, objid_t *id, uint64_t *off)
 
 static bool _vm_view_invl(struct object *obj, struct kso_invl_args *invl)
 {
-	(void)obj;
-	spinlock_acquire_save(&current_thread->ctx->lock);
-	for(size_t slot = invl->offset / mm_page_size(MAX_PGLEVEL);
-	    slot <= (invl->offset + invl->length) / mm_page_size(MAX_PGLEVEL);
-	    slot++) {
-		struct rbnode *node =
-		  rb_search(&current_thread->ctx->root, slot, struct vmap, node, vmap_compar_key);
-		/* TODO (major): unmap all ctxs that use this view */
-		if(node) {
-			struct vmap *map = rb_entry(node, struct vmap, node);
+	spinlock_acquire_save(&obj->lock);
+
+	foreach(e, list, &obj->view.contexts) {
+		struct vm_context *ctx = list_entry(e, struct vm_context, entry);
+		spinlock_acquire_save(&ctx->lock);
+
+		for(size_t slot = invl->offset / mm_page_size(MAX_PGLEVEL);
+		    slot <= (invl->offset + invl->length) / mm_page_size(MAX_PGLEVEL);
+		    slot++) {
+			struct rbnode *node = rb_search(&ctx->root, slot, struct vmap, node, vmap_compar_key);
+			if(node) {
+				struct vmap *map = rb_entry(node, struct vmap, node);
 #if CONFIG_DEBUG_OBJECT_SLOT
-			printk("UNMAP VIA INVAL: " IDFMT " mapcount %ld\n",
-			  IDPR(map->obj->id),
-			  map->obj->mapcount.count);
+				printk("UNMAP VIA INVAL: " IDFMT " mapcount %ld\n",
+				  IDPR(map->obj->id),
+				  map->obj->mapcount.count);
 #endif
-			//			printk("B :: " IDFMT "\n", IDPR(map->obj->id));
-			vm_map_disestablish(current_thread->ctx, map);
-			// arch_vm_unmap_object(current_thread->ctx, map);
-			// rb_delete(node, &current_thread->ctx->root);
+				if(map->obj != obj) {
+					vm_map_disestablish(ctx, map);
+				} else {
+					/* TODO: right now this is okay, but maybe we'll want to handle this case in the
+					 * future to be more general. Basically, if we invalidate the entry holding the
+					 * object defining the view we're invalidating in, we'd deadlock. But ... I
+					 * don't think this should ever happen. */
+					printk("[vm] warning - invalidating view entry of invalidation target\n");
+				}
+			}
 		}
+
+		spinlock_release_restore(&ctx->lock);
 	}
-	spinlock_release_restore(&current_thread->ctx->lock);
+	spinlock_release_restore(&obj->lock);
 	return true;
 }
 
 bool vm_setview(struct thread *t, struct object *viewobj)
 {
-	obj_kso_init(viewobj, KSO_VIEW); // TODO
+	obj_kso_init(viewobj, KSO_VIEW);
 	struct vm_context *oldctx = t->ctx;
 
 	t->ctx = vm_context_create();
 	krc_get(&viewobj->refs);
+	spinlock_acquire_save(&viewobj->lock);
 	t->ctx->view = &viewobj->view;
+	list_insert(&viewobj->view.contexts, &t->ctx->entry);
+	spinlock_release_restore(&viewobj->lock);
 
 	if(oldctx)
 		vm_context_destroy(oldctx);
-	/* TODO: unmap things (or create a new context), destroy old, etc */
-	/* TODO: check object type */
 	return true;
 }
 
+static void __view_ctor(struct object *obj)
+{
+	spinlock_acquire_save(&obj->lock);
+	if(obj->view.init == 0) {
+		obj->view.init = 1;
+		list_init(&obj->view.contexts);
+	}
+	spinlock_release_restore(&obj->lock);
+}
+
 static struct kso_calls _kso_view = {
-	.ctor = NULL,
+	.ctor = __view_ctor,
 	.dtor = NULL,
 	.attach = NULL,
 	.detach = NULL,

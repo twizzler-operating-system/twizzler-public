@@ -101,6 +101,7 @@ static inline void *mm_virtual_early_alloc(void)
 }
 
 #include <krc.h>
+#include <lib/list.h>
 #include <lib/rb.h>
 #include <twz/_view.h>
 
@@ -111,6 +112,7 @@ struct vm_context {
 	struct spinlock lock;
 	struct krc refs;
 	struct task free_task;
+	struct list entry;
 };
 
 void arch_mm_switch_context(struct vm_context *vm);

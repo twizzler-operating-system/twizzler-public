@@ -315,7 +315,7 @@ write_bios_reset(uintptr_t addr)
 }
 
 extern int trampoline_start, trampoline_end, rm_gdt, pmode_enter, rm_gdt_pointer;
-void arch_processor_boot(struct processor *proc)
+bool arch_processor_boot(struct processor *proc)
 {
 	// proc->arch.kernel_stack = (void *)mm_memory_alloc(KERNEL_STACK_SIZE, PM_TYPE_ANY, true);
 	// printk("Poking secondary CPU %d, proc->arch.kernel_stack = %p (proc=%p)\n",
@@ -361,7 +361,5 @@ void arch_processor_boot(struct processor *proc)
 		x86_64_early_wait_ns(10000);
 	}
 
-	if(timeout == 0) {
-		printk("failed to start CPU %d\n", proc->id);
-	}
+	return timeout != 0;
 }

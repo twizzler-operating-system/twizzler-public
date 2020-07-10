@@ -5,11 +5,6 @@
  * single page if the object size is small enough (sz*64 < PAGE_SIZE/2)
  */
 
-/* TODO (major): remove this hard coding */
-#define PAGE_SIZE mm_page_size(0)
-
-//#define slab_size(sz) align_down((sizeof(struct slab) + 64 * sz), mm_page_size(0))
-
 static DECLARE_LIST(all_slabs);
 
 static inline size_t __slab_size(size_t sz, size_t nr_obj)
@@ -40,30 +35,13 @@ static inline size_t slab_size(struct slabcache *sc, size_t sz)
 
 	int best = 1;
 	for(int i = 0; i < 65; i++) {
-		//	printk("sz = %lx: frag[%d] = %ld; slab_size: %lx\n", sz, i, frag[i], __slab_size(sz,
-		// i));
 		if(frag[i] < frag[best])
 			best = i;
 	}
 
-	// printk("%s: selected %d\n", sc->name, best);
 	sc->__cached_nr_obj = best;
 	return __slab_size(sz, sc->__cached_nr_obj);
-
-	/*
-	size_t x = __round_up_pow2((sizeof(struct slab) + 64 * sz));
-	x = align_up(x, mm_page_size(0));
-	if((sz * 64 * 3) / 2 < x) {
-	    printk("WARNING - internal slabcache fragmentation: %lx %lx\n",
-	      sizeof(struct slab) + sz * 64,
-	      x);
-	}
-	// size_t x = align_down((sizeof(struct slab) + 64 * sz), mm_page_size(0));
-	return x == 0 ? mm_page_size(0) : x;
-	*/
 }
-
-//#define is_big_alloc(sc) ({ slab_size(sc, sc->sz) > 0x2000; })
 
 #define is_empty(x) ((x).next == &(x))
 
@@ -103,9 +81,6 @@ static struct slab *new_slab(struct slabcache *c)
 	for(unsigned int i = 0; i < obj_per_slab(c, c->sz); i++) {
 		s->alloc |= ((unsigned __int128)1ull << i);
 		char *obj = s->data + i * c->sz;
-		//	if(is_big_alloc(c)) {
-		//		memset(obj, 0, c->sz);
-		//	}
 		if(c->ctor) {
 			c->ctor(c->ptr, obj);
 		}
@@ -188,8 +163,6 @@ void slabcache_free(struct slabcache *sc, void *obj)
 	struct slab *s = (struct slab *)((char *)obj - (sc->sz * mk->slot + sizeof(struct slab)));
 	mk->marker_magic = 0;
 
-	// struct slab *s = (struct slab *)((uintptr_t)obj & (~(PAGE_SIZE - 1)));
-	// struct slab *s = (struct slab *)((uintptr_t)obj & (~(slab_size(sc, sc->sz) - 1)));
 	if(s->canary != SLAB_CANARY) {
 		panic("SC FREE CANARY MISMATCH: %lx: %p -> %p\n", s->canary, obj, s);
 	}

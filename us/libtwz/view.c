@@ -43,6 +43,10 @@ void twz_view_set(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 			.flags = KSOI_VALID | KSOI_CURRENT,
 			.id = KSO_CURRENT_VIEW,
 		};
+		if(obj) {
+			op.id = twz_object_guid(obj);
+			op.flags &= ~KSOI_CURRENT;
+		}
 		if(sys_invalidate(&op, 1) < 0) {
 			libtwz_panic("failed to invalidate view entry");
 		}
@@ -73,6 +77,10 @@ void twz_view_fixedset(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 			.flags = KSOI_VALID | KSOI_CURRENT,
 			.id = KSO_CURRENT_VIEW,
 		};
+		if(obj) {
+			op.id = twz_object_guid(obj);
+			op.flags &= ~KSOI_CURRENT;
+		}
 		if(sys_invalidate(&op, 1) < 0) {
 			libtwz_panic("failed to invalidate view entry");
 		}
