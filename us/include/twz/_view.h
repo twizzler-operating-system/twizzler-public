@@ -20,7 +20,10 @@ using std::atomic_uint_least32_t;
 #define VE_VALID 0x1000
 #define VE_FIXED 0x2000
 
-#define __VE_OFFSET (KSO_NAME_MAXLEN + 16)
+#define __VE_OFFSET (KSO_NAME_MAXLEN + 16 + 32)
+
+#define __VE_FAULT_HANDLER_OFFSET (__VE_OFFSET - 32)
+#define __VE_DBL_FAULT_HANDLER_OFFSET (__VE_OFFSET - 24)
 
 struct viewentry {
 	objid_t id;

@@ -338,17 +338,13 @@ asm(" \
 void __twz_fault_entry(void);
 __attribute__((used, visibility("default"))) void __twz_fault_init(void)
 {
-	struct twzthread_repr *repr = twz_thread_repr_base();
-
-	/* have to do this manually, because fault handling during init
-	 * may not use any global data (since the data object may not be mapped) */
-
-	repr->faults[FAULT_OBJECT] = (struct faultinfo){
-		.addr = (void *)__twz_fault_entry,
-	};
-	repr->faults[FAULT_FAULT] = (struct faultinfo){
-		.addr = (void *)__twz_fault_entry,
-	};
+	{
+		struct twzview_repr *repr = (struct twzview_repr *)twz_slot_to_base(TWZSLOT_CVIEW);
+		repr->fault_mask = 0;
+		repr->fault_flags = 0;
+		repr->fault_handler = __twz_fault_entry;
+		repr->dbl_fault_handler = __twz_fault_entry;
+	}
 }
 
 void *twz_fault_get_userdata(int fault)

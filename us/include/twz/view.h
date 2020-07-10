@@ -17,6 +17,10 @@ struct __viewrepr_bucket {
 
 struct twzview_repr {
 	struct kso_hdr hdr;
+	void *fault_handler;
+	void *dbl_fault_handler;
+	uint64_t fault_mask;
+	uint64_t fault_flags;
 	struct viewentry ves[TWZSLOT_MAX_SLOT + 1];
 	objid_t exec_id;
 	struct mutex lock;
@@ -27,6 +31,12 @@ struct twzview_repr {
 
 _Static_assert(offsetof(struct twzview_repr, ves) == __VE_OFFSET,
   "Offset of ves must be equal to __VE_OFFSET");
+
+_Static_assert(offsetof(struct twzview_repr, fault_handler) == __VE_FAULT_HANDLER_OFFSET,
+  "Offset of fault_handler must be equal to __VE_FAULT_HANDLER_OFFSET");
+
+_Static_assert(offsetof(struct twzview_repr, dbl_fault_handler) == __VE_DBL_FAULT_HANDLER_OFFSET,
+  "Offset of fault_handler must be equal to __VE_DBL_FAULT_HANDLER_OFFSET");
 
 twzobj;
 void twz_view_get(twzobj *obj, size_t slot, objid_t *target, uint32_t *flags);

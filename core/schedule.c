@@ -400,36 +400,28 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 		__print_fault_info(NULL, fault, info);
 		panic("thread fault occurred before threading");
 	}
-	struct object *to = kso_get_obj(t->throbj, thr);
+	struct object *to = kso_get_obj(t->ctx->view, view);
 	if(!to) {
 		panic("No repr");
 	}
 	struct faultinfo fi;
-	obj_read_data(
-	  to, offsetof(struct twzthread_repr, faults) + sizeof(fi) * fault, sizeof(fi), &fi);
-	if(fi.view) {
-		obj_put(to);
-		panic("NI - different view :: %d", fault);
-	}
+	void *handler;
+	obj_read_data(to, __VE_FAULT_HANDLER_OFFSET, sizeof(handler), &handler);
 	//__print_fault_info(t, fault, info);
-	if(fi.addr) {
+	if(handler) {
 		obj_put(to);
-		if(__failed_addr(fault, info) == fi.addr) {
+		if(__failed_addr(fault, info) == handler) {
 			/* probably a double-fault. Just die */
 			__print_fault_info(t, fault, info);
 			thread_exit();
 			return;
 		}
-		arch_thread_raise_call(t, fi.addr, fault, info, infolen);
+		arch_thread_raise_call(t, handler, fault, info, infolen);
 	} else {
-		struct faultinfo fi_f;
-		obj_read_data(to,
-		  offsetof(struct twzthread_repr, faults) + sizeof(fi_f) * FAULT_FAULT,
-		  sizeof(fi_f),
-		  &fi_f);
+		obj_read_data(to, __VE_DBL_FAULT_HANDLER_OFFSET, sizeof(handler), &handler);
 		obj_put(to);
-		if(fi_f.addr) {
-			if((void *)__failed_addr(fault, info) == fi_f.addr) {
+		if(handler) {
+			if((void *)__failed_addr(fault, info) == handler) {
 				/* probably a double-fault. Just die */
 				__print_fault_info(t, fault, info);
 				thread_exit();
@@ -443,7 +435,7 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 			char tmp[nl];
 			memcpy(tmp, &ffi, sizeof(ffi));
 			memcpy(tmp + sizeof(ffi), info, infolen);
-			arch_thread_raise_call(t, fi_f.addr, FAULT_FAULT, tmp, nl);
+			arch_thread_raise_call(t, handler, FAULT_FAULT, tmp, nl);
 		} else {
 			__print_fault_info(t, fault, info);
 			thread_exit();
