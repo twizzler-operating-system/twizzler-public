@@ -2,10 +2,22 @@
 #include <twz/obj.h>
 #include <twz/objctl.h>
 #include <twz/queue.h>
+#include <unistd.h>
 
+#include <thread>
 #include <twz/driver/queue.h>
 
 twzobj txqueue_obj, rxqueue_obj;
+
+void consumer()
+{
+	while(1) {
+		struct queue_entry_packet packet;
+		queue_receive(&rxqueue_obj, (struct queue_entry *)&packet, 0);
+		fprintf(stderr, "net got packet!\n");
+		queue_complete(&rxqueue_obj, (struct queue_entry *)&packet, 0);
+	}
+}
 
 int main(int arg, char **argv)
 {
@@ -32,12 +44,14 @@ int main(int arg, char **argv)
 	if(r)
 		return 1;
 
+	std::thread thr(consumer);
+
 	void *d = twz_object_base(&buf_obj);
-	sprintf((char *)d, "              this is a test from net!");
+	sprintf((char *)d, "              this is a test from net!\n");
 	struct queue_entry_packet p;
 	p.objid = twz_object_guid(&buf_obj);
 	p.pdata = buf_pin;
-	p.len = 128;
+	p.len = 62;
 
 	p.cmd = PACKET_CMD_SEND;
 	p.stat = 0;
@@ -50,4 +64,7 @@ int main(int arg, char **argv)
 
 	queue_get_finished(&txqueue_obj, (struct queue_entry *)&p, 0);
 	fprintf(stderr, "completed: %d\n", p.qe.info);
+
+	for(;;)
+		usleep(10000);
 }

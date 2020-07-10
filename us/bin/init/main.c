@@ -231,7 +231,7 @@ int main()
 
 	if(!fork()) {
 		kso_set_name(NULL, "[instance] net *test*");
-		execvp("net", (char *[]){ "net", "/dev/e1000-txqueue", "/dev/e1000-txqueue", NULL });
+		execvp("net", (char *[]){ "net", "/dev/e1000-txqueue", "/dev/e1000-rxqueue", NULL });
 		fprintf(stderr, "failed to start net test\n");
 		exit(1);
 	}

@@ -126,12 +126,13 @@ int e1000c_init(e1000_controller *nc)
 	r = twz_object_ctl(&nc->buf_obj, OCO_CACHE_MODE, 0, 0x8000, OC_CM_UC);
 	if(r)
 		return r;
-	r = twz_device_map_object(&nc->ctrl_obj, &nc->buf_obj, 0, 0x8000);
+	r = twz_device_map_object(&nc->ctrl_obj, &nc->buf_obj, 0, 0x1000000);
 	if(r)
 		return r;
 
 	nc->nr_tx_desc = 0x1000 / sizeof(e1000_tx_desc);
 	nc->nr_rx_desc = 0x1000 / sizeof(e1000_rx_desc);
+
 	e1000_reg_write32(nc, REG_TXDESCLO, BAR_MEMORY, (uint32_t)(nc->buf_pin));
 	e1000_reg_write32(nc, REG_TXDESCHI, BAR_MEMORY, (uint32_t)(nc->buf_pin >> 32));
 	e1000_reg_write32(nc, REG_RXDESCLO, BAR_MEMORY, (uint32_t)((nc->buf_pin + 0x1000)));
@@ -139,6 +140,17 @@ int e1000c_init(e1000_controller *nc)
 
 	nc->tx_ring = (struct e1000_tx_desc *)twz_object_base(&nc->buf_obj);
 	nc->rx_ring = (struct e1000_rx_desc *)((char *)nc->tx_ring + 0x1000);
+
+	for(size_t i = 0; i < nc->nr_rx_desc; i++) {
+		nc->rx_ring[i].status = 0;
+		nc->rx_ring[i].addr = nc->buf_pin + 0x8000 + 0x1000 * i;
+		nc->rx_ring[i].length = 0x1000;
+	}
+
+	for(size_t i = 0; i < nc->nr_tx_desc; i++) {
+		nc->tx_ring[i].status = 0;
+		nc->tx_ring[i].cmd = 0;
+	}
 
 	e1000_reg_write32(nc, REG_TXDESCLEN, BAR_MEMORY, 0x1000);
 	e1000_reg_write32(nc, REG_RXDESCLEN, BAR_MEMORY, 0x1000);
@@ -213,6 +225,35 @@ void e1000c_interrupt_recv(e1000_controller *nc, int q)
 		fprintf(stderr, "[e1000] got activity on RxQ1\n");
 		return;
 	}
+	uint32_t head = e1000_reg_read32(nc, REG_RXDESCHEAD, BAR_MEMORY);
+
+	struct queue_entry_packet packet;
+	while(nc->head_rx != head) {
+		struct e1000_rx_desc *desc = &nc->rx_ring[nc->head_rx];
+		packet.objid = twz_object_guid(&nc->buf_obj);
+		packet.pdata = desc->addr;
+		packet.len = desc->length;
+		packet.stat = 0;
+		packet.qe.info = head;
+		queue_submit(&nc->rxqueue_obj, (struct queue_entry *)&packet, 0);
+		nc->head_rx = (nc->head_rx + 1) % nc->nr_rx_desc;
+	}
+
+	while(
+	  queue_get_finished(&nc->rxqueue_obj, (struct queue_entry *)&packet, QUEUE_NONBLOCK) == 0) {
+		//	fprintf(stderr, "got completion for %d\n", packet.qe.info);
+
+		struct e1000_rx_desc *desc = &nc->rx_ring[nc->tail_rx];
+		desc->status = 0;
+		desc->addr = packet.pdata;
+		e1000_reg_write32(nc, REG_RXDESCTAIL, BAR_MEMORY, nc->tail_rx);
+		nc->tail_rx = (nc->tail_rx + 1) % nc->nr_rx_desc;
+	}
+
+	// e1000_reg_write32(nc, REG_RXDESCTAIL, nc->head_rx);
+
+	// uint32_t tail = e1000_reg_read32(nc, REG_RXDESCTAIL, BAR_MEMORY);
+	// fprintf(stderr, "got recv!!: %x %x\n", head, tail);
 }
 
 void e1000c_interrupt_send(e1000_controller *nc, int q)
@@ -236,7 +277,7 @@ void e1000c_interrupt_send(e1000_controller *nc, int q)
 		}
 
 		if(req) {
-			fprintf(stderr, "found packet: %d -> %d\n", nc->head_tx, req->packet.qe.info);
+			// fprintf(stderr, "found packet: %d -> %d\n", nc->head_tx, req->packet.qe.info);
 			queue_complete(&nc->txqueue_obj, (struct queue_entry *)&req->packet, 0);
 			delete req;
 		}
@@ -248,6 +289,7 @@ void e1000c_interrupt_send(e1000_controller *nc, int q)
 void e1000c_interrupt(e1000_controller *nc)
 {
 	uint32_t icr = e1000_reg_read32(nc, REG_ICR, BAR_MEMORY);
+	// fprintf(stderr, "ICR: %x\n", icr);
 	e1000_reg_write32(nc, REG_ICR, BAR_MEMORY, icr);
 
 	if(icr & ICR_LSC) {

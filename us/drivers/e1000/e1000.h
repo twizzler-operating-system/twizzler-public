@@ -173,6 +173,6 @@ class e1000_controller
 
 	uint8_t mac[6];
 
-	uint32_t cur_tx, head_tx;
+	uint32_t cur_tx, head_tx, head_rx, tail_rx;
 	bool init;
 };
