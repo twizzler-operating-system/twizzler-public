@@ -19,12 +19,12 @@ void writer(int s)
 		usleep(10000);
 		uint32_t b = 0;
 		const char *str = "              hello!\n";
-		b = strlen(str);
+		b = strlen(str) + 1;
 
 		b = htonl(b);
 		printf("writing new packet!\n");
 		write(s, &b, 4);
-		dprintf(s, str);
+		write(s, str, strlen(str) + 1);
 	}
 }
 

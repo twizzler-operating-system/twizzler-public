@@ -11,10 +11,28 @@ twzobj txqueue_obj, rxqueue_obj;
 
 void consumer()
 {
+	twzobj pdo;
+	int ok = 0;
 	while(1) {
 		struct queue_entry_packet packet;
 		queue_receive(&rxqueue_obj, (struct queue_entry *)&packet, 0);
 		fprintf(stderr, "net got packet!\n");
+
+		if(!ok) {
+			twz_object_init_guid(&pdo, packet.objid, FE_READ);
+			ok = 1;
+		}
+
+		size_t offset = (packet.pdata % OBJ_MAXSIZE) - OBJ_NULLPAGE_SIZE;
+		void *pd = twz_object_lea(&pdo, (void *)offset);
+		// fprintf(stderr, ":: %lx %p\n", offset, pd);
+
+		//	char buf[packet.len + 1];
+		//	memset(buf, 0, sizeof(buf));
+		//	memcpy(buf, pd, packet.len);
+
+		fprintf(stderr, ":: packet: %s\n", pd);
+
 		queue_complete(&rxqueue_obj, (struct queue_entry *)&packet, 0);
 	}
 }
@@ -58,12 +76,15 @@ int main(int arg, char **argv)
 
 	p.qe.info = 123;
 
-	fprintf(stderr, "submiting: %d\n", p.qe.info);
-	queue_submit(&txqueue_obj, (struct queue_entry *)&p, 0);
-	fprintf(stderr, "submitted: %d\n", p.qe.info);
+	while(1) {
+		usleep(100000);
+		fprintf(stderr, "submiting: %d\n", p.qe.info);
+		queue_submit(&txqueue_obj, (struct queue_entry *)&p, 0);
+		fprintf(stderr, "submitted: %d\n", p.qe.info);
 
-	queue_get_finished(&txqueue_obj, (struct queue_entry *)&p, 0);
-	fprintf(stderr, "completed: %d\n", p.qe.info);
+		queue_get_finished(&txqueue_obj, (struct queue_entry *)&p, 0);
+		fprintf(stderr, "completed: %d\n", p.qe.info);
+	}
 
 	for(;;)
 		usleep(10000);

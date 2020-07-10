@@ -123,7 +123,7 @@ int e1000c_init(e1000_controller *nc)
 	r = twz_object_pin(&nc->buf_obj, &nc->buf_pin, 0);
 	if(r)
 		return r;
-	r = twz_object_ctl(&nc->buf_obj, OCO_CACHE_MODE, 0, 0x8000, OC_CM_UC);
+	r = twz_object_ctl(&nc->buf_obj, OCO_CACHE_MODE, 0, 0x7000, OC_CM_UC);
 	if(r)
 		return r;
 	r = twz_device_map_object(&nc->ctrl_obj, &nc->buf_obj, 0, 0x1000000);
