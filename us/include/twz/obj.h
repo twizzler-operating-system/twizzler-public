@@ -59,21 +59,23 @@ _Bool objid_parse(const char *name, size_t len, objid_t *id);
 
 #define twz_ptr_islocal(p) ({ ((uintptr_t)(p) < OBJ_MAXSIZE); })
 
-void *__twz_object_lea_foreign(twzobj *o, const void *p);
+void *__twz_object_lea_foreign(twzobj *o, const void *p, uint32_t mask);
 
-__attribute__((const)) static inline void *__twz_object_lea(twzobj *o, const void *p)
+__attribute__((const)) static inline void *__twz_object_lea(twzobj *o, const void *p, uint32_t mask)
 {
 	if(__builtin_expect(twz_ptr_islocal(p), 1)) {
 		return (void *)((uintptr_t)o->_int_base + (uintptr_t)p);
 	} else {
-		void *r = __twz_object_lea_foreign(o, p);
+		void *r = __twz_object_lea_foreign(o, p, mask);
 		return r;
 	}
 }
 
 twzobj twz_object_from_ptr(const void *);
 
-#define twz_object_lea(o, p) ({ (typeof(p)) __twz_object_lea((o), (p)); })
+#define twz_object_lea(o, p) ({ (typeof(p)) __twz_object_lea((o), (p), ~0); })
+
+#define twz_object_lea_mask(o, p, f) ({ (typeof(p)) __twz_object_lea((o), (p), (f)); })
 
 #define twz_ptr_lea(p)                                                                             \
 	({                                                                                             \

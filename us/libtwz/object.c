@@ -580,7 +580,7 @@ void *__twz_ptr_swizzle(twzobj *obj, const void *p, uint64_t flags)
 }
 
 EXTERNAL
-void *__twz_object_lea_foreign(twzobj *o, const void *p)
+void *__twz_object_lea_foreign(twzobj *o, const void *p, uint32_t mask)
 {
 	size_t slot = VADDR_TO_SLOT(p);
 #if 1
@@ -626,7 +626,11 @@ void *__twz_object_lea_foreign(twzobj *o, const void *p)
 		goto fault;
 	}
 
-	ssize_t ns = twz_view_allocate_slot(NULL, id, fe->flags & (FE_READ | FE_WRITE | FE_EXEC));
+	uint32_t flags = fe->flags & (FE_READ | FE_WRITE | FE_EXEC) & mask;
+	if(flags & FE_WRITE) {
+		flags &= ~FE_EXEC;
+	}
+	ssize_t ns = twz_view_allocate_slot(NULL, id, flags);
 	if(ns < 0) {
 		info = FAULT_PPTR_RESOURCES;
 		goto fault;

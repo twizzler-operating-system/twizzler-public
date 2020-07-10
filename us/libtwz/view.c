@@ -31,6 +31,9 @@ void twz_view_set(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 	ves[slot].id = target;
 	ves[slot].res0 = 0;
 	ves[slot].res1 = 0;
+	if(flags & VE_WRITE) {
+		flags &= ~VE_EXEC;
+	}
 	atomic_store(&ves[slot].flags, flags | VE_VALID);
 
 	if((old & VE_VALID)) {
@@ -58,6 +61,9 @@ void twz_view_fixedset(twzobj *obj, size_t slot, objid_t target, uint32_t flags)
 	ves[slot].id = target;
 	ves[slot].res0 = 0;
 	ves[slot].res1 = 0;
+	if(flags & VE_WRITE) {
+		flags &= ~VE_EXEC;
+	}
 	atomic_store(&ves[slot].flags, flags | VE_VALID);
 
 	if(old & VE_VALID) {
