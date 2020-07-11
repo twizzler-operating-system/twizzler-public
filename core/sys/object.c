@@ -73,13 +73,13 @@ long syscall_ocopy(objid_t *destid,
 		return -ENOENT;
 	}
 
-	obj_copy_pages(dest, src, doff, soff, len);
+	int r = obj_copy_pages(dest, src, doff, soff, len);
 
 	obj_put(dest);
 	if(src)
 		obj_put(src);
 
-	return 0;
+	return r;
 }
 
 long syscall_otie(uint64_t pidlo, uint64_t pidhi, uint64_t cidlo, uint64_t cidhi, int flags)

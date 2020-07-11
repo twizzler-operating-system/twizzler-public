@@ -153,6 +153,8 @@ void arch_vm_unmap_object(struct vm_context *ctx, struct vmap *map)
 #define PHYS(x) ((x)-PHYS_ADDR_DELTA)
 void arch_mm_switch_context(struct vm_context *ctx)
 {
+	if(ctx == NULL)
+		ctx = &kernel_ctx;
 	asm volatile("mov %0, %%cr3" ::"r"(ctx->arch.pml4_phys) : "memory");
 }
 

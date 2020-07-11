@@ -201,7 +201,7 @@ int obj_untie(struct object *parent, struct object *child);
 bool obj_kaddr_valid(struct object *obj, void *kaddr, size_t);
 void obj_release_kaddr(struct object *obj);
 void *obj_get_kaddr(struct object *obj);
-void obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t soff, size_t len);
+int obj_copy_pages(struct object *dest, struct object *src, size_t doff, size_t soff, size_t len);
 
 #define OBJPAGE_RELEASE_OBJLOCKED 2
 void objpage_release(struct objpage *op, int);

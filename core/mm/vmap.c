@@ -382,8 +382,8 @@ static int __do_map(struct vm_context *ctx,
 	if(!map) {
 		objid_t id;
 		uint64_t fl;
+		spinlock_release_restore(&ctx->lock);
 		if(!lookup_by_slot(slot, &id, &fl)) {
-			spinlock_release_restore(&ctx->lock);
 			if(fault) {
 				struct fault_object_info info;
 				popul_info(&info, flags, ip, addr, 0);
@@ -405,10 +405,19 @@ static int __do_map(struct vm_context *ctx,
 			}
 			return -ENOENT;
 		}
-		map = slabcache_alloc(&sc_vmap);
-		vm_vmap_init(map, obj, slot, fl & (VE_READ | VE_WRITE | VE_EXEC));
+		spinlock_acquire_save(&ctx->lock);
+
+		node = rb_search(&ctx->root, slot, struct vmap, node, vmap_compar_key);
+
+		if(node) {
+			map = rb_entry(node, struct vmap, node);
+		} else {
+			map = slabcache_alloc(&sc_vmap);
+			vm_vmap_init(map, obj, slot, fl & (VE_READ | VE_WRITE | VE_EXEC));
+			vm_context_map(ctx, map);
+		}
+
 		obj_put(obj);
-		vm_context_map(ctx, map);
 	}
 	if(wire) {
 		map->status |= VMAP_WIRE;

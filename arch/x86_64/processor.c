@@ -4,6 +4,8 @@
 void arch_processor_reset_current_thread(struct processor *proc)
 {
 	proc->arch.curr = NULL;
+	x86_64_secctx_switch(NULL);
+	arch_mm_switch_context(NULL);
 }
 
 void arch_processor_enumerate()

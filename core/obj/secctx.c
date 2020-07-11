@@ -49,6 +49,7 @@ static void __secctx_krc_put(void *_sc)
 		sc->obj = NULL;
 	}
 
+	/* TODO (leak) there's a small leak in cache entries. */
 	struct rbnode *next;
 	for(struct rbnode *node = rb_first(&sc->cache); node; node = next) {
 		struct sctx_cache_entry *scce = rb_entry(node, struct sctx_cache_entry, node);

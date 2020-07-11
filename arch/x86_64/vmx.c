@@ -275,7 +275,7 @@ __noinstrument __attribute__((used)) static void x86_64_vmexit_handler(struct pr
 	unsigned long reason = vmcs_readl(VMCS_EXIT_REASON);
 	unsigned long qual = vmcs_readl(VMCS_EXIT_QUALIFICATION);
 	unsigned long grip = vmcs_readl(VMCS_GUEST_RIP);
-	// unsigned long grsp = vmcs_readl(VMCS_GUEST_RSP);
+	unsigned long grsp = vmcs_readl(VMCS_GUEST_RSP);
 	unsigned long iinfo = vmcs_readl(VMCS_VM_INSTRUCTION_INFO);
 	/*
 	    if(reason != VMEXIT_REASON_CPUID
@@ -858,8 +858,8 @@ static long x86_64_rootcall(long fn, long a0, long a1, long a2)
 
 void x86_64_switch_ept(uintptr_t root)
 {
-	// printk(":: SWITCH EPT: %lx\n", root);
-	if(support_ept_switch_vmfunc) {
+	// printk(":: SWITCH EPT: %lx :: %d\n", root, support_ept_switch_vmfunc);
+	if(support_ept_switch_vmfunc && 0) {
 		int index = -1;
 		/* TODO (perf): better than just a loop, man! */
 		for(int i = 0; i < 512; i++) {
@@ -868,6 +868,7 @@ void x86_64_switch_ept(uintptr_t root)
 				break;
 			}
 		}
+		printk("::    idx=%d\n", index);
 		if(index != -1) {
 			asm volatile("vmfunc" ::"a"(VM_FUNCTION_SWITCH_EPTP), "c"(index) : "memory");
 		} else {

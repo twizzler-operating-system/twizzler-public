@@ -31,6 +31,7 @@ bool arch_object_getmap_slot_flags(struct object_space *space, struct slot *slot
 		// printk(":( %ld %p %p %lx %p\n", slot->num, space, pdpt, pdpt[pdpt_idx], &pdpt[pdpt_idx]);
 		return false;
 	}
+	// printk(" :: %lx\n", pdpt[pdpt_idx]);
 	ef = pdpt[pdpt_idx] & ~EPT_PAGE_MASK;
 	if(flags) {
 		if(ef & EPT_READ)

@@ -255,9 +255,33 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		arch_object_map_page(o, &p);
 		spinlock_release_restore(&p.page->lock);
 	} else {
-		struct objpage *p;
+		struct objpage *p = NULL;
 		enum obj_get_page_result gpr =
 		  obj_get_page(o, loaddr % OBJ_MAXSIZE, &p, OBJ_GET_PAGE_ALLOC | OBJ_GET_PAGE_PAGEROK);
+		if(!(o->flags & OF_KERNEL) && 0) {
+			uint64_t flags, phys;
+			int level;
+			bool _r = arch_object_getmap(o, loaddr % OBJ_MAXSIZE, &phys, &level, &flags);
+			printk("AAA %p %p %x: %lx %lx %lx :: %lx : %d :: %d %lx :::: %lx %d %lx %d %lx :: %lx "
+			       ":::: %p\n",
+			  slot,
+			  o,
+			  flags,
+			  ip,
+			  loaddr,
+			  vaddr,
+			  o->flags,
+			  do_map,
+			  gpr,
+			  p ? p->flags : 0,
+			  o->arch.pt_root,
+			  _r,
+			  phys,
+			  level,
+			  flags,
+			  p && p->page ? p->page->addr : 0,
+			  current_thread);
+		}
 		if(current_thread && current_thread->_last_count > 1000) {
 			printk(
 			  ":::: %d %lx %p %p %lx %d\n", gpr, o->flags, p, p->page, p->flags, p->page->cowcount);

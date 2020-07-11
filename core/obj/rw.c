@@ -107,7 +107,6 @@ void obj_release_kaddr(struct object *obj)
 		/* TODO: but make these reclaimable */
 		if(obj->kso_type)
 			goto done;
-		// goto done;
 		struct slot *slot = obj->kslot;
 		obj->kslot = NULL;
 		obj->kaddr = NULL;
@@ -167,14 +166,7 @@ void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val)
 	off += OBJ_NULLPAGE_SIZE;
 	assert(off < OBJ_MAXSIZE && off + 8 <= OBJ_MAXSIZE);
 
-#if 0
-	obj_alloc_kernel_slot(obj);
-	if(!obj->kvmap)
-		vm_kernel_map_object(obj);
-#endif
-
 	void *addr = (char *)obj_get_kaddr(obj) + off;
-	// void *addr = (char *)SLOT_TO_VADDR(obj->kvmap->slot) + off;
 	*(_Atomic uint64_t *)addr = val;
 	obj_release_kaddr(obj);
 }
