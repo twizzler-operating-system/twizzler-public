@@ -190,6 +190,7 @@ int main()
 	}
 	wait(&status);
 
+	mkdir("/tmp");
 	twzobj st;
 	if(twz_object_init_name(&st, "/storage", FE_READ | FE_WRITE) == 0) {
 		fprintf(stderr, "[init] switching name root to storage\n");
@@ -211,6 +212,7 @@ int main()
 		fprintf(stderr, "[init] failed to switch to storage, continuing from initrd\n");
 	}
 
+	mkdir("/tmp");
 	DIR *nvd = opendir("/dev/nv");
 	if(nvd) {
 		struct dirent *de;
@@ -223,16 +225,17 @@ int main()
 			twz_object_init_name(&nvo, path, FE_READ);
 			struct nv_header *nvhdr = twz_device_getds(&nvo);
 			objid_t metaid = MKID(nvhdr->meta_hi, nvhdr->meta_lo);
-			fprintf(stderr, ":: NV %s : " IDFMT "\n", path, IDPR(metaid));
 			twz_object_init_guid(&nvmetao, metaid, FE_READ | FE_WRITE);
 			struct nvdimm_region_header *hdr = twz_object_base(&nvmetao);
-			fprintf(stderr, "INIT: ::: %x\n", hdr->magic);
 
 			if(hdr->magic == NVD_HDR_MAGIC) {
 				if(hdr->nameroot == 0) {
 					twzobj nro;
 					r = twz_hier_namespace_new(
 					  &nro, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_SYS_OC_PERSIST_);
+					printf("[init] creating nameroot " IDFMT " for NVR %s\n",
+					  IDPR(twz_object_guid(&nro)),
+					  path);
 					if(r) {
 						fprintf(stderr, "[init] failed to create nameroot for %s\n", path);
 					} else {
@@ -243,9 +246,10 @@ int main()
 				}
 
 				if(hdr->nameroot != 0) {
-					mkdir("/persist", 0755);
-					mkdir("/storage/persist", 0755);
 					twzobj root;
+					printf("[init] 'mounting' nameroot " IDFMT " for NVR %s\n",
+					  IDPR(hdr->nameroot),
+					  path);
 					if(twz_object_init_name(&root, "/storage", FE_READ | FE_WRITE)) {
 						fprintf(stderr, "failed to open root\n");
 					}

@@ -29,11 +29,13 @@ long linux_sys_open(const char *path, int flags, int mode)
 			if(!(flags & O_CREAT)) {
 				return -ENOENT;
 			}
+
+			uint64_t af = 0;
+			if(strncmp(path, "/tmp")) {
+				af = TWZ_SYS_OC_PERSIST_;
+			}
 			if((r = twz_object_create(
-			      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_TIED_NONE | TWZ_SYS_OC_PERSIST_,
-			      0,
-			      0,
-			      &id))) {
+			      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_TIED_NONE | af, 0, 0, &id))) {
 				return r;
 			}
 			if((r = twz_name_assign(id, path))) {
