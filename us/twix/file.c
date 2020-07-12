@@ -30,7 +30,10 @@ long linux_sys_open(const char *path, int flags, int mode)
 				return -ENOENT;
 			}
 			if((r = twz_object_create(
-			      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_TIED_NONE, 0, 0, &id))) {
+			      TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_TIED_NONE | TWZ_SYS_OC_PERSIST_,
+			      0,
+			      0,
+			      &id))) {
 				return r;
 			}
 			if((r = twz_name_assign(id, path))) {

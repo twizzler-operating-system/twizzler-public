@@ -56,11 +56,10 @@ ssize_t twz_hier_get_entry(twzobj *ns, size_t pos, struct twz_name_ent **ent)
 	return reclen;
 }
 
-int twz_hier_namespace_new(twzobj *ns, twzobj *parent, const char *name)
+int twz_hier_namespace_new(twzobj *ns, twzobj *parent, const char *name, uint64_t flags)
 {
 	int r;
-	if((r =
-	       twz_object_new(ns, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_TIED_NONE))) {
+	if((r = twz_object_new(ns, NULL, NULL, flags | TWZ_OC_TIED_NONE))) {
 		return r;
 	}
 	struct twz_namespace_hdr *hdr = twz_object_base(ns);
@@ -68,9 +67,14 @@ int twz_hier_namespace_new(twzobj *ns, twzobj *parent, const char *name)
 	hdr->magic = NAMESPACE_MAGIC;
 	bool ok = true;
 	ok = ok && (twz_hier_assign_name(ns, ".", NAME_ENT_NAMESPACE, twz_object_guid(ns)) == 0);
-	ok = ok && (twz_hier_assign_name(ns, "..", NAME_ENT_NAMESPACE, twz_object_guid(parent)) == 0);
-
-	ok = ok && (twz_hier_assign_name(parent, name, NAME_ENT_NAMESPACE, twz_object_guid(ns)) == 0);
+	if(parent) {
+		ok =
+		  ok && (twz_hier_assign_name(ns, "..", NAME_ENT_NAMESPACE, twz_object_guid(parent)) == 0);
+		ok =
+		  ok && (twz_hier_assign_name(parent, name, NAME_ENT_NAMESPACE, twz_object_guid(ns)) == 0);
+	} else {
+		ok = ok && (twz_hier_assign_name(ns, "..", NAME_ENT_NAMESPACE, twz_object_guid(ns)) == 0);
+	}
 
 	if(!ok) {
 		if(twz_object_delete(ns, 0)) {

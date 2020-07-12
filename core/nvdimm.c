@@ -82,8 +82,6 @@ void nv_register_region(struct nv_device *dev,
  * TODO: take this into account in page allocation.
  */
 
-#define NVD_HDR_MAGIC 0x12345678
-
 struct nvdimm_bucket {
 	objid_t id;
 	uint64_t reg_page;
@@ -95,17 +93,6 @@ struct nvdimm_pggrp {
 	uint8_t sb[4096];
 	uint8_t bm[4096];
 	struct nvdimm_bucket buckets[];
-};
-
-struct nvdimm_region_header {
-	uint32_t magic;
-	uint32_t version;
-	uint64_t flags;
-
-	uint64_t total_pages;
-	uint64_t used_pages;
-
-	uint32_t pg_used_num[];
 };
 
 #define PGGRP_LEN ({ (mm_page_size(0) * 8) * mm_page_size(0); })
@@ -414,6 +401,8 @@ static void __init_nv_objects(void *_a __unused)
 
 			kso_attach(nv_bus, reg->obj, reg->mono_id);
 			nv_init_region(reg);
+			hdr->meta_lo = ID_LO(reg->metaobj->id);
+			hdr->meta_hi = ID_HI(reg->metaobj->id);
 		}
 	}
 }

@@ -25,7 +25,26 @@ struct memory_stats_header {
 	struct page_stats page_stats[];
 };
 
+#include <twz/_objid.h>
+
 struct nv_header {
 	uint64_t devid;
 	uint32_t regid;
+	uint32_t flags;
+	uint64_t meta_lo;
+	uint64_t meta_hi;
+};
+
+#define NVD_HDR_MAGIC 0x12345678
+struct nvdimm_region_header {
+	uint32_t magic;
+	uint32_t version;
+	uint64_t flags;
+
+	uint64_t total_pages;
+	uint64_t used_pages;
+
+	objid_t nameroot;
+
+	uint32_t pg_used_num[];
 };

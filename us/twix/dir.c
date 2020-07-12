@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <twz/_sys.h>
 #include <twz/hier.h>
 #include <twz/name.h>
 #include <unistd.h>
@@ -45,8 +46,9 @@ long linux_sys_mkdir(char *path, int mode)
 		return r;
 	}
 
+	/* TODO: don't make persistent unless we know it should be... ? */
 	twzobj ns;
-	r = twz_hier_namespace_new(&ns, &po, base);
+	r = twz_hier_namespace_new(&ns, &po, base, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE);
 
 	twz_object_release(&ns);
 	twz_object_release(&po);

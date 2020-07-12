@@ -65,7 +65,7 @@ static bool __name_init(void)
 	objid_t id;
 	objid_parse(nameid, strlen(nameid), &id);
 
-	twz_object_init_guid(&nameobj, id, FE_READ);
+	twz_object_init_guid(&nameobj, id, FE_READ | FE_WRITE);
 
 	return true;
 }
@@ -80,7 +80,7 @@ int twz_name_switch_root(twzobj *obj)
 	setenv("TWZNAME", name, 1);
 	nameid = getenv("TWZNAME");
 
-	twz_object_init_guid(&nameobj, twz_object_guid(obj), FE_READ);
+	twz_object_init_guid(&nameobj, twz_object_guid(obj), FE_READ | FE_WRITE);
 
 	return 0;
 }

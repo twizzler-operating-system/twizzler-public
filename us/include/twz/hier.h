@@ -42,6 +42,6 @@ __must_check int twz_hier_resolve_name(twzobj *ns,
 #define TWZ_HIER_SYM 1
 
 __must_check int twz_hier_assign_name(twzobj *ns, const char *name, int type, objid_t id);
-int twz_hier_namespace_new(twzobj *ns, twzobj *parent, const char *name);
+int twz_hier_namespace_new(twzobj *ns, twzobj *parent, const char *name, uint64_t);
 ssize_t twz_hier_get_entry(twzobj *ns, size_t pos, struct twz_name_ent **ent);
 int twz_hier_readlink(twzobj *ns, const char *path, char *buf, size_t bufsz);

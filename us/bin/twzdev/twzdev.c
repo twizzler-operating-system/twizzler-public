@@ -190,7 +190,7 @@ int main()
 						twz_object_init_guid(&nvobj, k->id, FE_READ);
 						struct nv_header *hdr = twz_device_getds(&nvobj);
 						char name[128];
-						sprintf(name, "/dev/nv/nvr%lx:%x", hdr->devid, hdr->regid);
+						sprintf(name, "/dev/nv/nvr%lx.%x", hdr->devid, hdr->regid);
 						twz_name_assign(k->id, name);
 					}
 				} else {

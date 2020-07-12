@@ -1,14 +1,20 @@
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <twz/_sys.h>
 #include <twz/bstream.h>
 #include <twz/debug.h>
 #include <twz/driver/bus.h>
+#include <twz/driver/device.h>
+#include <twz/driver/memory.h>
+#include <twz/hier.h>
 #include <twz/name.h>
 #include <twz/obj.h>
+#include <twz/persist.h>
 #include <unistd.h>
 
 bool term_ready = false;
@@ -203,6 +209,62 @@ int main()
 		}
 	} else {
 		fprintf(stderr, "[init] failed to switch to storage, continuing from initrd\n");
+	}
+
+	DIR *nvd = opendir("/dev/nv");
+	if(nvd) {
+		struct dirent *de;
+		while((de = readdir(nvd))) {
+			if(de->d_name[0] == '.')
+				continue;
+			char *path = NULL;
+			asprintf(&path, "/dev/nv/%s", de->d_name);
+			twzobj nvo, nvmetao;
+			twz_object_init_name(&nvo, path, FE_READ);
+			struct nv_header *nvhdr = twz_device_getds(&nvo);
+			objid_t metaid = MKID(nvhdr->meta_hi, nvhdr->meta_lo);
+			fprintf(stderr, ":: NV %s : " IDFMT "\n", path, IDPR(metaid));
+			twz_object_init_guid(&nvmetao, metaid, FE_READ | FE_WRITE);
+			struct nvdimm_region_header *hdr = twz_object_base(&nvmetao);
+			fprintf(stderr, "INIT: ::: %x\n", hdr->magic);
+
+			if(hdr->magic == NVD_HDR_MAGIC) {
+				if(hdr->nameroot == 0) {
+					twzobj nro;
+					r = twz_hier_namespace_new(
+					  &nro, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_SYS_OC_PERSIST_);
+					if(r) {
+						fprintf(stderr, "[init] failed to create nameroot for %s\n", path);
+					} else {
+						hdr->nameroot = twz_object_guid(&nro);
+						_clwb_len(&hdr->nameroot, sizeof(hdr->nameroot));
+						_pfence();
+					}
+				}
+
+				if(hdr->nameroot != 0) {
+					mkdir("/persist", 0755);
+					mkdir("/storage/persist", 0755);
+					twzobj root;
+					if(twz_object_init_name(&root, "/storage", FE_READ | FE_WRITE)) {
+						fprintf(stderr, "failed to open root\n");
+					}
+					r = twz_hier_assign_name(&root, de->d_name, NAME_ENT_NAMESPACE, hdr->nameroot);
+					if(r) {
+						fprintf(stderr, "[init] error 'mounting' NVR %s: %d\n", de->d_name, r);
+					}
+					if(twz_object_init_name(&root, "/", FE_READ | FE_WRITE)) {
+						fprintf(stderr, "failed to open root\n");
+					}
+					r = twz_hier_assign_name(&root, de->d_name, NAME_ENT_NAMESPACE, hdr->nameroot);
+					if(r) {
+						fprintf(stderr, "[init] error 'mounting' NVR %s: %d\n", de->d_name, r);
+					}
+				}
+			}
+
+			free(path);
+		}
 	}
 
 	twzobj rxqobj;
