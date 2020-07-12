@@ -258,7 +258,8 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 		struct objpage *p = NULL;
 		enum obj_get_page_result gpr =
 		  obj_get_page(o, loaddr % OBJ_MAXSIZE, &p, OBJ_GET_PAGE_ALLOC | OBJ_GET_PAGE_PAGEROK);
-		if(!(o->flags & OF_KERNEL) && 0) {
+#if 0
+		if(!(o->flags & OF_KERNEL) && current_thread && current_thread->_last_count > 1000) {
 			uint64_t flags, phys;
 			int level;
 			bool _r = arch_object_getmap(o, loaddr % OBJ_MAXSIZE, &phys, &level, &flags);
@@ -283,9 +284,17 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			  current_thread);
 		}
 		if(current_thread && current_thread->_last_count > 1000) {
-			printk(
-			  ":::: %d %lx %p %p %lx %d\n", gpr, o->flags, p, p->page, p->flags, p->page->cowcount);
+			printk(":::: %lx %d %lx %p %p %lx %d\n",
+			  ip,
+			  gpr,
+			  o->flags,
+			  p,
+			  p->page,
+			  p->flags,
+			  p->page->cowcount);
+			p->flags &= ~OBJPAGE_MAPPED;
 		}
+#endif
 		switch(gpr) {
 			case GETPAGE_OK:
 				break;
@@ -317,7 +326,7 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 					p->page->cowcount = 1;
 				}
 
-				p->flags &= ~OBJPAGE_COW;
+				p->flags &= ~(OBJPAGE_COW | OBJPAGE_MAPPED);
 				spinlock_release_restore(&p->lock);
 
 				spinlock_acquire_save(&o->lock);
@@ -327,6 +336,19 @@ void kernel_objspace_fault_entry(uintptr_t ip, uintptr_t loaddr, uintptr_t vaddr
 			} else {
 				spinlock_release_restore(&p->lock);
 				spinlock_acquire_save(&o->lock);
+				if((flags & OBJSPACE_FAULT_WRITE) && (p->flags & OBJPAGE_MAPPED)
+				   && !(p->flags & OBJPAGE_COW)) {
+					/* possibility that we're faulting after this page was COW'd, and then the COW
+					 * page was freed, and then we want to write to the original. In this case, the
+					 * object page might be marked as non-cow, non-write, mapped. TODO: we could
+					 * probably tag the page flags with this, somehow, but it's just as easy to
+					 * check the page tables */
+					uint64_t fl;
+					if(!arch_object_getmap(o, loaddr % OBJ_MAXSIZE, NULL, NULL, &fl)
+					   || !(fl & OBJSPACE_WRITE)) {
+						p->flags &= ~OBJPAGE_MAPPED;
+					}
+				}
 				if(!(p->flags & OBJPAGE_MAPPED)) {
 					arch_object_map_page(o, p);
 					p->flags |= OBJPAGE_MAPPED;

@@ -5,8 +5,8 @@ VERSION=4.0.2
 DEPS=
 desc="GNU multiple precision floating point library"
 
-DOWNLOADS=(https://www.mpfr.org/mpfr-current/mpfr-4.0.2.tar.xz)
-HASHES=(52c1f2a4c9a202f46cf3275a8d46b562aa584208)
+DOWNLOADS=(https://www.mpfr.org/mpfr-4.0.2/mpfr-4.0.2.tar.xz)
+HASHES=(-)
 
 SPLITS=()
 

@@ -109,6 +109,7 @@ static struct objpage *objpage_clone(struct object *newobj, struct objpage *op, 
 		op->page->cowcount++;
 	}
 	op->flags |= OBJPAGE_COW;
+	op->flags &= ~OBJPAGE_MAPPED;
 	spinlock_release_restore(&op->lock);
 	new_op->idx = op->idx;
 	new_op->flags = OBJPAGE_COW;
@@ -276,6 +277,7 @@ static void __obj_get_page_handle_derived(struct objpage *op)
 			if(dop->page == NULL) {
 				spinlock_acquire_save(&op->lock);
 				op->flags |= OBJPAGE_COW;
+				op->flags &= ~OBJPAGE_MAPPED;
 				assert(op->page->cowcount > 0);
 				op->page->cowcount++;
 				dop->flags = OBJPAGE_COW;

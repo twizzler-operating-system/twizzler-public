@@ -144,7 +144,9 @@ void arch_vm_unmap_object(struct vm_context *ctx, struct vmap *map)
 	uintptr_t vaddr = (uintptr_t)SLOT_TO_VADDR(map->slot);
 
 	if(arch_vm_unmap(ctx, vaddr) == false) {
-		/* TODO (major): is this a problem? */
+#if CONFIG_DEBUG
+		panic("failed to unmap object: was already unmapped");
+#endif
 	}
 }
 
