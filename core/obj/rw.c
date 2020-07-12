@@ -124,21 +124,11 @@ done:
 	spinlock_release_restore(&obj->lock);
 }
 
-/* TODO (major): these can probably fail */
 void obj_read_data(struct object *obj, size_t start, size_t len, void *ptr)
 {
 	start += OBJ_NULLPAGE_SIZE;
 	assert(start < OBJ_MAXSIZE && start + len <= OBJ_MAXSIZE && len < OBJ_MAXSIZE);
-
-#if 0
-
-	// printk(":: reading %lx -> %lx\n", start, start + len);
-	obj_alloc_kernel_slot(obj);
-	if(!obj->kvmap)
-		vm_kernel_map_object(obj);
-#endif
 	void *addr = (char *)obj_get_kaddr(obj) + start;
-	// void *addr = (char *)SLOT_TO_VADDR(obj->kvmap->slot) + start;
 	memcpy(ptr, addr, len);
 	obj_release_kaddr(obj);
 }
@@ -147,16 +137,7 @@ void obj_write_data(struct object *obj, size_t start, size_t len, void *ptr)
 {
 	start += OBJ_NULLPAGE_SIZE;
 	assert(start < OBJ_MAXSIZE && start + len <= OBJ_MAXSIZE && len < OBJ_MAXSIZE);
-
-#if 0
-	obj_alloc_kernel_slot(obj);
-	if(!obj->kvmap)
-		vm_kernel_map_object(obj);
-#endif
-
 	void *addr = (char *)obj_get_kaddr(obj) + start;
-
-	// void *addr = (char *)SLOT_TO_VADDR(obj->kvmap->slot) + start;
 	memcpy(addr, ptr, len);
 	obj_release_kaddr(obj);
 }
@@ -165,7 +146,6 @@ void obj_write_data_atomic64(struct object *obj, size_t off, uint64_t val)
 {
 	off += OBJ_NULLPAGE_SIZE;
 	assert(off < OBJ_MAXSIZE && off + 8 <= OBJ_MAXSIZE);
-
 	void *addr = (char *)obj_get_kaddr(obj) + off;
 	*(_Atomic uint64_t *)addr = val;
 	obj_release_kaddr(obj);

@@ -79,15 +79,13 @@ static void _sp_release(void *_sp)
 static int sp_sleep_prep(struct syncpoint *sp,
   long *addr,
   long val,
-  struct timespec *spec,
   int idx,
   bool dont_check,
   bool bits32)
 {
-	int64_t ns = spec ? (spec->tv_nsec + spec->tv_sec * 1000000000ul) : -1ul;
 	spinlock_acquire_save(&sp->lock);
 	spinlock_acquire_save(&current_thread->lock);
-	thread_sleep(current_thread, 0, ns);
+	thread_sleep(current_thread, 0);
 	current_thread->sleep_entries[idx].thr = current_thread;
 	assert(current_thread->sleep_entries[idx].active == false);
 	current_thread->sleep_entries[idx].active = true;
@@ -124,12 +122,11 @@ static void sp_sleep_finish(struct syncpoint *sp, int stay_asleep, int idx)
 static int sp_sleep(struct syncpoint *sp,
   long *addr,
   long val,
-  struct timespec *spec,
   int idx,
   bool dont_check,
   bool bits32)
 {
-	sp_sleep_finish(sp, sp_sleep_prep(sp, addr, val, spec, idx, dont_check, bits32), idx);
+	sp_sleep_finish(sp, sp_sleep_prep(sp, addr, val, idx, dont_check, bits32), idx);
 	return 0;
 }
 
@@ -200,7 +197,6 @@ void thread_sync_uninit_thread(struct thread *thr)
 static long thread_sync_single_norestore(int operation,
   long *addr,
   long arg,
-  struct timespec *spec,
   int idx,
   bool dont_check,
   bool bits32)
@@ -208,18 +204,17 @@ static long thread_sync_single_norestore(int operation,
 	objid_t id;
 	uint64_t off;
 	if(!vm_vaddr_lookup(addr, &id, &off)) {
-		return -1; /* TODO (major): err codes in all syscalls */
+		return -EFAULT;
 	}
-	// printk("tsync: " IDFMT ": %lx: %d\n", IDPR(id), off, operation);
 	struct object *obj = obj_lookup(id, 0);
 	if(!obj) {
-		return -1;
+		return -ENOENT;
 	}
 	struct syncpoint *sp = sp_lookup(obj, off, operation == THREAD_SYNC_SLEEP);
-	long ret = -1;
+	long ret = -EINVAL;
 	switch(operation) {
 		case THREAD_SYNC_SLEEP:
-			ret = sp_sleep_prep(sp, addr, arg, spec, idx, dont_check, bits32);
+			ret = sp_sleep_prep(sp, addr, arg, idx, dont_check, bits32);
 			break;
 		case THREAD_SYNC_WAKE:
 			ret = sp_wake(sp, arg);
@@ -236,11 +231,11 @@ static long thread_sync_sleep_wakeup(long *addr, int idx)
 	objid_t id;
 	uint64_t off;
 	if(!vm_vaddr_lookup(addr, &id, &off)) {
-		return -1; /* TODO (major): err codes in all syscalls */
+		return -EFAULT;
 	}
 	struct object *obj = obj_lookup(id, 0);
 	if(!obj) {
-		return -1;
+		return -ENOENT;
 	}
 	struct syncpoint *sp = sp_lookup(obj, off, true);
 	obj_put(obj);
@@ -274,32 +269,32 @@ long thread_sleep_on_object(struct object *obj, size_t offset, long arg, bool do
 	if(!dont_check) {
 		panic("NI - in-kernel sleep on object with addr check");
 	}
-	return sp_sleep(sp, NULL, arg, NULL, 0, dont_check, false);
+	return sp_sleep(sp, NULL, arg, 0, dont_check, false);
 }
 
-long thread_sync_single(int operation, long *addr, long arg, struct timespec *spec, bool bits32)
+long thread_sync_single(int operation, long *addr, long arg, bool bits32)
 {
 	objid_t id;
 	uint64_t off;
 	if(!vm_vaddr_lookup(addr, &id, &off)) {
-		return -1; /* TODO (major): err codes in all syscalls */
+		return -EFAULT;
 	}
 	struct object *obj = obj_lookup(id, 0);
 	if(!obj) {
-		return -1;
+		return -ENOENT;
 	}
 	struct syncpoint *sp = sp_lookup(obj, off, operation == THREAD_SYNC_SLEEP);
 	obj_put(obj);
 	switch(operation) {
 		case THREAD_SYNC_SLEEP:
 			__thread_init_sync(1);
-			return sp_sleep(sp, addr, arg, spec, 0, false, bits32);
+			return sp_sleep(sp, addr, arg, 0, false, bits32);
 		case THREAD_SYNC_WAKE:
 			return sp_wake(sp, arg);
 		default:
 			break;
 	}
-	return -1;
+	return -EINVAL;
 }
 
 static void __thread_sync_timer(void *a)
@@ -307,8 +302,6 @@ static void __thread_sync_timer(void *a)
 	struct thread *thr = a;
 	spinlock_acquire_save(&thr->lock);
 
-	// list_remove(&se->entry);
-	// se->active = false;
 	for(size_t i = 0; i < thr->sleep_count; i++) {
 		if(thr->sleep_entries[i].active) {
 			struct syncpoint *op = thr->sleep_entries[i].sp;
@@ -330,8 +323,13 @@ long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args, struct
 	bool wake = false;
 	if(count > MAX_SLEEPS)
 		return -EINVAL;
+	if(!verify_user_pointer(args, count * sizeof(*args)))
+		return -EINVAL;
+	if(timeout && !verify_user_pointer(timeout, sizeof(*timeout)))
+		return -EINVAL;
 	__thread_init_sync(count);
 	bool armed_sleep = false;
+	int ret = 0;
 	for(size_t i = 0; i < count; i++) {
 		if(args[i].op == THREAD_SYNC_SLEEP && timeout && !armed_sleep) {
 			armed_sleep = true;
@@ -339,24 +337,29 @@ long syscall_thread_sync(size_t count, struct sys_thread_sync_args *args, struct
 			timer_add(
 			  &current_thread->sleep_timer, timeout_nsec, __thread_sync_timer, current_thread);
 		}
-		int r = thread_sync_single_norestore(args[i].op,
-		  (long *)args[i].addr,
-		  args[i].arg,
-		  NULL,
-		  i,
-		  false,
-		  !!(args[i].flags & THREAD_SYNC_32BIT));
+		void *addr = args[i].addr;
+		int r;
+		if(!verify_user_pointer(addr, sizeof(void *))) {
+			r = ret = -EINVAL;
+		} else {
+			r = thread_sync_single_norestore(
+			  args[i].op, addr, args[i].arg, i, false, !!(args[i].flags & THREAD_SYNC_32BIT));
+			if(r)
+				ret = r;
+		}
 		ok = ok || r >= 0;
-		args[i].res = r >= 0 ? 1 : r; // TODO
-		if(args[i].op == THREAD_SYNC_SLEEP && r == 0)
+		args[i].res = r >= 0 ? 1 : r;
+		if(args[i].op == THREAD_SYNC_SLEEP && r == 0) {
 			wake = true;
+		}
 	}
 	if(wake) {
 		for(size_t i = 0; i < count; i++) {
-			if(args[i].op == THREAD_SYNC_SLEEP)
+			if(args[i].op == THREAD_SYNC_SLEEP) {
 				thread_sync_sleep_wakeup((long *)args[i].addr, i);
+			}
 		}
 		timer_remove(&current_thread->sleep_timer);
 	}
-	return ok ? 0 : -1;
+	return ok ? 0 : ret;
 }

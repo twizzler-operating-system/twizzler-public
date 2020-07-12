@@ -131,9 +131,11 @@ static inline struct object *__obj_alloc(enum kso_type ksot, objid_t id)
 struct object *obj_create(uint128_t id, enum kso_type ksot)
 {
 	struct object *obj = __obj_alloc(ksot, id);
-	/* TODO (major): check for duplicates */
 	if(id) {
 		spinlock_acquire_save(&objlock);
+		if(rb_search(&obj_tree, id, struct object, node, __obj_compar_key)) {
+			panic("duplicate object created");
+		}
 		rb_insert(&obj_tree, obj, struct object, node, __obj_compar);
 		spinlock_release_restore(&objlock);
 	}
@@ -145,6 +147,9 @@ void obj_assign_id(struct object *obj, objid_t id)
 	spinlock_acquire_save(&objlock);
 	if(obj->id) {
 		panic("tried to reassign object ID");
+	}
+	if(rb_search(&obj_tree, id, struct object, node, __obj_compar_key)) {
+		panic("duplicate object created");
 	}
 	obj->id = id;
 	rb_insert(&obj_tree, obj, struct object, node, __obj_compar);

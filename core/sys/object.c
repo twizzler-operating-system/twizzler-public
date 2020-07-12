@@ -19,6 +19,8 @@ static bool __do_invalidate(struct object *obj, struct kso_invl_args *invl)
 long syscall_invalidate_kso(struct kso_invl_args *invl, size_t count)
 {
 	size_t suc = 0;
+	if(!verify_user_pointer(invl, count * sizeof(*invl)))
+		return -EINVAL;
 	for(size_t i = 0; i < count; i++) {
 		struct kso_invl_args ko;
 		memcpy(&ko, &invl[i], sizeof(ko));
@@ -61,6 +63,11 @@ long syscall_ocopy(objid_t *destid,
 	if(soff & (mm_page_size(0) - 1))
 		return -EINVAL;
 	if(len & (mm_page_size(0) - 1))
+		return -EINVAL;
+
+	if(!verify_user_pointer(destid, sizeof(*destid)))
+		return -EINVAL;
+	if(!verify_user_pointer(srcid, sizeof(*srcid)))
 		return -EINVAL;
 
 	struct object *src = *srcid ? obj_lookup(*srcid, 0) : NULL;
@@ -139,6 +146,9 @@ long syscall_kaction(size_t count, struct sys_kaction_args *args)
 	size_t t = 0;
 	if(count > 4096 || !args)
 		return -EINVAL;
+
+	if(!verify_user_pointer(args, sizeof(*args) * count))
+		return -EINVAL;
 	for(size_t i = 0; i < count; i++) {
 		if(args[i].flags & KACTION_VALID) {
 			struct object *obj = obj_lookup(args->id, 0);
@@ -170,7 +180,7 @@ long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 			obj_put(child);
 		if(parent)
 			obj_put(parent);
-		return -1;
+		return -ENOENT;
 	}
 
 	int e;
@@ -192,16 +202,16 @@ long syscall_attach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 		spinlock_release_restore(&child->lock);
 		obj_put(child);
 		obj_put(parent);
-		return -1;
+		return -EINVAL;
 	}
 	if(child->kso_type == KSO_NONE) {
 		obj_kso_init(child, type);
 	}
 	spinlock_release_restore(&child->lock);
 
-	int ret = -1;
+	int ret = -EINVAL;
 	if(child->kso_calls && child->kso_calls->attach) {
-		ret = child->kso_calls->attach(parent, child, flags) ? 0 : -1;
+		ret = child->kso_calls->attach(parent, child, flags) ? 0 : -EINVAL;
 	}
 
 	obj_put(child);
@@ -226,7 +236,7 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 	if(!parent) {
 		if(child)
 			obj_put(child);
-		return -1;
+		return -ENOENT;
 	}
 
 	int e;
@@ -249,19 +259,19 @@ long syscall_detach(uint64_t palo, uint64_t pahi, uint64_t chlo, uint64_t chhi, 
 		if(child)
 			obj_put(child);
 		obj_put(parent);
-		return -1;
+		return -EINVAL;
 	}
 
-	int ret = -1;
+	int ret = -EINVAL;
 	if(sysc == SYS_NULL)
 		sysc = SYS_DETACH;
 	if(child && child->kso_calls && child->kso_calls->detach) {
-		ret = child->kso_calls->detach(parent, child, sysc, flags) ? 0 : -1;
+		ret = child->kso_calls->detach(parent, child, sysc, flags) ? 0 : -EINVAL;
 	} else if(!child) {
 		struct kso_calls *kc = kso_lookup_calls(type);
 		bool (*c)(struct object *, struct object *, int, int) = kc ? kc->detach : NULL;
 		if(c) {
-			ret = c(parent, child, sysc, flags) ? 0 : -1;
+			ret = c(parent, child, sysc, flags) ? 0 : -EINVAL;
 		}
 	}
 
@@ -281,6 +291,10 @@ long syscall_ocreate(uint64_t kulo,
 	objid_t kuid = MKID(kuhi, kulo);
 	objid_t srcid = MKID(shi, slo);
 	nonce_t nonce = 0;
+
+	if(!verify_user_pointer(retid, sizeof(*retid)) && current_thread
+	   && arch_thread_syscall_num() == SYS_OCREATE)
+		return -EINVAL;
 	int r;
 	if(!(flags & TWZ_SYS_OC_ZERONONCE)) {
 		r = rand_getbytes(&nonce, sizeof(nonce), 0);
@@ -290,7 +304,7 @@ long syscall_ocreate(uint64_t kulo,
 	}
 	int ksot = (flags >> 8) & 0xF;
 	if(ksot >= KSO_MAX) {
-		return -1;
+		return -EINVAL;
 	}
 	struct object *o, *so = NULL;
 	if(srcid && (flags & TWZ_SYS_OC_PERSIST_)) {
@@ -463,6 +477,10 @@ long syscall_octl(uint64_t lo, uint64_t hi, int op, long arg1, long arg2, long a
 				// objpage_release(pg, 0);
 			}
 			if(arg3) {
+				if(!verify_user_pointer((void *)arg3, sizeof(objid_t))) {
+					obj_put(o);
+					return -EINVAL;
+				}
 				objid_t doid = *(objid_t *)arg3;
 				struct object *dobj = obj_lookup(doid, 0);
 				if(!dobj) {

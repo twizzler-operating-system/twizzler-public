@@ -29,6 +29,7 @@ long syscall_kconf(int cmd, long arg)
 	return ret;
 }
 
+/* TODO: limit access to this syscall */
 long syscall_kqueue(uint64_t idlo, uint64_t idhi, enum kernel_queues kq, int flags)
 {
 	(void)flags;

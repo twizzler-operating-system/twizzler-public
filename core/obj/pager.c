@@ -268,7 +268,7 @@ int kernel_queue_pager_request_object(objid_t id)
 	spinlock_acquire_save(&pager_lock);
 	struct pager_request *pr = slabcache_alloc(&sc_pager_request);
 
-	thread_sleep(current_thread, 0, -1);
+	thread_sleep(current_thread, 0);
 
 	pr->pqe.id = id;
 	pr->pqe.reqthread = current_thread->thrid;

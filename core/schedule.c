@@ -46,7 +46,6 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 		pager_idle_task();
 		workqueue_dowork(&proc->wq);
 		uint64_t rem_time = timer_check_timers();
-		/* TODO (major): allow current thread to run again */
 		spinlock_acquire(&proc->sched_lock);
 
 		if(current_thread && current_thread->timeslice_expire > (ji + TIMESLICE_GIVEUP)
@@ -198,16 +197,13 @@ __noinstrument void thread_schedule_resume(void)
 	thread_schedule_resume_proc(current_processor);
 }
 
-void thread_sleep(struct thread *t, int flags, int64_t timeout)
+void thread_sleep(struct thread *t, int flags)
 {
 	(void)flags;
-	(void)timeout;
-	/* TODO (major): timeout */
 	t->priority *= 20;
 	if(t->priority > 1000) {
 		t->priority = 1000;
 	}
-	/* TODO: threadsafe? */
 	spinlock_acquire_save(&t->processor->sched_lock);
 	if(t->state != THREADSTATE_BLOCKED) {
 		t->state = THREADSTATE_BLOCKED;
@@ -239,6 +235,8 @@ static struct spinlock allthreads_lock = SPINLOCK_INIT;
 static void __thread_finish_cleanup2(void *_t)
 {
 	struct thread *t = _t;
+	vm_context_put(t->ctx);
+	t->ctx = NULL;
 	arch_thread_destroy(t);
 	thread_sync_uninit_thread(t);
 	void *back = t->sctx_entries;
@@ -269,11 +267,6 @@ void thread_exit(void)
 	spinlock_acquire_save(&allthreads_lock);
 	list_remove(&current_thread->all_entry);
 	spinlock_release_restore(&allthreads_lock);
-	/* TODO (major): cleanup thread resources */
-
-	vm_context_put(current_thread->ctx);
-
-	current_thread->ctx = NULL;
 
 	kso_root_detach(current_thread->kso_attachment_num);
 

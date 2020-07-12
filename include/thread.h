@@ -74,12 +74,12 @@ struct thread {
 
 struct arch_syscall_become_args;
 void arch_thread_become(struct arch_syscall_become_args *ba);
-void thread_sleep(struct thread *t, int flags, int64_t);
+void thread_sleep(struct thread *t, int flags);
 void thread_wake(struct thread *t);
 void thread_exit(void);
 void thread_raise_fault(struct thread *t, int fault, void *info, size_t);
 struct timespec;
-long thread_sync_single(int operation, long *addr, long arg, struct timespec *spec, bool);
+long thread_sync_single(int operation, long *addr, long arg, bool);
 long thread_wake_object(struct object *obj, size_t offset, long arg);
 void thread_sync_uninit_thread(struct thread *thr);
 long thread_sleep_on_object(struct object *obj, size_t offset, long arg, bool dont_check);
@@ -100,6 +100,7 @@ void arch_thread_destroy(struct thread *thread);
 
 void thread_initialize_processor(struct processor *proc);
 
+long arch_thread_syscall_num(void);
 void thread_schedule_resume(void);
 void thread_schedule_resume_proc(struct processor *proc);
 void arch_thread_resume(struct thread *thread, uint64_t timeout);

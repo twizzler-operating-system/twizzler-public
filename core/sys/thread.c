@@ -8,20 +8,30 @@
 #include <twz/_sctx.h>
 #include <twz/_thrd.h>
 
-/* TODO (major): verify all incoming pointers from syscalls */
-
 long syscall_thread_spawn(uint64_t tidlo,
   uint64_t tidhi,
   struct sys_thrd_spawn_args *tsa,
   int flags)
 {
+	if(current_thread && !verify_user_pointer(tsa, sizeof(*tsa))) {
+		return -EINVAL;
+	}
+	void *start = tsa->start_func;
+	void *stack_base = tsa->stack_base;
+	void *tls_base = tsa->tls_base;
+	if(!verify_user_pointer(start, sizeof(void *))
+	   || !verify_user_pointer(stack_base, sizeof(void *))
+	   || !verify_user_pointer(tls_base, sizeof(void *))) {
+		return -EINVAL;
+	}
+
 	if(flags) {
 		return -EINVAL;
 	}
 	objid_t tid = MKID(tidhi, tidlo);
 	struct object *repr = obj_lookup(tid, 0);
 	if(!repr) {
-		return -1;
+		return -ENOENT;
 	}
 
 	int r;
@@ -33,7 +43,7 @@ long syscall_thread_spawn(uint64_t tidlo,
 	spinlock_acquire_save(&repr->lock);
 	if(repr->kso_type != KSO_NONE && repr->kso_type != KSO_THREAD) {
 		obj_put(repr);
-		return -1;
+		return -EINVAL;
 	}
 	if(repr->kso_type == KSO_NONE) {
 		obj_kso_init(repr, KSO_THREAD);
@@ -45,7 +55,7 @@ long syscall_thread_spawn(uint64_t tidlo,
 		view = obj_lookup(tsa->target_view, 0);
 		if(view == NULL) {
 			obj_put(repr);
-			return -1;
+			return -ENOENT;
 		}
 		/* TODO (sec): shoud this be SCP_USE? */
 		if((r = obj_check_permission(view, SCP_WRITE))) {
@@ -89,13 +99,7 @@ long syscall_thread_spawn(uint64_t tidlo,
 		t->sctx_entries[0].context = t->active_sc;
 	}
 
-	arch_thread_init(t,
-	  tsa->start_func,
-	  tsa->arg,
-	  tsa->stack_base,
-	  tsa->stack_size,
-	  tsa->tls_base,
-	  tsa->thrd_ctrl);
+	arch_thread_init(t, start, tsa->arg, stack_base, tsa->stack_size, tls_base, tsa->thrd_ctrl);
 
 	t->state = THREADSTATE_RUNNING;
 	processor_attach_thread(NULL, t);
@@ -116,27 +120,28 @@ long syscall_thrd_ctl(int op, long arg)
 	switch(op) {
 		long *eptr;
 		case THRD_CTL_EXIT:
-			/* TODO (sec): check eptr */
 			eptr = (long *)arg;
-			if(eptr) {
-				thread_sync_single(THREAD_SYNC_WAKE, eptr, INT_MAX, NULL, false);
+			if(eptr && verify_user_pointer(eptr, sizeof(void *))) {
+				thread_sync_single(THREAD_SYNC_WAKE, eptr, INT_MAX, false);
 			}
 			thread_exit();
 			break;
 		default:
-			ret = -1;
+			ret = -EINVAL;
 	}
 	return ret;
 }
 
 long syscall_become(struct arch_syscall_become_args *_ba)
 {
+	if(!verify_user_pointer(_ba, sizeof(*_ba)))
+		return -EINVAL;
 	struct arch_syscall_become_args ba;
 	memcpy(&ba, _ba, sizeof(ba));
 	if(ba.target_view) {
 		struct object *target_view = obj_lookup(ba.target_view, 0);
 		if(!target_view) {
-			return -1;
+			return -ENOENT;
 		}
 		int r;
 		if((r = obj_check_permission(target_view, SCP_WRITE))) {

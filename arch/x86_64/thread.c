@@ -3,6 +3,13 @@
 #include <syscall.h>
 #include <thread.h>
 
+long arch_thread_syscall_num(void)
+{
+	if(!current_thread)
+		return -1;
+	return current_thread->arch.syscall.rax;
+}
+
 uintptr_t arch_thread_instruction_pointer(void)
 {
 	if(!current_thread)
@@ -61,9 +68,15 @@ int arch_syscall_thrd_ctl(int op, long arg)
 {
 	switch(op) {
 		case THRD_CTL_SET_FS:
+			if(!verify_user_pointer((void *)arg, sizeof(void *))) {
+				return -EINVAL;
+			}
 			current_thread->arch.fs = arg;
 			break;
 		case THRD_CTL_SET_GS:
+			if(!verify_user_pointer((void *)arg, sizeof(void *))) {
+				return -EINVAL;
+			}
 			current_thread->arch.gs = arg;
 			break;
 		case THRD_CTL_SET_IOPL:
@@ -123,9 +136,8 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 		return;
 	}
 
-	if(stack < OBJ_NULLPAGE_SIZE) {
+	if((uintptr_t)stack < OBJ_NULLPAGE_SIZE) {
 		printk("thread %ld has invalid stack\n", t->id);
-		panic("A");
 		thread_exit();
 		return;
 	}
