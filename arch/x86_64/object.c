@@ -6,7 +6,6 @@
 
 #include <arch/x86_64-vmx.h>
 
-/* TODO: get rid of this */
 extern struct object_space _bootstrap_object_space;
 
 bool arch_object_getmap_slot_flags(struct object_space *space, struct slot *slot, uint64_t *flags)
@@ -49,7 +48,6 @@ void arch_object_unmap_all(struct object *obj)
 	assert(atomic_load(&obj->mapcount.count) == 0);
 	assert(obj->slot == NULL);
 	assert(obj->kslot == NULL);
-	/* TODO: free things */
 	for(int pd_idx = 0; pd_idx < 512; pd_idx++) {
 		if(obj->arch.pd[pd_idx] & PAGE_LARGE) {
 			obj->arch.pd[pd_idx] = 0;
@@ -326,20 +324,7 @@ void arch_object_init(struct object *obj)
 	// printk("objinit: %p %lx\n", obj->arch.pd, obj->arch.pt_root);
 	obj->arch.pts = (void *)mm_memory_alloc(512 * sizeof(void *), PM_TYPE_DRAM, true);
 }
-/*
-uint64_t *pml4 = mm_ptov(pml4phys);
-    memset(pml4, 0, mm_page_size(0));
-    pml4[0] = mm_physical_early_alloc();
-    uint64_t *pdpt = mm_ptov(pml4[0]);
-    pml4[0] |= EPT_READ | EPT_WRITE | EPT_EXEC;
-    memset(pdpt, 0, mm_page_size(0));
-    pdpt[0] |= EPT_IGNORE_PAT | EPT_MEMTYPE_WB | EPT_READ | EPT_WRITE | EPT_EXEC | PAGE_LARGE;
 
-    _bootstrap_object_space.arch.ept = pml4;
-    _bootstrap_object_space.arch.ept_phys = pml4phys;
-    _bootstrap_object_space.arch.pdpts = mm_virtual_early_alloc();
-    _bootstrap_object_space.arch.pdpts[0] = pdpt;
-*/
 void arch_object_space_init(struct object_space *space)
 {
 	space->arch.ept = mm_memory_alloc(0x1000, PM_TYPE_DRAM, true);

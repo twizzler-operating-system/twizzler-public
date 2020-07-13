@@ -9,6 +9,8 @@
 
 void x86_64_signal_eoi(void);
 
+/* NOTE: Twizzler's TLB shootdown method leaves a lot to be desired. However, remember that our goal
+ * is _not_ to research good TLB shootdown algs (at least, not yet ;) ). */
 void x86_64_ipi_tlb_shootdown(void)
 {
 	asm volatile("mov %%cr3, %%rax; mov %%rax, %%cr3; mfence;" ::: "memory", "rax");

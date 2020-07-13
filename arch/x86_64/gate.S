@@ -54,7 +54,6 @@ x86_64_resume_userspace:
 	popq %rbp
 	popq %rsp
 	
-	/* TODO: check if rcx is canonical */
 	bts $9, %r11 // set IF in EFLAGS
 
 	swapgs

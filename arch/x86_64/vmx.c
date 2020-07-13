@@ -315,7 +315,9 @@ __noinstrument __attribute__((used)) static void x86_64_vmexit_handler(struct pr
 			/* don't instruction advance, since we want to retry the access. */
 			break;
 		case VMEXIT_REASON_INVEPT:
-			/* TODO (perf): don't invalidate all mappings */
+			/* TODO (perf): don't invalidate all mappings. Here's an example of research-code. There
+			 * are much better invalidation methods out there. So far, our research hasn't needed
+			 * anything better than this. Eventually I'll get around to improving this. */
 			val = vmcs_readl(VMCS_EPT_PTR);
 			// int type = proc->arch.vcpu_state_regs[__get_register((iinfo >> 28) & 0xf)];
 			unsigned __int128 eptp = val;
@@ -651,7 +653,6 @@ static void vtx_setup_vcpu(struct processor *proc)
 	vmcs_writel(VMCS_HOST_RIP, (uintptr_t)vmexit_point);
 	vmcs_writel(VMCS_HOST_RSP, (uintptr_t)proc->arch.vcpu_state_regs);
 
-	/* TODO (minor): these numbers probably do something useful. */
 	vmcs_writel(VMCS_EPT_PTR, (uintptr_t)_bootstrap_object_space.arch.ept_phys | (3 << 3) | 6);
 	proc->arch.veinfo->lock = 0;
 }
@@ -691,10 +692,9 @@ static long x86_64_rootcall(long fn, long a0, long a1, long a2)
 
 void x86_64_switch_ept(uintptr_t root)
 {
-	// printk(":: SWITCH EPT: %lx :: %d\n", root, support_ept_switch_vmfunc);
 	if(support_ept_switch_vmfunc && 0) {
+		/* TODO: Support this vmfunc ability */
 		int index = -1;
-		/* TODO (perf): better than just a loop, man! */
 		for(int i = 0; i < 512; i++) {
 			if(current_processor->arch.eptp_list[i] == root) {
 				index = i;

@@ -91,7 +91,6 @@ int arch_syscall_thrd_ctl(int op, long arg)
 
 void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, size_t infolen)
 {
-	/* TODO: sanity check stack address */
 	if(t != current_thread) {
 		// panic("NI - raise fault in non-current thread");
 	}

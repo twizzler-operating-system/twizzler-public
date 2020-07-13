@@ -8,6 +8,9 @@
 #include <slots.h>
 #include <system.h>
 
+/* Support for the intel IOMMU is a work in-progress. Our eventual goal is to support more
+ * autonomous hardware. For now, however, we're getting basic drivers working. */
+
 struct __packed device_scope {
 	uint8_t type;
 	uint8_t length;
