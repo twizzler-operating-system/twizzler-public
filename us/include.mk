@@ -37,6 +37,13 @@ $(BUILDDIR)/us/$(MUSL)/configure: $(MUSL_SRCS)
 	cp -a us/$(MUSL) $(BUILDDIR)/us
 	@touch $@
 
+$(BUILDDIR)/us/sysroot/%: us/sysroot/%
+	mkdir -p $(dir $@)
+	@echo "[CP]       $< -> $@"
+	-@cp $< $@
+
+SYSROOT_FILES+=$(addprefix $(BUILDDIR)/,$(shell find us/sysroot/))
+
 $(BUILDDIR)/us/$(MUSL)/lib/libc.a: $(BUILDDIR)/us/musl-config.mk
 	@echo "[INSTL]   musl-libs-bootstrap"
 	@mkdir -p $(BUILDDIR)/us
