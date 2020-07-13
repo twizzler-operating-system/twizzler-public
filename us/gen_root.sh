@@ -7,7 +7,7 @@ export SYSROOT=$(pwd)/projects/$PROJECT/build/us/sysroot
 export OBJROOT=$(pwd)/projects/$PROJECT/build/us/objroot
 export KEYROOT=$(pwd)/projects/$PROJECT/build/us/keyroot
 
-for ent in $(find projects/$PROJECT/build/us/sysroot | cut -d'/' -f6- | grep -v '\.data$'); do
+for ent in $(find -L projects/$PROJECT/build/us/sysroot | cut -d'/' -f6- | grep -v '\.data$'); do
 	if [[ -f $SYSROOT/$ent ]]; then
 		target=$OBJROOT/${ent//\//_}.obj
 		key=$KEYROOT/${ent//\//_}.pubkey.obj

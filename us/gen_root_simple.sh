@@ -11,13 +11,13 @@ export OBJROOT=$2
 
 #echo $1 >&2
 #echo $(find $SYSROOT | sed "s|$SYSROOT||g") >&2
-for ent in $(find $SYSROOT | sed "s|$SYSROOT||g" | grep -v '\.data$'); do
+for ent in $(find -L $SYSROOT | sed "s|$SYSROOT||g" | grep -v '\.data$'); do
 	if [[ -f $SYSROOT/$ent ]]; then
 		target=$OBJROOT/${ent//\//_}.obj
 		extra=
 		perms=rxh
 
-		#echo $ent >&2
+		echo $ent >&2
 		if [[ -L $SYSROOT/$ent ]]; then
 			link=$(readlink $SYSROOT/$ent)
 			echo $ent'*SYM*'$link
