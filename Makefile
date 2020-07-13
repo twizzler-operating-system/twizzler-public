@@ -100,6 +100,14 @@ test: $(BUILDDIR)/kernel $(BUILDDIR)/us/root.tar bootiso $(BUILDDIR)/us/nvme.img
 	$(QEMU) $(QEMU_FLAGS) -cdrom $(BUILDDIR)/boot.iso -drive file=$(BUILDDIR)/us/nvme.img,if=none,id=D22 \
 		-device nvme,drive=D22,serial=1234 -serial stdio
 
+$(BUILDDIR)/pre-built.zip: $(BUILDDIR)/boot.iso $(BUILDDIR)/us/nvme.img us/pre-built/start.sh us/pre-built/README.md
+	mkdir -p $(BUILDDIR)/twizzler-prebuilt-image
+	cp $^ $(BUILDDIR)/twizzler-prebuilt-image/
+	-rm $@
+	cd $(BUILDDIR) && zip -rm pre-built.zip twizzler-prebuilt-image
+
+pre-built: $(BUILDDIR)/pre-built.zip
+
 export TOOLCHAIN_PREFIX
 export BUILDDIR
 
