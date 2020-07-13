@@ -59,3 +59,4 @@ struct page *nv_region_pagein(struct object *, size_t idx);
 struct nv_region *nv_region_select(void);
 int nv_region_persist_obj_meta(struct object *obj);
 struct nv_region *nv_region_lookup_object(objid_t id);
+void nv_region_free_page(struct object *obj, uint32_t pgnr, uint64_t addr);

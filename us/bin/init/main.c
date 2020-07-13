@@ -190,7 +190,7 @@ int main()
 	}
 	wait(&status);
 
-	mkdir("/tmp");
+	mkdir("/tmp", 0777);
 	twzobj st;
 	if(twz_object_init_name(&st, "/storage", FE_READ | FE_WRITE) == 0) {
 		fprintf(stderr, "[init] switching name root to storage\n");
@@ -212,7 +212,7 @@ int main()
 		fprintf(stderr, "[init] failed to switch to storage, continuing from initrd\n");
 	}
 
-	mkdir("/tmp");
+	mkdir("/tmp", 0777);
 	DIR *nvd = opendir("/dev/nv");
 	if(nvd) {
 		struct dirent *de;

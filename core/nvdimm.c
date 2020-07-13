@@ -130,11 +130,69 @@ static uint64_t __nv_region_alloc_page(struct nv_region *reg)
 	return 0;
 }
 
+static void __nv_region_free_page(struct nv_region *reg, uint64_t pg)
+{
+	size_t grp = pg / PGGRP_LEN;
+	size_t wg = (pg / mm_page_size(0)) % PGGRP_LEN;
+
+	struct nvdimm_region_header *hdr = obj_get_kbase(reg->metaobj);
+	struct nvdimm_pggrp *pgg = PGGRP_META(reg, grp);
+	pgg->bm[wg / 8] &= ~(1 << (wg % 8));
+	arch_processor_clwb(pgg->bm[wg / 8]);
+	hdr->used_pages--;
+	hdr->pg_used_num[grp]--;
+	arch_processor_clwb(hdr->used_pages);
+	arch_processor_clwb(hdr->pg_used_num[wg]);
+}
+
 static uint64_t __hash(objid_t id, uint32_t pgnr, uint64_t mod)
 {
 	objid_t _p = pgnr;
 	objid_t tmp = ((id ^ _p) ^ (id >> (uint64_t)(pgnr % 64u)));
 	return (uint64_t)tmp % mod;
+}
+
+static int __nv_region_delete_group(struct nv_region *reg, size_t group, objid_t id, uint32_t pgnr)
+{
+	struct nvdimm_pggrp *pgg = PGGRP_META(reg, group);
+
+	size_t b = __hash(id, pgnr, BUCKETS_PER_GROUP);
+	size_t i = b;
+	do {
+		struct nvdimm_bucket *bucket = &pgg->buckets[i];
+		if(bucket->id == id && bucket->obj_page) {
+			bucket->flags = 1;
+			arch_processor_clwb(bucket->flags);
+			atomic_thread_fence(memory_order_acq_rel);
+			bucket->id = 0;
+			arch_processor_clwb(bucket->id);
+			return 2;
+		}
+		if(bucket->flags == 0) {
+			return 0;
+		}
+		i = (i + 1) % BUCKETS_PER_GROUP;
+	} while(i != b);
+	return 1;
+}
+
+static int __nv_region_delete(struct nv_region *reg, objid_t id, uint32_t pgnr)
+{
+	size_t gnr = reg->length / PGGRP_LEN;
+	size_t b = __hash(id, pgnr, gnr);
+
+	size_t i = b;
+	do {
+		uint64_t ret = __nv_region_delete_group(reg, i, id, pgnr);
+		if(ret == 0) {
+			return 0;
+		}
+		if(ret != 1) {
+			return ret;
+		}
+		i = (i + 1) % gnr;
+	} while(i != b);
+	return 0;
 }
 
 static uint64_t __nv_region_lookup_group(struct nv_region *reg,
@@ -268,9 +326,17 @@ int nv_region_persist_obj_meta(struct object *obj)
 	return 0;
 }
 
+void nv_region_free_page(struct object *obj, uint32_t pgnr, uint64_t addr)
+{
+	spinlock_acquire_save(&obj->preg->lock);
+	__nv_region_delete(obj->preg, obj->id, pgnr);
+	__nv_region_free_page(obj->preg, addr - obj->preg->start);
+	spinlock_release_restore(&obj->preg->lock);
+}
+
 struct page *nv_region_pagein(struct object *obj, size_t idx)
 {
-	printk("[nv] pagein " IDFMT " :: %ld\n", IDPR(obj->id), idx);
+	// printk("[nv] pagein " IDFMT " :: %ld\n", IDPR(obj->id), idx);
 	struct page *pg = page_alloc_nophys();
 	pg->addr = obj->preg->start + nv_region_lookup_or_create(obj->preg, obj->id, idx);
 	pg->level = 0;

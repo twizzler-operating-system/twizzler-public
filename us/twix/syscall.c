@@ -1,9 +1,13 @@
+#include <dirent.h>
 #include <errno.h>
+#include <libgen.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <twz/debug.h>
+#include <twz/hier.h>
 
 /* TODO: arch-dep */
 
@@ -52,6 +56,8 @@
 #define LINUX_SYS_ftruncate 77
 
 #define LINUX_SYS_mkdir 83
+
+#define LINUX_SYS_unlink 87
 
 #define LINUX_SYS_readlink 89
 
@@ -112,6 +118,36 @@ long linux_sys_nanosleep(struct timespec *spec)
 {
 	int x = 0;
 	return twz_thread_sync32(THREAD_SYNC_SLEEP, (_Atomic unsigned int *)&x, 0, spec);
+}
+
+long linux_sys_unlink(char *path)
+{
+	char dup1[PATH_MAX + 1];
+	char dup2[PATH_MAX + 1];
+	strcpy(dup1, path);
+	strcpy(dup2, path);
+
+	char *dir = dirname(dup1);
+	char *base = basename(dup2);
+
+	twzobj parent;
+	int r = twz_object_init_name(&parent, dir, FE_READ | FE_WRITE);
+	if(r)
+		return r;
+
+	twzobj obj;
+	r = twz_object_init_name(&obj, path, FE_READ);
+	if(r) {
+		twz_object_release(&parent);
+		return r;
+	}
+
+	twz_object_tie(NULL, &obj, 0);
+	twz_object_delete(&obj, 0);
+
+	r = twz_hier_remove_name(&parent, base);
+	twz_object_release(&obj);
+	return r;
 }
 
 static long (*syscall_table[])() = {
@@ -175,6 +211,7 @@ static long (*syscall_table[])() = {
 	[LINUX_SYS_ftruncate] = linux_sys_ftruncate,
 	[LINUX_SYS_vfork] = linux_sys_fork, /* this is not a typo: we implement vfork as fork. */
 	[LINUX_SYS_nanosleep] = linux_sys_nanosleep,
+	[LINUX_SYS_unlink] = linux_sys_unlink,
 };
 
 __attribute__((unused)) static const char *syscall_names[] = {

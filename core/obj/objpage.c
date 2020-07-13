@@ -66,11 +66,17 @@ static void objpage_delete(struct objpage *op)
 			if(op->page->cowcount-- <= 1) {
 				if(op->page->type == PAGE_TYPE_VOLATILE) {
 					page_dealloc(op->page, 0);
+				} else if(op->page->type == PAGE_TYPE_PERSIST) {
+					//		nv_region_free_page(op->obj, op->idx, op->page->addr);
+					/* TODO: free the page struct */
 				}
 			}
 		} else {
 			if(op->page->type == PAGE_TYPE_VOLATILE) {
 				page_dealloc(op->page, 0);
+			} else if(op->page->type == PAGE_TYPE_PERSIST) {
+				//	nv_region_free_page(op->obj, op->idx, op->page->addr);
+				/* TODO: free the page struct */
 			}
 		}
 		op->page = NULL;

@@ -12,7 +12,6 @@ long linux_sys_open(const char *path, int flags, int mode)
 	objid_t id;
 	int r;
 
-	// twix_log("open: %s: %x\n", path, flags);
 	/* HACK to make libbacktrace work */
 	if(!strcmp(path, "/proc/self/exe")) {
 		twzobj view;
@@ -31,7 +30,7 @@ long linux_sys_open(const char *path, int flags, int mode)
 			}
 
 			uint64_t af = 0;
-			if(strncmp(path, "/tmp")) {
+			if(strncmp(path, "/tmp", 4)) {
 				af = TWZ_SYS_OC_PERSIST_;
 			}
 			if((r = twz_object_create(

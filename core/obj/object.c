@@ -283,6 +283,9 @@ static void _obj_release(void *_obj)
 
 		obj_tie_free(obj);
 
+		if(obj->flags & OF_PERSIST) {
+			printk(" DELETE PERSISTET\n");
+		}
 		arch_object_unmap_all(obj);
 		//		printk("releasin object pages\n");
 		struct rbnode *next;
@@ -300,6 +303,10 @@ static void _obj_release(void *_obj)
 			//		printk(":: %ld\n", pg->refs.count);
 			rb_delete(node, &obj->pagecache_root);
 			objpage_release(pg, 0);
+		}
+
+		if(obj->flags & OF_PERSIST) {
+			/* TODO: delete all persistent pages */
 		}
 
 		struct list *lnext;

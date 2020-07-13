@@ -85,6 +85,31 @@ int twz_hier_namespace_new(twzobj *ns, twzobj *parent, const char *name, uint64_
 	return ok ? 0 : -EINVAL;
 }
 
+int twz_hier_remove_name(twzobj *ns, const char *name)
+{
+	struct twz_namespace_hdr *hdr = twz_object_base(ns);
+	if(hdr->magic != NAMESPACE_MAGIC) {
+		return -EINVAL;
+	}
+	struct twz_name_ent *ent = hdr->ents;
+
+	bool found = false;
+	size_t len = strlen(name) + 1;
+	while(ent->dlen) {
+		if((ent->flags & NAME_ENT_VALID) && ent->dlen >= len) {
+			if(!memcmp(ent->name, name, len) && ent->name[len] == 0) {
+				ent->flags &= ~NAME_ENT_VALID;
+				found = true;
+			}
+		}
+
+		size_t reclen = sizeof(*ent) + ent->dlen;
+		reclen = (reclen + 15) & ~15;
+		ent = (struct twz_name_ent *)((char *)ent + reclen);
+	}
+	return found ? 0 : -ENOENT;
+}
+
 int twz_hier_assign_name(twzobj *ns, const char *name, int type, objid_t id)
 {
 	struct twz_namespace_hdr *hdr = twz_object_base(ns);
