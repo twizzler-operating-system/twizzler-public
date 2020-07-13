@@ -21,7 +21,10 @@ long linux_sys_chroot(char *path)
 	if((r = twz_object_init_name(&nr, path, FE_READ))) {
 		return r;
 	}
-	twz_object_init_name(&cur_dir.obj, path, FE_READ);
+	if(twz_object_init_name(&cur_dir.obj, path, FE_READ)) {
+		twz_object_release(&nr);
+		return r;
+	}
 	twz_name_switch_root(&nr);
 	// twz_object_init_name(&cur_dir.obj, ".", FE_READ);
 	return 0;

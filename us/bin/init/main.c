@@ -222,7 +222,9 @@ int main()
 			char *path = NULL;
 			asprintf(&path, "/dev/nv/%s", de->d_name);
 			twzobj nvo, nvmetao;
-			twz_object_init_name(&nvo, path, FE_READ);
+			if(twz_object_init_name(&nvo, path, FE_READ)) {
+				continue;
+			}
 			struct nv_header *nvhdr = twz_device_getds(&nvo);
 			objid_t metaid = MKID(nvhdr->meta_hi, nvhdr->meta_lo);
 			twz_object_init_guid(&nvmetao, metaid, FE_READ | FE_WRITE);

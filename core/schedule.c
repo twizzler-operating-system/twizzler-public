@@ -140,9 +140,7 @@ __noinstrument void thread_schedule_resume_proc(struct processor *proc)
 					clksrc_set_interrupt_countdown(rem_time, false);
 				}
 				arch_processor_halt(proc);
-				// printk("wokeup\n");
 			} else {
-#warning "fix this! we should be able to clear the work flag?"
 				spinlock_release(&proc->sched_lock, 1);
 			}
 		}
@@ -397,7 +395,6 @@ void thread_raise_fault(struct thread *t, int fault, void *info, size_t infolen)
 	if(!to) {
 		panic("No repr");
 	}
-	struct faultinfo fi;
 	void *handler;
 	obj_read_data(to, __VE_FAULT_HANDLER_OFFSET, sizeof(handler), &handler);
 	//__print_fault_info(t, fault, info);

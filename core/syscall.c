@@ -22,7 +22,7 @@ bool verify_user_pointer(void *p, size_t run)
 		return false;
 	for(size_t i = 0; i < run; i += 8) {
 		uintptr_t addr = (uintptr_t)p + i;
-		if(!VADDR_IS_USER((void *)addr))
+		if(!VADDR_IS_USER(addr))
 			return false;
 		if(addr % OBJ_MAXSIZE < OBJ_NULLPAGE_SIZE)
 			return false;

@@ -13,7 +13,7 @@
 
 twzobj pcie_cs_obj;
 objid_t pcie_cs_oid;
-static twzobj pids;
+// static twzobj pids;
 
 static struct pcie_function *pcie_list = NULL;
 int create_pty_pair(char *server, char *client);

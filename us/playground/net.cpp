@@ -31,14 +31,18 @@ void consumer()
 		//	memset(buf, 0, sizeof(buf));
 		//	memcpy(buf, pd, packet.len);
 
-		fprintf(stderr, ":: packet: %s\n", pd);
+		fprintf(stderr, ":: packet: %s\n", (char *)pd);
 
 		queue_complete(&rxqueue_obj, (struct queue_entry *)&packet, 0);
 	}
 }
 
-int main(int arg, char **argv)
+int main(int argc, char **argv)
 {
+	if(argc < 3) {
+		fprintf(stderr, "usage: net txqueue rxqueue\n");
+		return 1;
+	}
 	int r;
 	r = twz_object_init_name(&txqueue_obj, argv[1], FE_READ | FE_WRITE);
 	if(r) {

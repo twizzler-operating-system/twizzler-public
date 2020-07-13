@@ -18,6 +18,8 @@ If you want your writes to persistent objects to remain over reboots, you can sp
 
     NV=keep ./start.sh
 
+Additional flags to QEMU can be passed by setting the QEMU_FLAGS env variable.
+
 NOTE: Twizzler makes use of VT-x, which means that KVM (the Linux kernel virtual machine driver)
 will need to be in nested mode. In recent versions, this is on by default. But you might need to
 enable it if Twizzler complains on bootup of missing virtualization extensions.

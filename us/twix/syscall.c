@@ -142,11 +142,20 @@ long linux_sys_unlink(char *path)
 		return r;
 	}
 
-	twz_object_tie(NULL, &obj, 0);
-	twz_object_delete(&obj, 0);
+	if((r = twz_object_tie(NULL, &obj, 0))) {
+		twz_object_release(&obj);
+		twz_object_release(&parent);
+		return r;
+	}
+	if((r = twz_object_delete(&obj, 0))) {
+		twz_object_release(&obj);
+		twz_object_release(&parent);
+		return r;
+	}
 
 	r = twz_hier_remove_name(&parent, base);
 	twz_object_release(&obj);
+	twz_object_release(&parent);
 	return r;
 }
 

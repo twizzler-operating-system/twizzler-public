@@ -20,5 +20,5 @@ qemu-system-x86_64 \
 	-smp 4 \
 	-cdrom boot.iso \
 	-drive file=nvme.img,if=none,id=D22 \
-	-device nvme,drive=D22,serial=1234 -serial stdio
+	-device nvme,drive=D22,serial=1234 -serial stdio $QEMU_FLAGS
 
