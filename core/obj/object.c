@@ -283,9 +283,6 @@ static void _obj_release(void *_obj)
 
 		obj_tie_free(obj);
 
-		if(obj->flags & OF_PERSIST) {
-			printk(" DELETE PERSISTET\n");
-		}
 		arch_object_unmap_all(obj);
 		//		printk("releasin object pages\n");
 		struct rbnode *next;
