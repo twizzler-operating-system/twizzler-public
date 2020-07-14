@@ -1,4 +1,4 @@
-CONFIG_DEBUG=y
+CONFIG_DEBUG=n
 CONFIG_WERROR=n
 CONFIG_OPTIMIZE=3
 
@@ -6,7 +6,7 @@ CONFIG_ARCH=x86_64
 CONFIG_MACHINE=pc
 CONFIG_TRIPLET=x86_64-pc-elf
 
-CONFIG_UBSAN=y
+CONFIG_UBSAN=n
 
 CONFIG_INSTRUMENT=n
 
@@ -21,7 +21,8 @@ CONFIG_PRINT_SYSCALLS=n
 CONFIG_DEBUG_LOCKS=n
 
 # set this to your toolchain path
-TOOLCHAIN_PATH=/home/dbittman/code/twizzler/.tc
+TOOLCHAIN_PATH=/home/dbittman/code/r/twizzler/.tc
+#/home/dbittman/code/twizzler/.tc
 
 QEMU_FLAGS+="-enable-kvm"
 

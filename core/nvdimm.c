@@ -292,6 +292,7 @@ static void __zero(struct nv_region *reg, uint64_t p)
 	pg->type = PAGE_TYPE_PERSIST;
 	void *s = tmpmap_map_page(pg);
 	memset(s, 0, mm_page_size(0));
+	/* TODO: optimize flushing this zero'd page */
 	tmpmap_unmap_page(s);
 }
 
@@ -330,6 +331,7 @@ int nv_region_persist_obj_meta(struct object *obj)
 	if(__nv_region_insert(obj->preg, obj->id, p->idx, p->page->addr - obj->preg->start)) {
 		panic("TODO: out of space in region");
 	}
+	/* TODO: optimize flushing the metapage. */
 	spinlock_release_restore(&obj->preg->lock);
 	return 0;
 }
