@@ -4,6 +4,7 @@
 #include <sys/select.h>
 #include <twz/io.h>
 #include <twz/obj.h>
+#include <twz/persist.h>
 #include <twz/view.h>
 
 #include <twz/debug.h>
@@ -26,6 +27,8 @@ static ssize_t __do_write(twzobj *o, size_t off, void *base, size_t len, int fla
 		// twix_log("__do_write %ld %ld\n", off, len);
 		/* TODO: bounds check */
 		memcpy((char *)twz_object_base(o) + off, base, len);
+		_clwb_len((char *)twz_object_base(o) + off, len);
+		_pfence();
 		r = len;
 		struct metainfo *mi = twz_object_meta(o);
 		/* TODO: append */

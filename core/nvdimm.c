@@ -402,6 +402,7 @@ static void nv_init_region(struct nv_region *reg)
 		return;
 	}
 	for(size_t i = 0; i < nr; i++) {
+		printk("[nv]    page group %ld / %ld\r", i, nr);
 		for(size_t p = 0; p < META_GROUP_LEN / mm_page_size(0); p++) {
 			struct page *pg = page_alloc_nophys();
 			pg->addr = reg->start + PGGRP_LEN * i + p * mm_page_size(0);
@@ -412,9 +413,10 @@ static void nv_init_region(struct nv_region *reg)
 			  reg->metaobj, OBJ_NULLPAGE_SIZE + META_GROUP_LEN * i + p * mm_page_size(0), pg);
 		}
 	}
+	printk("[nv]    page group %ld / %ld\n", nr, nr);
 
 	struct nvdimm_region_header *hdr = obj_get_kbase(reg->metaobj);
-	if(hdr->magic != NVD_HDR_MAGIC || 1) {
+	if(hdr->magic != NVD_HDR_MAGIC || 0) {
 		printk("[nv] initializing contents of region %ld\n", reg->mono_id);
 		nv_init_region_contents(reg);
 	}

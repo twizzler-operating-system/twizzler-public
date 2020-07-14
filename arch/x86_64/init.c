@@ -187,6 +187,9 @@ static void load_object_data(struct object *obj, char *tardata, size_t tarlen)
 		}
 
 		// printk("Loading object " IDFMT "\r", IDPR(obj->id));
+		for(size_t i = idx; i < idx + len / mm_page_size(0); i++) {
+			obj_cache_page(obj, i * mm_page_size(0), page_alloc(PAGE_TYPE_VOLATILE, 0, 0));
+		}
 		obj_write_data(obj, idx * mm_page_size(0) - OBJ_NULLPAGE_SIZE, len, data);
 		h = (struct ustar_header *)((char *)h + 512 + reclen);
 	}
@@ -209,7 +212,7 @@ static size_t _load_initrd(char *start, size_t modlen)
 
 		int compl = (((char *)h - start) * 100) / modlen;
 		if((compl % 20) == 0)
-			printk("[initrd] parsing objects: %d%%\r", compl );
+			printk("[initrd] parsing objects: %d%%\r", compl);
 
 		switch(h->typeflag[0]) {
 			size_t nl;
