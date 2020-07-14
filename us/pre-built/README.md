@@ -47,4 +47,5 @@ We recently ported vim (NOTE: some functionality doesn't work, but you can creat
 binutils (ld, as, etc), and gcc. So, you can try writing a normal "hello world" program in C,
 compiling it, and running it!
 
-
+NOTE: gcc is a little slow in this example because we haven't spent much time optimizing the fork()
+system call (and there is some low-hanging fruit there).
