@@ -128,7 +128,6 @@ static void do_reclaim(void)
 
 static void __complete_page(struct pager_request *pr, struct queue_entry_pager *pqe, bool fromobj)
 {
-	pr->thread->pager_obj_req = 0;
 	if(pqe->id != pr->pqe.id || pqe->page != pr->pqe.page) {
 		printk("[kq] warning - ID or page mismatch\n");
 		goto cleanup;
@@ -175,7 +174,6 @@ static void __complete_object(struct pager_request *pr, struct queue_entry_pager
 		obj->flags |= OF_CPF_VALID | OF_PAGER;
 		obj->cached_pflags = MIP_DFL_WRITE | MIP_DFL_READ | MIP_DFL_EXEC;
 
-		pr->thread->pager_obj_req = 0;
 		if(pqe->page) {
 			pr->obj = obj; /* move */
 			__complete_page(pr, pqe, true);
@@ -183,7 +181,6 @@ static void __complete_object(struct pager_request *pr, struct queue_entry_pager
 			obj_put(obj);
 		}
 	} else {
-		pr->thread->pager_obj_req = 0;
 		struct fault_object_info info =
 		  twz_fault_build_object_info(pr->pqe.id, NULL /* TODO */, NULL, FAULT_OBJECT_EXIST);
 		thread_queue_fault(pr->thread, FAULT_OBJECT, &info, sizeof(info));
@@ -286,6 +283,7 @@ int kernel_queue_pager_request_object(objid_t id)
 		rb_insert(&root, pr, struct pager_request, node_id, __pr_compar);
 		// printk("[kq] enqueued! info = %d\n", pr->pqe.qe.info);
 		current_thread->pager_obj_req = id;
+		current_thread->pager_obj_req = -1;
 	} else {
 		printk("[kq] failed enqueue\n");
 		thread_wake(current_thread);
@@ -349,6 +347,7 @@ static int __kernel_queue_pager_request_page(struct object *obj, size_t pg, bool
 		rb_insert(&obj->page_requests_root, pr, struct pager_request, node_obj, __pr_compar_obj);
 
 		current_thread->pager_obj_req = obj->id;
+		current_thread->pager_page_req = pg;
 	} else {
 		printk("[kq] failed enqueue\n");
 		if(sleep) {
@@ -365,7 +364,11 @@ done:
 
 int kernel_queue_pager_request_page(struct object *obj, size_t pg)
 {
-	for(int i = 0; i < 16; i++) {
+	int num = 1;
+	if(current_thread->pager_obj_req == obj->id
+	   && (size_t)(current_thread->pager_page_req + 1) == pg)
+		num = 16;
+	for(int i = 0; i < num; i++) {
 		if(pg + i >= OBJ_MAXSIZE / mm_page_size(0))
 			return 0;
 		int r = __kernel_queue_pager_request_page(obj, pg + i, i == 0);

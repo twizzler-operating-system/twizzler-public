@@ -670,6 +670,8 @@ void x86_64_start_vmx(struct processor *proc)
 	/* set initial argument to vmx_entry_point */
 	proc->arch.vcpu_state_regs[REG_RDI] = (uintptr_t)proc;
 	uint32_t *vmcs_rev = (uint32_t *)mm_ptov(proc->arch.vmcs);
+	void *p = vmcs_rev;
+	memset(p, 0, 0x1000);
 	*vmcs_rev = revision_id & 0x7FFFFFFF;
 
 	uint8_t error;

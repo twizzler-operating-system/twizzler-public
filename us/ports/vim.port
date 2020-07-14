@@ -25,6 +25,7 @@ function build() {
 function install() {
 	cd vim81
 	cp src/vim $SYSROOT/usr/bin
+	strip -s $SYSROOT/usr/bin/vim
 	#make $MAKEFLAGS DESTDIR=$SYSROOT install
 }
 

@@ -92,7 +92,12 @@ This step will build the utilities that are needed to build the rest of the user
 6) PROJECT=x86_64 ./us/ports/port.sh busybox
 7) PROJECT=x86_64 ./us/ports/port.sh tommath
 8) PROJECT=x86_64 ./us/ports/port.sh tomcrypt
-8.1) PROJECT=x86_64 ./us/ports/port.sh binutils
+[optional] 8.1) PROJECT=x86_64 ./us/ports/port.sh binutils
+[optional] 8.2) PROJECT=x86_64 ./us/ports/port.sh vim
+[optional] 8.3) PROJECT=x86_64 ./us/ports/port.sh gmp
+[optional] 8.4) PROJECT=x86_64 ./us/ports/port.sh mpfr
+[optional] 8.5) PROJECT=x86_64 ./us/ports/port.sh mpc
+[optional] 8.6) PROJECT=x86_64 ./us/ports/port.sh gcc
 
 These steps will port the specified programs to Twizzler, compile them, and install them into the
 sysroot. The order matters (bash depends on ncurses, for example).
