@@ -205,6 +205,7 @@ $(BUILDDIR)/us/root-tmp.tar: $(BUILDDIR)/us/objroot/__ns $(CTXOBJS) $(UTILS)
 	done
 	@echo "[TAR]     $@"
 	@tar cf $(BUILDDIR)/us/root-tmp.tar -C $(BUILDDIR)/us/objroot --exclude='__ns*' --exclude='*.obj' --xform s:'./':: .
+	@tar rf $(BUILDDIR)/us/root-tmp.tar -C $(BUILDDIR)/us/opt-objroot --exclude='__ns*' --exclude='*.obj' --xform s:'./':: .
 
 $(BUILDDIR)/us/root.tar: $(BUILDDIR)/us/root-tmp.tar $(BUILDDIR)/us/kc
 	@cp $< $@
