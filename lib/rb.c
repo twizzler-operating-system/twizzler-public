@@ -1,3 +1,23 @@
+/* this red-black tree code has been modified from the Linux kernel rbtree implementation to fit our
+ * needs. This file retains the GPL-2 License */
+
+/*
+ *   (C) 1999  Andrea Arcangeli <andrea@suse.de>
+ *   (C) 2002  David Woodhouse <dwmw2@infradead.org>
+ *   (C) 2012  Michel Lespinasse <walken@google.com>
+ *   (C) 2020  Daniel Bittman <danielbittman1@gmail.com>
+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
 #include <lib/rb.h>
 #include <stdbool.h>
 #include <stddef.h>
