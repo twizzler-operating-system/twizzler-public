@@ -17,6 +17,7 @@ Building
 See doc/building.txt for instructions. Note that the build system is rather complex, and thus may
 break on systems that we haven't tested it on. Currently you must be on Linux to build Twizzler.
 
+You can download pre-built images at https://twizzler.io/download.html.
 
 Writing some test code
 ----------------------
