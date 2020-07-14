@@ -97,7 +97,8 @@ KLIBS=
 include third-party/include.mk
 
 test: $(BUILDDIR)/kernel $(BUILDDIR)/us/root.tar bootiso $(BUILDDIR)/us/nvme.img
-	$(QEMU) $(QEMU_FLAGS) -cdrom $(BUILDDIR)/boot.iso -drive file=$(BUILDDIR)/us/nvme.img,if=none,id=D22 \
+	$(QEMU) $(QEMU_FLAGS) -cdrom $(BUILDDIR)/boot.iso -serial stdio
+	#-drive file=$(BUILDDIR)/us/nvme.img,if=none,id=D22 \
 		-device nvme,drive=D22,serial=1234 -serial stdio
 
 $(BUILDDIR)/pre-built.zip: $(BUILDDIR)/boot.iso $(BUILDDIR)/us/nvme.img us/pre-built/start.sh us/pre-built/README.md

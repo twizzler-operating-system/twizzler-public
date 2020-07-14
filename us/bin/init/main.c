@@ -213,6 +213,10 @@ int main()
 		} else {
 			fprintf(stderr, "[init] failed to switch to storage, continuing from initrd\n");
 		}
+	} else {
+		fprintf(stderr,
+		  "NOTE - Twizzler currently can run entirely from a ramdisk or off NVMe. If you don't "
+		  "have an NVMe Twizzler image, you must select the ramdisk boot option in GRUB.\n");
 	}
 
 	mkdir("/tmp", 0777);
@@ -255,12 +259,12 @@ int main()
 					printf("[init] 'mounting' nameroot " IDFMT " for NVR %s\n",
 					  IDPR(hdr->nameroot),
 					  path);
-					if(twz_object_init_name(&root, "/storage", FE_READ | FE_WRITE)) {
-						fprintf(stderr, "failed to open root\n");
-					}
-					r = twz_hier_assign_name(&root, de->d_name, NAME_ENT_NAMESPACE, hdr->nameroot);
-					if(r) {
-						fprintf(stderr, "[init] error 'mounting' NVR %s: %d\n", de->d_name, r);
+					if(!twz_object_init_name(&root, "/storage", FE_READ | FE_WRITE)) {
+						r = twz_hier_assign_name(
+						  &root, de->d_name, NAME_ENT_NAMESPACE, hdr->nameroot);
+						if(r) {
+							fprintf(stderr, "[init] error 'mounting' NVR %s: %d\n", de->d_name, r);
+						}
 					}
 					if(twz_object_init_name(&root, "/", FE_READ | FE_WRITE)) {
 						fprintf(stderr, "failed to open root\n");
