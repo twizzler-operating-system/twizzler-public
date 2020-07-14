@@ -2,12 +2,15 @@
 
 This zip file contains the following files: 
 
-  * boot.iso: An ISO image containing the kernel file, initrd image, and GRUB bootloader to start
+  * boot.iso: An ISO image containing the kernel file, initrd images, and GRUB bootloader to start
 	Twizzler.
   * nvme.img: An image used for the Twizzler NVMe driver that contains a lot of the Twizzler
 	userspace.
   * start.sh: A shell script that creates a pmem.img file and starts QEMU with the necessary flags
 	for Twizzler to run.
+
+Note that the boot ISO contains two initrd images: one for running Twizzler's userspace from the
+NVMe image, and one that contains the entire userspace (hence why it's so large).
 
 The start.sh script can be run as,
 
@@ -41,11 +44,22 @@ persistent objects (using twz_object_new, for example). But it's also available 
 environment, with a namespace "mounted" at /nvr1.0. Files written in that directory will persist
 across reboots.
 
+NOTE: current bugs:
+  * file written elsewhere will also persist, but their names won't. This is due to a pending fix to
+	a limitation in the name system in Twix.
+  * Missing functionality will be reported in the form of "Function not implemented" or
+	"Unimplemented linux system call".
+  * SIGINT does not yet work in our pty implementation (this feature is in-progress).
+  * ...more, but these are probably some of the more noticeable ones.
+
 Demos
 -----
 We recently ported vim (NOTE: some functionality doesn't work, but you can create and edit files!),
 binutils (ld, as, etc), and gcc. So, you can try writing a normal "hello world" program in C,
-compiling it, and running it!
+compiling it, and running it! The Twizzler header files are present, so you can try out writing some
+Twizzler code. There's an example Twizzler program in the source repo, under
+us/playground/example.c.
 
 NOTE: gcc is a little slow in this example because we haven't spent much time optimizing the fork()
-system call (and there is some low-hanging fruit there).
+system call (there is some low-hanging fruit there, but fast fork() is not a research goal of
+Twizzler right now).
