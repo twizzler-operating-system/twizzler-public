@@ -202,25 +202,28 @@ int main()
 	}
 
 #if 1
-	int r;
+	if(access("/dev/nvme", F_OK) == 0) {
+		int r;
 
-	twzobj qobj;
-	if(twz_object_new(&qobj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_TIED_NONE) < 0)
-		abort();
-	queue_init_hdr(&qobj, 5, sizeof(struct queue_entry_bio), 5, sizeof(struct queue_entry_bio));
+		twzobj qobj;
+		if(twz_object_new(&qobj, NULL, NULL, TWZ_OC_DFL_READ | TWZ_OC_DFL_WRITE | TWZ_OC_TIED_NONE)
+		   < 0)
+			abort();
+		queue_init_hdr(&qobj, 5, sizeof(struct queue_entry_bio), 5, sizeof(struct queue_entry_bio));
 
-	printf("[twzdev] created nvme queue " IDFMT "\n", IDPR(twz_object_guid(&qobj)));
-	twz_name_assign(twz_object_guid(&qobj), "/dev/nvme-queue");
-	if(!fork()) {
-		kso_set_name(NULL, "[instance] nvme-driver");
-		r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
-		if(r) {
-			fprintf(stderr, "failed to detach: %d\n", r);
+		printf("[twzdev] created nvme queue " IDFMT "\n", IDPR(twz_object_guid(&qobj)));
+		twz_name_assign(twz_object_guid(&qobj), "/dev/nvme-queue");
+		if(!fork()) {
+			kso_set_name(NULL, "[instance] nvme-driver");
+			r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
+			if(r) {
+				fprintf(stderr, "failed to detach: %d\n", r);
+			}
+
+			execvp("nvme", (char *[]){ "nvme", "/dev/nvme", "/dev/nvme-queue", NULL });
+			fprintf(stderr, "failed to start nvme driver\n");
+			exit(1);
 		}
-
-		execvp("nvme", (char *[]){ "nvme", "/dev/nvme", "/dev/nvme-queue", NULL });
-		fprintf(stderr, "failed to start nvme driver\n");
-		exit(1);
 	}
 
 	// int status;

@@ -184,32 +184,35 @@ int main()
 	int status;
 	r = wait(&status);
 
-	if(!fork()) {
-		execlp("pager", "pager", NULL);
-		exit(0);
-	}
-	wait(&status);
+	if(access("/dev/nvme", F_OK) == 0) {
+		if(!fork()) {
+			execlp("pager", "pager", NULL);
+			exit(0);
+		}
+		wait(&status);
 
-	mkdir("/tmp", 0777);
-	twzobj st;
-	if(twz_object_init_name(&st, "/storage", FE_READ | FE_WRITE) == 0) {
-		fprintf(stderr, "[init] switching name root to storage\n");
-		twzobj devdir;
-		if(twz_object_init_name(&devdir, "/dev", FE_READ) == 0) {
-			if(twz_name_assign_namespace(twz_object_guid(&devdir), "/storage/dev") == 0) {
-				if(chroot("/storage") == -1) {
+		mkdir("/tmp", 0777);
+		twzobj st;
+		if(twz_object_init_name(&st, "/storage", FE_READ | FE_WRITE) == 0) {
+			fprintf(stderr, "[init] switching name root to storage\n");
+			twzobj devdir;
+			if(twz_object_init_name(&devdir, "/dev", FE_READ) == 0) {
+				if(twz_name_assign_namespace(twz_object_guid(&devdir), "/storage/dev") == 0) {
+					if(chroot("/storage") == -1) {
+						fprintf(
+						  stderr, "[init] failed to chroot to new root; continuing from initrd\n");
+					}
+					mkdir("/tmp", 0777);
+				} else {
 					fprintf(
-					  stderr, "[init] failed to chroot to new root; continuing from initrd\n");
+					  stderr, "[init] failed to link dev directory, continuing from initrd\n");
 				}
-				mkdir("/tmp", 0777);
 			} else {
-				fprintf(stderr, "[init] failed to link dev directory, continuing from initrd\n");
+				fprintf(stderr, "[init] failed to open dev directory, continuing from initrd\n");
 			}
 		} else {
-			fprintf(stderr, "[init] failed to open dev directory, continuing from initrd\n");
+			fprintf(stderr, "[init] failed to switch to storage, continuing from initrd\n");
 		}
-	} else {
-		fprintf(stderr, "[init] failed to switch to storage, continuing from initrd\n");
 	}
 
 	mkdir("/tmp", 0777);

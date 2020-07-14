@@ -124,7 +124,10 @@ void arch_thread_raise_call(struct thread *t, void *addr, long a0, void *info, s
 	}
 
 	if(!VADDR_IS_USER((uintptr_t)stack)) {
-		printk("thread %ld has corrupted stack pointer (%p)\n", t->id, stack);
+		struct object *to = kso_get_obj(t->throbj, thr);
+		struct kso_hdr *kh = obj_get_kbase(to);
+		printk("thread %ld (%s) has corrupted stack pointer (%p)\n", t->id, kh->name, stack);
+		obj_put(to);
 		thread_exit();
 		return;
 	}
