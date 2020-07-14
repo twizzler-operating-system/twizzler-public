@@ -746,7 +746,7 @@ void *ptm(void *arg)
 
 int main(int argc, char **argv)
 {
-	if(!argv[1] || argc < 2) {
+	if(!argv[1] || argc < 3) {
 		fprintf(stderr, "usage: nvme controller-name queue-name\n");
 		return 1;
 	}

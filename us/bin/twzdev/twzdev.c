@@ -215,10 +215,12 @@ int main()
 		twz_name_assign(twz_object_guid(&qobj), "/dev/nvme-queue");
 		if(!fork()) {
 			kso_set_name(NULL, "[instance] nvme-driver");
+			/*
 			r = sys_detach(0, 0, TWZ_DETACH_ONENTRY | TWZ_DETACH_ONSYSCALL(SYS_BECOME), KSO_SECCTX);
 			if(r) {
-				fprintf(stderr, "failed to detach: %d\n", r);
+			    fprintf(stderr, "failed to detach: %d\n", r);
 			}
+			*/
 
 			execvp("nvme", (char *[]){ "nvme", "/dev/nvme", "/dev/nvme-queue", NULL });
 			fprintf(stderr, "failed to start nvme driver\n");

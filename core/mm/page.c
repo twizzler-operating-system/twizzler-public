@@ -319,6 +319,9 @@ void page_init(struct memregion *region)
 static void page_zero(struct page *p)
 {
 	void *va = mm_ptov_try(p->addr);
+	if(va == 0xfffffffffffffffful) {
+		panic("SAD! :: %lx\n", p->addr);
+	}
 	if(va) {
 		memset(va, 0, mm_page_size(p->level));
 		p->flags |= PAGE_ZERO;
@@ -326,6 +329,10 @@ static void page_zero(struct page *p)
 	}
 	// printk("!!\n");
 	void *addr = tmpmap_map_page(p);
+
+	if(addr == 0xfffffffffffffffful) {
+		panic("SAD!2 :: %lx\n", p->addr);
+	}
 	memset(addr, 0, mm_page_size(p->level));
 	tmpmap_unmap_page(addr);
 	p->flags |= PAGE_ZERO;

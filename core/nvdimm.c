@@ -59,6 +59,11 @@ void nv_register_region(struct nv_device *dev,
 {
 	static _Atomic size_t __mono_id = 0;
 	struct nv_region *reg = kalloc(sizeof(*reg));
+	if(length > (1024ul * 1024ul * 1024ul * 32ul)) {
+		// printk("[nv] warning - support for larger NVMDIMM regions is pending (in-progress)\n");
+		length = (1024ul * 1024ul * 1024ul * 32);
+	}
+
 	reg->start = start;
 	reg->length = length;
 	reg->ilinfo = ilinfo;
@@ -279,10 +284,13 @@ static int __nv_region_insert(struct nv_region *reg, objid_t id, uint32_t pgnr, 
 
 static void __zero(struct nv_region *reg, uint64_t p)
 {
-	struct page page;
-	page.addr = p + reg->start;
-	page.level = 0;
-	void *s = tmpmap_map_page(&page);
+	// struct page page;
+	struct page *pg = page_alloc_nophys();
+	pg->addr = p + reg->start;
+	pg->level = 0;
+	pg->flags |= PAGE_CACHE_WB;
+	pg->type = PAGE_TYPE_PERSIST;
+	void *s = tmpmap_map_page(pg);
 	memset(s, 0, mm_page_size(0));
 	tmpmap_unmap_page(s);
 }
@@ -365,10 +373,12 @@ static void nv_init_region_contents(struct nv_region *reg)
 	hdr->flags = 0;
 	hdr->total_pages = (reg->length - META_GROUP_LEN * nr) / mm_page_size(0);
 	hdr->used_pages = 0;
+	hdr->nameroot = 0;
 	arch_processor_clwb(hdr->version);
 	arch_processor_clwb(hdr->flags);
 	arch_processor_clwb(hdr->total_pages);
 	arch_processor_clwb(hdr->used_pages);
+	arch_processor_clwb(hdr->nameroot);
 	printk("[nv]   init %ld pagegroups\n", nr);
 	printk("[nv]   mgl = %ld-ish MB\n", META_GROUP_LEN / (1024 * 1024));
 	printk("[nv]   total pages: %ld (%ld MB)\n",
@@ -386,8 +396,10 @@ static void nv_init_region(struct nv_region *reg)
 	reg->lock = SPINLOCK_INIT;
 
 	size_t nr = reg->length / PGGRP_LEN;
-	if(nr * META_GROUP_LEN + OBJ_NULLPAGE_SIZE >= OBJ_MAXSIZE) {
-		panic("TODO: large NVDIMM region");
+	printk("[nv] init region %ld\n", reg->mono_id);
+	if(nr == 0) {
+		printk("[nv] warning - region %ld too small; skipping\n", reg->mono_id);
+		return;
 	}
 	for(size_t i = 0; i < nr; i++) {
 		for(size_t p = 0; p < META_GROUP_LEN / mm_page_size(0); p++) {
@@ -402,7 +414,7 @@ static void nv_init_region(struct nv_region *reg)
 	}
 
 	struct nvdimm_region_header *hdr = obj_get_kbase(reg->metaobj);
-	if(hdr->magic != NVD_HDR_MAGIC || 0) {
+	if(hdr->magic != NVD_HDR_MAGIC || 1) {
 		printk("[nv] initializing contents of region %ld\n", reg->mono_id);
 		nv_init_region_contents(reg);
 	}
